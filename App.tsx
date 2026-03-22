@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { ShoppingBag, Play } from 'lucide-react';
 import { GameScene } from './components/Scene3D';
@@ -6,7 +7,7 @@ import {
   Player, Enemy, GameState, TurnState, BattleLog, Item, Skill, Stats, Particle, FloatingText
 } from './types';
 import { 
-  INITIAL_PLAYER, SHOP_ITEMS, SKILLS, ENEMY_DATA, ENEMY_COLORS 
+  INITIAL_PLAYER, SHOP_ITEMS, ALL_ITEMS, MATERIALS, SKILLS, ENEMY_DATA, ENEMY_COLORS 
 } from './constants';
 import { generateBattleDescription, generateVictorySpeech } from './services/geminiService';
 
@@ -27,6 +28,10 @@ export default function App() {
   // Animation States
   const [isPlayerAttacking, setIsPlayerAttacking] = useState(false);
   const [isEnemyAttacking, setIsEnemyAttacking] = useState(false);
+  const [isPlayerHit, setIsPlayerHit] = useState(false);
+  const [isEnemyHit, setIsEnemyHit] = useState(false);
+  const [screenShake, setScreenShake] = useState(0);
+  const [isLevelingUp, setIsLevelingUp] = useState(false);
 
   // --- VFX SYSTEM ---
   const spawnParticles = (position: [number, number, number], count: number, color: string, type: 'explode' | 'heal' | 'spark') => {
@@ -53,7 +58,7 @@ export default function App() {
       }, 1000);
   };
 
-  const spawnFloatingText = (value: string | number, target: 'player' | 'enemy', type: 'damage' | 'heal' | 'crit') => {
+  const spawnFloatingText = (value: string | number, target: 'player' | 'enemy', type: 'damage' | 'heal' | 'crit' | 'buff') => {
       const id = Math.random().toString(36);
       setFloatingTexts(prev => [...prev, {
           id,
@@ -104,7 +109,8 @@ export default function App() {
       color: isBoss ? '#ef4444' : color, // Boss is red-tinted default or custom
       scale: (0.8 + (Math.random() * 0.4)) * (isBoss ? 2.0 : 1.0), // Boss is Huge
       type: enemyTemplate.type as 'beast' | 'humanoid' | 'undead',
-      isBoss
+      isBoss,
+      isDefending: false
     };
 
     setEnemy(newEnemy);
@@ -134,6 +140,41 @@ export default function App() {
       spawnEnemy(stage, isBoss);
   }
 
+  const handleLimitBreak = () => {
+    if (turnState !== TurnState.PLAYER_INPUT || player.limitMeter < 100 || !enemy) return;
+
+    setTurnState(TurnState.PLAYER_ANIMATION);
+    setIsPlayerAttacking(true);
+    
+    const baseDamage = player.stats.atk * 5; // Massive damage
+    const finalDamage = Math.floor(baseDamage * (1 + player.buffs.atkMod));
+
+    addLog(`LIMIT BREAK! ${player.name} desencadeia um ataque devastador!`, 'crit');
+
+    setTimeout(() => {
+      setIsPlayerAttacking(false);
+      spawnParticles([2, -0.5, 0], 40, '#facc15', 'explode');
+      spawnFloatingText(`ULTIMATE! ${finalDamage}`, 'enemy', 'crit');
+      setScreenShake(1.0);
+      setIsEnemyHit(true);
+      setTimeout(() => {
+          setScreenShake(0);
+          setIsEnemyHit(false);
+      }, 500);
+
+      setEnemy(prev => {
+        if (!prev) return null;
+        return { ...prev, stats: { ...prev.stats, hp: Math.max(0, prev.stats.hp - finalDamage) } };
+      });
+
+      setPlayer(prev => ({ ...prev, limitMeter: 0 }));
+
+      setTimeout(() => {
+        setTurnState(TurnState.ENEMY_TURN);
+      }, 1000);
+    }, 800);
+  };
+
   const handleFlee = () => {
       // Calculate cost
       const cost = 50;
@@ -141,7 +182,8 @@ export default function App() {
       
       setPlayer(prev => ({
           ...prev,
-          gold: prev.gold - lostGold
+          gold: prev.gold - lostGold,
+          buffs: { atkMod: 0, defMod: 0, atkTurns: 0, defTurns: 0 } // Reset buffs on flee
       }));
 
       addLog(`Fugiu! Perdeu ${lostGold} Ouro.`, "info");
@@ -149,8 +191,23 @@ export default function App() {
       setEnemy(null);
   }
 
-  const calculateDamage = (attackerAtk: number, defenderDef: number, multiplier: number = 1, luck: number = 0) => {
-    const base = Math.max(1, attackerAtk - (defenderDef * 0.3)); 
+  const calculateDamage = (attackerAtk: number, defenderDef: number, multiplier: number = 1, luck: number = 0, isPlayerAttacking: boolean = false) => {
+    // Apply Player Buffs to Attack or Defense calculations
+    let finalAtk = attackerAtk;
+    let finalDef = defenderDef;
+
+    if (isPlayerAttacking) {
+        if (player.buffs.atkTurns > 0) {
+            finalAtk *= (1 + player.buffs.atkMod);
+        }
+    } else {
+        // Enemy Attacking, Player Defending
+        if (player.buffs.defTurns > 0) {
+            finalDef *= (1 + player.buffs.defMod);
+        }
+    }
+
+    const base = Math.max(1, finalAtk - (finalDef * 0.3)); 
     const variance = Math.random() * 0.2 + 0.9; 
     
     // Crit calculation
@@ -170,24 +227,49 @@ export default function App() {
     setTurnState(TurnState.PLAYER_ANIMATION);
     setIsPlayerAttacking(true);
 
+    const { damage, isCrit } = calculateDamage(player.stats.atk, enemy.stats.def, 1, player.stats.luck, true);
+    
+    // Apply enemy defense
+    const finalDamage = enemy.isDefending ? Math.floor(damage * 0.5) : damage;
+
     setTimeout(() => {
       setIsPlayerAttacking(false);
-      const { damage, isCrit } = calculateDamage(player.stats.atk, enemy.stats.def, 1, player.stats.luck);
       
       // VFX
       spawnParticles([2, -0.5, 0], 10, isCrit ? '#fbbf24' : '#ffffff', 'explode');
-      spawnFloatingText(isCrit ? `CRIT! ${damage}` : damage, 'enemy', isCrit ? 'crit' : 'damage');
+      spawnFloatingText(isCrit ? `CRIT! ${finalDamage}` : finalDamage, 'enemy', isCrit ? 'crit' : 'damage');
+      setScreenShake(isCrit ? 0.5 : 0.2);
+      setIsEnemyHit(true);
+      setTimeout(() => {
+          setScreenShake(0);
+          setIsEnemyHit(false);
+      }, 200);
       
       setEnemy(prev => {
         if (!prev) return null;
-        return { ...prev, stats: { ...prev.stats, hp: Math.max(0, prev.stats.hp - damage) } };
+        return { 
+          ...prev, 
+          stats: { ...prev.stats, hp: Math.max(0, prev.stats.hp - finalDamage) },
+          isDefending: false // Reset defense after being hit
+        };
       });
 
-      addLog(`Causou ${damage} dano!`, isCrit ? 'crit' : 'damage');
+      addLog(`Causou ${finalDamage} dano!${enemy.isDefending ? ' (Defendido)' : ''}`, isCrit ? 'crit' : 'damage');
 
-      if ((enemy.stats.hp - damage) <= 0) handleVictory();
+      if ((enemy.stats.hp - finalDamage) <= 0) handleVictory();
       else setTimeout(() => setTurnState(TurnState.ENEMY_TURN), 600);
     }, 400);
+  };
+
+  const handlePlayerDefense = () => {
+    if (!enemy || turnState !== TurnState.PLAYER_INPUT) return;
+
+    setPlayer(prev => ({ ...prev, isDefending: true }));
+    addLog("Você se preparou para defender!", "buff");
+    spawnFloatingText("DEFESA!", "player", "buff");
+    spawnParticles([-2, -1, 0], 10, "#3b82f6", "spark");
+
+    setTimeout(() => setTurnState(TurnState.ENEMY_TURN), 600);
   };
 
   const handleSkill = (skill: Skill) => {
@@ -209,17 +291,29 @@ export default function App() {
           setIsPlayerAttacking(true);
           setTimeout(() => {
               setIsPlayerAttacking(false);
-              const { damage, isCrit } = calculateDamage(player.stats.atk, enemy.stats.def, skill.damageMult, player.stats.luck);
+              const { damage, isCrit } = calculateDamage(player.stats.atk, enemy.stats.def, skill.damageMult, player.stats.luck, true);
               
+              // Apply enemy defense
+              const finalDamage = enemy.isDefending ? Math.floor(damage * 0.5) : damage;
+
               // Magic VFX
               const color = skill.type === 'magic' ? '#ef4444' : '#a855f7';
               spawnParticles([2, -0.5, 0], 20, color, 'explode');
-              spawnFloatingText(isCrit ? `CRIT! ${damage}` : damage, 'enemy', isCrit ? 'crit' : 'damage');
+              spawnFloatingText(isCrit ? `CRIT! ${finalDamage}` : finalDamage, 'enemy', isCrit ? 'crit' : 'damage');
+              setScreenShake(isCrit ? 0.6 : 0.3);
+              setTimeout(() => setScreenShake(0), 200);
 
-              setEnemy(prev => prev ? ({ ...prev, stats: { ...prev.stats, hp: Math.max(0, prev.stats.hp - damage) } }) : null);
-              addLog(`${skill.name}: ${damage} dano!`, isCrit ? 'crit' : 'damage');
+              setEnemy(prev => {
+                if (!prev) return null;
+                return { 
+                  ...prev, 
+                  stats: { ...prev.stats, hp: Math.max(0, prev.stats.hp - finalDamage) },
+                  isDefending: false // Reset defense after being hit
+                };
+              });
+              addLog(`${skill.name}: ${finalDamage} dano!${enemy.isDefending ? ' (Defendido)' : ''}`, isCrit ? 'crit' : 'damage');
               
-              if ((enemy.stats.hp - damage) <= 0) handleVictory();
+              if ((enemy.stats.hp - finalDamage) <= 0) handleVictory();
               else setTimeout(() => setTurnState(TurnState.ENEMY_TURN), 800);
           }, 500);
       }
@@ -228,33 +322,56 @@ export default function App() {
   const handleUseItem = (itemId: string) => {
       if (turnState !== TurnState.PLAYER_INPUT) return;
 
-      const item = SHOP_ITEMS.find(i => i.id === itemId);
+      const item = ALL_ITEMS.find(i => i.id === itemId);
       const qty = player.inventory[itemId] || 0;
+      if (!item || qty <= 0) return;
 
-      if (item && qty > 0) {
-          setPlayer(p => {
-              const newInv = { ...p.inventory };
-              newInv[itemId] = qty - 1;
-              let newHp = p.stats.hp;
-              let newMp = p.stats.mp;
+      setPlayer(p => {
+          const currentQty = p.inventory[itemId] || 0;
+          if (currentQty <= 0) return p;
 
-              if (item.name.includes("Vida") || item.name.includes("Elixir")) {
-                 const healVal = item.value;
-                 newHp = Math.min(p.stats.maxHp, p.stats.hp + healVal);
-                 spawnParticles([-2, -1, 0], 10, '#4ade80', 'heal'); 
-                 spawnFloatingText(`+${healVal}`, 'player', 'heal');
-                 addLog(`Usou ${item.name}, recuperou ${item.value} HP`, 'heal');
-              }
-              if (item.name.includes("Mana")) {
-                 const manaVal = item.value;
-                 newMp = Math.min(p.stats.maxMp, p.stats.mp + manaVal);
-                 spawnParticles([-2, -1, 0], 10, '#3b82f6', 'heal');
-                 spawnFloatingText(`+${manaVal} MP`, 'player', 'heal');
-                 addLog(`Usou ${item.name}, recuperou ${item.value} MP`, 'heal');
-              }
+          const newInv = { ...p.inventory };
+          newInv[itemId] = currentQty - 1;
+          let newHp = p.stats.hp;
+          let newMp = p.stats.mp;
+          let newBuffs = { ...p.buffs };
 
-              return { ...p, inventory: newInv, stats: { ...p.stats, hp: newHp, mp: newMp } };
-          });
+          // Healing Logic
+          if (item.name.includes("Vida") || item.name.includes("Elixir") || item.name.includes("Ambrosia") || item.name.includes("Menor")) {
+             const healVal = item.value;
+             newHp = Math.min(p.stats.maxHp, p.stats.hp + healVal);
+             spawnParticles([-2, -1, 0], 10, '#4ade80', 'heal'); 
+             spawnFloatingText(`+${healVal}`, 'player', 'heal');
+             addLog(`Usou ${item.name}, recuperou ${item.value} HP`, 'heal');
+          }
+          // Mana Logic
+          else if (item.name.includes("Mana")) {
+             const manaVal = item.value;
+             newMp = Math.min(p.stats.maxMp, p.stats.mp + manaVal);
+             spawnParticles([-2, -1, 0], 10, '#3b82f6', 'heal');
+             spawnFloatingText(`+${manaVal} MP`, 'player', 'heal');
+             addLog(`Usou ${item.name}, recuperou ${item.value} MP`, 'heal');
+          }
+          // Buff Logic (Attack)
+          else if (item.id === 'pot_atk') {
+              newBuffs.atkMod = item.value;
+              newBuffs.atkTurns = item.duration || 3;
+              spawnParticles([-2, -1, 0], 15, '#f97316', 'spark');
+              spawnFloatingText(`ATAQUE UP!`, 'player', 'buff');
+              addLog(`Usou ${item.name}! Dano aumentado por ${item.duration} turnos.`, 'buff');
+          }
+          // Buff Logic (Defense)
+          else if (item.id === 'pot_def') {
+              newBuffs.defMod = item.value;
+              newBuffs.defTurns = item.duration || 3;
+              spawnParticles([-2, -1, 0], 15, '#10b981', 'spark');
+              spawnFloatingText(`DEFESA UP!`, 'player', 'buff');
+              addLog(`Usou ${item.name}! Defesa aumentada por ${item.duration} turnos.`, 'buff');
+          }
+
+          return { ...p, inventory: newInv, stats: { ...p.stats, hp: newHp, mp: newMp }, buffs: newBuffs };
+      });
+      if (gameState === GameState.BATTLE) {
           setTurnState(TurnState.ENEMY_TURN);
       }
   };
@@ -263,31 +380,71 @@ export default function App() {
     if (!enemy || gameState !== GameState.BATTLE) return;
     
     setIsEnemyAttacking(true);
+    
+    // Enemy AI: Chance to defend instead of attack
+    const shouldDefend = Math.random() < 0.2;
+
     setTimeout(() => {
       setIsEnemyAttacking(false);
-      const { damage } = calculateDamage(enemy.stats.atk, player.stats.def);
+
+      // Reset enemy defense at start of their turn
+      setEnemy(prev => prev ? ({ ...prev, isDefending: false }) : null);
+
+      if (shouldDefend) {
+        setEnemy(prev => prev ? ({ ...prev, isDefending: true }) : null);
+        addLog(`${enemy.name} está se defendendo!`, "buff");
+        spawnFloatingText("DEFESA!", "enemy", "buff");
+        spawnParticles([2, -0.5, 0], 10, "#3b82f6", "spark");
+        
+        // Reset player defense at start of their turn
+        setPlayer(p => ({ ...p, isDefending: false }));
+        setTurnState(TurnState.PLAYER_INPUT);
+        return;
+      }
+
+      const { damage } = calculateDamage(enemy.stats.atk, player.stats.def, 1, 0, false);
       
+      // Apply player defense
+      const finalDamage = player.isDefending ? Math.floor(damage * 0.5) : damage;
+
       spawnParticles([-2, -1, 0], 5, '#dc2626', 'spark');
-      spawnFloatingText(damage, 'player', 'damage');
+      spawnFloatingText(finalDamage, 'player', 'damage');
+      setScreenShake(0.2);
+      setIsPlayerHit(true);
+      setTimeout(() => {
+          setScreenShake(0);
+          setIsPlayerHit(false);
+      }, 200);
       
-      setPlayer(prev => ({
-        ...prev,
-        stats: { ...prev.stats, hp: Math.max(0, prev.stats.hp - damage) }
-      }));
+      setPlayer(prev => {
+          // Decrement buffs at end of enemy turn (start of player turn)
+          const nextBuffs = { ...prev.buffs };
+          if (nextBuffs.atkTurns > 0) nextBuffs.atkTurns--;
+          if (nextBuffs.defTurns > 0) nextBuffs.defTurns--;
 
-      addLog(`${enemy.name} atacou: ${damage} dano!`, 'damage');
+          return {
+            ...prev,
+            buffs: nextBuffs,
+            isDefending: false, // Reset defense after being hit
+            stats: { ...prev.stats, hp: Math.max(0, prev.stats.hp - finalDamage) }
+          }
+      });
 
-      if ((player.stats.hp - damage) <= 0) {
+      addLog(`${enemy.name} atacou: ${finalDamage} dano!${player.isDefending ? ' (Defendido)' : ''}`, 'damage');
+
+      if ((player.stats.hp - finalDamage) <= 0) {
          if (enemy.isBoss) {
              // Boss loss = Back to Tavern, no game over, no progression
              setGameState(GameState.TAVERN);
-             setPlayer(p => ({ ...p, stats: { ...p.stats, hp: 1 } })); // Survive with 1 HP
+             setPlayer(p => ({ ...p, stats: { ...p.stats, hp: 1 }, buffs: { atkMod:0, defMod:0, atkTurns:0, defTurns:0 }, isDefending: false })); 
              addLog("Derrotado pelo Chefão. Recuou para Taverna.", "info");
          } else {
              // Normal mob loss = Game Over
              setGameState(GameState.GAME_OVER);
          }
       } else {
+         // Reset player defense at start of their turn
+         setPlayer(p => ({ ...p, isDefending: false }));
          setTurnState(TurnState.PLAYER_INPUT);
       }
     }, 600);
@@ -304,17 +461,40 @@ export default function App() {
      
      const xpGain = enemy.xpReward;
      const goldGain = enemy.goldReward;
+     const wasBoss = enemy.isBoss;
      
+     // Generate Drops
+     const drops: string[] = [];
+     if (Math.random() < 0.6) {
+        if (enemy.type === 'beast') drops.push(Math.random() < 0.5 ? 'mat_bone' : 'mat_slime');
+        else if (enemy.type === 'humanoid') drops.push(Math.random() < 0.5 ? 'mat_cloth' : 'mat_wood');
+        else if (enemy.type === 'undead') drops.push(Math.random() < 0.5 ? 'mat_bone' : 'mat_cloth');
+     }
+     if (wasBoss) {
+        drops.push('mat_iron');
+        if (Math.random() < 0.3) drops.push('mat_gold');
+        if (Math.random() < 0.5) drops.push('pot_1');
+     } else if (Math.random() < 0.15) {
+        drops.push('pot_1');
+     }
+
+     const newInventory = { ...player.inventory };
+     drops.forEach(d => {
+         newInventory[d] = (newInventory[d] || 0) + 1;
+     });
+
      // Give rewards
      let updatedPlayer = {
          ...player,
          xp: player.xp + xpGain,
-         gold: player.gold + goldGain
+         gold: player.gold + goldGain,
+         inventory: newInventory,
+         buffs: { atkMod: 0, defMod: 0, atkTurns: 0, defTurns: 0 } // Reset buffs on victory
      };
 
      // Update Stage Logic
      let leveledUp = false;
-     if (enemy.isBoss) {
+     if (wasBoss) {
          setStage(s => s + 1);
          setKillCount(0);
      } else {
@@ -338,18 +518,36 @@ export default function App() {
      }
 
      setPlayer(updatedPlayer);
-     addLog(`Vitória! +${xpGain} XP, +${goldGain} Ouro`, 'crit');
+     
+     let dropText = drops.length > 0 
+        ? ` Drops: ${drops.map(d => ALL_ITEMS.find(i => i.id === d)?.name).join(', ')}` 
+        : '';
+     addLog(`Vitória! +${xpGain} XP, +${goldGain} Ouro.${dropText}`, 'crit');
 
-     try {
-        const victoryText = await generateVictorySpeech(enemy.name);
-        setNarration(victoryText);
-     } catch(e) {}
-
+     // Logic for Auto Battle / Level Up Interruption
+     setEnemy(null); // Clear enemy model immediately
+     
      if (leveledUp) {
          setGameState(GameState.LEVEL_UP);
-     } else {
+     } else if (wasBoss) {
+         // Boss win -> Go to Victory Screen (which leads to Tavern)
          setGameState(GameState.VICTORY);
+         try {
+            const victoryText = await generateVictorySpeech(enemy.name);
+            setNarration(victoryText);
+         } catch(e) {}
+     } else {
+         // Normal Mob -> Auto Continue after delay
+         setNarration("Procurando próximo inimigo...");
+         setTimeout(() => {
+            enterBattle(false);
+         }, 1500);
      }
+  };
+
+  const handleLevelUpContinue = () => {
+      // Always go to Tavern after level up to allow player to rest and manage stats/items
+      setGameState(GameState.TAVERN);
   };
 
   const handleStatDistribution = (stat: keyof Stats) => {
@@ -363,89 +561,97 @@ export default function App() {
   };
 
   const buyItem = (item: Item) => {
-      if (player.gold >= item.cost) {
+      if (player.gold >= item.cost && player.level >= item.minLevel) {
           setPlayer(p => {
               const newGold = p.gold - item.cost;
               const newInv = { ...p.inventory };
 
-              // Potions -> Inventory (Simple stack)
-              if (item.type === 'potion') {
-                  newInv[item.id] = (newInv[item.id] || 0) + 1;
-                  return { ...p, gold: newGold, inventory: newInv };
-              } 
-              
-              // Gear -> Equip Logic with Swap to Inventory
-              let newStats = { ...p.stats };
-              let newWep = p.equippedWeapon;
-              let newArm = p.equippedArmor;
-              let newHelm = p.equippedHelmet;
-              let newLegs = p.equippedLegs;
-              let newShield = p.equippedShield;
-
-              // Helper: put old item into inventory
-              const unequipToInventory = (oldItem: Item | null) => {
-                  if (oldItem) {
-                      newInv[oldItem.id] = (newInv[oldItem.id] || 0) + 1;
-                  }
-              }
-
-              if (item.type === 'weapon') {
-                  unequipToInventory(newWep);
-                  if (newWep) newStats.atk -= newWep.value;
-                  newStats.atk += item.value;
-                  newWep = item;
-              }
-              if (item.type === 'armor') {
-                  unequipToInventory(newArm);
-                  if (newArm) newStats.def -= newArm.value;
-                  newStats.def += item.value;
-                  newArm = item;
-              }
-              if (item.type === 'helmet') {
-                  unequipToInventory(newHelm);
-                  if (newHelm) newStats.def -= newHelm.value;
-                  newStats.def += item.value;
-                  newHelm = item;
-              }
-              if (item.type === 'legs') {
-                  unequipToInventory(newLegs);
-                  if (newLegs) newStats.def -= newLegs.value;
-                  newStats.def += item.value;
-                  newLegs = item;
-              }
-              if (item.type === 'shield') {
-                  unequipToInventory(newShield);
-                  if (newShield) newStats.def -= newShield.value;
-                  newStats.def += item.value;
-                  newShield = item;
-              }
-
-              return { 
-                  ...p, 
-                  gold: newGold, 
-                  stats: newStats,
-                  inventory: newInv,
-                  equippedWeapon: newWep,
-                  equippedArmor: newArm,
-                  equippedHelmet: newHelm,
-                  equippedLegs: newLegs,
-                  equippedShield: newShield
-              };
+              newInv[item.id] = (newInv[item.id] || 0) + 1;
+              return { ...p, gold: newGold, inventory: newInv };
           });
       }
   };
 
+  const equipItem = (item: Item) => {
+      setPlayer(p => {
+          const qty = p.inventory[item.id];
+          if (!qty || qty <= 0) return p;
+
+          const newInv = { ...p.inventory };
+          
+          // Remove 1 from inventory
+          newInv[item.id] = qty - 1;
+
+          // Gear -> Equip Logic with Swap to Inventory
+          let newStats = { ...p.stats };
+          let newWep = p.equippedWeapon;
+          let newArm = p.equippedArmor;
+          let newHelm = p.equippedHelmet;
+          let newLegs = p.equippedLegs;
+          let newShield = p.equippedShield;
+
+          // Helper: put old item into inventory
+          const unequipToInventory = (oldItem: Item | null) => {
+              if (oldItem) {
+                  newInv[oldItem.id] = (newInv[oldItem.id] || 0) + 1;
+              }
+          }
+
+          if (item.type === 'weapon') {
+              unequipToInventory(newWep);
+              if (newWep) newStats.atk -= newWep.value;
+              newStats.atk += item.value;
+              newWep = item;
+          }
+          if (item.type === 'armor') {
+              unequipToInventory(newArm);
+              if (newArm) newStats.def -= newArm.value;
+              newStats.def += item.value;
+              newArm = item;
+          }
+          if (item.type === 'helmet') {
+              unequipToInventory(newHelm);
+              if (newHelm) newStats.def -= newHelm.value;
+              newStats.def += item.value;
+              newHelm = item;
+          }
+          if (item.type === 'legs') {
+              unequipToInventory(newLegs);
+              if (newLegs) newStats.def -= newLegs.value;
+              newStats.def += item.value;
+              newLegs = item;
+          }
+          if (item.type === 'shield') {
+              unequipToInventory(newShield);
+              if (newShield) newStats.def -= newShield.value;
+              newStats.def += item.value;
+              newShield = item;
+          }
+
+          return { 
+              ...p, 
+              stats: newStats,
+              inventory: newInv,
+              equippedWeapon: newWep,
+              equippedArmor: newArm,
+              equippedHelmet: newHelm,
+              equippedLegs: newLegs,
+              equippedShield: newShield
+          };
+      });
+  };
+
   const sellItem = (item: Item) => {
       const sellPrice = Math.floor(item.cost / 2);
-      const qty = player.inventory[item.id];
 
-      if (qty && qty > 0) {
-          setPlayer(p => {
-              const newInv = { ...p.inventory };
-              newInv[item.id] = qty - 1;
-              return { ...p, gold: p.gold + sellPrice, inventory: newInv };
-          });
-      } 
+      setPlayer(p => {
+          const qty = p.inventory[item.id];
+          if (!qty || qty <= 0) return p;
+
+          const newInv = { ...p.inventory };
+          newInv[item.id] = qty - 1;
+          return { ...p, gold: p.gold + sellPrice, inventory: newInv };
+      });
   };
 
   return (
@@ -463,6 +669,13 @@ export default function App() {
         equippedLegsId={player.equippedLegs?.id}
         equippedShieldId={player.equippedShield?.id}
         enemyType={enemy?.type || 'beast'}
+        isPlayerDefending={player.isDefending}
+        isEnemyDefending={enemy?.isDefending}
+        isPlayerHit={isPlayerHit}
+        isEnemyHit={isEnemyHit}
+        screenShake={screenShake}
+        isLevelingUp={isLevelingUp}
+        stage={stage}
       />
 
       {gameState === GameState.MENU && <MenuScreen onStart={startGame} />}
@@ -475,7 +688,9 @@ export default function App() {
             onHunt={() => enterBattle(false)}
             onBoss={() => enterBattle(true)}
             onShop={() => setGameState(GameState.SHOP)}
-            shopItems={SHOP_ITEMS}
+            shopItems={ALL_ITEMS}
+            onEquipItem={equipItem}
+            onUseItem={handleUseItem}
           />
       )}
 
@@ -483,14 +698,14 @@ export default function App() {
           <LevelUpScreen 
             player={player} 
             onDistribute={handleStatDistribution} 
-            onContinue={() => setGameState(GameState.TAVERN)}
+            onContinue={handleLevelUpContinue}
           />
       )}
 
       {gameState === GameState.SHOP && (
         <ShopScreen 
             player={player} 
-            items={SHOP_ITEMS} 
+            items={ALL_ITEMS} 
             onBuy={buyItem} 
             onSell={sellItem}
             onLeave={() => setGameState(GameState.TAVERN)} 
@@ -505,17 +720,19 @@ export default function App() {
             turnState={turnState}
             logs={logs}
             onAttack={handlePlayerAttack}
+            onDefend={handlePlayerDefense}
             onSkill={handleSkill}
             onUseItem={handleUseItem}
             onStartBattle={() => enterBattle(false)} // Logic handled by victory screen usually
             onEnterShop={() => {}} // Disabled in battle
             onBuyItem={buyItem}
             onSellItem={sellItem}
+            onEquipItem={equipItem}
             onDistributeStat={() => {}}
             onContinue={() => {}}
             onFlee={handleFlee}
             currentNarration={narration}
-            shopItems={SHOP_ITEMS}
+            shopItems={ALL_ITEMS}
             floatingTexts={floatingTexts}
             stage={stage}
             killCount={killCount}

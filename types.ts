@@ -27,7 +27,8 @@ export interface Stats {
   luck: number; // New stat for crit chance
 }
 
-export type ItemType = 'weapon' | 'armor' | 'potion' | 'helmet' | 'legs' | 'shield';
+export type ItemType = 'weapon' | 'armor' | 'potion' | 'helmet' | 'legs' | 'shield' | 'material';
+export type Rarity = 'bronze' | 'silver' | 'gold';
 
 export interface Item {
   id: string;
@@ -37,6 +38,9 @@ export interface Item {
   type: ItemType;
   value: number; // Atk, Def, or Heal amount
   icon: string; // Icon helper
+  rarity: Rarity;
+  minLevel: number;
+  duration?: number; // For buffs
 }
 
 export interface Skill {
@@ -65,6 +69,14 @@ export interface Player {
   equippedLegs: Item | null;
   equippedShield: Item | null;
   skills: Skill[];
+  isDefending: boolean;
+  limitMeter: number; // 0 to 100
+  buffs: {
+    atkMod: number;
+    defMod: number;
+    atkTurns: number;
+    defTurns: number;
+  };
 }
 
 export interface Enemy {
@@ -78,11 +90,12 @@ export interface Enemy {
   scale: number;
   type: 'beast' | 'humanoid' | 'undead';
   isBoss: boolean;
+  isDefending: boolean;
 }
 
 export interface BattleLog {
   message: string;
-  type: 'info' | 'damage' | 'heal' | 'crit' | 'evade';
+  type: 'info' | 'damage' | 'heal' | 'crit' | 'evade' | 'buff';
 }
 
 export interface Particle {
@@ -97,7 +110,7 @@ export interface Particle {
 export interface FloatingText {
   id: string;
   text: string;
-  type: 'damage' | 'heal' | 'crit';
+  type: 'damage' | 'heal' | 'crit' | 'buff';
   target: 'player' | 'enemy'; // Determines screen position
   xOffset: number; // Random slight offset
   yOffset: number;
