@@ -28,20 +28,19 @@ import {
   selectSecondaryAnimationBundles,
 } from './scene3d/animation';
 import {
-  BattlePlatform,
   CameraController,
   DayNightCycle,
   DungeonAtmosphere,
   DungeonBattlePlatform,
   FogController,
-  GrassFloor,
   NightEnemyGlow,
   SkyboxController,
-  Tree,
   createModularBuilderQualityProfile,
   getRenderQualityProfile,
 } from './scene3d/environment';
 import { MeshParticle, WorldFloatingTexts } from './scene3d/effects';
+import { BattleScenario } from './scene3d/scenarios';
+import { getScenario } from '../game/data/scenarios';
 import type {
   DeveloperAnimationRuntimeDiagnostic,
   DeveloperKitbashAnalysis,
@@ -1263,8 +1262,9 @@ const HeroVoxel = ({ classId = 'knight', playerAnimationAction = 'idle', animati
       }
     }
     if (group.current) {
-      // Idle/Action movement
-      if (isAttacking) {
+      // Idle/Action movement — stay at attack position while animation is still playing
+      const isInAttackAnimation = isAttacking || playerAnimationAction === 'attack';
+      if (isInAttackAnimation) {
         group.current.position.x = THREE.MathUtils.lerp(group.current.position.x, attackPositionX, 0.2);
         group.current.position.y = THREE.MathUtils.lerp(group.current.position.y, -1, 0.2);
       } else if (isDefending) {
@@ -1712,23 +1712,7 @@ export const GameScene: React.FC<SceneProps> = (props) => {
     return colors[(stage - 1) % colors.length];
   }, [isDungeonRun, props.stage]);
 
-  const trees = useMemo(() => [
-    { pos: [-8, -1.1, -2], scale: 1.2 },
-    { pos: [-12, -1.1, 1], scale: 1.5 },
-    { pos: [10, -1.1, -1], scale: 1.3 },
-    { pos: [14, -1.1, 2], scale: 1.1 },
-    { pos: [-15, -1.1, -5], scale: 1.4 },
-    { pos: [18, -1.1, -3], scale: 1.6 },
-    { pos: [-5, -1.1, -8], scale: 1.0 },
-    { pos: [5, -1.1, -10], scale: 1.2 },
-  ], []);
-
-  const visibleTrees = useMemo(() => {
-    if (quality.isLowQuality) {
-      return trees.slice(0, 5);
-    }
-    return trees;
-  }, [trees, quality.isLowQuality]);
+  const activeScenario = useMemo(() => getScenario('forest'), []);
 
   return (
     <div ref={containerRef} className="absolute inset-0 z-0 transition-colors duration-1000" style={{ backgroundColor: bgColor }}>
@@ -1741,7 +1725,7 @@ export const GameScene: React.FC<SceneProps> = (props) => {
       )}
 
       <Canvas
-        shadows
+        shadows={{ type: THREE.PCFSoftShadowMap }}
         dpr={quality.dpr}
         gl={{ antialias: quality.antialias, powerPreference: 'high-performance' }}
         performance={{ min: 0.5 }}
@@ -1761,13 +1745,9 @@ export const GameScene: React.FC<SceneProps> = (props) => {
             <DayNightCycle containerRef={containerRef} onTimeUpdate={handleTimeUpdate} quality={quality} />
             <pointLight position={[-5, 2, -2]} intensity={0.5} color="#3b82f6" />
             <NightEnemyGlow gameTime={gameTime} />
-            <GrassFloor />
-            <BattlePlatform />
-            <group>
-              {visibleTrees.map((t, i) => (
-                <Tree key={i} position={t.pos as any} scale={t.scale} />
-              ))}
-            </group>
+            <Suspense fallback={null}>
+              <BattleScenario scenario={activeScenario} lowQuality={quality.isLowQuality} />
+            </Suspense>
           </>
         )}
         
@@ -1831,7 +1811,7 @@ export const DeveloperHeroScene: React.FC<DeveloperHeroSceneProps> = ({
   return (
     <div className="relative h-full w-full overflow-hidden rounded-[inherit] bg-[radial-gradient(circle_at_top,_rgba(14,165,233,0.16),_transparent_38%),linear-gradient(180deg,rgba(15,23,42,0.96),rgba(2,6,23,0.98))]">
       <Canvas
-        shadows
+        shadows={{ type: THREE.PCFSoftShadowMap }}
         dpr={quality.dpr}
         gl={{ antialias: quality.antialias, powerPreference: 'high-performance' }}
         performance={{ min: 0.5 }}
@@ -1904,7 +1884,7 @@ export const DeveloperMonsterScene: React.FC<DeveloperMonsterSceneProps> = ({
   return (
     <div className="relative h-full w-full overflow-hidden rounded-[inherit] bg-[radial-gradient(circle_at_top,_rgba(248,250,252,0.14),_transparent_36%),linear-gradient(180deg,rgba(15,23,42,0.98),rgba(2,6,23,0.99))]">
       <Canvas
-        shadows
+        shadows={{ type: THREE.PCFSoftShadowMap }}
         dpr={quality.dpr}
         gl={{ antialias: quality.antialias, powerPreference: 'high-performance' }}
         performance={{ min: 0.5 }}
@@ -2511,7 +2491,7 @@ export const DeveloperClassBuilderScene: React.FC<DeveloperClassBuilderSceneProp
   return (
     <div className="relative h-full w-full overflow-hidden rounded-[inherit] bg-[radial-gradient(circle_at_top,_rgba(14,165,233,0.16),_transparent_38%),linear-gradient(180deg,rgba(15,23,42,0.96),rgba(2,6,23,0.98))]">
       <Canvas
-        shadows
+        shadows={{ type: THREE.PCFSoftShadowMap }}
         dpr={quality.dpr}
         gl={{ antialias: quality.antialias, powerPreference: 'high-performance' }}
         performance={{ min: 0.5 }}
@@ -2602,7 +2582,7 @@ export const DeveloperWeaponCalibrationScene: React.FC<{
   return (
     <div className="relative h-full w-full overflow-hidden rounded-[inherit] bg-[radial-gradient(circle_at_top,_rgba(14,165,233,0.16),_transparent_38%),linear-gradient(180deg,rgba(15,23,42,0.96),rgba(2,6,23,0.98))]">
       <Canvas
-        shadows
+        shadows={{ type: THREE.PCFSoftShadowMap }}
         dpr={quality.dpr}
         gl={{ antialias: quality.antialias, powerPreference: 'high-performance' }}
         performance={{ min: 0.5 }}
@@ -2716,7 +2696,7 @@ export const DeveloperKitbashScene: React.FC<DeveloperKitbashSceneProps> = ({
   return (
     <div className="relative h-full w-full overflow-hidden rounded-[inherit] bg-[radial-gradient(circle_at_top,_rgba(34,211,238,0.16),_transparent_38%),linear-gradient(180deg,rgba(15,23,42,0.96),rgba(2,6,23,0.98))]">
       <Canvas
-        shadows
+        shadows={{ type: THREE.PCFSoftShadowMap }}
         dpr={quality.dpr}
         gl={{ antialias: quality.antialias, powerPreference: 'high-performance' }}
         performance={{ min: 0.5 }}

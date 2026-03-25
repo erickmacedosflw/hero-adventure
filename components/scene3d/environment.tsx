@@ -33,7 +33,7 @@ export const getRenderQualityProfile = (): RenderQualityProfile => {
   return {
     isLowQuality: low,
     dpr: low ? [0.85, 1] : [1, 1.5],
-    shadowMapSize: low ? 256 : 512,
+    shadowMapSize: low ? 512 : 1024,
     starsCount: low ? 400 : 800,
     contactShadowResolution: low ? 64 : 128,
     antialias: false,
@@ -476,13 +476,15 @@ export const DayNightCycle = ({
         ref={sunLightRef}
         castShadow
         shadow-mapSize={[quality.shadowMapSize, quality.shadowMapSize]}
-        shadow-camera-left={-50}
-        shadow-camera-right={50}
-        shadow-camera-top={50}
-        shadow-camera-bottom={-50}
+        shadow-camera-left={-25}
+        shadow-camera-right={25}
+        shadow-camera-top={25}
+        shadow-camera-bottom={-25}
         shadow-camera-near={0.1}
         shadow-camera-far={200}
         shadow-bias={-0.0005}
+        shadow-normalBias={0.04}
+        shadow-radius={4}
       />
       <directionalLight ref={moonLightRef} color="#c7d2fe" intensity={0} position={[-5, 10, -15]} />
       <mesh ref={sunMeshRef}>
@@ -651,6 +653,9 @@ export const FogController: React.FC = () => {
 
 export const CameraController = ({ screenShake }: { screenShake?: number }) => {
   const cameraRef = useRef<THREE.PerspectiveCamera>(null);
+  const isMobile = window.innerWidth < 768;
+  const camZ = isMobile ? 12.5 : 11;
+  const camFov = isMobile ? 54 : 50;
 
   useFrame(() => {
     if (cameraRef.current && screenShake) {
@@ -666,7 +671,7 @@ export const CameraController = ({ screenShake }: { screenShake?: number }) => {
     }
   });
 
-  return <PerspectiveCamera ref={cameraRef} makeDefault position={[0, 2.5, 11]} fov={50} near={0.5} far={120} />;
+  return <PerspectiveCamera ref={cameraRef} makeDefault position={[0, 2.5, camZ]} fov={camFov} near={0.5} far={120} />;
 };
 
 export const NightEnemyGlow = ({ gameTime }: { gameTime: string }) => {

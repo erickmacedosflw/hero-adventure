@@ -823,7 +823,7 @@ export default function App() {
     const doubleAttackActive = player.buffs.doubleAttackTurns > 0;
     // Weapon attack clip is longer than unarmed punch — resolve damage near the end of the animation
     const attackDelay = player.equippedWeapon ? 650 : 400;
-    const idleDelay = player.equippedWeapon ? 350 : 600;
+    const idleDelay = player.equippedWeapon ? 400 : 550;
 
     const resolveStrike = (remainingHp: number, isFirstStrike: boolean) => {
         const attackResult = calculateDamage(
