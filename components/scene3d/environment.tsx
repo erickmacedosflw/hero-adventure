@@ -96,13 +96,14 @@ export const Cloud = ({ position, speed }: { position: [number, number, number];
   );
 };
 
-const SKYBOX_FACES = ['px.png', 'nx.png', 'py.png', 'ny.png', 'pz.png', 'nz.png'];
+const SKYBOX_FACES = ['px.png', 'nx.png', 'py.png', 'ny.png', 'pz.png', 'nz.png'] as const;
+
 const SKYBOX_PATHS: Record<string, string> = {
-  manha: 'game/skybox/manha/',
-  dia: 'game/skybox/dia/',
-  sol: 'game/skybox/sol/',
-  tarde: 'game/skybox/tarde/',
-  noite: 'game/skybox/noite/',
+  manha: '/skybox/manha/',
+  dia: '/skybox/dia/',
+  sol: '/skybox/sol/',
+  tarde: '/skybox/tarde/',
+  noite: '/skybox/noite/',
 };
 
 const getGameT = (elapsed: number) => ((elapsed * 2 + 720) / 1440) % 1;
