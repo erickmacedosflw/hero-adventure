@@ -1,5 +1,7 @@
 
-import { Item, Skill, Player } from './types';
+import { Item, Skill, EnemyTemplate, DungeonEnemyTemplate, DungeonBossTemplate, AlchemistItemOffer } from './types';
+import { REGISTERED_WEAPON_ITEMS } from './game/data/weaponCatalog';
+export { INITIAL_PLAYER } from './game/data/player';
 
 export const SHOP_ITEMS: Item[] = [
   // --- POTIONS & CONSUMABLES ---
@@ -12,19 +14,6 @@ export const SHOP_ITEMS: Item[] = [
 
   { id: 'pot_3', name: 'Elixir Prateado', description: 'Cura potente. +150 HP', cost: 150, type: 'potion', value: 150, icon: '💖', rarity: 'silver', minLevel: 3 },
   { id: 'pot_4', name: 'Ambrosia Dourada', description: 'Restauração total. +500 HP', cost: 600, type: 'potion', value: 500, icon: '🌟', rarity: 'gold', minLevel: 8 },
-
-  // --- WEAPONS ---
-  // Bronze (Lvl 1-2)
-  { id: 'wep_b1', name: 'Adaga de Cobre', description: 'Simples mas afiada. +6 ATK', cost: 100, type: 'weapon', value: 6, icon: '🗡️', rarity: 'bronze', minLevel: 1 },
-  { id: 'wep_b2', name: 'Machadinha Velha', description: 'Pesada e brutal. +10 ATK', cost: 250, type: 'weapon', value: 10, icon: '🪓', rarity: 'bronze', minLevel: 2 },
-  
-  // Silver (Lvl 3-6)
-  { id: 'wep_s1', name: 'Espada de Aço', description: 'Forjada por ferreiros reais. +18 ATK', cost: 600, type: 'weapon', value: 18, icon: '⚔️', rarity: 'silver', minLevel: 4 },
-  { id: 'wep_s2', name: 'Lança de Mithril', description: 'Leve e letal. +25 ATK', cost: 1200, type: 'weapon', value: 25, icon: '🔱', rarity: 'silver', minLevel: 6 },
-
-  // Gold (Lvl 7+)
-  { id: 'wep_g1', name: 'Katana do Vazio', description: 'Corta a própria realidade. +45 ATK', cost: 3500, type: 'weapon', value: 45, icon: '🌑', rarity: 'gold', minLevel: 8 },
-  { id: 'wep_g2', name: 'Excalibur Pixel', description: 'A lenda digital. +70 ATK', cost: 8000, type: 'weapon', value: 70, icon: '✨', rarity: 'gold', minLevel: 12 },
 
   // --- ARMOR (CHEST) ---
   { id: 'arm_b1', name: 'Túnica de Couro', description: 'Proteção básica. +4 DEF', cost: 80, type: 'armor', value: 4, icon: '👕', rarity: 'bronze', minLevel: 1 },
@@ -55,67 +44,158 @@ export const MATERIALS: Item[] = [
   { id: 'mat_gold', name: 'Pepita de Ouro', description: 'Pequena, mas valiosa.', cost: 100, type: 'material', value: 0, icon: '🪙', rarity: 'gold', minLevel: 5 },
 ];
 
-export const ALL_ITEMS: Item[] = [...SHOP_ITEMS, ...MATERIALS];
+export const DUNGEON_ITEMS: Item[] = [
+  { id: 'mat_ether_shard', name: 'Fragmento de Ether', description: 'Cristal instável recolhido das galerias da dungeon.', cost: 55, type: 'material', value: 0, icon: '🧿', rarity: 'silver', minLevel: 4, source: 'dungeon' },
+  { id: 'mat_obsidian_heart', name: 'Coração de Obsidiana', description: 'Núcleo denso e quente arrancado de bestas abissais.', cost: 120, type: 'material', value: 0, icon: '🪨', rarity: 'gold', minLevel: 7, source: 'dungeon' },
+  { id: 'mat_void_bloom', name: 'Flor do Vazio', description: 'Matéria viva que pulsa com energia da dungeon profunda.', cost: 180, type: 'material', value: 0, icon: '🌌', rarity: 'gold', minLevel: 9, source: 'dungeon' },
+  { id: 'mat_nexus_core', name: 'Núcleo do Nexus', description: 'Relíquia absoluta deixada apenas pelo soberano da dungeon.', cost: 320, type: 'material', value: 0, icon: '💠', rarity: 'gold', minLevel: 12, source: 'dungeon' },
+  { id: 'pot_dg_recall', name: 'Âncora de Retorno', description: 'Abre uma saída estável da dungeon e permite levar todo o espólio acumulado.', cost: 0, type: 'potion', value: 0, icon: '🧭', rarity: 'gold', minLevel: 1, source: 'dungeon' },
+  { id: 'pot_alc_phantom_veil', name: 'Véu Fantasma', description: 'Reveste o corpo com névoa alquímica e garante evasão perfeita por 4 turnos em qualquer batalha.', cost: 0, type: 'potion', value: 1, icon: '👻', rarity: 'gold', minLevel: 1, source: 'alchemist', duration: 4 },
+  { id: 'pot_alc_twin_fang', name: 'Presa Gêmea', description: 'Desperta um ritmo feroz e faz o comando Atacar acertar duas vezes por 6 turnos.', cost: 0, type: 'potion', value: 1, icon: '🦷', rarity: 'gold', minLevel: 1, source: 'alchemist', duration: 6 },
+  { id: 'pot_dg_mana', name: 'Reserva de Mana Abissal', description: 'Energia condensada da dungeon. +80 MP', cost: 0, type: 'potion', value: 80, icon: '🔷', rarity: 'silver', minLevel: 6, source: 'dungeon' },
+  { id: 'pot_dg_elixir', name: 'Elixir Abissal', description: 'Restauração reforçada da dungeon. +260 HP', cost: 0, type: 'potion', value: 260, icon: '🩸', rarity: 'gold', minLevel: 7, source: 'dungeon' },
+  { id: 'pot_dg_ambrosia', name: 'Ambrosia do Nexus', description: 'Essência rara guardada no fundo da dungeon. +650 HP', cost: 0, type: 'potion', value: 650, icon: '🫧', rarity: 'gold', minLevel: 12, source: 'dungeon' },
+  { id: 'wep_dg_nexus', name: 'Lâmina do Nexus', description: 'Arma exclusiva forjada com energia da dungeon. +58 ATK', cost: 0, type: 'weapon', value: 58, icon: '🗡️', rarity: 'gold', minLevel: 10, source: 'dungeon' },
+  { id: 'arm_dg_abyss', name: 'Armadura do Abismo', description: 'Placas pesadas feitas para sobreviver aos ciclos profundos. +38 DEF', cost: 0, type: 'armor', value: 38, icon: '🥋', rarity: 'gold', minLevel: 10, source: 'dungeon' },
+  { id: 'shd_dg_eclipse', name: 'Escudo Eclipse', description: 'Barreira exclusiva da dungeon que segura impactos do chefão. +32 DEF', cost: 0, type: 'shield', value: 32, icon: '🌘', rarity: 'gold', minLevel: 11, source: 'dungeon' },
+  { id: 'hlm_dg_oracle', name: 'Elmo do Oráculo Fendido', description: 'Capacete ritualístico encontrado apenas em profundezas evoluídas. +24 DEF', cost: 0, type: 'helmet', value: 24, icon: '🔮', rarity: 'gold', minLevel: 10, source: 'dungeon' },
+];
 
-export const INITIAL_PLAYER: Player = {
-  name: "Herói",
-  level: 1,
-  xp: 0,
-  xpToNext: 100,
-  statPoints: 0,
-  gold: 150,
-  stats: {
-    hp: 120,
-    maxHp: 120,
-    mp: 50,
-    maxMp: 50,
-    atk: 12,
-    def: 5,
-    speed: 10,
-    luck: 5
+const NON_WEAPON_SHOP_ITEMS: Item[] = SHOP_ITEMS.filter((item) => item.type !== 'weapon');
+const NON_WEAPON_DUNGEON_ITEMS: Item[] = DUNGEON_ITEMS.filter((item) => item.type !== 'weapon');
+
+export const ALL_ITEMS: Item[] = [...NON_WEAPON_SHOP_ITEMS, ...REGISTERED_WEAPON_ITEMS, ...MATERIALS, ...NON_WEAPON_DUNGEON_ITEMS];
+
+export const DUNGEON_ESCAPE_ITEM = DUNGEON_ITEMS.find(item => item.id === 'pot_dg_recall') as Item;
+
+export const ALCHEMIST_ITEM_OFFERS: AlchemistItemOffer[] = [
+  {
+    id: 'alchemist_item_recall_anchor',
+    cost: 3,
+    tagline: 'Relíquia rara para abandonar a dungeon sem perder o espólio acumulado.',
+    item: DUNGEON_ESCAPE_ITEM,
   },
-  inventory: {
-    'pot_1': 2 // Starts with 2 potions
+  {
+    id: 'alchemist_item_phantom_veil',
+    cost: 2,
+    tagline: 'Uma relíquia instável que torna o herói intocável por 4 turnos em qualquer batalha.',
+    item: DUNGEON_ITEMS.find(item => item.id === 'pot_alc_phantom_veil') as Item,
   },
-  equippedWeapon: null,
-  equippedArmor: null,
-  equippedHelmet: null,
-  equippedLegs: null,
-  equippedShield: null,
-  skills: [],
-  isDefending: false,
-  limitMeter: 0,
-  buffs: {
-    atkMod: 0,
-    defMod: 0,
-    atkTurns: 0,
-    defTurns: 0
-  }
-};
+  {
+    id: 'alchemist_item_twin_fang',
+    cost: 2,
+    tagline: 'Relíquia ofensiva que transforma seus ataques básicos em dois golpes por 6 turnos.',
+    item: DUNGEON_ITEMS.find(item => item.id === 'pot_alc_twin_fang') as Item,
+  },
+];
 
 export const SKILLS: Skill[] = [
-  { id: 'skl_1', name: 'Corte Voxel', cost: 0, damageMult: 1.5, minLevel: 2, description: 'Golpe físico preciso. 8 MP', manaCost: 8, type: 'physical' },
-  { id: 'skl_2', name: 'Luz Sagrada', cost: 0, damageMult: 0, minLevel: 3, description: 'Cura feridas. 15 MP', manaCost: 15, type: 'heal' },
-  { id: 'skl_3', name: 'Bola de Fogo', cost: 0, damageMult: 2.2, minLevel: 5, description: 'Queima o alvo. 20 MP', manaCost: 20, type: 'magic' },
-  { id: 'skl_4', name: 'Lâmina do Dragão', cost: 0, damageMult: 3.5, minLevel: 8, description: 'Dano massivo. 45 MP', manaCost: 45, type: 'physical' },
+  { id: 'skl_1', name: 'Corte Voxel', cost: 0, damageMult: 1.5, minLevel: 1, description: 'Golpe físico preciso. 8 MP', manaCost: 8, type: 'physical' },
+  { id: 'skl_2', name: 'Luz Sagrada', cost: 0, damageMult: 0.4, minLevel: 1, description: 'Cura 40% da vida maxima. 15 MP', manaCost: 15, type: 'heal' },
+  { id: 'skl_3', name: 'Bola de Fogo', cost: 0, damageMult: 2.2, minLevel: 3, description: 'Projétil arcano em chamas. 20 MP', manaCost: 20, type: 'magic' },
+  { id: 'skl_4', name: 'Lâmina do Dragão', cost: 0, damageMult: 3.5, minLevel: 8, description: 'Investida lendária devastadora. 45 MP', manaCost: 45, type: 'physical' },
+  { id: 'skl_5', name: 'Tempestade Arcana', cost: 0, damageMult: 2.8, minLevel: 4, description: 'Explosão violeta que estilhaça o alvo. 24 MP', manaCost: 24, type: 'magic' },
+  { id: 'skl_6', name: 'Quebraterra', cost: 0, damageMult: 2.9, minLevel: 5, description: 'Golpe bruto que faz a arena tremer. 26 MP', manaCost: 26, type: 'physical' },
+  { id: 'skl_7', name: 'Nova Glacial', cost: 0, damageMult: 2.6, minLevel: 6, description: 'Rajada gelida de impacto concentrado. 28 MP', manaCost: 28, type: 'magic' },
+  { id: 'skl_8', name: 'Cura Astral', cost: 0, damageMult: 0.65, minLevel: 6, description: 'Cura 65% da vida maxima. 30 MP', manaCost: 30, type: 'heal' },
+  { id: 'skl_9', name: 'Lança Sombria', cost: 0, damageMult: 3.2, minLevel: 7, description: 'Perfuração sombria com rastro espectral. 34 MP', manaCost: 34, type: 'physical' },
+  { id: 'skl_10', name: 'Julgamento Solar', cost: 0, damageMult: 4.1, minLevel: 9, description: 'Coluna sagrada de luz esmagadora. 52 MP', manaCost: 52, type: 'magic' },
 ];
 
-export const ENEMY_DATA = [
-  { name: "Slime Voxel", type: 'beast' },
-  { name: "Lobo LowPoly", type: 'beast' },
-  { name: "Javali Cúbico", type: 'beast' },
-  { name: "Urso de Blocos", type: 'beast' },
-  
-  { name: "Goblin Cúbico", type: 'humanoid' },
-  { name: "Orc Blocado", type: 'humanoid' },
-  { name: "Cavaleiro 8-Bits", type: 'humanoid' },
-  { name: "Bandido Voxel", type: 'humanoid' },
-  
-  { name: "Esqueleto Pixel", type: 'undead' },
-  { name: "Lich Renderizado", type: 'undead' },
-  { name: "Fantasma Glitch", type: 'undead' },
-  { name: "Sombra Digital", type: 'undead' },
+const skeletonAnimationFiles = [
+  'Rig_Medium_CombatMelee.fbx',
+  'Rig_Medium_CombatRanged.fbx',
+  'Rig_Medium_General.fbx',
+  'Rig_Medium_MovementAdvanced.fbx',
+  'Rig_Medium_MovementBasic.fbx',
+  'Rig_Medium_Simulation.fbx',
+  'Rig_Medium_Special.fbx',
+  'Rig_Medium_Tools.fbx',
+] as const;
+
+const skeletonAnimationMap = {
+  idle: 'Rig_Medium_General:Idle_A',
+  battleIdle: 'Rig_Medium_CombatMelee:Melee_Unarmed_Idle',
+  attackWeapon: 'Rig_Medium_CombatMelee:Melee_1H_Attack_Jump_Chop',
+  attackUnarmed: 'Rig_Medium_CombatMelee:Melee_Unarmed_Attack_Punch_A',
+  defend: 'Rig_Medium_CombatMelee:Melee_Blocking',
+  defendHit: 'Rig_Medium_CombatMelee:Melee_Block_Hit',
+  hit: 'Rig_Medium_General:Hit_A',
+  criticalHit: 'Rig_Medium_General:Hit_B',
+  item: 'Rig_Medium_CombatRanged:Ranged_Magic_Raise',
+  heal: 'Rig_Medium_General:Use_Item',
+  skill: 'Rig_Medium_CombatRanged:Ranged_Magic_Raise',
+  evadeLeft: 'Rig_Medium_MovementAdvanced:Dodge_Left',
+  evadeRight: 'Rig_Medium_MovementAdvanced:Dodge_Right',
+  death: 'Rig_Medium_General:Death_A',
+} as const;
+
+const createSkeletonAssets = (modelFile: 'Skeleton_Minion.fbx' | 'Skeleton_Rogue.fbx' | 'Skeleton_Warrior.fbx' | 'Skeleton_Mage.fbx', scale: number) => ({
+  modelPath: `game/assets/Characters/Monsters/Skeleton/${modelFile}`,
+  modelUrl: new URL(`./game/assets/Characters/Monsters/Skeleton/${modelFile}`, import.meta.url).href,
+  texturePath: 'game/assets/Characters/Monsters/Skeleton/skeleton_texture.png',
+  textureUrl: new URL('./game/assets/Characters/Monsters/Skeleton/skeleton_texture.png', import.meta.url).href,
+  animationDirectory: 'game/assets/Characters/Animations/Rig_Medium',
+  animationFiles: [...skeletonAnimationFiles],
+  animationUrls: [
+    new URL('./game/assets/Characters/Animations/Rig_Medium/Rig_Medium_CombatMelee.fbx', import.meta.url).href,
+    new URL('./game/assets/Characters/Animations/Rig_Medium/Rig_Medium_CombatRanged.fbx', import.meta.url).href,
+    new URL('./game/assets/Characters/Animations/Rig_Medium/Rig_Medium_General.fbx', import.meta.url).href,
+    new URL('./game/assets/Characters/Animations/Rig_Medium/Rig_Medium_MovementAdvanced.fbx', import.meta.url).href,
+    new URL('./game/assets/Characters/Animations/Rig_Medium/Rig_Medium_MovementBasic.fbx', import.meta.url).href,
+    new URL('./game/assets/Characters/Animations/Rig_Medium/Rig_Medium_Simulation.fbx', import.meta.url).href,
+    new URL('./game/assets/Characters/Animations/Rig_Medium/Rig_Medium_Special.fbx', import.meta.url).href,
+    new URL('./game/assets/Characters/Animations/Rig_Medium/Rig_Medium_Tools.fbx', import.meta.url).href,
+  ],
+  animationMap: skeletonAnimationMap,
+  implementationStatus: 'fbx' as const,
+  calibration: {
+    scale,
+    positionOffset: [0, 0, 0] as [number, number, number],
+    rotationOffset: [0, Math.PI, 0] as [number, number, number],
+  },
+});
+
+export const ENEMY_DATA: EnemyTemplate[] = [
+  { name: 'Skeleton Minion', type: 'undead', color: '#d6d3d1', scale: 1.02, assets: createSkeletonAssets('Skeleton_Minion.fbx', 2.02), attackStyle: 'unarmed' },
+  { name: 'Skeleton Rogue', type: 'undead', color: '#cbd5e1', scale: 1.04, assets: createSkeletonAssets('Skeleton_Rogue.fbx', 2.06), attackStyle: 'unarmed' },
+  { name: 'Skeleton Warrior', type: 'undead', color: '#e2e8f0', scale: 1.08, assets: createSkeletonAssets('Skeleton_Warrior.fbx', 2.14), attackStyle: 'unarmed' },
+  { name: 'Skeleton Mage', type: 'undead', color: '#c4b5fd', scale: 1.06, assets: createSkeletonAssets('Skeleton_Mage.fbx', 2.1), attackStyle: 'unarmed' },
 ];
+
+export const DUNGEON_ENEMY_DATA: DungeonEnemyTemplate[] = [
+  { name: 'Bone Minion', type: 'undead', minEvolution: 0, scale: 1.02, assets: createSkeletonAssets('Skeleton_Minion.fbx', 2.02), attackStyle: 'unarmed', hpMultiplier: 0.96, atkMultiplier: 1.05, guaranteedDrops: ['mat_ether_shard'], rareDrops: [{ itemId: 'pot_dg_mana', chance: 0.08 }] },
+  { name: 'Bone Rogue', type: 'undead', minEvolution: 0, scale: 1.04, assets: createSkeletonAssets('Skeleton_Rogue.fbx', 2.06), attackStyle: 'unarmed', hpMultiplier: 1.02, atkMultiplier: 1.14, speedBonus: 1, guaranteedDrops: ['mat_obsidian_heart'] },
+  { name: 'Bone Warrior', type: 'undead', minEvolution: 1, scale: 1.08, assets: createSkeletonAssets('Skeleton_Warrior.fbx', 2.14), attackStyle: 'unarmed', hpMultiplier: 1.14, defMultiplier: 1.16, guaranteedDrops: ['mat_ether_shard'] },
+  { name: 'Bone Mage', type: 'undead', minEvolution: 1, scale: 1.06, assets: createSkeletonAssets('Skeleton_Mage.fbx', 2.1), attackStyle: 'unarmed', atkMultiplier: 1.22, speedBonus: 2, rareDrops: [{ itemId: 'mat_void_bloom', chance: 0.14 }] },
+  { name: 'Crypt Warrior', type: 'undead', minEvolution: 2, scale: 1.14, assets: createSkeletonAssets('Skeleton_Warrior.fbx', 2.2), attackStyle: 'unarmed', hpMultiplier: 1.2, atkMultiplier: 1.16, rareDrops: [{ itemId: 'pot_dg_elixir', chance: 0.12 }] },
+  { name: 'Crypt Rogue', type: 'undead', minEvolution: 3, scale: 1.06, assets: createSkeletonAssets('Skeleton_Rogue.fbx', 2.08), attackStyle: 'unarmed', atkMultiplier: 1.24, speedBonus: 2, rareDrops: [{ itemId: 'wep_3d_sword_d', chance: 0.08 }] },
+  { name: 'Crypt Mage', type: 'undead', minEvolution: 4, scale: 1.08, assets: createSkeletonAssets('Skeleton_Mage.fbx', 2.14), attackStyle: 'unarmed', hpMultiplier: 1.08, atkMultiplier: 1.28, speedBonus: 3, rareDrops: [{ itemId: 'shd_dg_eclipse', chance: 0.08 }] },
+  { name: 'Bone Champion', type: 'undead', minEvolution: 5, scale: 1.18, assets: createSkeletonAssets('Skeleton_Warrior.fbx', 2.26), attackStyle: 'unarmed', hpMultiplier: 1.26, defMultiplier: 1.2, guaranteedDrops: ['mat_void_bloom'], rareDrops: [{ itemId: 'arm_dg_abyss', chance: 0.1 }] },
+  { name: 'Catacomb Archmage', type: 'undead', minEvolution: 6, scale: 1.12, assets: createSkeletonAssets('Skeleton_Mage.fbx', 2.18), attackStyle: 'unarmed', hpMultiplier: 1.18, atkMultiplier: 1.32, speedBonus: 4, rareDrops: [{ itemId: 'pot_dg_ambrosia', chance: 0.14 }] },
+];
+
+export const DUNGEON_BOSS: DungeonBossTemplate = {
+  name: 'Skeleton Overlord',
+  type: 'undead' as const,
+  color: '#67e8f9',
+  scale: 1.26,
+  assets: createSkeletonAssets('Skeleton_Warrior.fbx', 2.42),
+  attackStyle: 'unarmed',
+  hpMultiplier: 1.4,
+  atkMultiplier: 1.24,
+  defMultiplier: 1.2,
+  speedBonus: 4,
+  guaranteedDrops: ['mat_nexus_core'],
+  rareDrops: [
+    { itemId: 'pot_dg_recall', chance: 0.22 },
+    { itemId: 'pot_dg_ambrosia', chance: 0.4 },
+    { itemId: 'wep_3d_sword_e', chance: 0.24 },
+    { itemId: 'arm_dg_abyss', chance: 0.24 },
+    { itemId: 'shd_dg_eclipse', chance: 0.24 },
+    { itemId: 'hlm_dg_oracle', chance: 0.24 },
+  ],
+};
 
 export const ENEMY_COLORS = [
   "#4ade80", // green

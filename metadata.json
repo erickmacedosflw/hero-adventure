@@ -1,5 +1,5 @@
 {
-  "name": "Lendas do Abismo RPG",
-  "description": "Um RPG de turnos em 3D com progressão infinita, loja e narrativa gerada por IA.",
+  "name": "Hero Adventure",
+  "description": "Um RPG tatico de aventura em 3D com preload de assets, combate por turnos e ferramentas internas de desenvolvimento.",
   "requestFramePermissions": []
 }
