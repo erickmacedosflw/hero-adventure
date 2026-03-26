@@ -1690,7 +1690,6 @@ export default function App() {
                         onDungeon={startDungeon}
             onShop={() => setGameState(GameState.SHOP)}
                         onAlchemist={() => setGameState(GameState.ALCHEMIST)}
-                        onChangeClass={handleChangePlayerClass}
             shopItems={ALL_ITEMS}
             onEquipItem={equipItem}
             onUseItem={handleUseItem}

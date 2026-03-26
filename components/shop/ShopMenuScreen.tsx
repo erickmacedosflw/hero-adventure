@@ -138,7 +138,6 @@ export const ShopMenuScreen: React.FC<ShopMenuScreenProps> = ({ player, items, o
       closeLabel="Voltar"
       accent="gold"
       valueBadge={<span className="inline-flex items-center gap-2.5"><GameAssetIcon name="coin" size={24} /> {player.gold}</span>}
-      headerAction={<button onClick={() => setMobileShowSell(true)} className="rpg-menu-tab inline-flex items-center gap-2.5 lg:hidden"><GameAssetIcon name="coinCopper" size={22} /> Vender</button>}
     >
       <div className="grid h-full min-h-0 grid-cols-1 gap-4 xl:grid-cols-[minmax(21rem,27rem)_minmax(0,1fr)_17rem]">
         <aside className="flex min-h-0 flex-col gap-4">

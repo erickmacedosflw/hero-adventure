@@ -1,4 +1,4 @@
-
+﻿
 import React, { useState, useEffect } from 'react';
 import { Player, Enemy, BattleLog, TurnState, Item, Skill, GameState, FloatingText, Rarity, ProgressionCard, CardRewardOffer, AlchemistCardOffer, AlchemistItemOffer, DungeonResult, DungeonRewards } from '../types';
 import { Sword, Shield, Zap, Heart, Coins, ShoppingBag, Skull, Play, Plus, FlaskConical, User, X, Home, LogOut, DollarSign, AlertTriangle, MousePointerClick, Shirt, Footprints, Crown, LayoutGrid, Sparkles, Crosshair, ArrowLeft, Star } from 'lucide-react';
@@ -9,7 +9,7 @@ import { InventoryScreen as InventoryModal } from './profile/InventoryScreen';
 import { ShopMenuScreen } from './shop/ShopMenuScreen';
 import { ALL_ITEMS, SKILLS } from '../constants';
 import { ALL_CARDS } from '../game/data/cards';
-import { getPlayerClassById, PLAYER_CLASSES } from '../game/data/classes';
+import { getPlayerClassById } from '../game/data/classes';
 
 interface GameUIProps {
   player: Player;
@@ -824,238 +824,216 @@ export const TavernScreen: React.FC<{
     onDungeon: () => void,
   onShop: () => void,
     onAlchemist: () => void,
-    onChangeClass: (classId: Player['classId']) => void,
   shopItems: Item[],
   onEquipItem: (item: Item) => void,
   onUseItem: (itemId: string) => void
-}> = ({ player, stage, killCount, dungeonEvolution, dungeonTotalMonsters, onHunt, onBoss, onDungeon, onShop, onAlchemist, onChangeClass, shopItems, onEquipItem, onUseItem }) => {
+}> = ({ player, killCount, onHunt, onBoss, onDungeon, onShop, onAlchemist, shopItems, onEquipItem, onUseItem }) => {
   const [showProfile, setShowProfile] = useState(false);
   const [showInventory, setShowInventory] = useState(false);
+    const [isClosing, setIsClosing] = useState(false);
   const bossUnlocked = killCount >= 10;
-        const currentClass = getPlayerClassById(player.classId);
-    const quickActions = [
+    const killsRemaining = Math.max(0, 10 - killCount);
+    const currentClass = getPlayerClassById(player.classId);
+    const hpPercent = player.stats.maxHp > 0 ? Math.min(100, (player.stats.hp / player.stats.maxHp) * 100) : 0;
+    const mpPercent = player.stats.maxMp > 0 ? Math.min(100, (player.stats.mp / player.stats.maxMp) * 100) : 0;
+    const xpPercent = player.xpToNext > 0 ? Math.min(100, (player.xp / player.xpToNext) * 100) : 0;
+    const profileActions = [
         {
             id: 'profile',
             label: 'Perfil',
-            description: 'Build, equipamentos e cartas escolhidas.',
-            icon: <User size={18} />,
-            accent: 'text-indigo-200 border-indigo-500/20 bg-indigo-500/10',
+            icon: <GameAssetIcon name="book" size={20} />,
+            accent: 'border-[#cfab91] bg-[#f4e5d4] text-[#6b3141] hover:bg-[#e9d7c2]',
             onClick: () => setShowProfile(true),
         },
         {
             id: 'inventory',
             label: 'Mochila',
-            description: 'Acesso direto a itens, consumiveis e gear.',
-            icon: <ShoppingBag size={18} />,
-            accent: 'text-emerald-200 border-emerald-500/20 bg-emerald-500/10',
+            icon: <GameAssetIcon name="bag" size={20} />,
+            accent: 'border-[#cfab91] bg-[#f4e5d4] text-[#6b3141] hover:bg-[#e9d7c2]',
             onClick: () => setShowInventory(true),
         },
+    ];
+    const serviceActions = [
         {
             id: 'merchant',
             label: 'Mercador',
-            description: 'Compre armas, armaduras e itens de suporte.',
-            icon: <Coins size={18} />,
-            accent: 'text-amber-200 border-amber-500/20 bg-amber-500/10',
+            subtitle: 'Loja de equipamentos',
+            icon: <GameAssetIcon name="chest" size={24} />,
+            resourceIcon: <GameAssetIcon name="coin" size={14} />,
+            resourceLabel: 'Ouro disponivel',
+            resourceValue: player.gold,
+            accent: 'border-amber-400/40 bg-amber-50 text-[#8d5e29] hover:bg-amber-100',
             onClick: onShop,
         },
         {
             id: 'alchemist',
             label: 'Alquimista',
-            description: 'Cartas raras e misturas que nao aparecem no fluxo normal.',
-            icon: <FlaskConical size={18} />,
-            accent: 'text-fuchsia-200 border-fuchsia-500/20 bg-fuchsia-500/10',
+            subtitle: 'Cartas e cristais raros',
+            icon: <GameAssetIcon name="diamond" size={24} />,
+            resourceIcon: <GameAssetIcon name="diamond" size={14} />,
+            resourceLabel: 'Diamantes disponiveis',
+            resourceValue: player.diamonds,
+            accent: 'border-cyan-400/40 bg-cyan-50 text-[#346c7f] hover:bg-cyan-100',
             onClick: onAlchemist,
         },
     ];
+
+    const handleMenuTransition = (target: 'hunt' | 'dungeon') => {
+        if (isClosing) return;
+        setIsClosing(true);
+        setTimeout(() => {
+            if (target === 'hunt') {
+                onHunt();
+                return;
+            }
+            onDungeon();
+        }, 240);
+    };
   
   return (
     <>
-     <div className="absolute inset-0 z-40 flex flex-col items-center justify-center bg-black/80 backdrop-blur-sm text-white pointer-events-auto p-4 md:p-8">
-                <div className="bg-slate-900 border-2 border-indigo-500/40 p-5 sm:p-8 rounded-2xl shadow-2xl max-w-6xl w-full max-h-[92dvh] overflow-y-auto custom-scrollbar flex flex-col gap-6 panel-glow game-surface">
-          
-                    <div className="grid grid-cols-1 xl:grid-cols-[1.2fr_0.9fr] gap-6">
-                        <div className="flex flex-col gap-5">
-                            <div className="rounded-[28px] border border-indigo-500/20 bg-[radial-gradient(circle_at_top_left,_rgba(99,102,241,0.18),_transparent_38%),linear-gradient(180deg,rgba(15,23,42,0.96),rgba(2,6,23,0.96))] p-5 sm:p-6 overflow-hidden relative">
-                                <div className="absolute inset-0 bg-[linear-gradient(rgba(148,163,184,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(148,163,184,0.05)_1px,transparent_1px)] bg-[size:28px_28px] opacity-30" />
-                                <div className="relative z-10 flex flex-col lg:flex-row lg:items-start lg:justify-between gap-5">
-                                    <div>
-                                        <div className="text-[11px] font-black uppercase tracking-[0.32em] text-indigo-300/80">Hub da Jornada</div>
-                                        <h2 className="mt-2 font-gamer text-3xl sm:text-4xl font-black text-indigo-100">Taverna do Abismo</h2>
-                                        <p className="mt-2 text-slate-300 max-w-xl">O menu agora funciona como um painel central. Mochila, perfil, mercador e alquimista ficam acessiveis sem precisar atravessar outras telas.</p>
+     <div className={`absolute inset-0 z-40 flex items-center justify-center bg-black/45 backdrop-blur-[2px] text-white pointer-events-auto p-3 sm:p-4 md:p-6 ${isClosing ? 'animate-[tavernBackdropOut_240ms_ease-in_forwards]' : 'animate-[tavernBackdropIn_280ms_ease-out_both]'}`}>
+                <style>{`
+                    @keyframes tavernBackdropIn {
+                        0% { opacity: 0; }
+                        100% { opacity: 1; }
+                    }
+                    @keyframes tavernBackdropOut {
+                        0% { opacity: 1; }
+                        100% { opacity: 0; }
+                    }
+                    @keyframes tavernCardIn {
+                        0% { opacity: 0; transform: translateY(22px) scale(0.98); }
+                        100% { opacity: 1; transform: translateY(0) scale(1); }
+                    }
+                    @keyframes tavernCardOut {
+                        0% { opacity: 1; transform: translateY(0) scale(1); }
+                        100% { opacity: 0; transform: translateY(-14px) scale(0.985); }
+                    }
+                `}</style>
+                <div className={`w-full max-w-5xl rounded-[28px] border border-[#cfab91] bg-[#f7ecdd]/95 p-4 sm:p-6 lg:p-8 max-h-[92dvh] overflow-y-auto custom-scrollbar shadow-[0_24px_90px_rgba(0,0,0,0.32)] ${isClosing ? 'animate-[tavernCardOut_240ms_ease-in_forwards]' : 'animate-[tavernCardIn_320ms_ease-out_both]'}`}>
+                    <div className="grid gap-4 sm:gap-5 lg:grid-cols-[1.08fr_0.92fr]">
+                        <section className="rounded-2xl border border-[#cfab91] bg-[#fff7ed] p-4 sm:p-5">
+                            <div className="flex items-start justify-between gap-3">
+                                <div>
+                                    <div className="text-[10px] font-black uppercase tracking-[0.26em] text-[#9a7068]">Painel do jogador</div>
+                                    <h2 className="mt-1 font-gamer text-2xl sm:text-3xl text-[#6b3141]">{player.name}</h2>
+                                    <p className="mt-1 text-xs sm:text-sm text-[#8f6c67]">{currentClass.name} • {currentClass.title}</p>
+                                </div>
+                                <div className="rounded-xl border border-[#cfab91] bg-[#f4e5d4] px-3 py-2 text-center min-w-[4.5rem]">
+                                    <div className="text-[10px] uppercase tracking-[0.22em] text-[#9a7068]">Nivel</div>
+                                    <div className="text-xl font-black text-[#6b3141]">{player.level}</div>
+                                </div>
+                            </div>
+
+                            <div className="mt-4 space-y-3">
+                                <div>
+                                    <div className="mb-1 flex items-center justify-between text-xs font-bold uppercase tracking-[0.16em] text-[#9a4151]">
+                                        <span>Vida</span>
+                                        <span>{player.stats.hp}/{player.stats.maxHp}</span>
                                     </div>
-                                    <div className="grid grid-cols-2 gap-3 min-w-full sm:min-w-[18rem] lg:min-w-[20rem]">
-                                        <div className="rounded-2xl border border-slate-700 bg-slate-950/70 px-4 py-3">
-                                            <div className="text-[10px] uppercase tracking-[0.24em] text-slate-500">Fase</div>
-                                            <div className="text-2xl font-black text-white">{stage}</div>
-                                        </div>
-                                        <div className="rounded-2xl border border-slate-700 bg-slate-950/70 px-4 py-3">
-                                            <div className="text-[10px] uppercase tracking-[0.24em] text-slate-500">Ouro</div>
-                                            <div className="text-2xl font-black text-amber-200">{player.gold}</div>
-                                        </div>
-                                        <div className="rounded-2xl border border-slate-700 bg-slate-950/70 px-4 py-3">
-                                            <div className="text-[10px] uppercase tracking-[0.24em] text-slate-500">Diamantes</div>
-                                            <div className="text-2xl font-black text-cyan-200">{player.diamonds}</div>
-                                        </div>
-                                        <div className="rounded-2xl border border-slate-700 bg-slate-950/70 px-4 py-3">
-                                            <div className="text-[10px] uppercase tracking-[0.24em] text-slate-500">Nivel</div>
-                                            <div className="text-2xl font-black text-cyan-100">{player.level}</div>
-                                        </div>
-                                        <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/5 px-4 py-3 col-span-2 sm:col-span-1">
-                                            <div className="text-[10px] uppercase tracking-[0.24em] text-slate-500">Classe ativa</div>
-                                            <div className="text-xl font-black text-cyan-100">{currentClass.name}</div>
-                                            <div className="text-[11px] text-slate-400 mt-1">{currentClass.title}</div>
-                                        </div>
-                                        <div className="rounded-2xl border border-slate-700 bg-slate-950/70 px-4 py-3 col-span-2 sm:col-span-1">
-                                            <div className="text-[10px] uppercase tracking-[0.24em] text-slate-500">HP Atual</div>
-                                            <div className="text-2xl font-black text-emerald-200">{player.stats.hp}/{player.stats.maxHp}</div>
-                                        </div>
+                                    <div className="h-2 rounded-full bg-[#e9d7c2] overflow-hidden border border-[#dcc0aa]">
+                                        <div className="h-full rounded-full bg-[linear-gradient(90deg,#8d2f46,#d17482)] transition-all" style={{ width: `${hpPercent}%` }} />
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <div className="mb-1 flex items-center justify-between text-xs font-bold uppercase tracking-[0.16em] text-[#346c7f]">
+                                        <span>Mana</span>
+                                        <span>{player.stats.mp}/{player.stats.maxMp}</span>
+                                    </div>
+                                    <div className="h-2 rounded-full bg-[#e9d7c2] overflow-hidden border border-[#dcc0aa]">
+                                        <div className="h-full rounded-full bg-[linear-gradient(90deg,#2b6878,#66b8d2)] transition-all" style={{ width: `${mpPercent}%` }} />
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <div className="mb-1 flex items-center justify-between text-xs font-bold uppercase tracking-[0.16em] text-[#8d5e29]">
+                                        <span>XP</span>
+                                        <span>{player.xp}/{player.xpToNext}</span>
+                                    </div>
+                                    <div className="h-2 rounded-full bg-[#e9d7c2] overflow-hidden border border-[#dcc0aa]">
+                                        <div className="h-full rounded-full bg-[linear-gradient(90deg,#7d3d4d,#c89a66)] transition-all" style={{ width: `${xpPercent}%` }} />
                                     </div>
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {quickActions.map(action => (
+                            <div className="mt-4 grid grid-cols-2 gap-2">
+                                {profileActions.map((action) => (
                                     <button
                                         key={action.id}
                                         onClick={action.onClick}
-                                        className="group rounded-2xl border border-slate-700 bg-slate-950/70 p-5 text-left transition-all hover:-translate-y-1 hover:border-slate-500 hover:shadow-[0_18px_40px_rgba(2,6,23,0.5)]"
+                                        className={`rounded-xl border px-3 py-2.5 transition-all flex items-center justify-center gap-2 font-black uppercase tracking-[0.16em] text-xs ${action.accent}`}
                                     >
-                                        <div className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-black uppercase tracking-[0.24em] ${action.accent}`}>
-                                            {action.icon}
-                                            <span>{action.label}</span>
-                                        </div>
-                                        <div className="mt-4 text-xl font-black text-white group-hover:text-cyan-100 transition-colors">{action.label}</div>
-                                        <p className="mt-2 text-sm text-slate-400 leading-relaxed">{action.description}</p>
+                                        {action.icon}
+                                        <span>{action.label}</span>
                                     </button>
                                 ))}
                             </div>
+                        </section>
 
-                            <div className="rounded-[28px] border border-cyan-500/20 bg-[radial-gradient(circle_at_top_left,_rgba(34,211,238,0.14),_transparent_38%),linear-gradient(180deg,rgba(8,47,73,0.92),rgba(2,6,23,0.98))] p-5 sm:p-6">
-                                <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-                                    <div>
-                                        <div className="text-[11px] font-black uppercase tracking-[0.32em] text-cyan-200/80">Registro de Classes</div>
-                                        <h3 className="mt-2 text-2xl font-black text-cyan-50">Troca de classe na taverna</h3>
-                                        <p className="mt-2 max-w-2xl text-sm text-slate-300">Cada classe define os atributos-base do heroi. Escolha a que melhor combina com seu estilo e equipe direto pela taverna.</p>
-                                    </div>
-                                    <div className="rounded-full border border-cyan-400/20 bg-cyan-500/10 px-4 py-2 text-xs font-black uppercase tracking-[0.24em] text-cyan-100">
-                                        Classe atual: {currentClass.name}
-                                    </div>
-                                </div>
-
-                                <div className="mt-5 grid grid-cols-1 xl:grid-cols-2 gap-4">
-                                    {PLAYER_CLASSES.map((playerClass) => {
-                                        const isActive = playerClass.id === player.classId;
-
-                                        return (
-                                            <div key={playerClass.id} className={`rounded-2xl border p-5 transition-all ${isActive ? 'border-cyan-400/40 bg-cyan-500/10 shadow-[0_18px_40px_rgba(8,145,178,0.18)]' : 'border-slate-700 bg-slate-950/70 hover:border-cyan-500/30'}`}>
-                                                <div className="flex items-start justify-between gap-4">
-                                                    <div>
-                                                        <div className="text-[10px] font-black uppercase tracking-[0.28em] text-cyan-300/70">{playerClass.title}</div>
-                                                        <div className="mt-2 text-2xl font-black text-white">{playerClass.name}</div>
-                                                        <p className="mt-2 text-sm leading-relaxed text-slate-300">{playerClass.description}</p>
-                                                    </div>
-                                                    <div className={`rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.24em] ${isActive ? 'border-cyan-300/40 bg-cyan-400/15 text-cyan-100' : 'border-slate-700 bg-slate-900 text-slate-400'}`}>
-                                                        {isActive ? 'Ativa' : 'Disponivel'}
-                                                    </div>
+                        <section className="rounded-2xl border border-[#cfab91] bg-[#fff7ed] p-4 sm:p-5">
+                            <div className="text-[10px] font-black uppercase tracking-[0.26em] text-[#9a7068]">Servicos</div>
+                            <h3 className="mt-2 text-xl sm:text-2xl font-black text-[#6b3141]">Mercador e Alquimista</h3>
+                            <div className="grid grid-cols-1 gap-3">
+                                {serviceActions.map((action) => (
+                                    <button
+                                        key={action.id}
+                                        onClick={action.onClick}
+                                        className={`rounded-2xl border p-4 transition-all hover:-translate-y-0.5 ${action.accent}`}
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-11 h-11 rounded-xl border border-[#dcc0aa] bg-[#f7ecdd] flex items-center justify-center shrink-0">{action.icon}</div>
+                                            <div className="text-left">
+                                                <div className="text-base font-black uppercase tracking-[0.1em]">{action.label}</div>
+                                                <div className="text-xs font-semibold opacity-80">{action.subtitle}</div>
+                                                <div className="mt-1 inline-flex items-center gap-1.5 rounded-full border border-current/30 bg-white/60 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.14em]">
+                                                    {action.resourceIcon}
+                                                    <span>{action.resourceLabel}</span>
+                                                    <span>{action.resourceValue}</span>
                                                 </div>
-
-                                                <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
-                                                    <div className="rounded-xl border border-slate-800 bg-slate-950/70 px-3 py-2">
-                                                        <div className="text-[10px] uppercase tracking-[0.2em] text-slate-500">HP</div>
-                                                        <div className="mt-1 font-black text-emerald-200">{playerClass.baseStats.maxHp}</div>
-                                                    </div>
-                                                    <div className="rounded-xl border border-slate-800 bg-slate-950/70 px-3 py-2">
-                                                        <div className="text-[10px] uppercase tracking-[0.2em] text-slate-500">MP</div>
-                                                        <div className="mt-1 font-black text-sky-200">{playerClass.baseStats.maxMp}</div>
-                                                    </div>
-                                                    <div className="rounded-xl border border-slate-800 bg-slate-950/70 px-3 py-2">
-                                                        <div className="text-[10px] uppercase tracking-[0.2em] text-slate-500">ATK</div>
-                                                        <div className="mt-1 font-black text-amber-200">{playerClass.baseStats.atk}</div>
-                                                    </div>
-                                                    <div className="rounded-xl border border-slate-800 bg-slate-950/70 px-3 py-2">
-                                                        <div className="text-[10px] uppercase tracking-[0.2em] text-slate-500">DEF</div>
-                                                        <div className="mt-1 font-black text-indigo-200">{playerClass.baseStats.def}</div>
-                                                    </div>
-                                                </div>
-
-                                                <button
-                                                    onClick={() => onChangeClass(playerClass.id)}
-                                                    disabled={isActive}
-                                                    className={`mt-5 w-full rounded-xl px-4 py-3 font-black uppercase tracking-[0.2em] transition-all ${isActive ? 'cursor-default border border-cyan-300/20 bg-cyan-300/10 text-cyan-100' : 'border border-cyan-400/30 bg-cyan-500/10 text-cyan-50 hover:bg-cyan-500/20 hover:-translate-y-0.5'}`}
-                                                >
-                                                    {isActive ? 'Classe equipada' : 'Equipar classe'}
-                                                </button>
                                             </div>
-                                        );
-                                    })}
-                                </div>
+                                        </div>
+                                    </button>
+                                ))}
                             </div>
-                        </div>
+                        </section>
 
-                        <div className="flex flex-col justify-center gap-4 rounded-[28px] border border-slate-700 bg-[radial-gradient(circle_at_top,_rgba(239,68,68,0.12),_transparent_34%),linear-gradient(180deg,rgba(15,23,42,0.94),rgba(2,6,23,0.98))] p-5 sm:p-6">
-                         <div className="text-center mb-2">
-                <h3 className="text-slate-400 font-bold uppercase tracking-widest text-xs mb-2">Progresso da Fase</h3>
-                <div className="flex items-center justify-center gap-2">
-                    <div className="flex-1 h-2 bg-slate-800 rounded-full overflow-hidden">
-                        <div className="h-full bg-red-600 transition-all" style={{width: `${Math.min(100, (killCount/10)*100)}%`}} />
+                        <section className="lg:col-span-2 rounded-2xl border border-[#cfab91] bg-[#f4e5d4] p-4 sm:p-5">
+                            <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                                <div>
+                                    <div className="text-[10px] font-black uppercase tracking-[0.26em] text-[#9a7068]">Acoes da jornada</div>
+                                    <h3 className="mt-1 text-2xl sm:text-3xl font-black text-[#6b3141]">Aventura</h3>
+                                </div>
+                                {!bossUnlocked && (
+                                    <div className="rounded-full border border-[#cfab91] bg-[#f7ecdd] px-3 py-1.5 text-xs font-black uppercase tracking-[0.18em] text-[#8f6c67]">
+                                        Faltam {killsRemaining} para liberar o chefao
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3">
+                                <button onClick={() => handleMenuTransition('hunt')} className="rounded-2xl border border-[#b26a2e] bg-[#b87a3a] px-4 py-5 text-center transition-all hover:-translate-y-0.5 hover:bg-[#c88a4a]">
+                                    <div className="flex items-center justify-center gap-2 text-lg font-black text-white"><Sword size={22} /> Cacar monstros</div>
+                                    <div className="mt-1 text-xs uppercase tracking-[0.18em] text-[#f8eddf]">Batalha rapida</div>
+                                </button>
+
+                                {bossUnlocked && (
+                                    <button onClick={onBoss} className="rounded-2xl border border-[#a83a42] bg-[#c44b54] px-4 py-5 text-center transition-all hover:-translate-y-0.5 hover:bg-[#b5424a]">
+                                        <div className="flex items-center justify-center gap-2 text-lg font-black text-white"><Skull size={22} /> Enfrentar chefao</div>
+                                        <div className="mt-1 text-xs uppercase tracking-[0.18em] text-rose-100">Avanca de fase</div>
+                                    </button>
+                                )}
+
+                                <button onClick={() => handleMenuTransition('dungeon')} className="rounded-2xl border border-[#3b6580] bg-[#4d7a96] px-4 py-5 text-center transition-all hover:-translate-y-0.5 hover:bg-[#5a8aa6]">
+                                    <div className="flex items-center justify-center gap-2 text-lg font-black text-white"><Crosshair size={22} /> Dungeon de aventura</div>
+                                    <div className="mt-1 text-xs uppercase tracking-[0.18em] text-sky-100">Modo progressivo</div>
+                                </button>
+                            </div>
+                        </section>
                     </div>
-                    <span className="text-sm font-mono">{Math.min(10, killCount)}/10</span>
                 </div>
-                {bossUnlocked && <div className="text-red-500 font-bold text-xs mt-1 animate-pulse">CHEFÃO DESBLOQUEADO!</div>}
-             </div>
-
-                 <button onClick={onHunt} className="w-full py-5 sm:py-6 bg-indigo-900/80 hover:bg-indigo-800 border border-indigo-500/50 rounded-xl font-black text-lg sm:text-xl transition-all hover:scale-[1.02] shadow-lg flex flex-col items-center group panel-glow">
-                <span className="flex items-center gap-2"><Sword size={24} className="group-hover:rotate-45 transition-transform"/> CAÇAR MONSTROS</span>
-                <span className="text-xs font-normal text-indigo-300 opacity-70">Ganhe Ouro e XP</span>
-             </button>
-
-             <button 
-                onClick={onBoss} 
-                disabled={!bossUnlocked}
-                className={`w-full py-5 sm:py-6 rounded-xl font-black text-lg sm:text-xl transition-all flex flex-col items-center shadow-lg relative overflow-hidden
-                    ${bossUnlocked 
-                        ? 'bg-red-900 hover:bg-red-800 border border-red-500 text-white hover:scale-105 cursor-pointer' 
-                        : 'bg-slate-800 border border-slate-700 text-slate-500 cursor-not-allowed grayscale'}
-                `}
-             >
-                <div className="z-10 flex flex-col items-center">
-                    <span className="flex items-center gap-2"><Skull size={24} /> ENFRENTAR CHEFÃO</span>
-                    <span className="text-xs font-normal opacity-70">{bossUnlocked ? 'Avançar para Próxima Fase' : 'Derrote 10 monstros para liberar'}</span>
-                </div>
-                {bossUnlocked && <div className="absolute inset-0 bg-red-600/20 animate-pulse" />}
-             </button>
-
-             <button onClick={onDungeon} className="w-full py-5 sm:py-6 rounded-xl font-black text-lg sm:text-xl transition-all flex flex-col items-center shadow-lg relative overflow-hidden border border-cyan-500/40 bg-cyan-950/70 hover:bg-cyan-900/70 text-white hover:scale-[1.02]">
-                <div className="z-10 flex flex-col items-center">
-                    <span className="flex items-center gap-2"><Crosshair size={24} /> ENTRAR NA DUNGEON</span>
-                    <span className="text-xs font-normal opacity-70">Evolução {dungeonEvolution} • {dungeonTotalMonsters} monstros, sem fuga e chefão no final</span>
-                </div>
-             </button>
-
-                 <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/5 px-4 py-4">
-                     <div className="flex items-center gap-3 text-cyan-200 font-black uppercase tracking-[0.24em] text-xs">
-                          <Crosshair size={16} /> Ciclo da dungeon
-                     </div>
-                     <p className="mt-2 text-sm text-slate-300">A cada vitória completa a dungeon evolui, os monstros ficam mais fortes e, a cada 3 evoluções, o caminho até o chefão cresce em 10 encontros.</p>
-                     <div className="mt-3 flex items-center justify-between rounded-xl border border-slate-700 bg-slate-950/70 px-4 py-3 text-sm">
-                         <span className="text-slate-400">Próximo ciclo</span>
-                         <span className="font-black text-cyan-100">{dungeonTotalMonsters} encontros antes do chefão</span>
-                     </div>
-                 </div>
-
-                 <div className="rounded-2xl border border-fuchsia-500/20 bg-fuchsia-500/5 px-4 py-4">
-                     <div className="flex items-center gap-3 text-fuchsia-200 font-black uppercase tracking-[0.24em] text-xs">
-                          <FlaskConical size={16} /> Oferta especial
-                     </div>
-                     <p className="mt-2 text-sm text-slate-300">O alquimista vende cartas exclusivas e raras em troca dos diamantes encontrados na dungeon.</p>
-                     <button onClick={onAlchemist} className="mt-4 w-full rounded-xl border border-fuchsia-500/30 bg-fuchsia-500/10 px-4 py-3 font-black text-fuchsia-100 transition-colors hover:bg-fuchsia-500/20">
-                          Ver estoque do alquimista
-                     </button>
-                 </div>
-                </div>
-          </div>
-       </div>
-    </div>
+            </div>
     {showProfile && <CharacterSheetModal player={player} shopItems={shopItems} onClose={() => setShowProfile(false)} onOpenInventory={() => { setShowProfile(false); setShowInventory(true); }} />}
     {showInventory && <InventoryModal player={player} shopItems={shopItems} onClose={() => setShowInventory(false)} onEquip={onEquipItem} onUse={onUseItem} />}
     </>
@@ -1260,6 +1238,7 @@ export const AlchemistScreen: React.FC<{ player: Player, offers: AlchemistCardOf
     const [selectedType, setSelectedType] = useState<'card' | 'item'>(offers.length > 0 ? 'card' : 'item');
     const [selectedCardOffer, setSelectedCardOffer] = useState<AlchemistCardOffer | null>(offers[0] ?? null);
     const [selectedItemOffer, setSelectedItemOffer] = useState<AlchemistItemOffer | null>(itemOffers[0] ?? null);
+    const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
 
     useEffect(() => {
         if (!selectedCardOffer || !offers.find(entry => entry.id === selectedCardOffer.id)) {
@@ -1282,206 +1261,355 @@ export const AlchemistScreen: React.FC<{ player: Player, offers: AlchemistCardOf
         }
     }, [selectedType, offers.length, itemOffers.length]);
 
+    useEffect(() => {
+        setMobileDetailOpen(false);
+    }, [selectedType]);
+
     const selectedCard = selectedType === 'card' ? selectedCardOffer : null;
     const selectedItem = selectedType === 'item' ? selectedItemOffer : null;
+    const isMobileViewport = () => typeof window !== 'undefined' && window.innerWidth < 1280;
+
+    const handleCardSelect = (offer: AlchemistCardOffer) => {
+        setSelectedCardOffer(offer);
+        if (isMobileViewport()) {
+            setMobileDetailOpen(true);
+        }
+    };
+
+    const handleItemSelect = (offer: AlchemistItemOffer) => {
+        setSelectedItemOffer(offer);
+        if (isMobileViewport()) {
+            setMobileDetailOpen(true);
+        }
+    };
 
     return (
-        <div className="absolute inset-0 z-40 bg-slate-950 text-white flex flex-col pointer-events-auto">
-            <header className="bg-slate-900 border-b border-slate-800 p-3 sm:p-4 flex flex-wrap gap-3 justify-between items-center shadow-lg z-10 shrink-0">
-                <div className="flex items-center gap-3">
-                    <div className="game-icon-badge w-10 h-10 text-fuchsia-300"><FlaskConical /></div>
-                    <div>
-                        <h2 className="font-bold text-xl text-fuchsia-100">Laboratório do Alquimista</h2>
-                        <p className="text-xs text-slate-500">Cartas raras e relíquias vendidas apenas por diamantes.</p>
-                    </div>
-                </div>
-                <div className="flex items-center gap-2 sm:gap-4">
-                    <div className="bg-black/40 px-4 py-2 rounded-full border border-slate-700 flex gap-2 items-center">
-                        <Sparkles className="text-cyan-400 w-4 h-4" />
-                        <span className="font-mono text-cyan-200">{player.diamonds}</span>
-                    </div>
-                    <button onClick={onLeave} className="px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded font-bold flex items-center gap-2">
-                        <Home size={16} /> Voltar
-                    </button>
-                </div>
-            </header>
-
-            <div className="flex-1 flex flex-col xl:flex-row overflow-hidden">
-                <div className="w-full xl:w-[26rem] bg-slate-900 border-b xl:border-b-0 xl:border-r border-slate-800 flex flex-col shrink-0 max-h-[44dvh] xl:max-h-none">
-                    <div className="p-4 border-b border-slate-800 bg-slate-950/60">
-                        <div className="flex gap-2">
-                            <button onClick={() => setSelectedType('card')} className={`flex-1 rounded-xl border px-3 py-2 text-xs font-black uppercase tracking-[0.22em] ${selectedType === 'card' ? 'border-fuchsia-400/60 bg-fuchsia-500/10 text-fuchsia-100' : 'border-slate-700 bg-slate-900 text-slate-400'}`}>
-                                Cartas
-                            </button>
-                            <button onClick={() => setSelectedType('item')} className={`flex-1 rounded-xl border px-3 py-2 text-xs font-black uppercase tracking-[0.22em] ${selectedType === 'item' ? 'border-cyan-400/60 bg-cyan-500/10 text-cyan-100' : 'border-slate-700 bg-slate-900 text-slate-400'}`}>
-                                Relíquias
-                            </button>
+        <div className="absolute inset-0 z-40 bg-black/45 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 pointer-events-auto">
+            <div className="w-full max-w-7xl max-h-[95vh] overflow-hidden rounded-[24px] border border-[#cfab91] bg-[#f7ecdd] shadow-[0_30px_120px_rgba(107,49,65,0.18)]">
+                <div className="border-b border-[#dcc0aa] px-4 py-3 sm:px-6 sm:py-4 flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-3 min-w-0">
+                        <div className="h-11 w-11 rounded-xl border border-[#d6b9a3] bg-[#f4e5d4] flex items-center justify-center shrink-0">
+                            <FlaskConical className="text-[#7c4c76]" size={18} />
                         </div>
-                        <p className="mt-3 text-sm text-slate-400">Cartas do alquimista são únicas. Relíquias podem ser recompradas quando houver diamantes suficientes.</p>
+                        <div>
+                            <div className="text-[10px] sm:text-xs font-black uppercase tracking-[0.28em] text-[#9a7068]">Laboratorio</div>
+                            <h2 className="text-lg sm:text-2xl font-black text-[#6b3141]">Alquimista</h2>
+                        </div>
                     </div>
-
-                    <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3">
-                        {selectedType === 'card' ? offers.map(offer => {
-                            const isSelected = selectedCardOffer?.id === offer.id;
-                            const alreadyOwned = player.chosenCards.includes(offer.card.id);
-                            const lockedByLevel = player.level < offer.card.minLevel;
-
-                            return (
-                                <button
-                                    key={offer.id}
-                                    onClick={() => setSelectedCardOffer(offer)}
-                                    className={`rounded-2xl border p-4 text-left transition-all ${isSelected ? 'border-fuchsia-400/60 bg-slate-800 shadow-lg' : 'border-slate-700 bg-slate-900/70 hover:bg-slate-800'} ${alreadyOwned ? 'opacity-60' : ''}`}
-                                >
-                                    <div className="flex items-start justify-between gap-3">
-                                        <div className="flex items-center gap-3 min-w-0">
-                                            <div className="h-14 w-14 shrink-0 rounded-2xl border border-white/10 bg-slate-950/80 flex items-center justify-center text-3xl">{offer.card.icon}</div>
-                                            <div className="min-w-0">
-                                                <div className="text-[10px] uppercase tracking-[0.24em] text-slate-500">{getCardRarityLabel(offer.card.rarity)}</div>
-                                                <div className="font-black text-base text-white truncate">{offer.card.name}</div>
-                                                <div className="mt-1 text-xs text-slate-400 line-clamp-2">{offer.tagline}</div>
-                                            </div>
-                                        </div>
-                                        <div className="text-right shrink-0">
-                                            <div className="text-xs font-black text-cyan-300">{offer.cost}💎</div>
-                                            <div className="text-[10px] text-slate-500">Lvl {offer.card.minLevel}+</div>
-                                        </div>
-                                    </div>
-                                    <div className="mt-3 flex flex-wrap gap-2">
-                                        <span className={`text-[10px] font-bold uppercase tracking-[0.2em] border rounded-full px-2.5 py-1 ${getCardCategoryMeta(offer.card).tone}`}>{getCardCategoryMeta(offer.card).label}</span>
-                                        {alreadyOwned && <span className="text-[10px] font-bold uppercase tracking-[0.2em] border rounded-full px-2.5 py-1 border-slate-600 bg-slate-800 text-slate-300">Comprada</span>}
-                                        {lockedByLevel && <span className="text-[10px] font-bold uppercase tracking-[0.2em] border rounded-full px-2.5 py-1 border-red-500/30 bg-red-500/10 text-red-200">Nivel baixo</span>}
-                                    </div>
-                                </button>
-                            );
-                        }) : itemOffers.map(offer => {
-                            const isSelected = selectedItemOffer?.id === offer.id;
-                            const lockedByLevel = player.level < offer.item.minLevel;
-                            const relicMeta = getAlchemistRelicMeta(offer.item);
-                            return (
-                                <button
-                                    key={offer.id}
-                                    onClick={() => setSelectedItemOffer(offer)}
-                                    className={`rounded-2xl border p-4 text-left transition-all ${isSelected ? 'border-cyan-400/60 bg-slate-800 shadow-lg' : 'border-slate-700 bg-slate-900/70 hover:bg-slate-800'}`}
-                                >
-                                    <div className="flex items-start justify-between gap-3">
-                                        <div className="flex items-center gap-3 min-w-0">
-                                            <div className="h-14 w-14 shrink-0 rounded-2xl border border-white/10 bg-slate-950/80 flex items-center justify-center text-3xl">{offer.item.icon}</div>
-                                            <div className="min-w-0">
-                                                <div className="text-[10px] uppercase tracking-[0.24em] text-slate-500">Relíquia rara</div>
-                                                <div className="font-black text-base text-white truncate">{offer.item.name}</div>
-                                                <div className="mt-1 text-xs text-slate-400 line-clamp-2">{offer.tagline}</div>
-                                            </div>
-                                        </div>
-                                        <div className="text-right shrink-0">
-                                            <div className="text-xs font-black text-cyan-300">{offer.cost}💎</div>
-                                            <div className="text-[10px] text-slate-500">Lvl {offer.item.minLevel}+</div>
-                                        </div>
-                                    </div>
-                                    <div className="mt-3 flex flex-wrap gap-2">
-                                        <span className="text-[10px] font-bold uppercase tracking-[0.2em] border rounded-full px-2.5 py-1 border-cyan-500/30 bg-cyan-500/10 text-cyan-100">{relicMeta.badge}</span>
-                                        {lockedByLevel && <span className="text-[10px] font-bold uppercase tracking-[0.2em] border rounded-full px-2.5 py-1 border-red-500/30 bg-red-500/10 text-red-200">Nivel baixo</span>}
-                                    </div>
-                                </button>
-                            );
-                        })}
+                    <div className="flex items-center gap-2 sm:gap-3">
+                        <div className="rounded-full border border-[#cfab91] bg-[#f4e5d4] px-3 py-1.5 flex items-center gap-2">
+                            <GameAssetIcon name="diamond" size={16} />
+                            <span className="font-black text-[#346c7f] text-sm">{player.diamonds}</span>
+                        </div>
+                        <button onClick={onLeave} className="rounded-xl border border-[#cfab91] bg-[#f4e5d4] px-3 sm:px-4 py-2 font-black text-[#6b3141] transition-colors hover:bg-[#e9d7c2] flex items-center gap-2">
+                            <Home size={16} /> Voltar
+                        </button>
                     </div>
                 </div>
 
-                <div className="flex-1 flex flex-col bg-[radial-gradient(circle_at_top,_rgba(217,70,239,0.14),_transparent_34%),linear-gradient(180deg,rgba(15,23,42,0.95),rgba(2,6,23,0.98))]">
-                    {selectedType === 'card' && selectedCard ? (() => {
-                        const alreadyOwned = player.chosenCards.includes(selectedCard.card.id);
-                        const canAfford = player.diamonds >= selectedCard.cost;
-                        const hasLevel = player.level >= selectedCard.card.minLevel;
-                        const effectLines = describeCardEffect(selectedCard.card);
+                <div className="grid grid-cols-1 xl:grid-cols-[24rem_1fr] h-[calc(95vh-78px)]">
+                    <aside className="border-b xl:border-b-0 xl:border-r border-[#dcc0aa] bg-[#f4e5d4]/60 flex flex-col min-h-0">
+                        <div className="p-3 sm:p-4 border-b border-[#dcc0aa]">
+                            <div className="grid grid-cols-2 gap-2">
+                                <button
+                                    onClick={() => {
+                                        setSelectedType('card');
+                                        setMobileDetailOpen(false);
+                                    }}
+                                    className={`rounded-xl border px-3 py-2 text-xs font-black uppercase tracking-[0.22em] transition-colors ${selectedType === 'card' ? 'border-[#b84a63] bg-[#fbe8ec] text-[#7d3d4d]' : 'border-[#cfab91] bg-[#f7ecdd] text-[#8f6c67] hover:bg-[#efe0cd]'}`}
+                                >
+                                    Cartas
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        setSelectedType('item');
+                                        setMobileDetailOpen(false);
+                                    }}
+                                    className={`rounded-xl border px-3 py-2 text-xs font-black uppercase tracking-[0.22em] transition-colors ${selectedType === 'item' ? 'border-[#3b6580] bg-[#e3f2f7] text-[#346c7f]' : 'border-[#cfab91] bg-[#f7ecdd] text-[#8f6c67] hover:bg-[#efe0cd]'}`}
+                                >
+                                    Reliquias
+                                </button>
+                            </div>
+                        </div>
 
-                        return (
-                            <>
-                                <div className="flex-1 overflow-y-auto p-5 sm:p-8">
-                                    <div className="rounded-[28px] border border-fuchsia-500/20 bg-slate-950/70 p-6 sm:p-8">
-                                        <div className="flex flex-col lg:flex-row lg:items-start gap-6 justify-between">
-                                            <div className="max-w-3xl">
-                                                <div className="inline-flex items-center gap-2 rounded-full border border-fuchsia-500/30 bg-fuchsia-500/10 px-3 py-1 text-xs font-black uppercase tracking-[0.24em] text-fuchsia-200">
-                                                    <FlaskConical size={14} /> Exclusiva do alquimista
+                        <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3">
+                            {selectedType === 'card' ? offers.map((offer) => {
+                                const isSelected = selectedCardOffer?.id === offer.id;
+                                const alreadyOwned = player.chosenCards.includes(offer.card.id);
+                                const lockedByLevel = player.level < offer.card.minLevel;
+                                const category = getCardCategoryBadge(offer.card);
+
+                                return (
+                                    <button
+                                        key={offer.id}
+                                        onClick={() => handleCardSelect(offer)}
+                                        className={`w-full text-left rounded-[16px] border p-3.5 transition-all ${isSelected ? 'border-[#c59d82] bg-[#fff7ed] shadow-md' : 'border-[#cfab91] bg-[#f7ecdd] hover:-translate-y-0.5 hover:shadow-md'} ${alreadyOwned ? 'opacity-70' : ''}`}
+                                    >
+                                        <div className="flex items-start justify-between gap-3">
+                                            <div className="flex items-center gap-3 min-w-0">
+                                                <div className="h-12 w-12 rounded-xl border border-[#dcc0aa] bg-[#f8eddf] flex items-center justify-center shrink-0">
+                                                    <GameAssetIcon name="scroll" size={28} />
                                                 </div>
-                                                <h3 className="mt-4 text-3xl sm:text-4xl font-black text-white">{selectedCard.card.name}</h3>
-                                                <p className="mt-3 text-base text-slate-300 leading-relaxed">{selectedCard.card.description}</p>
-                                                <p className="mt-4 text-sm text-fuchsia-200/90">{selectedCard.tagline}</p>
+                                                <div className="min-w-0">
+                                                    <div className="text-[9px] uppercase tracking-[0.24em] text-[#9a7068]">{getCardRarityLabel(offer.card.rarity)}</div>
+                                                    <div className="font-black text-[#6b3141] truncate">{offer.card.name}</div>
+                                                    <div className="text-[11px] text-[#8f6c67] truncate">{offer.tagline}</div>
+                                                </div>
                                             </div>
-                                            <div className="grid grid-cols-2 gap-3 min-w-full sm:min-w-[18rem] lg:min-w-[20rem]">
-                                                <div className="rounded-2xl border border-slate-700 bg-slate-950/70 px-4 py-3"><div className="text-[10px] uppercase tracking-[0.24em] text-slate-500">Preco</div><div className="text-2xl font-black text-cyan-200">{selectedCard.cost} diamantes</div></div>
-                                                <div className="rounded-2xl border border-slate-700 bg-slate-950/70 px-4 py-3"><div className="text-[10px] uppercase tracking-[0.24em] text-slate-500">Requisito</div><div className="text-2xl font-black text-cyan-100">Lvl {selectedCard.card.minLevel}</div></div>
-                                                <div className="rounded-2xl border border-slate-700 bg-slate-950/70 px-4 py-3"><div className="text-[10px] uppercase tracking-[0.24em] text-slate-500">Raridade</div><div className="text-2xl font-black text-fuchsia-100">{getCardRarityLabel(selectedCard.card.rarity)}</div></div>
-                                                <div className="rounded-2xl border border-slate-700 bg-slate-950/70 px-4 py-3"><div className="text-[10px] uppercase tracking-[0.24em] text-slate-500">Status</div><div className="text-lg font-black text-white">{alreadyOwned ? 'Comprada' : canAfford && hasLevel ? 'Pronta' : 'Bloqueada'}</div></div>
+                                            <div className="text-right shrink-0">
+                                                <div className="text-xs font-black text-[#346c7f]">{offer.cost} 💎</div>
+                                                <div className="text-[10px] text-[#9a7068]">Lvl {offer.card.minLevel}+</div>
                                             </div>
                                         </div>
-                                        <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-4">
-                                            {effectLines.map(line => (
-                                                <div key={line} className="rounded-2xl border border-slate-800 bg-black/25 px-4 py-3 text-sm font-semibold text-slate-100">{line}</div>
-                                            ))}
+                                        <div className="mt-2 flex flex-wrap gap-1.5">
+                                            <span className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-[0.18em] border rounded-full px-2 py-0.5 ${category.color}`}>
+                                                {category.icon}
+                                                <span>{category.label}</span>
+                                            </span>
+                                            {alreadyOwned && <span className="text-[10px] font-bold uppercase tracking-[0.18em] border rounded-full px-2 py-0.5 border-[#cfab91] bg-[#efe0cd] text-[#8f6c67]">Comprada</span>}
+                                            {lockedByLevel && <span className="text-[10px] font-bold uppercase tracking-[0.18em] border rounded-full px-2 py-0.5 border-red-300 bg-red-50 text-red-700">Nivel</span>}
+                                        </div>
+                                    </button>
+                                );
+                            }) : itemOffers.map((offer) => {
+                                const isSelected = selectedItemOffer?.id === offer.id;
+                                const lockedByLevel = player.level < offer.item.minLevel;
+                                const relicMeta = getAlchemistRelicMeta(offer.item);
+
+                                return (
+                                    <button
+                                        key={offer.id}
+                                        onClick={() => handleItemSelect(offer)}
+                                        className={`w-full text-left rounded-[16px] border p-3.5 transition-all ${isSelected ? 'border-[#8eb4c0] bg-[#f0fbff] shadow-md' : 'border-[#cfab91] bg-[#f7ecdd] hover:-translate-y-0.5 hover:shadow-md'}`}
+                                    >
+                                        <div className="flex items-start justify-between gap-3">
+                                            <div className="flex items-center gap-3 min-w-0">
+                                                <div className="h-12 w-12 rounded-xl border border-[#dcc0aa] bg-[#f8eddf] flex items-center justify-center text-2xl shrink-0">{offer.item.icon}</div>
+                                                <div className="min-w-0">
+                                                    <div className="text-[9px] uppercase tracking-[0.24em] text-[#9a7068]">Reliquia</div>
+                                                    <div className="font-black text-[#6b3141] truncate">{offer.item.name}</div>
+                                                    <div className="text-[11px] text-[#8f6c67] truncate">{offer.tagline}</div>
+                                                </div>
+                                            </div>
+                                            <div className="text-right shrink-0">
+                                                <div className="text-xs font-black text-[#346c7f]">{offer.cost} 💎</div>
+                                                <div className="text-[10px] text-[#9a7068]">Lvl {offer.item.minLevel}+</div>
+                                            </div>
+                                        </div>
+                                        <div className="mt-2 flex flex-wrap gap-1.5">
+                                            <span className="text-[10px] font-bold uppercase tracking-[0.18em] border rounded-full px-2 py-0.5 border-cyan-300 bg-cyan-100 text-cyan-700">{relicMeta.badge}</span>
+                                            {lockedByLevel && <span className="text-[10px] font-bold uppercase tracking-[0.18em] border rounded-full px-2 py-0.5 border-red-300 bg-red-50 text-red-700">Nivel</span>}
+                                        </div>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </aside>
+
+                    <section className="hidden xl:block min-h-0 overflow-y-auto p-4 sm:p-6 bg-[#f7ecdd]">
+                        {selectedType === 'card' && selectedCard ? (() => {
+                            const alreadyOwned = player.chosenCards.includes(selectedCard.card.id);
+                            const canAfford = player.diamonds >= selectedCard.cost;
+                            const hasLevel = player.level >= selectedCard.card.minLevel;
+                            const effectLines = describeCardEffect(selectedCard.card);
+                            const category = getCardCategoryBadge(selectedCard.card);
+
+                            return (
+                                <div className="rounded-[20px] border border-[#cfab91] bg-[#fff7ed] p-4 sm:p-6">
+                                    <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+                                        <div className="min-w-0">
+                                            <div className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-[11px] font-black uppercase tracking-[0.22em] ${category.color}`}>
+                                                {category.icon}
+                                                <span>{category.label}</span>
+                                            </div>
+                                            <h3 className="mt-3 text-2xl sm:text-4xl font-black text-[#6b3141]">{selectedCard.card.name}</h3>
+                                            <p className="mt-2 text-sm sm:text-base text-[#7f5b56] leading-relaxed">{selectedCard.card.description}</p>
+                                        </div>
+                                        <div className="rounded-xl border border-[#cfab91] bg-[#f4e5d4] px-3 py-2 text-center">
+                                            <div className="text-[10px] uppercase tracking-[0.2em] text-[#9a7068]">Preco</div>
+                                            <div className="text-2xl font-black text-[#346c7f]">{selectedCard.cost}</div>
                                         </div>
                                     </div>
-                                </div>
-                                <div className="border-t border-slate-800 bg-slate-900/90 px-5 sm:px-8 py-5 flex flex-col lg:flex-row gap-4 lg:items-center lg:justify-between">
-                                    <div className="text-sm text-slate-400">{alreadyOwned ? 'Essa carta ja faz parte da sua build e saiu do estoque.' : !hasLevel ? `Alcance o nivel ${selectedCard.card.minLevel} para liberar a compra.` : !canAfford ? 'Junte mais diamantes para adquirir essa formula.' : 'A compra aplica o efeito imediatamente no personagem.'}</div>
-                                    <button
-                                        onClick={() => onBuyCard(selectedCard)}
-                                        disabled={alreadyOwned || !canAfford || !hasLevel}
-                                        className={`w-full lg:w-auto px-8 py-4 rounded-xl font-black text-base shadow-xl transition-all flex items-center justify-center gap-3 ${alreadyOwned || !canAfford || !hasLevel ? 'bg-slate-800 text-slate-500 cursor-not-allowed' : 'bg-fuchsia-600 hover:bg-fuchsia-500 text-white hover:-translate-y-1 shadow-[0_12px_30px_rgba(192,38,211,0.35)]'}`}
-                                    >
-                                        <FlaskConical size={18} /> Comprar carta exclusiva
-                                    </button>
-                                </div>
-                            </>
-                        );
-                    })() : selectedType === 'item' && selectedItem ? (() => {
-                        const canAfford = player.diamonds >= selectedItem.cost;
-                        const hasLevel = player.level >= selectedItem.item.minLevel;
-                        const ownedQty = player.inventory[selectedItem.item.id] || 0;
-                        const relicMeta = getAlchemistRelicMeta(selectedItem.item);
-                        return (
-                            <>
-                                <div className="flex-1 overflow-y-auto p-5 sm:p-8">
-                                    <div className="rounded-[28px] border border-cyan-500/20 bg-slate-950/70 p-6 sm:p-8">
-                                        <div className="flex flex-col lg:flex-row lg:items-start gap-6 justify-between">
-                                            <div className="max-w-3xl">
-                                                <div className="inline-flex items-center gap-2 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-3 py-1 text-xs font-black uppercase tracking-[0.24em] text-cyan-200">
-                                                    <Sparkles size={14} /> {relicMeta.title}
-                                                </div>
-                                                <h3 className="mt-4 text-3xl sm:text-4xl font-black text-white">{selectedItem.item.name}</h3>
-                                                <p className="mt-3 text-base text-slate-300 leading-relaxed">{selectedItem.item.description}</p>
-                                                <p className="mt-4 text-sm text-cyan-200/90">{selectedItem.tagline}</p>
-                                            </div>
-                                            <div className="grid grid-cols-2 gap-3 min-w-full sm:min-w-[18rem] lg:min-w-[20rem]">
-                                                <div className="rounded-2xl border border-slate-700 bg-slate-950/70 px-4 py-3"><div className="text-[10px] uppercase tracking-[0.24em] text-slate-500">Preco</div><div className="text-2xl font-black text-cyan-200">{selectedItem.cost} diamantes</div></div>
-                                                <div className="rounded-2xl border border-slate-700 bg-slate-950/70 px-4 py-3"><div className="text-[10px] uppercase tracking-[0.24em] text-slate-500">Requisito</div><div className="text-2xl font-black text-cyan-100">Lvl {selectedItem.item.minLevel}</div></div>
-                                                <div className="rounded-2xl border border-slate-700 bg-slate-950/70 px-4 py-3"><div className="text-[10px] uppercase tracking-[0.24em] text-slate-500">Estoque</div><div className="text-2xl font-black text-white">x{ownedQty}</div></div>
-                                                <div className="rounded-2xl border border-slate-700 bg-slate-950/70 px-4 py-3"><div className="text-[10px] uppercase tracking-[0.24em] text-slate-500">Uso</div><div className="text-lg font-black text-white">{relicMeta.useLabel}</div></div>
-                                            </div>
-                                        </div>
-                                        <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-4">
-                                            {relicMeta.lines.map(line => (
-                                                <div key={line} className="rounded-2xl border border-slate-800 bg-black/25 px-4 py-3 text-sm font-semibold text-slate-100">{line}</div>
-                                            ))}
-                                        </div>
+
+                                    <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-3">
+                                        {effectLines.map(line => (
+                                            <div key={line} className="rounded-xl border border-[#dcc0aa] bg-[#f4e5d4] px-3 py-2 text-sm font-semibold text-[#6b3141]">{line}</div>
+                                        ))}
+                                    </div>
+
+                                    <div className="mt-5 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+                                        <div className="text-sm text-[#8f6c67]">{alreadyOwned ? 'Carta ja comprada.' : !hasLevel ? `Nivel ${selectedCard.card.minLevel} necessario.` : !canAfford ? 'Diamantes insuficientes.' : selectedCard.tagline}</div>
+                                        <button
+                                            onClick={() => onBuyCard(selectedCard)}
+                                            disabled={alreadyOwned || !canAfford || !hasLevel}
+                                            className={`rounded-xl px-5 py-3 font-black uppercase tracking-[0.16em] transition-all ${alreadyOwned || !canAfford || !hasLevel ? 'bg-[#e9d7c2] text-[#8f6c67] cursor-not-allowed border border-[#dcc0aa]' : 'bg-[#b84a63] text-white hover:bg-[#a53d56] border border-[#a53d56]'}`}
+                                        >
+                                            Comprar carta
+                                        </button>
                                     </div>
                                 </div>
-                                <div className="border-t border-slate-800 bg-slate-900/90 px-5 sm:px-8 py-5 flex flex-col lg:flex-row gap-4 lg:items-center lg:justify-between">
-                                    <div className="text-sm text-slate-400">{!hasLevel ? `Alcance o nivel ${selectedItem.item.minLevel} para liberar a compra.` : !canAfford ? 'Junte mais diamantes para adquirir a relíquia.' : relicMeta.footer}</div>
-                                    <button
-                                        onClick={() => onBuyItem(selectedItem)}
-                                        disabled={!canAfford || !hasLevel}
-                                        className={`w-full lg:w-auto px-8 py-4 rounded-xl font-black text-base shadow-xl transition-all flex items-center justify-center gap-3 ${!canAfford || !hasLevel ? 'bg-slate-800 text-slate-500 cursor-not-allowed' : 'bg-cyan-600 hover:bg-cyan-500 text-white hover:-translate-y-1 shadow-[0_12px_30px_rgba(8,145,178,0.35)]'}`}
-                                    >
-                                        <Sparkles size={18} /> Comprar relíquia
-                                    </button>
+                            );
+                        })() : selectedType === 'item' && selectedItem ? (() => {
+                            const canAfford = player.diamonds >= selectedItem.cost;
+                            const hasLevel = player.level >= selectedItem.item.minLevel;
+                            const ownedQty = player.inventory[selectedItem.item.id] || 0;
+                            const relicMeta = getAlchemistRelicMeta(selectedItem.item);
+
+                            return (
+                                <div className="rounded-[20px] border border-[#cfab91] bg-[#fff7ed] p-4 sm:p-6">
+                                    <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+                                        <div>
+                                            <div className="inline-flex items-center gap-1 rounded-full border border-cyan-300 bg-cyan-100 px-3 py-1 text-[11px] font-black uppercase tracking-[0.22em] text-cyan-700">
+                                                <Sparkles size={12} /> {relicMeta.title}
+                                            </div>
+                                            <h3 className="mt-3 text-2xl sm:text-4xl font-black text-[#6b3141]">{selectedItem.item.name}</h3>
+                                            <p className="mt-2 text-sm sm:text-base text-[#7f5b56] leading-relaxed">{selectedItem.item.description}</p>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-2 min-w-[12rem]">
+                                            <div className="rounded-xl border border-[#cfab91] bg-[#f4e5d4] px-3 py-2 text-center">
+                                                <div className="text-[10px] uppercase tracking-[0.2em] text-[#9a7068]">Preco</div>
+                                                <div className="text-xl font-black text-[#346c7f]">{selectedItem.cost}</div>
+                                            </div>
+                                            <div className="rounded-xl border border-[#cfab91] bg-[#f4e5d4] px-3 py-2 text-center">
+                                                <div className="text-[10px] uppercase tracking-[0.2em] text-[#9a7068]">Estoque</div>
+                                                <div className="text-xl font-black text-[#6b3141]">x{ownedQty}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-3">
+                                        {relicMeta.lines.map(line => (
+                                            <div key={line} className="rounded-xl border border-[#dcc0aa] bg-[#f4e5d4] px-3 py-2 text-sm font-semibold text-[#6b3141]">{line}</div>
+                                        ))}
+                                    </div>
+
+                                    <div className="mt-5 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+                                        <div className="text-sm text-[#8f6c67]">{!hasLevel ? `Nivel ${selectedItem.item.minLevel} necessario.` : !canAfford ? 'Diamantes insuficientes.' : relicMeta.footer}</div>
+                                        <button
+                                            onClick={() => onBuyItem(selectedItem)}
+                                            disabled={!canAfford || !hasLevel}
+                                            className={`rounded-xl px-5 py-3 font-black uppercase tracking-[0.16em] transition-all ${!canAfford || !hasLevel ? 'bg-[#e9d7c2] text-[#8f6c67] cursor-not-allowed border border-[#dcc0aa]' : 'bg-[#3b6580] text-white hover:bg-[#34586f] border border-[#34586f]'}`}
+                                        >
+                                            Comprar reliquia
+                                        </button>
+                                    </div>
                                 </div>
-                            </>
-                        );
-                    })() : (
-                        <div className="flex-1 flex items-center justify-center text-slate-500">Nenhum item no estoque.</div>
-                    )}
+                            );
+                        })() : (
+                            <div className="rounded-[20px] border border-dashed border-[#cfab91] bg-[#f4e7d5] px-6 py-12 text-center text-[#8f6c67]">
+                                Nenhum item disponivel no estoque.
+                            </div>
+                        )}
+                    </section>
                 </div>
             </div>
+
+            {mobileDetailOpen && (
+                <div className="xl:hidden absolute inset-0 z-50 flex items-end sm:items-center justify-center bg-black/55 backdrop-blur-[2px] p-2 sm:p-4" onClick={() => setMobileDetailOpen(false)}>
+                    <div className="w-full max-w-lg max-h-[92vh] rounded-[24px] border border-[#cfab91] bg-[#f7ecdd] shadow-[0_24px_80px_rgba(107,49,65,0.15)] overflow-hidden animate-fade-in-down" onClick={event => event.stopPropagation()}>
+                        <div className="flex items-center justify-between gap-3 border-b border-[#dcc0aa] px-4 py-3">
+                            <h3 className="flex items-center gap-2 text-sm font-black uppercase tracking-[0.2em] text-[#6b3141]"><ArrowLeft size={16} /> Detalhes</h3>
+                            <button onClick={() => setMobileDetailOpen(false)} className="rounded-lg border border-[#cfab91] bg-[#f4e5d4] px-3 py-1.5 text-xs font-black uppercase tracking-[0.18em] text-[#6b3141] transition-colors hover:bg-[#e9d7c2]">
+                                Fechar
+                            </button>
+                        </div>
+
+                        <div className="overflow-y-auto p-4 sm:p-5">
+                            {selectedType === 'card' && selectedCard ? (() => {
+                                const alreadyOwned = player.chosenCards.includes(selectedCard.card.id);
+                                const canAfford = player.diamonds >= selectedCard.cost;
+                                const hasLevel = player.level >= selectedCard.card.minLevel;
+                                const effectLines = describeCardEffect(selectedCard.card);
+                                const category = getCardCategoryBadge(selectedCard.card);
+
+                                return (
+                                    <div className="rounded-[20px] border border-[#cfab91] bg-[#fff7ed] p-4">
+                                        <div className="flex items-start justify-between gap-3">
+                                            <div className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] ${category.color}`}>
+                                                {category.icon}
+                                                <span>{category.label}</span>
+                                            </div>
+                                            <div className="rounded-xl border border-[#cfab91] bg-[#f4e5d4] px-3 py-1.5 text-center">
+                                                <div className="text-[9px] uppercase tracking-[0.2em] text-[#9a7068]">Preco</div>
+                                                <div className="text-lg font-black text-[#346c7f]">{selectedCard.cost} 💎</div>
+                                            </div>
+                                        </div>
+
+                                        <h4 className="mt-3 text-2xl font-black text-[#6b3141]">{selectedCard.card.name}</h4>
+                                        <p className="mt-2 text-sm text-[#7f5b56] leading-relaxed">{selectedCard.card.description}</p>
+
+                                        <div className="mt-4 space-y-2">
+                                            {effectLines.map(line => (
+                                                <div key={line} className="rounded-xl border border-[#dcc0aa] bg-[#f4e5d4] px-3 py-2 text-sm font-semibold text-[#6b3141]">{line}</div>
+                                            ))}
+                                        </div>
+
+                                        <div className="mt-4 text-sm text-[#8f6c67]">{alreadyOwned ? 'Carta ja comprada.' : !hasLevel ? `Nivel ${selectedCard.card.minLevel} necessario.` : !canAfford ? 'Diamantes insuficientes.' : selectedCard.tagline}</div>
+                                        <button
+                                            onClick={() => {
+                                                onBuyCard(selectedCard);
+                                                setMobileDetailOpen(false);
+                                            }}
+                                            disabled={alreadyOwned || !canAfford || !hasLevel}
+                                            className={`mt-4 w-full rounded-xl px-5 py-3 font-black uppercase tracking-[0.16em] transition-all ${alreadyOwned || !canAfford || !hasLevel ? 'bg-[#e9d7c2] text-[#8f6c67] cursor-not-allowed border border-[#dcc0aa]' : 'bg-[#b84a63] text-white hover:bg-[#a53d56] border border-[#a53d56]'}`}
+                                        >
+                                            Comprar carta
+                                        </button>
+                                    </div>
+                                );
+                            })() : selectedType === 'item' && selectedItem ? (() => {
+                                const canAfford = player.diamonds >= selectedItem.cost;
+                                const hasLevel = player.level >= selectedItem.item.minLevel;
+                                const ownedQty = player.inventory[selectedItem.item.id] || 0;
+                                const relicMeta = getAlchemistRelicMeta(selectedItem.item);
+
+                                return (
+                                    <div className="rounded-[20px] border border-[#cfab91] bg-[#fff7ed] p-4">
+                                        <div className="flex items-start justify-between gap-3">
+                                            <div className="inline-flex items-center gap-1 rounded-full border border-cyan-300 bg-cyan-100 px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-cyan-700">
+                                                <Sparkles size={12} /> {relicMeta.title}
+                                            </div>
+                                            <div className="rounded-xl border border-[#cfab91] bg-[#f4e5d4] px-3 py-1.5 text-center">
+                                                <div className="text-[9px] uppercase tracking-[0.2em] text-[#9a7068]">Preco</div>
+                                                <div className="text-lg font-black text-[#346c7f]">{selectedItem.cost} 💎</div>
+                                            </div>
+                                        </div>
+
+                                        <h4 className="mt-3 text-2xl font-black text-[#6b3141]">{selectedItem.item.name}</h4>
+                                        <p className="mt-2 text-sm text-[#7f5b56] leading-relaxed">{selectedItem.item.description}</p>
+
+                                        <div className="mt-3 rounded-xl border border-[#cfab91] bg-[#f4e5d4] px-3 py-2 text-sm font-black text-[#6b3141]">
+                                            Estoque atual: x{ownedQty}
+                                        </div>
+
+                                        <div className="mt-4 space-y-2">
+                                            {relicMeta.lines.map(line => (
+                                                <div key={line} className="rounded-xl border border-[#dcc0aa] bg-[#f4e5d4] px-3 py-2 text-sm font-semibold text-[#6b3141]">{line}</div>
+                                            ))}
+                                        </div>
+
+                                        <div className="mt-4 text-sm text-[#8f6c67]">{!hasLevel ? `Nivel ${selectedItem.item.minLevel} necessario.` : !canAfford ? 'Diamantes insuficientes.' : relicMeta.footer}</div>
+                                        <button
+                                            onClick={() => {
+                                                onBuyItem(selectedItem);
+                                                setMobileDetailOpen(false);
+                                            }}
+                                            disabled={!canAfford || !hasLevel}
+                                            className={`mt-4 w-full rounded-xl px-5 py-3 font-black uppercase tracking-[0.16em] transition-all ${!canAfford || !hasLevel ? 'bg-[#e9d7c2] text-[#8f6c67] cursor-not-allowed border border-[#dcc0aa]' : 'bg-[#3b6580] text-white hover:bg-[#34586f] border border-[#34586f]'}`}
+                                        >
+                                            Comprar reliquia
+                                        </button>
+                                    </div>
+                                );
+                            })() : (
+                                <div className="rounded-[20px] border border-dashed border-[#cfab91] bg-[#f4e7d5] px-6 py-10 text-center text-[#8f6c67]">
+                                    Nenhum item disponivel no estoque.
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
