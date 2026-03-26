@@ -31,7 +31,6 @@ import {
   CameraController,
   DayNightCycle,
   DungeonAtmosphere,
-  DungeonBattlePlatform,
   FogController,
   NightEnemyGlow,
   SkyboxController,
@@ -39,7 +38,7 @@ import {
   getRenderQualityProfile,
 } from './scene3d/environment';
 import { MeshParticle, WorldFloatingTexts } from './scene3d/effects';
-import { BattleScenario } from './scene3d/scenarios';
+import { BattleScenario, DungeonScenario } from './scene3d/scenarios';
 import { getScenario } from '../game/data/scenarios';
 import type {
   DeveloperAnimationRuntimeDiagnostic,
@@ -1918,7 +1917,7 @@ export const GameScene: React.FC<SceneProps> = (props) => {
             <color attach="background" args={[bgColor]} />
             <fog attach="fog" args={['#1f2937', 14, 32]} />
             <DungeonAtmosphere quality={quality} />
-            <DungeonBattlePlatform />
+            <DungeonScenario />
           </>
         ) : (
           <>
@@ -1970,7 +1969,7 @@ export const GameScene: React.FC<SceneProps> = (props) => {
         <WorldFloatingTexts texts={props.floatingTexts} />
 
         <EffectComposer>
-          <Vignette eskil={false} offset={0.1} darkness={0.6} />
+          <Vignette eskil={false} offset={0.1} darkness={0.42} />
         </EffectComposer>
       </Canvas>
     </div>

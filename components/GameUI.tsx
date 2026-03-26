@@ -831,6 +831,7 @@ export const TavernScreen: React.FC<{
   const [showProfile, setShowProfile] = useState(false);
   const [showInventory, setShowInventory] = useState(false);
     const [isClosing, setIsClosing] = useState(false);
+    const [showDungeonConfirm, setShowDungeonConfirm] = useState(false);
   const bossUnlocked = killCount >= 10;
     const killsRemaining = Math.max(0, 10 - killCount);
     const currentClass = getPlayerClassById(player.classId);
@@ -880,14 +881,18 @@ export const TavernScreen: React.FC<{
 
     const handleMenuTransition = (target: 'hunt' | 'dungeon') => {
         if (isClosing) return;
+        if (target === 'dungeon') {
+            setShowDungeonConfirm(true);
+            return;
+        }
         setIsClosing(true);
-        setTimeout(() => {
-            if (target === 'hunt') {
-                onHunt();
-                return;
-            }
-            onDungeon();
-        }, 240);
+        setTimeout(() => { onHunt(); }, 240);
+    };
+
+    const confirmEnterDungeon = () => {
+        setShowDungeonConfirm(false);
+        setIsClosing(true);
+        setTimeout(() => { onDungeon(); }, 240);
     };
   
   return (
@@ -1036,6 +1041,44 @@ export const TavernScreen: React.FC<{
             </div>
     {showProfile && <CharacterSheetModal player={player} shopItems={shopItems} onClose={() => setShowProfile(false)} onOpenInventory={() => { setShowProfile(false); setShowInventory(true); }} />}
     {showInventory && <InventoryModal player={player} shopItems={shopItems} onClose={() => setShowInventory(false)} onEquip={onEquipItem} onUse={onUseItem} />}
+
+    {showDungeonConfirm && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-sm pointer-events-auto p-4" onClick={() => setShowDungeonConfirm(false)}>
+            <div className="w-full max-w-sm rounded-[28px] border border-[#cfab91] bg-[#f7ecdd] shadow-[0_30px_80px_rgba(107,49,65,0.22)] overflow-hidden" onClick={e => e.stopPropagation()}>
+                <div className="bg-[#6b3141] px-6 py-5 text-center">
+                    <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.3em] text-[#f6eadc]">
+                        <Crosshair size={12} /> Dungeon
+                    </div>
+                    <h3 className="mt-3 text-2xl font-black text-white">Entrar na Dungeon?</h3>
+                    <p className="mt-1.5 text-sm text-[#dcc0aa]">Leia as regras antes de entrar.</p>
+                </div>
+
+                <div className="flex flex-col gap-3 px-6 py-5">
+                    <div className="flex items-start gap-3 rounded-2xl border border-[#c44b54]/25 bg-[#c44b54]/8 px-4 py-3">
+                        <AlertTriangle size={16} className="text-[#c44b54] mt-0.5 shrink-0" />
+                        <p className="text-sm text-[#6b3141] leading-snug"><span className="font-black">Sem fuga.</span> Uma vez dentro, não é possível abandonar a dungeon voluntariamente.</p>
+                    </div>
+                    <div className="flex items-start gap-3 rounded-2xl border border-[#c44b54]/25 bg-[#c44b54]/8 px-4 py-3">
+                        <Skull size={16} className="text-[#c44b54] mt-0.5 shrink-0" />
+                        <p className="text-sm text-[#6b3141] leading-snug"><span className="font-black">Morte = tudo perdido.</span> Ouro, XP, diamantes e itens acumulados durante a dungeon são perdidos.</p>
+                    </div>
+                    <div className="flex items-start gap-3 rounded-2xl border border-[#4d7a96]/25 bg-[#4d7a96]/8 px-4 py-3">
+                        <Sparkles size={16} className="text-[#4d7a96] mt-0.5 shrink-0" />
+                        <p className="text-sm text-[#6b3141] leading-snug"><span className="font-black">Derrotar o boss = vitória total.</span> Tudo que você acumulou ao longo da dungeon é seu ao vencer o chefão.</p>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 px-6 pb-6">
+                    <button onClick={() => setShowDungeonConfirm(false)} className="rounded-xl border border-[#cfab91] bg-[#f4e5d4] px-4 py-3 font-black text-[#6b3141] transition-colors hover:bg-[#e9d7c2]">
+                        Cancelar
+                    </button>
+                    <button onClick={confirmEnterDungeon} className="rounded-xl bg-[#4d7a96] px-4 py-3 font-black text-white shadow-[0_8px_24px_rgba(77,122,150,0.28)] transition-all hover:bg-[#5a8aa6]">
+                        Entrar
+                    </button>
+                </div>
+            </div>
+        </div>
+    )}
     </>
   );
 };
@@ -1623,67 +1666,77 @@ export const DungeonResultScreen: React.FC<{ result: DungeonResult, onContinue: 
     const badgeLabel = result.outcome === 'withdrawal' ? 'Extração' : 'Dungeon';
 
     return (
-        <div className="absolute inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 pointer-events-auto">
-            <div className={`w-full max-w-4xl rounded-[28px] border overflow-hidden shadow-[0_30px_120px_rgba(0,0,0,0.65)] ${isPositiveOutcome ? 'border-cyan-500/30 bg-[radial-gradient(circle_at_top,_rgba(34,211,238,0.12),_transparent_34%),linear-gradient(180deg,rgba(15,23,42,0.98),rgba(2,6,23,0.98))]' : 'border-red-500/30 bg-[radial-gradient(circle_at_top,_rgba(239,68,68,0.12),_transparent_34%),linear-gradient(180deg,rgba(15,23,42,0.98),rgba(2,6,23,0.98))]'}`}>
-                <div className="border-b border-slate-800 px-6 py-5 sm:px-8 sm:py-6 text-center">
-                    <div className={`inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-xs font-black uppercase tracking-[0.3em] ${isPositiveOutcome ? 'border-cyan-500/30 bg-cyan-500/10 text-cyan-300' : 'border-red-500/30 bg-red-500/10 text-red-300'}`}>
+        <div className="absolute inset-0 z-50 bg-black/55 backdrop-blur-sm flex items-center justify-center p-4 pointer-events-auto">
+            <div className="w-full max-w-4xl rounded-[28px] border border-[#cfab91] bg-[#f7ecdd] overflow-hidden shadow-[0_30px_120px_rgba(107,49,65,0.22)]">
+                <div className={`px-6 py-5 sm:px-8 sm:py-6 text-center ${isPositiveOutcome ? 'bg-[#6b3141]' : 'bg-[#5d1e1e]'}`}>
+                    <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-xs font-black uppercase tracking-[0.3em] text-[#f6eadc]">
                         {isPositiveOutcome ? <Sparkles size={14} /> : <AlertTriangle size={14} />} {badgeLabel}
                     </div>
-                    <h2 className={`mt-4 text-3xl sm:text-4xl font-black ${isPositiveOutcome ? 'text-cyan-100' : 'text-red-200'}`}>{title}</h2>
-                    <p className="mt-2 text-sm sm:text-base text-slate-400">{result.reason}</p>
+                    <h2 className="mt-4 text-3xl sm:text-4xl font-black text-white">{title}</h2>
+                    <p className="mt-2 text-sm sm:text-base text-[#dcc0aa]">{result.reason}</p>
                     {result.outcome === 'victory' && result.nextEvolution !== undefined && result.nextTotalMonsters !== undefined && (
-                        <div className="mt-4 inline-flex flex-wrap items-center justify-center gap-3 rounded-2xl border border-cyan-500/20 bg-cyan-500/10 px-4 py-3 text-xs sm:text-sm font-black text-cyan-100">
+                        <div className="mt-4 inline-flex flex-wrap items-center justify-center gap-3 rounded-2xl border border-white/20 bg-white/10 px-4 py-3 text-xs sm:text-sm font-black text-[#f6eadc]">
                             <span>Próxima evolução: {result.nextEvolution}</span>
-                            <span className="text-cyan-300/60">•</span>
+                            <span className="text-[#dcc0aa]/60">•</span>
                             <span>{result.nextTotalMonsters} encontros até o chefão</span>
                         </div>
                     )}
                 </div>
 
-                <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 p-6 sm:p-8">
-                    <div className="rounded-2xl border border-slate-700 bg-slate-950/70 px-4 py-3">
-                        <div className="text-[10px] uppercase tracking-[0.24em] text-slate-500">Encontros</div>
-                        <div className="text-2xl font-black text-white">{result.rewards.clearedMonsters}/{result.rewards.totalMonsters}</div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 p-6 sm:p-8">
+                    <div className="rounded-2xl border border-[#cfab91] bg-[#f4e5d4] px-4 py-3">
+                        <div className="text-[10px] uppercase tracking-[0.24em] text-[#9a7068] mb-1">Encontros</div>
+                        <div className="text-2xl font-black text-[#6b3141]">{result.rewards.clearedMonsters}<span className="text-sm text-[#9a7068]">/{result.rewards.totalMonsters}</span></div>
                     </div>
-                    <div className="rounded-2xl border border-slate-700 bg-slate-950/70 px-4 py-3">
-                        <div className="text-[10px] uppercase tracking-[0.24em] text-slate-500">Ouro</div>
-                        <div className={`text-2xl font-black ${isPositiveOutcome ? 'text-amber-200' : 'text-red-200'}`}>{isPositiveOutcome ? '+' : '-'}{result.rewards.gold}</div>
+                    <div className="rounded-2xl border border-[#cfab91] bg-[#f4e5d4] px-4 py-3">
+                        <div className="text-[10px] uppercase tracking-[0.24em] text-[#9a7068] mb-1">Ouro</div>
+                        <div className="flex items-center gap-1.5 text-2xl font-black text-amber-700">
+                            <GameAssetIcon name="coin" size={18} />
+                            {isPositiveOutcome ? '+' : ''}{result.rewards.gold}
+                        </div>
                     </div>
-                    <div className="rounded-2xl border border-slate-700 bg-slate-950/70 px-4 py-3">
-                        <div className="text-[10px] uppercase tracking-[0.24em] text-slate-500">XP</div>
-                        <div className={`text-2xl font-black ${isPositiveOutcome ? 'text-indigo-200' : 'text-red-200'}`}>{isPositiveOutcome ? '+' : '-'}{result.rewards.xp}</div>
+                    <div className="rounded-2xl border border-[#cfab91] bg-[#f4e5d4] px-4 py-3">
+                        <div className="text-[10px] uppercase tracking-[0.24em] text-[#9a7068] mb-1">XP</div>
+                        <div className="flex items-center gap-1.5 text-2xl font-black text-[#7d3d4d]">
+                            <Zap size={16} className="shrink-0" />
+                            {isPositiveOutcome ? '+' : ''}{result.rewards.xp}
+                        </div>
                     </div>
-                    <div className="rounded-2xl border border-slate-700 bg-slate-950/70 px-4 py-3">
-                        <div className="text-[10px] uppercase tracking-[0.24em] text-slate-500">Diamantes</div>
-                        <div className={`text-2xl font-black ${isPositiveOutcome ? 'text-cyan-200' : 'text-red-200'}`}>{isPositiveOutcome ? '+' : '-'}{result.rewards.diamonds}</div>
+                    <div className="rounded-2xl border border-[#cfab91] bg-[#f4e5d4] px-4 py-3">
+                        <div className="text-[10px] uppercase tracking-[0.24em] text-[#9a7068] mb-1">Diamantes</div>
+                        <div className="flex items-center gap-1.5 text-2xl font-black text-[#346c7f]">
+                            <GameAssetIcon name="diamond" size={18} />
+                            {isPositiveOutcome ? '+' : ''}{result.rewards.diamonds}
+                        </div>
                     </div>
-                    <div className="rounded-2xl border border-slate-700 bg-slate-950/70 px-4 py-3">
-                        <div className="text-[10px] uppercase tracking-[0.24em] text-slate-500">Chefão</div>
-                        <div className={`text-lg font-black ${result.rewards.bossDefeated ? 'text-emerald-200' : 'text-slate-300'}`}>{result.rewards.bossDefeated ? 'Derrotado' : 'Intacto'}</div>
+                    <div className="rounded-2xl border border-[#cfab91] bg-[#f4e5d4] px-4 py-3">
+                        <div className="text-[10px] uppercase tracking-[0.24em] text-[#9a7068] mb-1">Chefão</div>
+                        <div className={`text-lg font-black ${result.rewards.bossDefeated ? 'text-[#4d7a96]' : 'text-[#9a7068]'}`}>{result.rewards.bossDefeated ? '✓ Derrotado' : '— Intacto'}</div>
                     </div>
                 </div>
 
                 <div className="px-6 sm:px-8 pb-6 sm:pb-8">
-                    <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-5">
-                        <div className="text-[11px] font-black uppercase tracking-[0.3em] text-slate-500 mb-4">{isPositiveOutcome ? 'Espólio da dungeon' : 'Tudo perdido na dungeon'}</div>
+                    <div className="rounded-2xl border border-[#cfab91] bg-[#f4e5d4] p-5">
+                        <div className="text-[11px] font-black uppercase tracking-[0.3em] text-[#9a7068] mb-3">
+                            {isPositiveOutcome ? 'Espólio da dungeon' : 'Itens acumulados'}
+                            {rewardItems.length > 0 && <span className="ml-2 rounded-full border border-[#cfab91] bg-[#f7ecdd] px-2 py-0.5 text-[10px] text-[#8f6c67]">{rewardItems.length}</span>}
+                        </div>
                         {rewardItems.length > 0 ? (
-                            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+                            <div className="flex flex-wrap gap-2 max-h-[28vh] overflow-y-auto pr-1">
                                 {rewardItems.map(({ item, quantity }) => (
-                                    <div key={item.id} className="rounded-2xl border border-slate-700 bg-slate-900/70 px-4 py-3 flex items-center gap-3">
-                                        <div className="h-12 w-12 rounded-xl border border-white/10 bg-slate-950/80 flex items-center justify-center text-2xl">{item.icon}</div>
-                                        <div className="min-w-0 flex-1">
-                                            <div className="font-black text-white truncate">{item.name}</div>
-                                            <div className="text-xs text-slate-500">x{quantity}</div>
-                                        </div>
+                                    <div key={item.id} className="flex items-center gap-1.5 rounded-full border border-[#cfab91] bg-[#f7ecdd] pl-1.5 pr-3 py-1.5 shrink-0">
+                                        <div className="h-7 w-7 rounded-full border border-[#dcc0aa] bg-[#f4e5d4] flex items-center justify-center text-sm leading-none">{item.icon}</div>
+                                        <span className="text-sm font-black text-[#6b3141]">{item.name}</span>
+                                        {quantity > 1 && <span className="rounded-full border border-[#cfab91] bg-[#f4e5d4] px-1.5 py-0.5 text-[10px] font-black text-[#8f6c67]">×{quantity}</span>}
                                     </div>
                                 ))}
                             </div>
                         ) : (
-                            <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-950/50 px-6 py-10 text-center text-slate-500">Nenhum item ou material foi acumulado.</div>
+                            <div className="rounded-2xl border border-dashed border-[#cfab91] bg-[#f7ecdd] px-6 py-8 text-center text-[#8f6c67]">Nenhum item ou material foi acumulado.</div>
                         )}
                     </div>
 
-                    <button onClick={onContinue} className={`mt-6 w-full py-4 rounded-xl font-black text-lg transition-all ${isPositiveOutcome ? 'bg-cyan-600 hover:bg-cyan-500 text-white shadow-[0_12px_30px_rgba(8,145,178,0.35)]' : 'bg-red-700 hover:bg-red-600 text-white shadow-[0_12px_30px_rgba(185,28,28,0.35)]'}`}>
+                    <button onClick={onContinue} className={`mt-6 w-full py-4 rounded-xl font-black text-lg text-white transition-all ${isPositiveOutcome ? 'bg-[#6b3141] hover:bg-[#7d3d4d] shadow-[0_12px_30px_rgba(107,49,65,0.3)]' : 'bg-[#5d1e1e] hover:bg-[#6b2626] shadow-[0_12px_30px_rgba(93,30,30,0.3)]'}`}>
                         {result.outcome === 'victory' ? 'Receber espólio e continuar' : result.outcome === 'withdrawal' ? 'Receber espólio e voltar' : 'Voltar para a taverna'}
                     </button>
                 </div>
@@ -1780,42 +1833,60 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
 
       {showDungeonLootPreview && isDungeonRun && dungeonRewards && (
           <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/55 backdrop-blur-[2px] pointer-events-auto p-4" onClick={() => setShowDungeonLootPreview(false)}>
-              <div className="w-full max-w-4xl rounded-[24px] border border-[#cfab91] bg-[#f7ecdd] shadow-[0_24px_80px_rgba(107,49,65,0.15)] overflow-hidden animate-fade-in-down" onClick={event => event.stopPropagation()}>
-                  <div className="flex items-center justify-between gap-4 border-b border-[#dcc0aa] px-5 py-4 sm:px-6">
+              <div className="w-full max-w-lg rounded-[24px] border border-[#cfab91] bg-[#f7ecdd] shadow-[0_24px_80px_rgba(107,49,65,0.22)] overflow-hidden animate-fade-in-down" onClick={event => event.stopPropagation()}>
+                  <div className="flex items-center justify-between gap-4 bg-[#6b3141] px-5 py-4">
                       <div>
-                          <div className="text-[10px] font-black uppercase tracking-[0.28em] text-[#9a7068]">Espólio acumulado</div>
-                          <h3 className="mt-1 text-xl sm:text-2xl font-black text-[#6b3141]">Ganhos atuais da dungeon</h3>
+                          <div className="text-[10px] font-black uppercase tracking-[0.28em] text-[#dcc0aa]">Espólio acumulado</div>
+                          <h3 className="mt-0.5 text-lg font-black text-white">Ganhos na dungeon</h3>
                       </div>
-                      <button onClick={() => setShowDungeonLootPreview(false)} className="rounded-xl border border-[#cfab91] bg-[#f4e5d4] px-3 py-2 text-xs font-black uppercase tracking-[0.18em] text-[#6b3141] transition-colors hover:bg-[#e9d7c2]">
+                      <button onClick={() => setShowDungeonLootPreview(false)} className="rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-xs font-black uppercase tracking-[0.18em] text-[#f6eadc] transition-colors hover:bg-white/20">
                           Fechar
                       </button>
                   </div>
 
-                  <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 p-5 sm:p-6">
-                      <div className="rounded-2xl border border-[#cfab91] bg-[#f4e5d4] px-4 py-3"><div className="text-[10px] uppercase tracking-[0.24em] text-[#9a7068]">Encontros</div><div className="text-2xl font-black text-[#6b3141]">{dungeonRewards.clearedMonsters}/{dungeonRewards.totalMonsters}</div></div>
-                      <div className="rounded-2xl border border-[#cfab91] bg-[#f4e5d4] px-4 py-3"><div className="text-[10px] uppercase tracking-[0.24em] text-[#9a7068]">Ouro</div><div className="text-2xl font-black text-amber-700">+{dungeonRewards.gold}</div></div>
-                      <div className="rounded-2xl border border-[#cfab91] bg-[#f4e5d4] px-4 py-3"><div className="text-[10px] uppercase tracking-[0.24em] text-[#9a7068]">XP</div><div className="text-2xl font-black text-[#7d3d4d]">+{dungeonRewards.xp}</div></div>
-                      <div className="rounded-2xl border border-[#cfab91] bg-[#f4e5d4] px-4 py-3"><div className="text-[10px] uppercase tracking-[0.24em] text-[#9a7068]">Diamantes</div><div className="text-2xl font-black text-[#346c7f]">+{dungeonRewards.diamonds}</div></div>
-                      <div className="rounded-2xl border border-[#cfab91] bg-[#f4e5d4] px-4 py-3"><div className="text-[10px] uppercase tracking-[0.24em] text-[#9a7068]">Evolução</div><div className="text-2xl font-black text-[#6b3141]">{dungeonRewards.evolution}</div></div>
+                  <div className="grid grid-cols-4 gap-2 p-4">
+                      <div className="rounded-xl border border-[#cfab91] bg-[#f4e5d4] px-3 py-2.5">
+                          <div className="text-[9px] uppercase tracking-[0.2em] text-[#9a7068]">Monstros</div>
+                          <div className="text-lg font-black text-[#6b3141]">{dungeonRewards.clearedMonsters}<span className="text-xs text-[#9a7068]">/{dungeonRewards.totalMonsters}</span></div>
+                      </div>
+                      <div className="rounded-xl border border-[#cfab91] bg-[#f4e5d4] px-3 py-2.5">
+                          <div className="text-[9px] uppercase tracking-[0.2em] text-[#9a7068]">Ouro</div>
+                          <div className="flex items-center gap-1 text-lg font-black text-amber-700">
+                              <GameAssetIcon name="coin" size={14} />+{dungeonRewards.gold}
+                          </div>
+                      </div>
+                      <div className="rounded-xl border border-[#cfab91] bg-[#f4e5d4] px-3 py-2.5">
+                          <div className="text-[9px] uppercase tracking-[0.2em] text-[#9a7068]">Diamantes</div>
+                          <div className="flex items-center gap-1 text-lg font-black text-[#346c7f]">
+                              <GameAssetIcon name="diamond" size={14} />+{dungeonRewards.diamonds}
+                          </div>
+                      </div>
+                      <div className="rounded-xl border border-[#cfab91] bg-[#f4e5d4] px-3 py-2.5">
+                          <div className="text-[9px] uppercase tracking-[0.2em] text-[#9a7068]">XP</div>
+                          <div className="flex items-center gap-1 text-lg font-black text-[#7d3d4d]">
+                              <Zap size={13} className="shrink-0" />+{dungeonRewards.xp}
+                          </div>
+                      </div>
                   </div>
 
-                  <div className="px-5 sm:px-6 pb-6">
-                      <div className="rounded-2xl border border-[#cfab91] bg-[#f4e5d4] p-5">
-                          <div className="text-[11px] font-black uppercase tracking-[0.3em] text-[#9a7068] mb-4">Itens acumulados até agora</div>
+                  <div className="px-4 pb-4">
+                      <div className="rounded-xl border border-[#cfab91] bg-[#f4e5d4] p-3">
+                          <div className="text-[10px] font-black uppercase tracking-[0.28em] text-[#9a7068] mb-2">
+                              Itens
+                              {dungeonRewardItems.length > 0 && <span className="ml-2 rounded-full border border-[#cfab91] bg-[#f7ecdd] px-2 py-0.5 text-[9px] text-[#8f6c67]">{dungeonRewardItems.length}</span>}
+                          </div>
                           {dungeonRewardItems.length > 0 ? (
-                              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 max-h-[40vh] overflow-y-auto pr-1">
+                              <div className="flex flex-wrap gap-1.5 max-h-[30vh] overflow-y-auto pr-1">
                                   {dungeonRewardItems.map(({ item, quantity }) => (
-                                      <div key={item.id} className="rounded-2xl border border-[#cfab91] bg-[#f7ecdd] px-4 py-3 flex items-center gap-3">
-                                          <div className="h-12 w-12 rounded-xl border border-[#dcc0aa] bg-[#f8eddf] flex items-center justify-center text-2xl">{item.icon}</div>
-                                          <div className="min-w-0 flex-1">
-                                              <div className="font-black text-[#6b3141] truncate">{item.name}</div>
-                                              <div className="text-xs text-[#9a7068]">x{quantity}</div>
-                                          </div>
+                                      <div key={item.id} className="flex items-center gap-1 rounded-full border border-[#cfab91] bg-[#f7ecdd] pl-1 pr-2.5 py-1 shrink-0">
+                                          <div className="h-6 w-6 rounded-full border border-[#dcc0aa] bg-[#f4e5d4] flex items-center justify-center text-xs leading-none">{item.icon}</div>
+                                          <span className="text-xs font-black text-[#6b3141]">{item.name}</span>
+                                          {quantity > 1 && <span className="rounded-full border border-[#cfab91] bg-[#f4e5d4] px-1.5 py-0.5 text-[9px] font-black text-[#8f6c67]">×{quantity}</span>}
                                       </div>
                                   ))}
                               </div>
                           ) : (
-                              <div className="rounded-2xl border border-dashed border-[#cfab91] bg-[#f4e7d5] px-6 py-10 text-center text-[#8f6c67]">Nenhum item ou material acumulado até agora.</div>
+                              <div className="rounded-xl border border-dashed border-[#cfab91] bg-[#f7ecdd] px-4 py-5 text-center text-xs text-[#8f6c67]">Nenhum item acumulado ainda.</div>
                           )}
                       </div>
                   </div>

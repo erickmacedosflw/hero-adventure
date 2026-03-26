@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { ShoppingBag, Play } from 'lucide-react';
+import { ShoppingBag, Play, Sword, Home } from 'lucide-react';
 import { DeveloperConsole } from './components/DeveloperConsole';
 import { GameScene } from './components/Scene3D';
 import { OpeningScreen } from './components/OpeningScreen';
@@ -67,7 +67,7 @@ export default function App() {
         buffs: { ...source.buffs },
     });
 
-    const getDungeonMonsterTarget = (evolution: number) => 30 + Math.floor(evolution / 3) * 10;
+    const getDungeonMonsterTarget = (evolution: number) => 10 + Math.floor(evolution / 3) * 10;
     const getDungeonPowerMultiplier = (evolution: number) => 1 + (evolution * 0.12);
     const pickRandom = <T,>(entries: T[]) => entries[Math.floor(Math.random() * entries.length)];
 
@@ -82,7 +82,7 @@ export default function App() {
         bossDefeated: false,
     });
 
-  const [gameState, setGameState] = useState<GameState>(GameState.MENU);
+  const [gameState, setGameState] = useState<GameState>(GameState.TAVERN);
   const [turnState, setTurnState] = useState<TurnState>(TurnState.PLAYER_INPUT);
     const [player, setPlayer] = useState<Player>(() => clonePlayer(INITIAL_PLAYER));
   const [enemy, setEnemy] = useState<Enemy | null>(null);
@@ -1776,15 +1776,38 @@ export default function App() {
       )}
 
       {resolvedGameState === GameState.VICTORY && (
-          <div className="absolute inset-0 z-50 bg-black/60 flex flex-col items-center justify-center text-white backdrop-blur-sm">
-              <div className="bg-slate-900/90 border-2 border-amber-500 p-8 rounded-2xl shadow-2xl text-center max-w-md w-full animate-fade-in-down">
-                  <h2 className="text-4xl font-black text-amber-400 mb-2">VITÓRIA!</h2>
-                  <p className="text-slate-300 mb-8 italic">"{narration}"</p>
-                  
-                  <button onClick={() => setGameState(GameState.TAVERN)} className="w-full bg-amber-600 hover:bg-amber-500 py-4 rounded-xl font-bold flex flex-col items-center gap-2 shadow-lg shadow-amber-500/20 transition-transform hover:scale-105">
-                      <Play />
-                      <span>Voltar para Taverna</span>
-                  </button>
+          <div className="absolute inset-0 z-50 bg-black/55 backdrop-blur-sm flex items-center justify-center p-4 pointer-events-auto">
+              <div className="w-full max-w-sm rounded-[28px] border border-[#cfab91] bg-[#f7ecdd] shadow-[0_30px_80px_rgba(107,49,65,0.28)] overflow-hidden animate-fade-in-down">
+                  <div className="bg-[#6b3141] px-6 py-5 text-center">
+                      <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.3em] text-[#f6eadc]">
+                          <Sword size={12} /> Fase {stage - 1} concluída
+                      </div>
+                      <h2 className="mt-3 text-3xl font-black text-white">Vitória!</h2>
+                      {narration && <p className="mt-2 text-sm text-[#dcc0aa] italic">&ldquo;{narration}&rdquo;</p>}
+                  </div>
+
+                  <div className="px-6 py-5">
+                      <div className="rounded-2xl border border-[#cfab91] bg-[#f4e5d4] px-5 py-4 text-center">
+                          <div className="text-[10px] font-black uppercase tracking-[0.26em] text-[#9a7068]">Próxima fase</div>
+                          <div className="mt-1 text-4xl font-black text-[#6b3141]">{stage}</div>
+                          <div className="mt-1 text-xs text-[#8f6c67]">Inimigos mais fortes aguardam</div>
+                      </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 px-6 pb-6">
+                      <button
+                          onClick={() => setGameState(GameState.TAVERN)}
+                          className="flex items-center justify-center gap-2 rounded-xl border border-[#cfab91] bg-[#f4e5d4] px-4 py-3 font-black text-[#6b3141] transition-colors hover:bg-[#e9d7c2]"
+                      >
+                          <Home size={15} /> Taverna
+                      </button>
+                      <button
+                          onClick={() => { enterBattle(false); }}
+                          className="flex items-center justify-center gap-2 rounded-xl bg-[#b87a3a] px-4 py-3 font-black text-white shadow-[0_8px_24px_rgba(184,122,58,0.3)] transition-all hover:bg-[#c88a4a]"
+                      >
+                          <Sword size={15} /> Caçar
+                      </button>
+                  </div>
               </div>
           </div>
       )}

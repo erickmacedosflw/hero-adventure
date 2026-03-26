@@ -263,8 +263,8 @@ export const SkyboxController: React.FC = () => {
     if (iblTex && scene.environment !== iblTex) {
       scene.environment = iblTex;
     }
-    if ((scene as THREE.Scene & { environmentIntensity?: number }).environmentIntensity !== 0.15) {
-      (scene as THREE.Scene & { environmentIntensity?: number }).environmentIntensity = 0.15;
+    if ((scene as THREE.Scene & { environmentIntensity?: number }).environmentIntensity !== 0.24) {
+      (scene as THREE.Scene & { environmentIntensity?: number }).environmentIntensity = 0.24;
     }
   });
 
@@ -354,70 +354,70 @@ export const DayNightCycle = ({
 
     if (t >= T_MANHA && t < T_DIA) {
       const p = frac(T_MANHA, T_DIA);
-      ambientIntensity = THREE.MathUtils.lerp(0.22, 0.5, p);
-      sunIntensity = THREE.MathUtils.lerp(0.3, 1.2, p);
+      ambientIntensity = THREE.MathUtils.lerp(0.28, 0.56, p);
+      sunIntensity = THREE.MathUtils.lerp(0.45, 1.25, p);
       sunColor.lerpColors(COL.sunNoite, COL.sunManha, p);
       hemiSky.lerpColors(COL.hemiNoiteS, COL.hemiManhaS, p);
       hemiGround.lerpColors(COL.hemiNoiteG, COL.hemiManhaG, p);
-      moonIntensity = THREE.MathUtils.lerp(0.35, 0, p);
+      moonIntensity = THREE.MathUtils.lerp(0.45, 0, p);
     } else if (t >= T_DIA && t < T_SOL) {
       const p = frac(T_DIA, T_SOL);
-      ambientIntensity = THREE.MathUtils.lerp(0.5, 0.55, p);
-      sunIntensity = THREE.MathUtils.lerp(1.2, 1.5, p);
+      ambientIntensity = THREE.MathUtils.lerp(0.56, 0.62, p);
+      sunIntensity = THREE.MathUtils.lerp(1.25, 1.55, p);
       sunColor.lerpColors(COL.sunManha, COL.sunDia, p);
       hemiSky.lerpColors(COL.hemiManhaS, COL.hemiDiaS, p);
       hemiGround.lerpColors(COL.hemiManhaG, COL.hemiDiaG, p);
       moonIntensity = 0;
     } else if (t >= T_SOL && t < T_SOLEND) {
-      ambientIntensity = 0.58;
-      sunIntensity = 1.65;
+      ambientIntensity = 0.64;
+      sunIntensity = 1.72;
       sunColor.copy(COL.sunSol);
       hemiSky.copy(COL.hemiSolS);
       hemiGround.copy(COL.hemiSolG);
       moonIntensity = 0;
     } else if (t >= T_SOLEND && t < T_TARDE) {
       const p = frac(T_SOLEND, T_TARDE);
-      ambientIntensity = THREE.MathUtils.lerp(0.55, 0.46, p);
-      sunIntensity = THREE.MathUtils.lerp(1.5, 1.35, p);
+      ambientIntensity = THREE.MathUtils.lerp(0.6, 0.52, p);
+      sunIntensity = THREE.MathUtils.lerp(1.55, 1.38, p);
       sunColor.lerpColors(COL.sunDia, COL.sunManha, p);
       hemiSky.lerpColors(COL.hemiDiaS, COL.hemiManhaS, p);
       hemiGround.lerpColors(COL.hemiDiaG, COL.hemiManhaG, p);
       moonIntensity = 0;
     } else if (t >= T_TARDE && t < T_NOITE) {
       const p = frac(T_TARDE, T_NOITE);
-      ambientIntensity = THREE.MathUtils.lerp(0.46, 0.2, p);
-      sunIntensity = THREE.MathUtils.lerp(1.35, 0.2, p);
+      ambientIntensity = THREE.MathUtils.lerp(0.52, 0.3, p);
+      sunIntensity = THREE.MathUtils.lerp(1.38, 0.3, p);
       sunColor.lerpColors(COL.sunDia, COL.sunTarde, p);
       hemiSky.lerpColors(COL.hemiManhaS, COL.hemiTardeS, p);
       hemiGround.lerpColors(COL.hemiManhaG, COL.hemiTardeG, p);
-      moonIntensity = THREE.MathUtils.lerp(0, 0.25, p);
+      moonIntensity = THREE.MathUtils.lerp(0, 0.35, p);
     } else {
       const p = t >= T_NOITE
         ? (t - T_NOITE) / (1 - T_NOITE + T_MANHA)
         : (t + 1 - T_NOITE) / (1 - T_NOITE + T_MANHA);
-      ambientIntensity = 0.18;
+      ambientIntensity = 0.28;
       sunIntensity = 0;
       sunColor.set(COL.sunNoite);
       hemiSky.set(COL.hemiNoiteS);
       hemiGround.set(COL.hemiNoiteG);
-      moonIntensity = 0.55 * Math.max(0, Math.sin(p * Math.PI));
+      moonIntensity = 0.72 * Math.max(0, Math.sin(p * Math.PI));
     }
 
-    if (ambientRef.current) ambientRef.current.intensity = ambientIntensity * 0.55;
+    if (ambientRef.current) ambientRef.current.intensity = ambientIntensity * 0.62;
     if (hemiRef.current) {
-      hemiRef.current.intensity = ambientIntensity * 0.35;
+      hemiRef.current.intensity = ambientIntensity * 0.42;
       hemiRef.current.color.copy(hemiSky);
       hemiRef.current.groundColor.copy(hemiGround);
     }
     if (sunLightRef.current) {
-      sunLightRef.current.intensity = sunIntensity * 1.6;
+      sunLightRef.current.intensity = sunIntensity * 1.65;
       sunLightRef.current.color.copy(sunColor);
       sunLightRef.current.position.copy(sunPos);
       sunLightRef.current.target.position.set(0, 0.5, 0);
       sunLightRef.current.target.updateMatrixWorld();
     }
     if (moonLightRef.current) {
-      moonLightRef.current.intensity = moonIntensity;
+      moonLightRef.current.intensity = moonIntensity * 1.08;
       moonLightRef.current.position.copy(moonPos);
     }
     if (sunMeshRef.current) {
@@ -557,29 +557,6 @@ export const Torch = ({
     </group>
   );
 };
-
-export const DungeonBattlePlatform = () => (
-  <group position={[0, -1.15, 0]}>
-    <VoxelPart position={[0, -0.65, -8.5]} size={[28, 1.1, 18]} color="#111827" material="standard" castShadow={false} receiveShadow />
-    <VoxelPart position={[0, 4.2, -8.2]} size={[28, 0.9, 18]} color="#1f2937" material="standard" castShadow={false} receiveShadow />
-    <VoxelPart position={[0, 0, 0]} size={[12.5, 0.25, 8.5]} color="#3f3f46" material="standard" castShadow={false} receiveShadow />
-    <VoxelPart position={[0, 0.08, 0]} size={[11.7, 0.12, 7.7]} color="#27272a" material="standard" castShadow={false} receiveShadow />
-    <VoxelPart position={[0, 2.5, -11.2]} size={[28, 7, 1.6]} color="#292524" material="standard" castShadow={false} receiveShadow />
-    <VoxelPart position={[-9.2, 2.2, -6.8]} size={[1.4, 6.6, 10.8]} color="#1c1917" material="standard" castShadow={false} receiveShadow />
-    <VoxelPart position={[9.2, 2.2, -6.8]} size={[1.4, 6.6, 10.8]} color="#1c1917" material="standard" castShadow={false} receiveShadow />
-    <VoxelPart position={[0, 1.3, -13.8]} size={[18, 3.4, 5.4]} color="#1f2937" material="standard" castShadow={false} receiveShadow />
-    <VoxelPart position={[-11.8, 0.9, -8.8]} size={[3.2, 2.2, 5.4]} color="#27272a" material="standard" castShadow={false} receiveShadow />
-    <VoxelPart position={[11.8, 0.9, -8.8]} size={[3.2, 2.2, 5.4]} color="#27272a" material="standard" castShadow={false} receiveShadow />
-    <VoxelPart position={[-7.7, 0.9, -2.5]} size={[2.2, 2.4, 1.6]} color="#3f3f46" material="standard" castShadow={false} receiveShadow />
-    <VoxelPart position={[7.7, 0.9, -2.5]} size={[2.2, 2.4, 1.6]} color="#3f3f46" material="standard" castShadow={false} receiveShadow />
-    <VoxelPart position={[-8.2, -0.2, 0.9]} size={[1.2, 0.35, 1.1]} color="#44403c" material="standard" castShadow={false} receiveShadow />
-    <VoxelPart position={[8.1, -0.22, 1.1]} size={[1.4, 0.32, 1.2]} color="#44403c" material="standard" castShadow={false} receiveShadow />
-    <Torch position={[-7.1, 0.4, 0.9]} rotation={[0, 0.2, 0]} />
-    <Torch position={[7.1, 0.4, 0.9]} rotation={[0, -0.2, 0]} />
-    <Torch position={[-5.8, 1.6, -5.7]} rotation={[0, 0.25, 0]} color="#f97316" />
-    <Torch position={[5.8, 1.6, -5.7]} rotation={[0, -0.25, 0]} color="#fdba74" />
-  </group>
-);
 
 export const DungeonAtmosphere = ({ quality }: { quality: RenderQualityProfile }) => {
   const embers = useMemo(() => {

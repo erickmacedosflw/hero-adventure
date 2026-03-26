@@ -245,3 +245,237 @@ export const BattleScenario = ({ scenario, lowQuality = false }: { scenario: Sce
     </Suspense>
   </group>
 );
+
+/* ══════════════════════════════════════════════════════════════════
+   DUNGEON SCENARIO — FBX modular kit with dungeon_texture.png
+   ══════════════════════════════════════════════════════════════════ */
+
+const DUNGEON_TEXTURE = new URL('../../game/assets/Scenario/Dungeon/dungeon_texture.png', import.meta.url).href;
+
+const DUNGEON_URLS = {
+  // ── Structure ──────────────────────────────────────
+  floor:        new URL('../../game/assets/Scenario/Dungeon/floor_tile_large.fbx',      import.meta.url).href,
+  wall:         new URL('../../game/assets/Scenario/Dungeon/wall.fbx',                  import.meta.url).href,
+  wallCorner:   new URL('../../game/assets/Scenario/Dungeon/wall_corner.fbx',           import.meta.url).href,
+  ceiling:      new URL('../../game/assets/Scenario/Dungeon/ceiling_tile.fbx',          import.meta.url).href,
+  column:       new URL('../../game/assets/Scenario/Dungeon/column.fbx',                import.meta.url).href,
+  // ── Point-light props ──────────────────────────────
+  torchWall:    new URL('../../game/assets/Scenario/Dungeon/torch_mounted.fbx',         import.meta.url).href,
+  // ── Rear-wall dressing ─────────────────────────────
+  banner:       new URL('../../game/assets/Scenario/Dungeon/banner_patternA_red.fbx',   import.meta.url).href,
+  wallBroken:   new URL('../../game/assets/Scenario/Dungeon/wall_broken.fbx',           import.meta.url).href,
+  wallCracked:  new URL('../../game/assets/Scenario/Dungeon/wall_cracked.fbx',          import.meta.url).href,
+  // ── Clutter ────────────────────────────────────────
+  barrel:       new URL('../../game/assets/Scenario/Dungeon/barrel_large.fbx',          import.meta.url).href,
+  barrelStack:  new URL('../../game/assets/Scenario/Dungeon/barrel_small_stack.fbx',    import.meta.url).href,
+  chest:        new URL('../../game/assets/Scenario/Dungeon/chest_gold.fbx',            import.meta.url).href,
+  boxStacked:   new URL('../../game/assets/Scenario/Dungeon/box_stacked.fbx',           import.meta.url).href,
+  candle:       new URL('../../game/assets/Scenario/Dungeon/candle_triple.fbx',         import.meta.url).href,
+  rubble:       new URL('../../game/assets/Scenario/Dungeon/rubble_large.fbx',          import.meta.url).href,
+  rubbleHalf:   new URL('../../game/assets/Scenario/Dungeon/rubble_half.fbx',           import.meta.url).href,
+  // ── Depth hint ─────────────────────────────────────
+  stairs:       new URL('../../game/assets/Scenario/Dungeon/stairs_wide.fbx',           import.meta.url).href,
+};
+
+interface DungeonPropEntry {
+  key: keyof typeof DUNGEON_URLS;
+  position: [number, number, number];
+  rotationY: number;
+  scale: number;
+}
+
+function buildDungeonLayout(): DungeonPropEntry[] {
+  // ── Scale constants (tune in-game if needed) ──
+  const S  = 0.018; // modular structure (floor/wall/ceiling/column)
+  const P  = 0.016; // props (barrels, banners, boxes…)
+  const Y0 = -1.15; // ground Y — matches character baseline
+  // ── Room dimensions ────────────────────────────
+  const WX   = 9;   // wall X position (half-width)
+  const WBAK = -17; // back wall Z
+  const entries: DungeonPropEntry[] = [];
+
+  // ── Floor (9 cols × 10 rows, step 2) ─────────────────────────
+  // X: -8..+8 step 2 | Z: +2..-16 step -2
+  for (let xi = -4; xi <= 4; xi++) {
+    for (let zi = 0; zi <= 9; zi++) {
+      entries.push({ key: 'floor', position: [xi * 2, Y0, 2 - zi * 2], rotationY: 0, scale: S });
+    }
+  }
+
+  // ── Back wall (9 segments at Z=WBAK) ─────────────────────────
+  // centre 3 segments: broken/cracked → suggests cave continues deeper
+  for (let xi = -4; xi <= 4; xi++) {
+    let wallKey: keyof typeof DUNGEON_URLS = 'wall';
+    if (xi === 0)                  wallKey = 'wallBroken';   // centre: open gap
+    else if (xi === -1 || xi === 1) wallKey = 'wallCracked';  // flanking: crumbling
+    else if (xi === -3 || xi === 3) wallKey = 'wallCracked';  // outer flanks
+    entries.push({ key: wallKey, position: [xi * 2, Y0, WBAK], rotationY: 0, scale: S });
+  }
+
+  // ── Left wall  (10 segs, X=-WX) ───────────────────────────────
+  for (let zi = 0; zi <= 9; zi++) {
+    entries.push({ key: 'wall', position: [-WX, Y0, 2 - zi * 2], rotationY:  Math.PI / 2, scale: S });
+  }
+
+  // ── Right wall (10 segs, X=+WX) ───────────────────────────────
+  for (let zi = 0; zi <= 9; zi++) {
+    entries.push({ key: 'wall', position: [WX,  Y0, 2 - zi * 2], rotationY: -Math.PI / 2, scale: S });
+  }
+
+  // ── Back corners ──────────────────────────────────────────────
+  entries.push({ key: 'wallCorner', position: [-WX, Y0, WBAK], rotationY:  Math.PI / 2, scale: S });
+  entries.push({ key: 'wallCorner', position: [ WX, Y0, WBAK], rotationY:  0,           scale: S });
+
+  // ── Ceiling (5 cols × 9 rows) ─────────────────────────────────
+  for (let xi = -2; xi <= 2; xi++) {
+    for (let zi = 1; zi <= 9; zi++) {
+      entries.push({ key: 'ceiling', position: [xi * 2, Y0 + 5.0, -(zi * 2)], rotationY: 0, scale: S });
+    }
+  }
+
+  // ── Columns — 3 pairs along the room ──────────────────────────
+  const colZ   = [-3.0, -8.5, -14.0];
+  const colXOff = 7.0;
+  for (const cz of colZ) {
+    entries.push({ key: 'column', position: [-colXOff, Y0, cz], rotationY: 0, scale: S });
+    entries.push({ key: 'column', position: [ colXOff, Y0, cz], rotationY: 0, scale: S });
+  }
+
+  // ── Wall torches — left wall (face +X) ───────────────────────
+  const torchZ = [-4.0, -9.0, -14.5];
+  for (const tz of torchZ) {
+    entries.push({ key: 'torchWall', position: [-(WX - 0.2), Y0 + 1.5, tz], rotationY: -Math.PI / 2, scale: P });
+    entries.push({ key: 'torchWall', position: [  WX - 0.2,  Y0 + 1.5, tz], rotationY:  Math.PI / 2, scale: P });
+  }
+  // Back wall torches (flanking banners, face +Z toward player)
+  entries.push({ key: 'torchWall', position: [-6.0, Y0 + 1.5, WBAK + 0.2], rotationY: Math.PI, scale: P });
+  entries.push({ key: 'torchWall', position: [ 6.0, Y0 + 1.5, WBAK + 0.2], rotationY: Math.PI, scale: P });
+
+  // ── Banners on back wall ───────────────────────────────────────
+  // Three banners: flanking center + center top
+  entries.push({ key: 'banner', position: [-4.0, Y0 + 0.6, WBAK + 0.1], rotationY: Math.PI, scale: P });
+  entries.push({ key: 'banner', position: [ 0.0, Y0 + 0.6, WBAK + 0.1], rotationY: Math.PI, scale: P });
+  entries.push({ key: 'banner', position: [ 4.0, Y0 + 0.6, WBAK + 0.1], rotationY: Math.PI, scale: P });
+
+  // ── Gold chest — centre-rear focal point ─────────────────────
+  entries.push({ key: 'chest', position: [0, Y0, WBAK + 1.5], rotationY: 0, scale: P });
+
+  // ── Candles flanking the chest ────────────────────────────────
+  entries.push({ key: 'candle', position: [-1.4, Y0, WBAK + 1.3], rotationY: 0.3,  scale: P });
+  entries.push({ key: 'candle', position: [ 1.4, Y0, WBAK + 1.3], rotationY: -0.3, scale: P });
+
+  // ── Barrels — rear-left cluster ───────────────────────────────
+  entries.push({ key: 'barrel',      position: [-7.5, Y0, WBAK + 1.2], rotationY: Math.PI * 0.2,  scale: P });
+  entries.push({ key: 'barrel',      position: [-6.2, Y0, WBAK + 1.6], rotationY: Math.PI * 0.7,  scale: P });
+  entries.push({ key: 'barrelStack', position: [-7.2, Y0, WBAK + 2.8], rotationY: 0,              scale: P });
+
+  // ── Barrels — rear-right cluster ──────────────────────────────
+  entries.push({ key: 'barrel',      position: [ 7.5, Y0, WBAK + 1.2], rotationY: Math.PI * 0.8,  scale: P });
+  entries.push({ key: 'barrel',      position: [ 6.2, Y0, WBAK + 1.6], rotationY: Math.PI * 0.3,  scale: P });
+  entries.push({ key: 'barrelStack', position: [ 7.2, Y0, WBAK + 2.8], rotationY: Math.PI,        scale: P });
+
+  // ── Stacked boxes — mid-side alcoves ──────────────────────────
+  entries.push({ key: 'boxStacked', position: [-8.2, Y0, -6.5],  rotationY: 0.1,  scale: P });
+  entries.push({ key: 'boxStacked', position: [ 8.2, Y0, -6.5],  rotationY: -0.1, scale: P });
+  entries.push({ key: 'boxStacked', position: [-8.2, Y0, -11.8], rotationY: 0.2,  scale: P });
+  entries.push({ key: 'boxStacked', position: [ 8.2, Y0, -11.8], rotationY: -0.15, scale: P });
+
+  // ── Rubble — mid-room near second column pair (Z≈-8.5) ────────
+  entries.push({ key: 'rubble',     position: [-6.0, Y0, -7.2],      rotationY:  0.6,  scale: P });
+  entries.push({ key: 'rubble',     position: [ 6.2, Y0, -7.8],      rotationY: -0.4,  scale: P });
+  // Small rubble half near back broken wall — debris spilling through
+  entries.push({ key: 'rubbleHalf', position: [-1.8, Y0, WBAK + 0.8], rotationY:  0.8,  scale: P });
+  entries.push({ key: 'rubbleHalf', position: [ 1.6, Y0, WBAK + 0.8], rotationY: -0.5,  scale: P });
+  entries.push({ key: 'rubbleHalf', position: [ 0.0, Y0, WBAK + 1.2], rotationY:  1.2,  scale: P });
+
+  // ── Stairs — visible THROUGH the broken centre gap ───────────
+  // Placed just behind the back wall to imply descent into deeper cave
+  entries.push({ key: 'stairs', position: [0, Y0, WBAK - 1.2], rotationY: Math.PI, scale: S });
+
+  return entries;
+}
+
+const DUNGEON_LAYOUT = buildDungeonLayout();
+
+/* ─── DungeonProps — 16 fixed useFBX hooks (hooks-rule: unconditional) ─── */
+
+const DungeonProps = () => {
+  const texture = useTexture(DUNGEON_TEXTURE);
+
+  useMemo(() => {
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.wrapS = THREE.ClampToEdgeWrapping;
+    texture.wrapT = THREE.ClampToEdgeWrapping;
+    texture.minFilter = THREE.LinearMipmapLinearFilter;
+    texture.magFilter = THREE.LinearFilter;
+    texture.needsUpdate = true;
+  }, [texture]);
+
+  // All 16 hooks called unconditionally and in fixed order
+  const srcFloor       = useFBX(DUNGEON_URLS.floor);
+  const srcWall        = useFBX(DUNGEON_URLS.wall);
+  const srcWallCorner  = useFBX(DUNGEON_URLS.wallCorner);
+  const srcWallBroken  = useFBX(DUNGEON_URLS.wallBroken);
+  const srcWallCracked = useFBX(DUNGEON_URLS.wallCracked);
+  const srcCeiling     = useFBX(DUNGEON_URLS.ceiling);
+  const srcColumn      = useFBX(DUNGEON_URLS.column);
+  const srcTorchWall   = useFBX(DUNGEON_URLS.torchWall);
+  const srcBanner      = useFBX(DUNGEON_URLS.banner);
+  const srcBarrel      = useFBX(DUNGEON_URLS.barrel);
+  const srcBarrelStack = useFBX(DUNGEON_URLS.barrelStack);
+  const srcChest       = useFBX(DUNGEON_URLS.chest);
+  const srcBoxStacked  = useFBX(DUNGEON_URLS.boxStacked);
+  const srcCandle      = useFBX(DUNGEON_URLS.candle);
+  const srcRubble      = useFBX(DUNGEON_URLS.rubble);
+  const srcRubbleHalf  = useFBX(DUNGEON_URLS.rubbleHalf);
+  const srcStairs      = useFBX(DUNGEON_URLS.stairs);
+
+  const sourceMap = useMemo<Record<keyof typeof DUNGEON_URLS, THREE.Group>>(() => ({
+    floor:       srcFloor,
+    wall:        srcWall,
+    wallCorner:  srcWallCorner,
+    wallBroken:  srcWallBroken,
+    wallCracked: srcWallCracked,
+    ceiling:     srcCeiling,
+    column:      srcColumn,
+    torchWall:   srcTorchWall,
+    banner:      srcBanner,
+    barrel:      srcBarrel,
+    barrelStack: srcBarrelStack,
+    chest:       srcChest,
+    boxStacked:  srcBoxStacked,
+    candle:      srcCandle,
+    rubble:      srcRubble,
+    rubbleHalf:  srcRubbleHalf,
+    stairs:      srcStairs,
+  }), [srcFloor, srcWall, srcWallCorner, srcWallBroken, srcWallCracked, srcCeiling,
+       srcColumn, srcTorchWall, srcBanner, srcBarrel, srcBarrelStack, srcChest,
+       srcBoxStacked, srcCandle, srcRubble, srcRubbleHalf, srcStairs]);
+
+  const clones = useMemo(
+    () => DUNGEON_LAYOUT.map((entry) => ({ ...entry, model: cloneWithTexture(sourceMap[entry.key], texture) })),
+    [sourceMap, texture],
+  );
+
+  return (
+    <group>
+      {clones.map((c, i) => (
+        <primitive
+          key={i}
+          object={c.model}
+          position={c.position}
+          rotation={[0, c.rotationY, 0]}
+          scale={c.scale}
+        />
+      ))}
+    </group>
+  );
+};
+
+/* ─── Dungeon Battle Scenario (exported, used by Scene3D) ─── */
+
+export const DungeonScenario = () => (
+  <Suspense fallback={null}>
+    <DungeonProps />
+  </Suspense>
+);
