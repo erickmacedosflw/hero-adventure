@@ -403,16 +403,18 @@ export const DayNightCycle = ({
       moonIntensity = 0.55 * Math.max(0, Math.sin(p * Math.PI));
     }
 
-    if (ambientRef.current) ambientRef.current.intensity = ambientIntensity;
+    if (ambientRef.current) ambientRef.current.intensity = ambientIntensity * 0.55;
     if (hemiRef.current) {
-      hemiRef.current.intensity = ambientIntensity * 0.6;
+      hemiRef.current.intensity = ambientIntensity * 0.35;
       hemiRef.current.color.copy(hemiSky);
       hemiRef.current.groundColor.copy(hemiGround);
     }
     if (sunLightRef.current) {
-      sunLightRef.current.intensity = sunIntensity;
+      sunLightRef.current.intensity = sunIntensity * 1.6;
       sunLightRef.current.color.copy(sunColor);
       sunLightRef.current.position.copy(sunPos);
+      sunLightRef.current.target.position.set(0, 0.5, 0);
+      sunLightRef.current.target.updateMatrixWorld();
     }
     if (moonLightRef.current) {
       moonLightRef.current.intensity = moonIntensity;
@@ -476,15 +478,15 @@ export const DayNightCycle = ({
         ref={sunLightRef}
         castShadow
         shadow-mapSize={[quality.shadowMapSize, quality.shadowMapSize]}
-        shadow-camera-left={-25}
-        shadow-camera-right={25}
-        shadow-camera-top={25}
-        shadow-camera-bottom={-25}
+        shadow-camera-left={-10}
+        shadow-camera-right={10}
+        shadow-camera-top={10}
+        shadow-camera-bottom={-10}
         shadow-camera-near={0.1}
         shadow-camera-far={200}
-        shadow-bias={-0.0005}
-        shadow-normalBias={0.04}
-        shadow-radius={4}
+        shadow-bias={-0.0004}
+        shadow-normalBias={0.03}
+        shadow-radius={3}
       />
       <directionalLight ref={moonLightRef} color="#c7d2fe" intensity={0} position={[-5, 10, -15]} />
       <mesh ref={sunMeshRef}>
@@ -648,7 +650,7 @@ export const FogController: React.FC = () => {
     fog.color.copy(color);
   });
 
-  return <fog attach="fog" args={[FOG.dia.getHex(), 32, 90]} />;
+  return <fog attach="fog" args={[FOG.dia.getHex(), 14, 45]} />;
 };
 
 export const CameraController = ({ screenShake }: { screenShake?: number }) => {

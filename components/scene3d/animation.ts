@@ -341,8 +341,8 @@ export const buildRuntimeMaterial = (material: THREE.Material, texture: THREE.Te
     opacity: sourceMaterial.opacity ?? 1,
     side: sourceMaterial.side ?? THREE.FrontSide,
     alphaTest: sourceMaterial.alphaTest ?? 0,
-    roughness: 0.82,
-    metalness: 0.08,
+    roughness: 0.72,
+    metalness: 0.1,
   });
 
   runtimeMaterial.needsUpdate = true;

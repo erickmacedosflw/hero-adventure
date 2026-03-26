@@ -803,7 +803,7 @@ const createFallbackItemGroup = () => {
   return group;
 };
 
-export function ItemPreviewThree({ item }: { item: Item }) {
+export function ItemPreviewThree({ item, variant = 'default' }: { item: Item; variant?: 'default' | 'menu' }) {
   const mountRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -815,10 +815,11 @@ export function ItemPreviewThree({ item }: { item: Item }) {
 
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 100);
+    const isMenuVariant = variant === 'menu';
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
-    renderer.setClearColor('#020617', 1);
+    renderer.setClearColor(isMenuVariant ? '#000000' : '#020617', isMenuVariant ? 0 : 1);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     mount.appendChild(renderer.domElement);
 
@@ -826,7 +827,7 @@ export function ItemPreviewThree({ item }: { item: Item }) {
     controls.enablePan = false;
     controls.enableZoom = false;
     controls.autoRotate = true;
-    controls.autoRotateSpeed = 2.5;
+    controls.autoRotateSpeed = isMenuVariant ? 3.1 : 2.5;
     controls.enableDamping = true;
     controls.dampingFactor = 0.06;
 
@@ -848,38 +849,50 @@ export function ItemPreviewThree({ item }: { item: Item }) {
     scene.add(pointLight);
 
     const pedestalGroup = new THREE.Group();
-    const pedestalBase = new THREE.Mesh(
-      new THREE.CylinderGeometry(1.75, 1.95, 0.38, 40),
-      new THREE.MeshStandardMaterial({ color: '#0f172a', metalness: 0.55, roughness: 0.35 })
-    );
-    pedestalBase.position.y = -1.58;
-    pedestalBase.receiveShadow = true;
-    pedestalGroup.add(pedestalBase);
+    if (!isMenuVariant) {
+      const pedestalBase = new THREE.Mesh(
+        new THREE.CylinderGeometry(1.75, 1.95, 0.38, 40),
+        new THREE.MeshStandardMaterial({ color: '#0f172a', metalness: 0.55, roughness: 0.35 })
+      );
+      pedestalBase.position.y = -1.58;
+      pedestalBase.receiveShadow = true;
+      pedestalGroup.add(pedestalBase);
 
-    const pedestalTop = new THREE.Mesh(
-      new THREE.CylinderGeometry(1.25, 1.35, 0.1, 40),
-      new THREE.MeshStandardMaterial({ color: '#1e293b', metalness: 0.45, roughness: 0.2, emissive: '#0f172a', emissiveIntensity: 0.5 })
-    );
-    pedestalTop.position.y = -1.28;
-    pedestalTop.receiveShadow = true;
-    pedestalGroup.add(pedestalTop);
+      const pedestalTop = new THREE.Mesh(
+        new THREE.CylinderGeometry(1.25, 1.35, 0.1, 40),
+        new THREE.MeshStandardMaterial({ color: '#1e293b', metalness: 0.45, roughness: 0.2, emissive: '#0f172a', emissiveIntensity: 0.5 })
+      );
+      pedestalTop.position.y = -1.28;
+      pedestalTop.receiveShadow = true;
+      pedestalGroup.add(pedestalTop);
+    }
 
     const shadowPlane = new THREE.Mesh(
-      new THREE.CircleGeometry(1.25, 40),
-      new THREE.MeshBasicMaterial({ color: '#000000', opacity: 0.18, transparent: true })
+      new THREE.CircleGeometry(isMenuVariant ? 1.55 : 1.25, 40),
+      new THREE.MeshBasicMaterial({ color: isMenuVariant ? '#4b2e2a' : '#000000', opacity: isMenuVariant ? 0.24 : 0.18, transparent: true })
     );
     shadowPlane.rotation.x = -Math.PI / 2;
-    shadowPlane.position.y = -1.18;
+    shadowPlane.position.y = isMenuVariant ? -1.12 : -1.18;
     pedestalGroup.add(shadowPlane);
 
-    const floor = new THREE.Mesh(
-      new THREE.CircleGeometry(3.6, 48),
-      new THREE.MeshStandardMaterial({ color: '#020617', metalness: 0.1, roughness: 0.95 })
-    );
-    floor.rotation.x = -Math.PI / 2;
-    floor.position.y = -1.74;
-    floor.receiveShadow = true;
-    pedestalGroup.add(floor);
+    if (isMenuVariant) {
+      const halo = new THREE.Mesh(
+        new THREE.RingGeometry(1.42, 1.98, 48),
+        new THREE.MeshBasicMaterial({ color: '#c08a52', transparent: true, opacity: 0.18, side: THREE.DoubleSide })
+      );
+      halo.rotation.x = -Math.PI / 2;
+      halo.position.y = -1.1;
+      pedestalGroup.add(halo);
+    } else {
+      const floor = new THREE.Mesh(
+        new THREE.CircleGeometry(3.6, 48),
+        new THREE.MeshStandardMaterial({ color: '#020617', metalness: 0.1, roughness: 0.95 })
+      );
+      floor.rotation.x = -Math.PI / 2;
+      floor.position.y = -1.74;
+      floor.receiveShadow = true;
+      pedestalGroup.add(floor);
+    }
     scene.add(pedestalGroup);
 
     const resize = () => {
@@ -987,14 +1000,16 @@ export function ItemPreviewThree({ item }: { item: Item }) {
         mount.removeChild(renderer.domElement);
       }
     };
-  }, [item]);
+  }, [item, variant]);
 
   return (
-    <div className="w-full h-full relative overflow-hidden rounded-[inherit]">
-      <div className="pointer-events-none absolute left-3 top-3 z-10 rounded-md border border-cyan-400/25 bg-slate-950/80 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-100">
-        <div>3D preview live</div>
-        <div className="mt-1 text-[9px] tracking-[0.14em] text-cyan-200/80">{item.type} :: {item.id}</div>
-      </div>
+    <div className={`relative h-full w-full overflow-hidden rounded-[inherit] ${variant === 'menu' ? 'rpg-3d-showcase' : ''}`}>
+      {variant !== 'menu' && (
+        <div className="pointer-events-none absolute left-3 top-3 z-10 rounded-md border border-cyan-400/25 bg-slate-950/80 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-100">
+          <div>3D preview live</div>
+          <div className="mt-1 text-[9px] tracking-[0.14em] text-cyan-200/80">{item.type} :: {item.id}</div>
+        </div>
+      )}
       <div ref={mountRef} className="w-full h-full" />
     </div>
   );

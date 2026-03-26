@@ -117,6 +117,12 @@ interface DeveloperHeroSceneProps {
   equippedLegsId?: string;
   equippedShieldId?: string;
   isHit?: boolean;
+  transparent?: boolean;
+  autoRotate?: boolean;
+  enableManualRotate?: boolean;
+  transparentCameraZoom?: number;
+  transparentModelScale?: number;
+  transparentModelOffsetY?: number;
 }
 
 interface DeveloperMonsterSceneProps {
@@ -1143,6 +1149,17 @@ const WeaponAttachmentPreview = ({
       }
     });
 
+    // Normalize weapon model so its largest bounding-box dimension becomes 1.0 unit.
+    // Without this the raw FBX size (often 50-170+ units) makes the weapon gigantic
+    // compared to the hero which is normalized via prepareRuntimeHeroModel.
+    const bounds = new THREE.Box3().setFromObject(weaponClone);
+    const size = new THREE.Vector3();
+    bounds.getSize(size);
+    const maxDim = Math.max(size.x, size.y, size.z);
+    if (maxDim > 0) {
+      weaponClone.scale.setScalar(1 / maxDim);
+    }
+
     return weaponClone;
   }, [model, texture]);
 
@@ -1185,17 +1202,6 @@ const EquippedWeaponAttachment = ({
 
   const attachmentBone = useMemo(() => findAttachmentBone(characterModel, RIGHT_HAND_BONE_CANDIDATES), [characterModel]);
 
-  useEffect(() => {
-    if (!attachmentGroupRef.current || !attachmentBone) {
-      return;
-    }
-
-    attachmentBone.add(attachmentGroupRef.current);
-    return () => {
-      attachmentBone.remove(attachmentGroupRef.current!);
-    };
-  }, [attachmentBone]);
-
   const handleTransformObjectChange = useCallback(() => {
     if (!attachmentGroupRef.current || !onWeaponTransformChange) {
       return;
@@ -1208,12 +1214,71 @@ const EquippedWeaponAttachment = ({
     });
   }, [onWeaponTransformChange]);
 
+  // Instead of reparenting under the bone (which causes the weapon to inherit
+  // the Mixamo skeleton's huge internal scale), we keep the weapon in the R3F
+  // tree and manually sync position/rotation from the bone every frame. This
+  // way the weapon NEVER inherits the bone's scale — only handTransform.scale
+  // is applied.
+  const _boneWorldPos = useRef(new THREE.Vector3());
+  const _boneWorldQuat = useRef(new THREE.Quaternion());
+  const _offset = useRef(new THREE.Vector3());
+  const _parentInverse = useRef(new THREE.Matrix4());
+  const _parentQuat = useRef(new THREE.Quaternion());
+  const _handRotQuat = useRef(new THREE.Quaternion());
+  const _euler = useRef(new THREE.Euler());
+
+  useFrame(() => {
+    if (!attachmentGroupRef.current || !attachmentBone) {
+      return;
+    }
+
+    const parent = attachmentGroupRef.current.parent;
+    if (!parent) {
+      return;
+    }
+
+    attachmentBone.updateWorldMatrix(true, false);
+    parent.updateWorldMatrix(true, false);
+
+    // Get bone world position & rotation (ignoring scale entirely)
+    attachmentBone.getWorldPosition(_boneWorldPos.current);
+    attachmentBone.getWorldQuaternion(_boneWorldQuat.current);
+
+    // Apply handTransform position offset in bone-oriented space, then add to world pos
+    _offset.current.set(transform.position[0], transform.position[1], transform.position[2]);
+    _offset.current.applyQuaternion(_boneWorldQuat.current);
+    _boneWorldPos.current.add(_offset.current);
+
+    // Convert final world position → parent-local position
+    _parentInverse.current.copy(parent.matrixWorld).invert();
+    _boneWorldPos.current.applyMatrix4(_parentInverse.current);
+    attachmentGroupRef.current.position.copy(_boneWorldPos.current);
+
+    // Combine bone world rotation with handTransform rotation, then convert to parent-local
+    _euler.current.set(transform.rotation[0], transform.rotation[1], transform.rotation[2]);
+    _handRotQuat.current.setFromEuler(_euler.current);
+    const combinedQuat = _boneWorldQuat.current.multiply(_handRotQuat.current);
+
+    parent.getWorldQuaternion(_parentQuat.current);
+    _parentQuat.current.invert();
+    _parentQuat.current.multiply(combinedQuat);
+    attachmentGroupRef.current.quaternion.copy(_parentQuat.current);
+
+    // Scale: ONLY the handTransform scale — no bone scale inheritance at all
+    attachmentGroupRef.current.scale.setScalar(transform.scale);
+  });
+
   if (!definition || !attachmentBone) {
     return null;
   }
 
   const content = (
-    <group ref={attachmentGroupRef} position={transform.position} rotation={transform.rotation} scale={[transform.scale, transform.scale, transform.scale]}>
+    <group 
+      ref={attachmentGroupRef} 
+      position={transform.position} 
+      rotation={transform.rotation} 
+      scale={[transform.scale, transform.scale, transform.scale]}
+    >
       {showAnchorHelper ? (
         <mesh>
           <sphereGeometry args={[0.025, 6, 6]} />
@@ -1786,6 +1851,10 @@ export const GameScene: React.FC<SceneProps> = (props) => {
 
         {props.particles.map(p => <MeshParticle key={p.id} {...p} />)}
         <WorldFloatingTexts texts={props.floatingTexts} />
+
+        <EffectComposer>
+          <Vignette eskil={false} offset={0.1} darkness={0.6} />
+        </EffectComposer>
       </Canvas>
     </div>
   );
@@ -1805,66 +1874,101 @@ export const DeveloperHeroScene: React.FC<DeveloperHeroSceneProps> = ({
   equippedLegsId,
   equippedShieldId,
   isHit = false,
+  transparent = false,
+  autoRotate = false,
+  enableManualRotate = false,
+  transparentCameraZoom = 1,
+  transparentModelScale = 1,
+  transparentModelOffsetY = 0,
 }) => {
   const quality = useMemo(() => getRenderQualityProfile(), []);
+  const transparentCameraDistance = 7.1 / Math.max(0.65, transparentCameraZoom);
+  const heroScale = transparent ? 1.12 * transparentModelScale : 1;
+  const heroGroupY = transparent ? -1.12 + transparentModelOffsetY : -1.12;
 
   return (
-    <div className="relative h-full w-full overflow-hidden rounded-[inherit] bg-[radial-gradient(circle_at_top,_rgba(14,165,233,0.16),_transparent_38%),linear-gradient(180deg,rgba(15,23,42,0.96),rgba(2,6,23,0.98))]">
+    <div className={`relative h-full w-full overflow-hidden rounded-[inherit] ${transparent ? 'bg-transparent' : 'bg-[radial-gradient(circle_at_top,_rgba(14,165,233,0.16),_transparent_38%),linear-gradient(180deg,rgba(15,23,42,0.96),rgba(2,6,23,0.98))]'}`}>
       <Canvas
         shadows={{ type: THREE.PCFSoftShadowMap }}
         dpr={quality.dpr}
-        gl={{ antialias: quality.antialias, powerPreference: 'high-performance' }}
+        gl={{ antialias: quality.antialias, powerPreference: 'high-performance', alpha: transparent }}
         performance={{ min: 0.5 }}
+        onCreated={({ gl, scene }) => {
+          if (transparent) {
+            gl.setClearAlpha(0);
+            scene.background = null;
+          }
+        }}
       >
-        <color attach="background" args={['#020617']} />
-        <fog attach="fog" args={['#020617', 10, 26]} />
+        {!transparent && <color attach="background" args={['#020617']} />}
+        {!transparent && <fog attach="fog" args={['#020617', 10, 26]} />}
         <PerspectiveCamera
           makeDefault
-          position={[0, 1.45, 8.2]}
-          fov={36}
+          position={transparent ? [0, 1.5, transparentCameraDistance] : [0, 1.45, 8.2]}
+          fov={transparent ? 32 : 36}
           onUpdate={(camera) => camera.lookAt(0, 0.15, 0)}
         />
-        <ambientLight intensity={1.1} color="#f8fafc" />
-        <hemisphereLight intensity={0.7} color="#dbeafe" groundColor="#0f172a" />
-        <directionalLight position={[3, 6, 5]} intensity={1.15} color="#f8fafc" castShadow shadow-mapSize={[quality.shadowMapSize, quality.shadowMapSize]} />
-        <pointLight position={[-3, 2.6, 2]} intensity={1.2} color="#38bdf8" distance={12} />
-        <pointLight position={[2.2, 2.2, 1.5]} intensity={0.9} color="#f97316" distance={10} />
+        {(enableManualRotate || autoRotate) && (
+          <OrbitControls
+            enablePan={false}
+            enableZoom={false}
+            enableDamping
+            dampingFactor={0.08}
+            rotateSpeed={0.75}
+            minPolarAngle={Math.PI * 0.36}
+            maxPolarAngle={Math.PI * 0.64}
+            target={[0, 0.15, 0]}
+            autoRotate={autoRotate}
+            autoRotateSpeed={1.8}
+          />
+        )}
+        <ambientLight intensity={transparent ? 1.35 : 1.1} color="#f8fafc" />
+        <hemisphereLight intensity={transparent ? 1.05 : 0.7} color="#dbeafe" groundColor={transparent ? '#7c5a47' : '#0f172a'} />
+        <directionalLight position={[3, 6, 5]} intensity={transparent ? 1.35 : 1.15} color="#f8fafc" castShadow shadow-mapSize={[quality.shadowMapSize, quality.shadowMapSize]} />
+        <pointLight position={[-3, 2.6, 2]} intensity={transparent ? 1.45 : 1.2} color="#38bdf8" distance={12} />
+        <pointLight position={[2.2, 2.2, 1.5]} intensity={transparent ? 1.1 : 0.9} color="#f97316" distance={10} />
 
-        <group position={[0, -1.12, 0]}>
-          <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-            <circleGeometry args={[3.8, 48]} />
-            <meshStandardMaterial color="#0f172a" roughness={0.82} metalness={0.08} />
-          </mesh>
+        <group position={[0, heroGroupY, 0]}>
+          {!transparent && (
+            <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+              <circleGeometry args={[3.8, 48]} />
+              <meshStandardMaterial color="#0f172a" roughness={0.82} metalness={0.08} />
+            </mesh>
+          )}
           <mesh position={[0, 0.01, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-            <ringGeometry args={[2.5, 3.2, 48]} />
-            <meshStandardMaterial color="#0ea5e9" emissive="#0284c7" emissiveIntensity={0.4} transparent opacity={0.22} side={THREE.DoubleSide} />
+            <ringGeometry args={transparent ? [1.75, 2.45, 48] : [2.5, 3.2, 48]} />
+            <meshStandardMaterial color={transparent ? '#8d5e29' : '#0ea5e9'} emissive={transparent ? '#b45309' : '#0284c7'} emissiveIntensity={transparent ? 0.22 : 0.4} transparent opacity={transparent ? 0.16 : 0.22} side={THREE.DoubleSide} />
           </mesh>
         </group>
 
-        <HeroVoxel
-          classId={classId}
-          playerAnimationAction={animationAction}
-          animationClipName={animationClipName}
-          preferredAnimationBundle={preferredAnimationBundle}
-          onAvailableAnimationClipsChange={onAvailableAnimationClipsChange}
-          loadAllAnimationBundles={loadAllAnimationBundles}
-          loadSecondaryAnimationBundles={loadSecondaryAnimationBundles}
-          previewLoopAllActions
-          isAttacking={animationAction === 'attack'}
-          isDefending={animationAction === 'defend'}
-          weaponId={equippedWeaponId}
-          armorId={equippedArmorId}
-          helmetId={equippedHelmetId}
-          legsId={equippedLegsId}
-          shieldId={equippedShieldId}
-          isHit={isHit}
-          idlePositionX={0}
-          attackPositionX={0.35}
-          defendPositionX={-0.15}
-          originPosition={[0, -1, 0]}
-          baseRotationY={0.35}
-          contactShadowResolution={quality.contactShadowResolution}
-        />
+        {transparent && <ContactShadows position={[0, -1.04, 0]} scale={5.4} blur={2.6} opacity={0.42} far={2.2} color="#4b2e2a" />}
+
+        <group scale={heroScale}>
+          <HeroVoxel
+            classId={classId}
+            playerAnimationAction={animationAction}
+            animationClipName={animationClipName}
+            preferredAnimationBundle={preferredAnimationBundle}
+            onAvailableAnimationClipsChange={onAvailableAnimationClipsChange}
+            loadAllAnimationBundles={loadAllAnimationBundles}
+            loadSecondaryAnimationBundles={loadSecondaryAnimationBundles}
+            previewLoopAllActions
+            isAttacking={animationAction === 'attack'}
+            isDefending={animationAction === 'defend'}
+            weaponId={equippedWeaponId}
+            armorId={equippedArmorId}
+            helmetId={equippedHelmetId}
+            legsId={equippedLegsId}
+            shieldId={equippedShieldId}
+            isHit={isHit}
+            idlePositionX={0}
+            attackPositionX={0.35}
+            defendPositionX={-0.15}
+            originPosition={[0, -1, 0]}
+            baseRotationY={0.35}
+            contactShadowResolution={quality.contactShadowResolution}
+          />
+        </group>
       </Canvas>
     </div>
   );

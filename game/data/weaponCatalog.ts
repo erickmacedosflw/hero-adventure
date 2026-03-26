@@ -111,7 +111,7 @@ export const REGISTERED_WEAPON_3D_CATALOG: RegisteredWeapon3DDefinition[] = [
     id: 'wep_3d_dagger_a',
     name: 'Punhal de Treino A',
     description: 'Versao simples e rapida para iniciantes. +9 ATK',
-    cost: 160,
+    cost: 50,
     value: 9,
     rarity: 'bronze',
     minLevel: 1,

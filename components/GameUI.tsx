@@ -1,8 +1,12 @@
 
 import React, { useState, useEffect } from 'react';
 import { Player, Enemy, BattleLog, TurnState, Item, Skill, GameState, FloatingText, Rarity, ProgressionCard, CardRewardOffer, AlchemistCardOffer, AlchemistItemOffer, DungeonResult, DungeonRewards } from '../types';
-import { Sword, Shield, Zap, Heart, Coins, ShoppingBag, Skull, Play, Plus, FlaskConical, User, X, Home, LogOut, DollarSign, AlertTriangle, MousePointerClick, Shirt, Footprints, Crown, LayoutGrid, Sparkles, Crosshair, ArrowLeft } from 'lucide-react';
+import { Sword, Shield, Zap, Heart, Coins, ShoppingBag, Skull, Play, Plus, FlaskConical, User, X, Home, LogOut, DollarSign, AlertTriangle, MousePointerClick, Shirt, Footprints, Crown, LayoutGrid, Sparkles, Crosshair, ArrowLeft, Star } from 'lucide-react';
 import { ItemPreviewThree } from './items/ItemPreviewThree';
+import { GameAssetIcon } from './ui/game-asset-icon';
+import { CharacterSheetModal } from './profile/CharacterSheetModal';
+import { InventoryScreen as InventoryModal } from './profile/InventoryScreen';
+import { ShopMenuScreen } from './shop/ShopMenuScreen';
 import { ALL_ITEMS, SKILLS } from '../constants';
 import { ALL_CARDS } from '../game/data/cards';
 import { getPlayerClassById, PLAYER_CLASSES } from '../game/data/classes';
@@ -138,22 +142,22 @@ const ActionTile = ({
     variant: 'attack' | 'defense' | 'item' | 'neutral' | 'danger' | 'skill';
 }) => {
     const variantClass = {
-        attack: 'bg-red-600 border-red-800 text-white hover:bg-red-500 shadow-lg shadow-red-900/20',
-        defense: 'bg-blue-600 border-blue-800 text-white hover:bg-blue-500 shadow-lg shadow-blue-900/20',
-        item: 'bg-amber-600 border-amber-800 text-white hover:bg-amber-500',
-        neutral: 'game-button-muted text-slate-200 hover:bg-slate-600',
-        danger: 'game-button-danger text-white hover:brightness-110',
-        skill: 'bg-purple-600 border-purple-800 text-white hover:bg-purple-500 shadow-lg shadow-purple-900/20',
+        attack: 'bg-[#c44b54] border-[#a83a42] text-white hover:bg-[#b5424a] shadow-lg shadow-[#c44b54]/20',
+        defense: 'bg-[#4d7a96] border-[#3b6580] text-white hover:bg-[#5a8aa6] shadow-lg shadow-[#4d7a96]/20',
+        item: 'bg-[#b87a3a] border-[#9a6530] text-white hover:bg-[#c88a4a]',
+        neutral: 'bg-[#f4e5d4] border-[#cfab91] text-[#6b3141] hover:bg-[#e9d7c2]',
+        danger: 'bg-rose-500 border-rose-600 text-white hover:brightness-110',
+        skill: 'bg-[#7c4c76] border-[#664060] text-white hover:bg-[#8d5d87] shadow-lg shadow-[#7c4c76]/20',
     }[variant];
 
     return (
         <button
             onClick={onClick}
             disabled={disabled}
-            className={`col-span-1 rounded-xl aspect-square flex flex-col items-center justify-center gap-0.5 border-b-3 transition-all active:translate-y-0.5 active:border-b-0 ${disabled ? 'bg-slate-800 border-slate-900 text-slate-600 cursor-not-allowed' : variantClass}`}
+            className={`col-span-1 rounded-[14px] aspect-square flex flex-col items-center justify-center gap-0.5 border-b-2 sm:border-b-3 transition-all active:translate-y-0.5 active:border-b-0 ${disabled ? 'bg-[#e9d7c2] border-[#dcc0aa] text-[#8f6c67] cursor-not-allowed' : variantClass}`}
         >
-            <span className="game-icon-badge w-7 h-7">{icon}</span>
-            <span className="font-black text-[9px] md:text-[10px] tracking-wide">{label}</span>
+            {icon}
+            <span className="font-black text-[7px] sm:text-[10px] tracking-wide uppercase">{label}</span>
         </button>
     );
 };
@@ -1033,8 +1037,8 @@ export const TavernScreen: React.FC<{
           </div>
        </div>
     </div>
-    {showProfile && <CharacterSheet player={player} shopItems={shopItems} onClose={() => setShowProfile(false)} onOpenInventory={() => { setShowProfile(false); setShowInventory(true); }} />}
-    {showInventory && <InventoryScreen player={player} shopItems={shopItems} onClose={() => setShowInventory(false)} onEquip={onEquipItem} onUse={onUseItem} />}
+    {showProfile && <CharacterSheetModal player={player} shopItems={shopItems} onClose={() => setShowProfile(false)} onOpenInventory={() => { setShowProfile(false); setShowInventory(true); }} />}
+    {showInventory && <InventoryModal player={player} shopItems={shopItems} onClose={() => setShowInventory(false)} onEquip={onEquipItem} onUse={onUseItem} />}
     </>
   );
 };
@@ -1118,21 +1122,21 @@ const getAlchemistRelicMeta = (item: Item) => {
 };
 
 const getCardCategoryBadge = (card: ProgressionCard) => {
-    if (card.category === 'economia') return { icon: <Coins size={14} />, label: 'Economia', color: 'text-amber-300 border-amber-500/30 bg-amber-500/10' };
-    if (card.category === 'atributo') return { icon: <Heart size={14} />, label: 'Atributos', color: 'text-emerald-300 border-emerald-500/30 bg-emerald-500/10' };
-    if (card.category === 'batalha') return { icon: <Crosshair size={14} />, label: 'Combate', color: 'text-rose-300 border-rose-500/30 bg-rose-500/10' };
-    return { icon: <Sparkles size={14} />, label: 'Especial', color: 'text-sky-300 border-sky-500/30 bg-sky-500/10' };
+    if (card.category === 'economia') return { icon: <Coins size={14} />, label: 'Economia', color: 'text-amber-700 border-amber-300 bg-amber-100' };
+    if (card.category === 'atributo') return { icon: <Heart size={14} />, label: 'Atributos', color: 'text-emerald-700 border-emerald-300 bg-emerald-100' };
+    if (card.category === 'batalha') return { icon: <Crosshair size={14} />, label: 'Combate', color: 'text-rose-700 border-rose-300 bg-rose-100' };
+    return { icon: <Sparkles size={14} />, label: 'Especial', color: 'text-sky-700 border-sky-300 bg-sky-100' };
 };
 
 export const CardChoiceScreen: React.FC<{ offer: CardRewardOffer, cards: ProgressionCard[], onSelect: (card: ProgressionCard) => void }> = ({ offer, cards, onSelect }) => (
-    <div className="absolute inset-0 z-50 bg-black/90 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 pointer-events-auto">
-        <div className="w-full max-w-6xl max-h-[95vh] sm:max-h-none overflow-y-auto rounded-2xl sm:rounded-[28px] border border-amber-500/20 bg-[radial-gradient(circle_at_top,rgba(251,191,36,0.12),transparent_32%),linear-gradient(180deg,rgba(15,23,42,0.98),rgba(2,6,23,0.98))] shadow-[0_30px_120px_rgba(0,0,0,0.6)]">
-            <div className="border-b border-slate-800 px-4 py-3 sm:px-8 sm:py-6 text-center">
-                <div className="inline-flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 sm:px-4 sm:py-1.5 text-[10px] sm:text-xs font-black uppercase tracking-[0.3em] text-amber-300">
+    <div className="absolute inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 pointer-events-auto">
+        <div className="w-full max-w-6xl max-h-[95vh] sm:max-h-none overflow-y-auto rounded-2xl sm:rounded-[28px] border border-[#cfab91] bg-[#f7ecdd] shadow-[0_30px_120px_rgba(107,49,65,0.18)]">
+            <div className="border-b border-[#dcc0aa] px-4 py-3 sm:px-8 sm:py-6 text-center">
+                <div className="inline-flex items-center gap-2 rounded-full border border-[#cfab91] bg-[#f4e5d4] px-3 py-1 sm:px-4 sm:py-1.5 text-[10px] sm:text-xs font-black uppercase tracking-[0.3em] text-[#8d5e29]">
                     <Sparkles size={12} /> Escolha uma carta
                 </div>
-                <h2 className="mt-2 sm:mt-4 text-xl sm:text-4xl font-black text-white">{offer.source === 'boss' ? 'Recompensa do Chefao' : 'Recompensa de Evolucao'}</h2>
-                <p className="mt-1 sm:mt-2 text-xs sm:text-base text-slate-400">{offer.reason}</p>
+                <h2 className="mt-2 sm:mt-4 text-xl sm:text-4xl font-black text-[#6b3141]">{offer.source === 'boss' ? 'Recompensa do Chefao' : 'Recompensa de Evolucao'}</h2>
+                <p className="mt-1 sm:mt-2 text-xs sm:text-base text-[#7f5b56]">{offer.reason}</p>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-5 p-3 sm:p-8">
@@ -1144,12 +1148,12 @@ export const CardChoiceScreen: React.FC<{ offer: CardRewardOffer, cards: Progres
                         <button
                             key={card.id}
                             onClick={() => onSelect(card)}
-                            className={`group text-left rounded-2xl sm:rounded-[24px] border p-3.5 sm:p-6 transition-all duration-200 hover:-translate-y-1 hover:shadow-2xl ${getRarityColor(card.rarity)} bg-slate-950/70 hover:border-amber-400/70`}
+                            className="group text-left rounded-[16px] sm:rounded-[20px] border border-[#cfab91] bg-[#f7ecdd] p-3.5 sm:p-6 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-xl hover:border-[#c59d82]"
                         >
                             <div className="flex items-start justify-between gap-2 sm:gap-3 mb-2 sm:mb-4">
                                 <div>
-                                    <div className="text-[9px] sm:text-[10px] font-black uppercase tracking-[0.35em] text-slate-500 mb-1 sm:mb-2">{card.rarity}</div>
-                                    <h3 className="text-lg sm:text-2xl font-black text-white leading-tight">{card.name}</h3>
+                                    <div className="rounded-full border border-[#d6b9a3] bg-[#f8eddf] px-2.5 py-1 text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.35em] text-[#9a7068] inline-block mb-1 sm:mb-2">{card.rarity}</div>
+                                    <h3 className="text-lg sm:text-2xl font-black text-[#6b3141] leading-tight">{card.name}</h3>
                                 </div>
                                 <div className={`inline-flex items-center gap-1 rounded-full border px-2 sm:px-3 py-0.5 sm:py-1 text-[10px] sm:text-[11px] font-bold shrink-0 ${category.color}`}>
                                     {category.icon}
@@ -1157,19 +1161,14 @@ export const CardChoiceScreen: React.FC<{ offer: CardRewardOffer, cards: Progres
                                 </div>
                             </div>
 
-                            <p className="text-xs sm:text-sm text-slate-300 leading-relaxed min-h-8 sm:min-h-12">{card.description}</p>
+                            <p className="text-xs sm:text-sm text-[#7f5b56] leading-relaxed min-h-8 sm:min-h-12">{card.description}</p>
 
                             <div className="mt-3 sm:mt-5 space-y-1.5 sm:space-y-2">
                                 {effectLines.map(line => (
-                                    <div key={line} className="rounded-xl border border-slate-800 bg-black/25 px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold text-slate-100">
+                                    <div key={line} className="rounded-xl border border-[#dcc0aa] bg-[#f4e5d4] px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold text-[#6b3141]">
                                         {line}
                                     </div>
                                 ))}
-                            </div>
-
-                            <div className="mt-4 sm:mt-6 flex items-center justify-between border-t border-slate-800 pt-3 sm:pt-4 text-[10px] sm:text-xs font-bold uppercase tracking-[0.25em] text-slate-500 group-hover:text-amber-300 transition-colors">
-                                <span>Escolher</span>
-                                <span className="flex items-center gap-1"><MousePointerClick size={12} /> Confirmar</span>
                             </div>
                         </button>
                     );
@@ -1490,410 +1489,7 @@ export const DungeonResultScreen: React.FC<{ result: DungeonResult, onContinue: 
 type ShopFilter = 'all' | 'weapon' | 'shield' | 'helmet' | 'armor' | 'legs' | 'potion';
 
 export const ShopScreen: React.FC<{ player: Player, items: Item[], onBuy: (i: Item) => void, onSell: (i: Item) => void, onLeave: () => void }> = ({ player, items, onBuy, onSell, onLeave }) => {
-  const [selectedItem, setSelectedItem] = useState<Item | null>(null);
-  const [filter, setFilter] = useState<ShopFilter>('all');
-  const [mobileDetailItem, setMobileDetailItem] = useState<Item | null>(null);
-  const [mobileShowSell, setMobileShowSell] = useState(false);
-
-  // Helper: Rarity Weight for sorting
-  const getRarityWeight = (r: string) => {
-      if (r === 'bronze') return 1;
-      if (r === 'silver') return 2;
-      if (r === 'gold') return 3;
-      return 0;
-  }
-
-  // Filter & Sort Logic
-  const filteredItems = items
-    .filter(item => item.type !== 'material') // Do not show materials in the buy list
-        .filter(item => item.source !== 'dungeon' && item.source !== 'alchemist')
-    .filter(item => {
-        if (filter === 'all') return true;
-        return item.type === filter;
-    })
-    .sort((a, b) => {
-        // First by rarity (ASC)
-        const diff = getRarityWeight(a.rarity) - getRarityWeight(b.rarity);
-        if (diff !== 0) return diff;
-        // Then by price (ASC)
-        return a.cost - b.cost;
-    });
-
-  // Seleciona o primeiro item ao mudar filtro ou abrir
-  useEffect(() => {
-      if (filteredItems.length > 0 && (!selectedItem || !filteredItems.find(i => i.id === selectedItem.id))) {
-          setSelectedItem(filteredItems[0]);
-      } else if (filteredItems.length === 0) {
-          setSelectedItem(null);
-      }
-  }, [filter, items]);
-
-  const filters: { id: ShopFilter, label: string, icon: React.ReactNode }[] = [
-      { id: 'all', label: 'Todos', icon: <LayoutGrid size={16} /> },
-      { id: 'potion', label: 'Itens', icon: <FlaskConical size={16} /> },
-      { id: 'weapon', label: 'Armas', icon: <Sword size={16} /> },
-      { id: 'shield', label: 'Escudos', icon: <Shield size={16} /> },
-      { id: 'helmet', label: 'Capacetes', icon: <Crown size={16} /> },
-      { id: 'armor', label: 'Armaduras', icon: <Shirt size={16} /> },
-      { id: 'legs', label: 'Botas', icon: <Footprints size={16} /> },
-  ];
-
-  return (
-    <div className="absolute inset-0 z-40 bg-slate-950 text-white flex flex-col pointer-events-auto">
-        <header className="bg-slate-900 border-b border-slate-800 p-3 sm:p-4 flex flex-wrap gap-3 justify-between items-center shadow-lg z-10 shrink-0">
-            <div className="flex items-center gap-3">
-                <div className="game-icon-badge w-10 h-10 text-amber-400"><ShoppingBag /></div>
-        <div>
-           <h2 className="font-bold text-xl text-amber-100">Mercador do Vazio</h2>
-           <p className="text-xs text-slate-500">Compre equipamentos ou venda seu espólio.</p>
-        </div>
-      </div>
-        <div className="flex items-center gap-2 sm:gap-4">
-         <div className="bg-black/40 px-4 py-2 rounded-full border border-slate-700 flex gap-2 items-center">
-            <Coins className="text-amber-400 w-4 h-4" />
-            <span className="font-mono text-amber-200">{player.gold}</span>
-         </div>
-         <button onClick={onLeave} className="px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded font-bold flex items-center gap-2">
-             <Home size={16}/> Voltar
-         </button>
-      </div>
-    </header>
-
-    <div className="flex-1 flex flex-col xl:flex-row overflow-hidden">
-        {/* LEFT: ITEMS LIST + FILTERS (full-width on mobile) */}
-        <div className="w-full xl:w-96 bg-slate-900 xl:border-r border-slate-800 flex flex-col shrink-0 flex-1 xl:flex-initial">
-            {/* Filter Tabs */}
-            <div className="p-3 border-b border-slate-800 bg-slate-950/50">
-                <div className="flex justify-between items-center mb-2">
-                    <h3 className="text-xs font-bold text-slate-500 uppercase">Filtrar por</h3>
-                    {/* Mobile sell button */}
-                    <button 
-                        onClick={() => setMobileShowSell(true)}
-                        className="xl:hidden bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded text-xs font-bold flex items-center gap-1.5 border border-slate-700 transition-colors"
-                    >
-                        <DollarSign size={12} /> Vender
-                    </button>
-                </div>
-                <div className="flex flex-wrap gap-1">
-                    {filters.map(f => (
-                        <button 
-                            key={f.id}
-                            onClick={() => setFilter(f.id)} 
-                            className={`p-2 rounded flex items-center gap-2 text-xs font-bold flex-grow justify-center transition-colors
-                                ${filter === f.id 
-                                    ? 'bg-indigo-600 text-white shadow-md' 
-                                    : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-200'}
-                            `}
-                            title={f.label}
-                        >
-                            {f.icon} {f.label}
-                        </button>
-                    ))}
-                </div>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3">
-                <h3 className="font-bold text-xs text-slate-500 uppercase tracking-widest px-1">
-                    Catálogo
-                </h3>
-                {filteredItems.length === 0 && <div className="text-center text-slate-600 p-8 text-sm italic border border-dashed border-slate-800 rounded-lg m-2">Nenhum item encontrado.</div>}
-                
-                {filteredItems.map(item => {
-                    const isSelected = selectedItem?.id === item.id;
-                    const rarityClass = getRarityColor(item.rarity);
-                    
-                    return (
-                        <div 
-                            key={item.id} 
-                            onClick={() => { setSelectedItem(item); setMobileDetailItem(item); }}
-                            className={`flex items-center gap-4 p-4 rounded-xl cursor-pointer transition-all border border-l-4 relative overflow-hidden group shrink-0
-                                ${isSelected 
-                                    ? `${rarityClass} bg-slate-800 shadow-lg translate-x-1` 
-                                    : `border-transparent bg-slate-800/40 text-slate-400 border-l-${item.rarity === 'gold' ? 'amber-900' : item.rarity === 'silver' ? 'slate-600' : 'orange-900'}`}
-                                hover:bg-slate-800 hover:shadow-md
-                            `}
-                        >
-                            <div className={`relative z-10 p-3 rounded-lg bg-black/20 ${isSelected ? 'scale-110' : 'scale-100'} transition-transform flex items-center justify-center`}>
-                                <span className="text-3xl leading-none select-none">{item.icon}</span>
-                                <span className="absolute -bottom-0.5 -right-0.5 game-icon-badge w-5 h-5 text-cyan-400"><ItemTypeIcon type={item.type} size={10} /></span>
-                            </div>
-                            <div className="flex-1 relative z-10 min-w-0">
-                                <div className={`font-bold text-base truncate ${isSelected ? 'text-white' : 'text-slate-300 group-hover:text-white'}`}>{item.name}</div>
-                                <div className="flex justify-between items-center mt-2">
-                                    <div className="text-xs font-mono bg-black/30 px-2 py-0.5 rounded text-amber-200/80 flex items-center gap-1">
-                                        <DollarSign size={10}/> {item.cost}
-                                    </div>
-                                    <div className={`text-[10px] px-2 py-0.5 rounded uppercase font-black tracking-wider border
-                                        ${item.rarity === 'gold' ? 'border-amber-500/20 text-amber-500' : item.rarity === 'silver' ? 'border-slate-400/20 text-slate-400' : 'border-orange-700/20 text-orange-500'}
-                                    `}>
-                                        {item.rarity === 'bronze' ? 'Comum' : item.rarity === 'silver' ? 'Raro' : 'Lendário'}
-                                    </div>
-                                </div>
-                            </div>
-                            {isSelected && <MousePointerClick size={20} className="text-amber-500 relative z-10 animate-pulse hidden xl:block" />}
-                        </div>
-                    )
-                })}
-            </div>
-        </div>
-
-        {/* CENTER: ITEM PREVIEW & DETAILS (desktop only) */}
-        <div className="hidden xl:flex flex-1 bg-black/50 flex-col relative">
-            <div className="flex-1 relative bg-gradient-to-b from-slate-900 to-slate-950 overflow-hidden flex items-center justify-center">
-                {selectedItem ? (
-                    <div className="w-full h-full p-4 sm:p-6 md:p-8">
-                        <div className="w-full h-full rounded-[1.75rem] overflow-hidden border border-cyan-400/20 bg-[radial-gradient(circle_at_top,_rgba(34,211,238,0.18),_transparent_34%),linear-gradient(180deg,rgba(15,23,42,0.92),rgba(2,6,23,0.98))] panel-glow relative">
-                            <div className="absolute inset-0 z-0 bg-[linear-gradient(rgba(148,163,184,0.06)_1px,transparent_1px),linear-gradient(90deg,rgba(148,163,184,0.06)_1px,transparent_1px)] bg-[size:28px_28px] opacity-30" />
-                            <div className="absolute left-4 top-4 z-0 text-[10px] font-black uppercase tracking-[0.24em] text-cyan-300/80">3D Preview</div>
-                            <div className="absolute inset-x-10 bottom-8 z-0 h-10 rounded-full bg-cyan-400/10 blur-3xl" />
-                            <div className="absolute inset-0 z-10">
-                                <ItemPreviewThree item={selectedItem} />
-                            </div>
-                        </div>
-                    </div>
-                ) : (
-                    <div className="text-slate-600 flex flex-col items-center gap-4">
-                        <div className="p-6 bg-slate-900 rounded-full border border-slate-800">
-                            <ShoppingBag size={64} strokeWidth={1} />
-                        </div>
-                        <span className="text-lg">Selecione um item da lista</span>
-                    </div>
-                )}
-            </div>
-
-            {/* Item Action Bar */}
-            <div className="h-auto min-h-[140px] bg-slate-900 border-t border-slate-800 p-4 md:p-8 flex flex-col md:flex-row gap-4 md:gap-8 items-start md:items-center justify-between shrink-0 shadow-[0_-5px_20px_rgba(0,0,0,0.5)] z-20">
-                 {selectedItem && (
-                     <>
-                        <div className="flex-1">
-                            <h2 className="text-2xl md:text-3xl font-black text-white mb-2 tracking-tight">{selectedItem.name}</h2>
-                            <p className="text-slate-400 text-sm md:text-base mb-4 leading-relaxed">{selectedItem.description}</p>
-                            <div className="flex gap-3 text-sm font-bold">
-                                <span className="bg-slate-800 border border-slate-700 px-3 py-1 rounded text-indigo-300">Lvl {selectedItem.minLevel}+</span>
-                                <span className="bg-slate-800 border border-slate-700 px-3 py-1 rounded text-emerald-300 flex items-center gap-2">
-                                    <ItemTypeIcon type={selectedItem.type} />
-                                    
-                                    {selectedItem.type === 'weapon' ? `+${selectedItem.value} Ataque` : 
-                                     selectedItem.type === 'potion' && !selectedItem.id.includes('pot_atk') && !selectedItem.id.includes('pot_def') ? `Recupera ${selectedItem.value}` : 
-                                     selectedItem.id.includes('pot_atk') ? `+${selectedItem.value * 100}% ATK` :
-                                     selectedItem.id.includes('pot_def') ? `+${selectedItem.value * 100}% DEF` :
-                                     `+${selectedItem.value} Defesa`}
-                                </span>
-                            </div>
-                        </div>
-
-                        <div className="flex items-center gap-4">
-                             {(() => {
-                                 const canAfford = player.gold >= selectedItem.cost;
-                                 const hasLevel = player.level >= selectedItem.minLevel;
-                                 const isEquipped = 
-                                     (player.equippedWeapon?.id === selectedItem.id) || 
-                                     (player.equippedArmor?.id === selectedItem.id) ||
-                                     (player.equippedHelmet?.id === selectedItem.id) ||
-                                     (player.equippedLegs?.id === selectedItem.id) ||
-                                     (player.equippedShield?.id === selectedItem.id);
-                                 
-                                 return (
-                                    <button 
-                                        onClick={() => onBuy(selectedItem)}
-                                        disabled={!canAfford || isEquipped || !hasLevel}
-                                        className={`w-full md:w-auto px-6 md:px-10 py-4 md:py-5 rounded-xl font-black text-base md:text-lg shadow-xl transition-all flex items-center justify-center gap-3 transform hover:-translate-y-1
-                                            ${isEquipped ? 'bg-slate-800 text-slate-500 cursor-default shadow-none hover:translate-y-0' : 
-                                            !hasLevel ? 'bg-slate-800 text-red-500 border border-red-900 cursor-not-allowed hover:translate-y-0' :
-                                            canAfford ? 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-900/50' : 'bg-slate-800 text-slate-500 border border-slate-700'}
-                                        `}
-                                    >
-                                        {isEquipped ? 
-                                            <span className="flex items-center gap-2"><User size={20}/> EQUIPADO</span> : 
-                                         !hasLevel ? 
-                                            <span className="flex items-center gap-2"><AlertTriangle size={20}/> LVL {selectedItem.minLevel} NECESSÁRIO</span> : 
-                                         canAfford ? 
-                                            <>COMPRAR <span className="bg-black/20 px-2 py-1 rounded text-amber-200 flex items-center gap-1"><Coins size={16}/> {selectedItem.cost}</span></> : 
-                                            <span className="flex items-center gap-2">FALTA OURO <span className="text-red-400">({selectedItem.cost - player.gold})</span></span>
-                                        }
-                                    </button>
-                                 )
-                             })()}
-                        </div>
-                     </>
-                 )}
-            </div>
-        </div>
-
-        {/* RIGHT: INVENTORY SELL (desktop only) */}
-        <div className="hidden xl:block w-64 bg-slate-950 border-l border-slate-900 overflow-y-auto p-4 shrink-0">
-            <h3 className="font-bold text-xs text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2"><DollarSign size={14}/> Vender Itens</h3>
-            <div className="space-y-2">
-                {Object.entries(player.inventory).map(([id, qty]) => {
-                    if((qty as number) <= 0) return null;
-                    const itemDef = items.find(i => i.id === id);
-                    if (!itemDef) return null;
-                    const sellPrice = Math.floor(itemDef.cost / 2);
-                    const rarityClass = getRarityColor(itemDef.rarity);
-
-                    return (
-                        <button 
-                            key={id} 
-                            onClick={() => onSell(itemDef)}
-                            className={`w-full text-left bg-slate-900 hover:bg-red-900/20 hover:border-red-500/50 p-3 rounded-lg border transition-all group ${rarityClass}`}
-                        >
-                            <div className="flex justify-between items-center mb-2">
-                                <span className="relative w-9 h-9 rounded bg-black/30 flex items-center justify-center border border-slate-700">
-                                    <span className="text-xl leading-none select-none">{itemDef.icon}</span>
-                                </span>
-                                <span className="bg-black/40 px-2 py-0.5 rounded text-[10px] text-white font-mono border border-white/10">x{qty}</span>
-                            </div>
-                            <div className="font-bold text-xs text-slate-300 truncate group-hover:text-white">{itemDef.name}</div>
-                            <div className="text-[10px] text-slate-500 group-hover:text-red-300 mt-1 flex items-center gap-1">
-                                <span>Vender:</span> <span className="text-amber-400 font-mono">{sellPrice} G</span>
-                            </div>
-                        </button>
-                    )
-                })}
-            </div>
-        </div>
-    </div>
-
-    {/* MOBILE: Item Detail Overlay */}
-    {mobileDetailItem && (
-        <div className="absolute inset-0 z-30 bg-slate-950/98 backdrop-blur flex flex-col xl:hidden pointer-events-auto animate-fade-in-down">
-            <div className="flex items-center justify-between p-3 border-b border-slate-800 bg-slate-900 shrink-0">
-                <h3 className="font-bold text-sm text-amber-200 flex items-center gap-2"><ArrowLeft size={16} /> Detalhes do Item</h3>
-                <button onClick={() => setMobileDetailItem(null)} className="bg-slate-800 p-2 rounded hover:bg-red-600 hover:text-white transition-colors cursor-pointer">
-                    <X size={20} />
-                </button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-4 flex flex-col items-center gap-4">
-                <div className="w-full max-w-[20rem] h-[16rem] relative rounded-2xl overflow-hidden border border-cyan-400/20 bg-[radial-gradient(circle_at_top,_rgba(34,211,238,0.18),_transparent_34%),linear-gradient(180deg,rgba(15,23,42,0.92),rgba(2,6,23,0.98))] panel-glow">
-                    <div className="absolute inset-0 z-0 bg-[linear-gradient(rgba(148,163,184,0.06)_1px,transparent_1px),linear-gradient(90deg,rgba(148,163,184,0.06)_1px,transparent_1px)] bg-[size:24px_24px] opacity-30" />
-                    <div className="absolute inset-0 z-10">
-                        <ItemPreviewThree item={mobileDetailItem} />
-                    </div>
-                </div>
-
-                <h2 className="text-2xl font-black text-white text-center">{mobileDetailItem.name}</h2>
-                <div className="flex gap-2">
-                    <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-widest border ${getRarityColor(mobileDetailItem.rarity)}`}>
-                        {mobileDetailItem.rarity === 'bronze' ? 'Comum' : mobileDetailItem.rarity === 'silver' ? 'Raro' : 'Lendário'}
-                    </span>
-                    <span className="text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-widest bg-slate-800 text-slate-300 border border-slate-700">
-                        <ItemTypeLabel type={mobileDetailItem.type} />
-                    </span>
-                </div>
-
-                <div className="bg-slate-900/80 border border-slate-800 p-4 rounded-xl w-full">
-                    <p className="text-slate-400 text-sm text-center mb-4 italic">"{mobileDetailItem.description}"</p>
-                    <div className="flex flex-wrap justify-center gap-2 mb-3">
-                        <span className="bg-slate-800 border border-slate-700 px-2.5 py-1 rounded text-indigo-300 text-xs font-bold">Lvl {mobileDetailItem.minLevel}+</span>
-                        <span className="bg-slate-800 border border-slate-700 px-2.5 py-1 rounded text-emerald-300 text-xs font-bold flex items-center gap-1.5">
-                            <ItemTypeIcon type={mobileDetailItem.type} size={12} />
-                            {mobileDetailItem.type === 'weapon' ? `+${mobileDetailItem.value} ATK` : 
-                             mobileDetailItem.type === 'potion' && !mobileDetailItem.id.includes('pot_atk') && !mobileDetailItem.id.includes('pot_def') ? `Recupera ${mobileDetailItem.value}` : 
-                             mobileDetailItem.id.includes('pot_atk') ? `+${mobileDetailItem.value * 100}% ATK` :
-                             mobileDetailItem.id.includes('pot_def') ? `+${mobileDetailItem.value * 100}% DEF` :
-                             `+${mobileDetailItem.value} DEF`}
-                        </span>
-                    </div>
-                </div>
-
-                {(() => {
-                    const canAfford = player.gold >= mobileDetailItem.cost;
-                    const hasLevel = player.level >= mobileDetailItem.minLevel;
-                    const isEquipped = 
-                        (player.equippedWeapon?.id === mobileDetailItem.id) || 
-                        (player.equippedArmor?.id === mobileDetailItem.id) ||
-                        (player.equippedHelmet?.id === mobileDetailItem.id) ||
-                        (player.equippedLegs?.id === mobileDetailItem.id) ||
-                        (player.equippedShield?.id === mobileDetailItem.id);
-                    
-                    return (
-                        <button 
-                            onClick={() => { onBuy(mobileDetailItem); setMobileDetailItem(null); }}
-                            disabled={!canAfford || isEquipped || !hasLevel}
-                            className={`w-full py-3.5 rounded-xl font-black text-base shadow-xl transition-all flex items-center justify-center gap-2
-                                ${isEquipped ? 'bg-slate-800 text-slate-500 cursor-default' : 
-                                !hasLevel ? 'bg-slate-800 text-red-500 border border-red-900 cursor-not-allowed' :
-                                canAfford ? 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-900/50' : 'bg-slate-800 text-slate-500 border border-slate-700'}
-                            `}
-                        >
-                            {isEquipped ? 
-                                <span className="flex items-center gap-2"><User size={18}/> EQUIPADO</span> : 
-                             !hasLevel ? 
-                                <span className="flex items-center gap-2"><AlertTriangle size={18}/> LVL {mobileDetailItem.minLevel}</span> : 
-                             canAfford ? 
-                                <>COMPRAR <span className="bg-black/20 px-2 py-0.5 rounded text-amber-200 flex items-center gap-1 text-sm"><Coins size={14}/> {mobileDetailItem.cost}</span></> : 
-                                <span className="flex items-center gap-2 text-sm">FALTA OURO <span className="text-red-400">({mobileDetailItem.cost - player.gold})</span></span>
-                            }
-                        </button>
-                    )
-                })()}
-
-                <button 
-                    onClick={() => setMobileDetailItem(null)}
-                    className="w-full py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-sm rounded-xl border border-slate-700 transition-colors"
-                >
-                    Voltar para a lista
-                </button>
-            </div>
-        </div>
-    )}
-
-    {/* MOBILE: Sell Overlay */}
-    {mobileShowSell && (
-        <div className="absolute inset-0 z-30 bg-slate-950/98 backdrop-blur flex flex-col xl:hidden pointer-events-auto animate-fade-in-down">
-            <div className="flex items-center justify-between p-3 border-b border-slate-800 bg-slate-900 shrink-0">
-                <h3 className="font-bold text-sm text-red-200 flex items-center gap-2"><DollarSign size={16} /> Vender Itens</h3>
-                <button onClick={() => setMobileShowSell(false)} className="bg-slate-800 p-2 rounded hover:bg-red-600 hover:text-white transition-colors cursor-pointer">
-                    <X size={20} />
-                </button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-4">
-                <div className="space-y-2">
-                    {Object.entries(player.inventory).map(([id, qty]) => {
-                        if((qty as number) <= 0) return null;
-                        const itemDef = items.find(i => i.id === id);
-                        if (!itemDef) return null;
-                        const sellPrice = Math.floor(itemDef.cost / 2);
-                        const rarityClass = getRarityColor(itemDef.rarity);
-
-                        return (
-                            <button 
-                                key={id} 
-                                onClick={() => onSell(itemDef)}
-                                className={`w-full text-left bg-slate-900 hover:bg-red-900/20 hover:border-red-500/50 p-3 rounded-lg border transition-all group flex items-center gap-3 ${rarityClass}`}
-                            >
-                                <span className="relative w-10 h-10 rounded bg-black/30 flex items-center justify-center border border-slate-700 shrink-0">
-                                    <span className="text-xl leading-none select-none">{itemDef.icon}</span>
-                                </span>
-                                <div className="flex-1 min-w-0">
-                                    <div className="font-bold text-sm text-slate-300 truncate group-hover:text-white">{itemDef.name}</div>
-                                    <div className="text-[10px] text-slate-500 group-hover:text-red-300 mt-0.5 flex items-center gap-1">
-                                        Vender: <span className="text-amber-400 font-mono">{sellPrice} G</span>
-                                    </div>
-                                </div>
-                                <span className="bg-black/40 px-2 py-0.5 rounded text-[10px] text-white font-mono border border-white/10 shrink-0">x{qty}</span>
-                            </button>
-                        )
-                    })}
-                    {Object.entries(player.inventory).filter(([_, q]) => (q as number) > 0).length === 0 && (
-                        <div className="text-center p-8 text-slate-600 italic border border-dashed border-slate-800 rounded-lg">
-                            Nenhum item para vender.
-                        </div>
-                    )}
-                </div>
-            </div>
-            <div className="p-3 border-t border-slate-800 bg-slate-900 shrink-0">
-                <button 
-                    onClick={() => setMobileShowSell(false)}
-                    className="w-full py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-sm rounded-xl border border-slate-700 transition-colors"
-                >
-                    Voltar para a loja
-                </button>
-            </div>
-        </div>
-    )}
-  </div>
-  );
+  return <ShopMenuScreen player={player} items={items} onBuy={onBuy} onSell={onSell} onLeave={onLeave} />;
 };
 
 export const BattleHUD: React.FC<GameUIProps> = (props) => {
@@ -1936,16 +1532,16 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
     <div className="absolute inset-0 z-10 flex flex-col justify-between p-2 sm:p-4 pointer-events-none safe-bottom">
       {showFleeConfirm && (
           <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/55 backdrop-blur-[2px] pointer-events-auto p-4" onClick={() => setShowFleeConfirm(false)}>
-              <div className="w-full max-w-sm rounded-[24px] border border-slate-700 bg-[linear-gradient(180deg,rgba(15,23,42,0.96),rgba(2,6,23,0.98))] shadow-[0_24px_80px_rgba(0,0,0,0.55)] overflow-hidden animate-fade-in-down" onClick={event => event.stopPropagation()}>
-                  <div className="border-b border-slate-800 px-5 py-4 text-center">
-                      <div className="text-[10px] font-black uppercase tracking-[0.28em] text-slate-500">Retirada</div>
-                      <h3 className="mt-1 text-2xl font-black text-white">{canLeaveFreely ? 'Sair da batalha?' : 'Fugir?'}</h3>
-                      <p className="mt-3 text-sm text-slate-400">
+              <div className="w-full max-w-sm rounded-[24px] border border-[#cfab91] bg-[#f7ecdd] shadow-[0_24px_80px_rgba(107,49,65,0.15)] overflow-hidden animate-fade-in-down" onClick={event => event.stopPropagation()}>
+                  <div className="border-b border-[#dcc0aa] px-5 py-4 text-center">
+                      <div className="text-[10px] font-black uppercase tracking-[0.28em] text-[#9a7068]">Retirada</div>
+                      <h3 className="mt-1 text-2xl font-black text-[#6b3141]">{canLeaveFreely ? 'Sair da batalha?' : 'Fugir?'}</h3>
+                      <p className="mt-3 text-sm text-[#7f5b56]">
                           {canLeaveFreely ? 'O chefão já foi liberado nesta fase. Você pode sair sem perder ouro.' : 'Na caça padrão você pode recuar, mas perde até 50 de ouro.'}
                       </p>
                   </div>
                   <div className="grid grid-cols-2 gap-3 p-4">
-                      <button onClick={() => setShowFleeConfirm(false)} className="rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 font-black text-slate-200 transition-colors hover:bg-slate-800">
+                      <button onClick={() => setShowFleeConfirm(false)} className="rounded-xl border border-[#cfab91] bg-[#f4e5d4] px-4 py-3 font-black text-[#6b3141] transition-colors hover:bg-[#e9d7c2]">
                           Ficar
                       </button>
                       <button onClick={() => { onFlee(); setShowFleeConfirm(false); }} className="rounded-xl border border-amber-500/30 bg-amber-600 px-4 py-3 font-black text-white transition-colors hover:bg-amber-500">
@@ -1958,14 +1554,14 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
 
       {showDungeonExtractConfirm && pendingDungeonExtractItem && (
           <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/55 backdrop-blur-[2px] pointer-events-auto p-4" onClick={() => { setShowDungeonExtractConfirm(false); setPendingDungeonExtractItem(null); }}>
-              <div className="w-full max-w-sm rounded-[24px] border border-cyan-700 bg-[linear-gradient(180deg,rgba(8,47,73,0.96),rgba(2,6,23,0.98))] shadow-[0_24px_80px_rgba(0,0,0,0.55)] overflow-hidden animate-fade-in-down" onClick={event => event.stopPropagation()}>
-                  <div className="border-b border-cyan-900 px-5 py-4 text-center">
-                      <div className="text-[10px] font-black uppercase tracking-[0.28em] text-cyan-400/70">Extração da dungeon</div>
-                      <h3 className="mt-1 text-2xl font-black text-white">Usar {pendingDungeonExtractItem.name}?</h3>
-                      <p className="mt-3 text-sm text-slate-300">Você vai sair da dungeon imediatamente e receber tudo que acumulou até este ponto.</p>
+              <div className="w-full max-w-sm rounded-[24px] border border-[#cfab91] bg-[#f7ecdd] shadow-[0_24px_80px_rgba(107,49,65,0.15)] overflow-hidden animate-fade-in-down" onClick={event => event.stopPropagation()}>
+                  <div className="border-b border-[#dcc0aa] px-5 py-4 text-center">
+                      <div className="text-[10px] font-black uppercase tracking-[0.28em] text-[#9a7068]">Extração da dungeon</div>
+                      <h3 className="mt-1 text-2xl font-black text-[#6b3141]">Usar {pendingDungeonExtractItem.name}?</h3>
+                      <p className="mt-3 text-sm text-[#7f5b56]">Você vai sair da dungeon imediatamente e receber tudo que acumulou até este ponto.</p>
                   </div>
                   <div className="grid grid-cols-2 gap-3 p-4">
-                      <button onClick={() => { setShowDungeonExtractConfirm(false); setPendingDungeonExtractItem(null); }} className="rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 font-black text-slate-200 transition-colors hover:bg-slate-800">
+                      <button onClick={() => { setShowDungeonExtractConfirm(false); setPendingDungeonExtractItem(null); }} className="rounded-xl border border-[#cfab91] bg-[#f4e5d4] px-4 py-3 font-black text-[#6b3141] transition-colors hover:bg-[#e9d7c2]">
                           Cancelar
                       </button>
                       <button onClick={() => { onUseItem(pendingDungeonExtractItem.id); setShowDungeonExtractConfirm(false); setPendingDungeonExtractItem(null); setActiveBattleMenu(null); }} className="rounded-xl border border-cyan-500/30 bg-cyan-600 px-4 py-3 font-black text-white transition-colors hover:bg-cyan-500">
@@ -1978,42 +1574,42 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
 
       {showDungeonLootPreview && isDungeonRun && dungeonRewards && (
           <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/55 backdrop-blur-[2px] pointer-events-auto p-4" onClick={() => setShowDungeonLootPreview(false)}>
-              <div className="w-full max-w-4xl rounded-[24px] border border-cyan-700/50 bg-[linear-gradient(180deg,rgba(8,47,73,0.96),rgba(2,6,23,0.98))] shadow-[0_24px_80px_rgba(0,0,0,0.55)] overflow-hidden animate-fade-in-down" onClick={event => event.stopPropagation()}>
-                  <div className="flex items-center justify-between gap-4 border-b border-cyan-900 px-5 py-4 sm:px-6">
+              <div className="w-full max-w-4xl rounded-[24px] border border-[#cfab91] bg-[#f7ecdd] shadow-[0_24px_80px_rgba(107,49,65,0.15)] overflow-hidden animate-fade-in-down" onClick={event => event.stopPropagation()}>
+                  <div className="flex items-center justify-between gap-4 border-b border-[#dcc0aa] px-5 py-4 sm:px-6">
                       <div>
-                          <div className="text-[10px] font-black uppercase tracking-[0.28em] text-cyan-400/70">Espólio acumulado</div>
-                          <h3 className="mt-1 text-xl sm:text-2xl font-black text-white">Ganhos atuais da dungeon</h3>
+                          <div className="text-[10px] font-black uppercase tracking-[0.28em] text-[#9a7068]">Espólio acumulado</div>
+                          <h3 className="mt-1 text-xl sm:text-2xl font-black text-[#6b3141]">Ganhos atuais da dungeon</h3>
                       </div>
-                      <button onClick={() => setShowDungeonLootPreview(false)} className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-black uppercase tracking-[0.18em] text-slate-300 transition-colors hover:bg-slate-800 hover:text-white">
+                      <button onClick={() => setShowDungeonLootPreview(false)} className="rounded-xl border border-[#cfab91] bg-[#f4e5d4] px-3 py-2 text-xs font-black uppercase tracking-[0.18em] text-[#6b3141] transition-colors hover:bg-[#e9d7c2]">
                           Fechar
                       </button>
                   </div>
 
                   <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 p-5 sm:p-6">
-                      <div className="rounded-2xl border border-slate-700 bg-slate-950/70 px-4 py-3"><div className="text-[10px] uppercase tracking-[0.24em] text-slate-500">Encontros</div><div className="text-2xl font-black text-white">{dungeonRewards.clearedMonsters}/{dungeonRewards.totalMonsters}</div></div>
-                      <div className="rounded-2xl border border-slate-700 bg-slate-950/70 px-4 py-3"><div className="text-[10px] uppercase tracking-[0.24em] text-slate-500">Ouro</div><div className="text-2xl font-black text-amber-200">+{dungeonRewards.gold}</div></div>
-                      <div className="rounded-2xl border border-slate-700 bg-slate-950/70 px-4 py-3"><div className="text-[10px] uppercase tracking-[0.24em] text-slate-500">XP</div><div className="text-2xl font-black text-indigo-200">+{dungeonRewards.xp}</div></div>
-                      <div className="rounded-2xl border border-slate-700 bg-slate-950/70 px-4 py-3"><div className="text-[10px] uppercase tracking-[0.24em] text-slate-500">Diamantes</div><div className="text-2xl font-black text-cyan-200">+{dungeonRewards.diamonds}</div></div>
-                      <div className="rounded-2xl border border-slate-700 bg-slate-950/70 px-4 py-3"><div className="text-[10px] uppercase tracking-[0.24em] text-slate-500">Evolução</div><div className="text-2xl font-black text-cyan-100">{dungeonRewards.evolution}</div></div>
+                      <div className="rounded-2xl border border-[#cfab91] bg-[#f4e5d4] px-4 py-3"><div className="text-[10px] uppercase tracking-[0.24em] text-[#9a7068]">Encontros</div><div className="text-2xl font-black text-[#6b3141]">{dungeonRewards.clearedMonsters}/{dungeonRewards.totalMonsters}</div></div>
+                      <div className="rounded-2xl border border-[#cfab91] bg-[#f4e5d4] px-4 py-3"><div className="text-[10px] uppercase tracking-[0.24em] text-[#9a7068]">Ouro</div><div className="text-2xl font-black text-amber-700">+{dungeonRewards.gold}</div></div>
+                      <div className="rounded-2xl border border-[#cfab91] bg-[#f4e5d4] px-4 py-3"><div className="text-[10px] uppercase tracking-[0.24em] text-[#9a7068]">XP</div><div className="text-2xl font-black text-[#7d3d4d]">+{dungeonRewards.xp}</div></div>
+                      <div className="rounded-2xl border border-[#cfab91] bg-[#f4e5d4] px-4 py-3"><div className="text-[10px] uppercase tracking-[0.24em] text-[#9a7068]">Diamantes</div><div className="text-2xl font-black text-[#346c7f]">+{dungeonRewards.diamonds}</div></div>
+                      <div className="rounded-2xl border border-[#cfab91] bg-[#f4e5d4] px-4 py-3"><div className="text-[10px] uppercase tracking-[0.24em] text-[#9a7068]">Evolução</div><div className="text-2xl font-black text-[#6b3141]">{dungeonRewards.evolution}</div></div>
                   </div>
 
                   <div className="px-5 sm:px-6 pb-6">
-                      <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-5">
-                          <div className="text-[11px] font-black uppercase tracking-[0.3em] text-slate-500 mb-4">Itens acumulados até agora</div>
+                      <div className="rounded-2xl border border-[#cfab91] bg-[#f4e5d4] p-5">
+                          <div className="text-[11px] font-black uppercase tracking-[0.3em] text-[#9a7068] mb-4">Itens acumulados até agora</div>
                           {dungeonRewardItems.length > 0 ? (
                               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 max-h-[40vh] overflow-y-auto pr-1">
                                   {dungeonRewardItems.map(({ item, quantity }) => (
-                                      <div key={item.id} className="rounded-2xl border border-slate-700 bg-slate-900/70 px-4 py-3 flex items-center gap-3">
-                                          <div className="h-12 w-12 rounded-xl border border-white/10 bg-slate-950/80 flex items-center justify-center text-2xl">{item.icon}</div>
+                                      <div key={item.id} className="rounded-2xl border border-[#cfab91] bg-[#f7ecdd] px-4 py-3 flex items-center gap-3">
+                                          <div className="h-12 w-12 rounded-xl border border-[#dcc0aa] bg-[#f8eddf] flex items-center justify-center text-2xl">{item.icon}</div>
                                           <div className="min-w-0 flex-1">
-                                              <div className="font-black text-white truncate">{item.name}</div>
-                                              <div className="text-xs text-slate-500">x{quantity}</div>
+                                              <div className="font-black text-[#6b3141] truncate">{item.name}</div>
+                                              <div className="text-xs text-[#9a7068]">x{quantity}</div>
                                           </div>
                                       </div>
                                   ))}
                               </div>
                           ) : (
-                              <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-950/50 px-6 py-10 text-center text-slate-500">Nenhum item ou material acumulado até agora.</div>
+                              <div className="rounded-2xl border border-dashed border-[#cfab91] bg-[#f4e7d5] px-6 py-10 text-center text-[#8f6c67]">Nenhum item ou material acumulado até agora.</div>
                           )}
                       </div>
                   </div>
@@ -2023,13 +1619,13 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
 
       {activeBattleMenu && (
           <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/55 backdrop-blur-[2px] pointer-events-auto p-4" onClick={() => setActiveBattleMenu(null)}>
-              <div className="w-full max-w-2xl rounded-[24px] border border-slate-700 bg-[linear-gradient(180deg,rgba(15,23,42,0.96),rgba(2,6,23,0.98))] shadow-[0_24px_80px_rgba(0,0,0,0.55)] overflow-hidden animate-fade-in-down" onClick={event => event.stopPropagation()}>
-                  <div className="flex items-center justify-between gap-4 border-b border-slate-800 px-5 py-4 sm:px-6">
+              <div className="w-full max-w-2xl rounded-[24px] border border-[#cfab91] bg-[#f7ecdd] shadow-[0_24px_80px_rgba(107,49,65,0.15)] overflow-hidden animate-fade-in-down" onClick={event => event.stopPropagation()}>
+                  <div className="flex items-center justify-between gap-4 border-b border-[#dcc0aa] px-5 py-4 sm:px-6">
                       <div>
-                          <div className="text-[10px] font-black uppercase tracking-[0.28em] text-slate-500">Escolha de batalha</div>
-                          <h3 className="mt-1 text-xl sm:text-2xl font-black text-white">{activeBattleMenu === 'skills' ? 'Habilidades' : 'Itens de Batalha'}</h3>
+                          <div className="text-[10px] font-black uppercase tracking-[0.28em] text-[#9a7068]">Escolha de batalha</div>
+                          <h3 className="mt-1 text-xl sm:text-2xl font-black text-[#6b3141]">{activeBattleMenu === 'skills' ? 'Habilidades' : 'Itens de Batalha'}</h3>
                       </div>
-                      <button onClick={() => setActiveBattleMenu(null)} className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-black uppercase tracking-[0.18em] text-slate-300 transition-colors hover:bg-slate-800 hover:text-white">
+                      <button onClick={() => setActiveBattleMenu(null)} className="rounded-xl border border-[#cfab91] bg-[#f4e5d4] px-3 py-2 text-xs font-black uppercase tracking-[0.18em] text-[#6b3141] transition-colors hover:bg-[#e9d7c2]">
                           Fechar
                       </button>
                   </div>
@@ -2045,24 +1641,24 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                                               key={skill.id}
                                               onClick={() => { onSkill(skill); setActiveBattleMenu(null); }}
                                               disabled={!isPlayerTurn || !canCast}
-                                              className={`rounded-2xl border p-4 text-left transition-all ${!isPlayerTurn || !canCast ? 'bg-slate-900 border-slate-800 text-slate-500 cursor-not-allowed' : 'bg-indigo-950/80 border-indigo-500/40 text-white hover:bg-indigo-900 hover:-translate-y-0.5'}`}
+                                              className={`rounded-2xl border p-4 text-left transition-all ${!isPlayerTurn || !canCast ? 'bg-[#e9d7c2] border-[#dcc0aa] text-[#8f6c67] cursor-not-allowed' : 'bg-violet-100 border-violet-300 text-[#6b3141] hover:bg-violet-50 hover:-translate-y-0.5'}`}
                                           >
                                               <div className="flex items-start justify-between gap-3">
                                                   <div>
                                                       <div className="font-black text-sm sm:text-base">{skill.name}</div>
-                                                      <div className="mt-1 text-xs text-slate-300 leading-relaxed">{skill.description}</div>
+                                                      <div className="mt-1 text-xs text-[#7f5b56] leading-relaxed">{skill.description}</div>
                                                   </div>
-                                                  <div className="rounded-lg border border-indigo-400/20 bg-black/20 px-2 py-1 text-[10px] font-black text-indigo-200 whitespace-nowrap">
+                                                  <div className="rounded-md border border-[#8eb4c0] bg-[#dceff2] px-2 py-1 text-[10px] font-black text-[#346c7f] whitespace-nowrap">
                                                       {skill.manaCost} MP
                                                   </div>
                                               </div>
-                                              <div className="mt-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-indigo-200/80">{describeBattleSkill(skill)}</div>
+                                              <div className="mt-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#7c4c76]">{describeBattleSkill(skill)}</div>
                                           </button>
                                       );
                                   })}
                               </div>
                           ) : (
-                              <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-950/50 px-6 py-10 text-center text-sm text-slate-500">Nenhuma habilidade disponível.</div>
+                              <div className="rounded-2xl border border-dashed border-[#cfab91] bg-[#f4e7d5] px-6 py-10 text-center text-sm text-[#8f6c67]">Nenhuma habilidade disponível.</div>
                           )
                       ) : usableItems.length > 0 ? (
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -2079,23 +1675,23 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                                           setActiveBattleMenu(null);
                                       }}
                                       disabled={!isPlayerTurn}
-                                      className={`rounded-2xl border p-4 text-left transition-all ${!isPlayerTurn ? 'bg-slate-900 border-slate-800 text-slate-500 cursor-not-allowed' : 'bg-amber-950/70 border-amber-500/30 text-white hover:bg-amber-900/70 hover:-translate-y-0.5'}`}
+                                      className={`rounded-2xl border p-4 text-left transition-all ${!isPlayerTurn ? 'bg-[#e9d7c2] border-[#dcc0aa] text-[#8f6c67] cursor-not-allowed' : 'bg-amber-100 border-amber-300 text-[#6b3141] hover:bg-amber-50 hover:-translate-y-0.5'}`}
                                   >
                                       <div className="flex items-start justify-between gap-3">
                                           <div className="min-w-0">
                                               <div className="font-black text-sm sm:text-base flex items-center gap-2"><span>{item.icon}</span><span>{item.name}</span></div>
-                                              <div className="mt-1 text-xs text-slate-300 leading-relaxed">{item.description}</div>
+                                              <div className="mt-1 text-xs text-[#7f5b56] leading-relaxed">{item.description}</div>
                                           </div>
-                                          <div className="rounded-lg border border-amber-400/20 bg-black/20 px-2 py-1 text-[10px] font-black text-amber-200 whitespace-nowrap">
+                                          <div className="rounded-md border border-amber-400/40 bg-amber-50 px-2 py-1 text-[10px] font-black text-amber-700 whitespace-nowrap">
                                               x{player.inventory[item.id]}
                                           </div>
                                       </div>
-                                      <div className="mt-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-100/80">{describeBattleItem(item)}</div>
+                                      <div className="mt-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#b26a2e]">{describeBattleItem(item)}</div>
                                   </button>
                               ))}
                           </div>
                       ) : (
-                          <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-950/50 px-6 py-10 text-center text-sm text-slate-500">Nenhum item de batalha disponível.</div>
+                          <div className="rounded-2xl border border-dashed border-[#cfab91] bg-[#f4e7d5] px-6 py-10 text-center text-sm text-[#8f6c67]">Nenhum item de batalha disponível.</div>
                       )}
                   </div>
               </div>
@@ -2103,37 +1699,37 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
       )}
       
       {/* STAGE PROGRESS HUD (NEW) */}
-      <div className="absolute top-0 left-0 w-full flex flex-col items-center pointer-events-none z-20 pt-1 sm:pt-2">
-          <div className="bg-slate-900/90 backdrop-blur border border-slate-700 px-3 sm:px-4 py-1.5 rounded-full flex items-center gap-2 sm:gap-4 shadow-xl animate-fade-in-down panel-glow game-surface">
-              <div className="font-gamer font-black text-indigo-300 text-sm sm:text-sm">{isDungeonRun ? 'DUNGEON' : `FASE ${stage}`}</div>
-              <div className="w-px h-3 bg-slate-600"></div>
+      <div className="absolute top-0 left-0 w-full flex flex-col items-center pointer-events-none z-20 pt-1 sm:pt-2 px-4 sm:px-0">
+          <div className="bg-[#f7ecdd]/92 backdrop-blur-md border border-[#cfab91] px-3 sm:px-4 py-1.5 rounded-[14px] w-full sm:w-auto flex items-center justify-center gap-2 sm:gap-4 shadow-xl animate-fade-in-down">
+              <span className="text-[10px] font-black uppercase tracking-[0.16em] text-[#6b3141]">{isDungeonRun ? 'DUNGEON' : `FASE ${stage}`}</span>
+              <div className="w-px h-4 bg-[#dcc0aa]"></div>
               <div className="flex items-center gap-2">
-                  <div className="w-20 sm:w-24 h-2 bg-slate-800 rounded-full overflow-hidden border border-slate-700 relative">
+                  <div className="w-20 sm:w-24 h-2 bg-[#e9d7c2] rounded-full overflow-hidden border border-[#dcc0aa] relative">
                       <div 
-                        className="h-full bg-gradient-to-r from-indigo-600 to-purple-500 transition-all duration-500" 
+                        className="h-full rounded-full bg-[linear-gradient(90deg,#7d3d4d,#c89a66)] transition-all duration-500" 
                                                 style={{ width: `${isDungeonRun ? Math.min(100, (dungeonCleared / dungeonTotal) * 100) : Math.min(100, (killCount / 10) * 100)}%` }}
                       />
                   </div>
-                  <span className="text-[10px] font-mono text-slate-300 font-bold min-w-[30px] text-right">
-                                        {isDungeonRun ? (dungeonCleared >= dungeonTotal ? <span className="text-red-500 animate-pulse">CHEFÃO</span> : `${dungeonCleared}/${dungeonTotal}`) : (killCount >= 10 ? <span className="text-red-500 animate-pulse">CHEFÃO</span> : `${killCount}/10`)}
+                  <span className="text-[10px] font-black text-[#6b3141] min-w-[30px] text-right">
+                                        {isDungeonRun ? (dungeonCleared >= dungeonTotal ? <span className="text-rose-500 animate-pulse">CHEFÃO</span> : `${dungeonCleared}/${dungeonTotal}`) : (killCount >= 10 ? <span className="text-rose-500 animate-pulse">CHEFÃO</span> : `${killCount}/10`)}
                   </span>
               </div>
           </div>
           {/* Mobile: Gold + Diamonds + Clock below stage card */}
-          <div className="flex sm:hidden items-center gap-2 mt-1 pointer-events-auto">
+          <div className="flex sm:hidden items-center justify-center gap-2 mt-1 w-full px-4 pointer-events-auto">
               {!isDungeonRun && gameTime && (
-                <div className="bg-black/60 backdrop-blur border border-white/10 px-2.5 py-0.5 rounded-full flex items-center gap-1.5 shadow-lg text-emerald-400 game-surface">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                  <span className="font-mono font-bold text-xs text-white">{gameTime}</span>
+                <div className="bg-white/90 backdrop-blur-md border border-[#ddd] px-2.5 py-1 rounded-[12px] flex items-center gap-1.5 shadow-sm">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#888" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                  <span className="font-black text-xs text-[#555]">{gameTime}</span>
                 </div>
               )}
-              <div className="bg-black/60 backdrop-blur border border-amber-500/50 px-2.5 py-0.5 rounded-full flex items-center gap-1.5 shadow-lg text-amber-400 game-surface">
-                  <Coins size={12} />
-                  <span className="font-mono font-bold text-xs">{player.gold}</span>
+              <div className="bg-[#f7ecdd]/92 backdrop-blur-md border border-[#cfab91] px-2.5 py-1 rounded-[12px] flex items-center gap-1.5 shadow-sm">
+                  <GameAssetIcon name="coin" size={14} />
+                  <span className="font-black text-xs text-[#6b3141]">{player.gold}</span>
               </div>
-              <div className="bg-black/60 backdrop-blur border border-cyan-500/40 px-2.5 py-0.5 rounded-full flex items-center gap-1.5 shadow-lg text-cyan-300 game-surface">
-                  <Sparkles size={12} />
-                  <span className="font-mono font-bold text-xs">{player.diamonds}</span>
+              <div className="bg-[#f7ecdd]/92 backdrop-blur-md border border-[#cfab91] px-2.5 py-1 rounded-[12px] flex items-center gap-1.5 shadow-sm">
+                  <GameAssetIcon name="diamond" size={14} />
+                  <span className="font-black text-xs text-[#6b3141]">{player.diamonds}</span>
               </div>
           </div>
       </div>
@@ -2141,35 +1737,38 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
       {/* GOLD DISPLAY - Desktop only */}
         <div className="absolute top-4 right-4 pointer-events-auto z-20 hidden sm:block">
             <div className="flex items-center gap-2">
-                <div className="bg-black/60 backdrop-blur border border-amber-500/50 px-4 py-2 rounded-full flex items-center gap-2 shadow-lg text-amber-400 animate-fade-in-down panel-glow game-surface">
-                    <Coins size={16} />
-                    <span className="font-mono font-bold">{player.gold}</span>
+                <div className="bg-[#f7ecdd]/92 backdrop-blur-md border border-[#cfab91] px-3 py-1.5 rounded-[14px] flex items-center gap-2 shadow-lg animate-fade-in-down">
+                    <GameAssetIcon name="coin" size={18} />
+                    <span className="font-black text-sm text-[#6b3141]">{player.gold}</span>
                 </div>
-                <div className="bg-black/60 backdrop-blur border border-cyan-500/40 px-4 py-2 rounded-full flex items-center gap-2 shadow-lg text-cyan-300 animate-fade-in-down panel-glow game-surface">
-                    <Sparkles size={16} />
-                    <span className="font-mono font-bold">{player.diamonds}</span>
+                <div className="bg-[#f7ecdd]/92 backdrop-blur-md border border-[#cfab91] px-3 py-1.5 rounded-[14px] flex items-center gap-2 shadow-lg animate-fade-in-down">
+                    <GameAssetIcon name="diamond" size={18} />
+                    <span className="font-black text-sm text-[#6b3141]">{player.diamonds}</span>
                 </div>
             </div>
       </div>
 
       {/* Top Bar: Enemy */}
-            <div className="w-full flex justify-center items-start pt-[72px] sm:pt-12 pointer-events-auto">
+            <div className="w-full flex justify-center items-start pt-[72px] sm:pt-12 pointer-events-auto px-4 sm:px-0">
         {enemy && (
-                    <div className={`backdrop-blur border p-2.5 sm:p-3 rounded-lg shadow-xl text-white w-auto min-w-[220px] max-w-[300px] transition-all relative overflow-hidden panel-glow game-surface
-             ${enemy.isBoss ? 'bg-red-950/90 border-red-500' : 'bg-black/80 border-slate-700'}
+                    <div className={`backdrop-blur-md border p-2.5 sm:p-3 rounded-[18px] shadow-xl w-full sm:w-auto min-w-[220px] max-w-[400px] sm:max-w-[300px] transition-all relative overflow-hidden
+             ${enemy.isBoss ? 'bg-rose-50/95 border-rose-400' : 'bg-[#f7ecdd]/92 border-[#cfab91]'}
           `}>
-             {enemy.isBoss && <div className="absolute top-0 right-0 bg-red-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded-bl-md z-10">CHEFÃO</div>}
+             {enemy.isBoss && <div className="absolute top-0 right-0 bg-rose-500 text-white text-[8px] font-black uppercase tracking-[0.14em] px-2 py-0.5 rounded-bl-[12px] z-10">CHEFÃO</div>}
              
              <div className="flex justify-between items-center mb-2">
                 <div className="flex items-center gap-2">
-                   <Skull size={16} className={enemy.isBoss ? "text-red-500" : "text-slate-400"} />
-                   <span className="font-black text-sm tracking-wide uppercase text-red-100">{enemy.name}</span>
+                   <Skull size={16} className={enemy.isBoss ? "text-rose-500" : "text-[#9a7068]"} />
+                   <span className="font-black text-sm tracking-wide uppercase text-[#6b3141]">{enemy.name}</span>
                 </div>
-                <span className="text-[10px] bg-white/10 px-1.5 py-0.5 rounded font-bold ml-2">Nv. {enemy.level}</span>
+                <span className="text-[10px] font-black uppercase tracking-[0.14em] bg-[#f4e5d4] border border-[#d6b9a3] px-1.5 py-0.5 rounded-full ml-2 text-[#8d5e29]">Nv. {enemy.level}</span>
              </div>
-             <div className="mb-0.5">
-                <div className="flex justify-between text-[11px] font-bold mb-0.5"><span className="text-red-400">VIDA</span> <span>{enemy.stats.hp}/{enemy.stats.maxHp}</span></div>
-                <div className="h-2 bg-slate-800 rounded-full overflow-hidden"><div className="h-full bg-red-500 transition-all duration-500" style={{width: `${Math.max(0, Math.min(100, (enemy.stats.hp/enemy.stats.maxHp)*100))}%`}}></div></div>
+             <div className="border-t border-[#dcc0aa] pt-1.5">
+                <div className="flex items-center justify-between mb-0.5">
+                  <span className="text-[9px] font-black uppercase tracking-[0.22em] text-[#9a4151]">HP</span>
+                  <span className="text-xs font-black text-[#6b3141]">{enemy.stats.hp}/{enemy.stats.maxHp}</span>
+                </div>
+                <div className="h-2 bg-[#e9d7c2] rounded-full overflow-hidden"><div className="h-full rounded-full bg-[linear-gradient(90deg,#8d2f46,#d17482)] transition-all duration-500" style={{width: `${Math.max(0, Math.min(100, (enemy.stats.hp/enemy.stats.maxHp)*100))}%`}}></div></div>
              </div>
           </div>
         )}
@@ -2178,105 +1777,126 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
       {/* Logs removed from desktop per user request */}
 
       {/* Bottom: Player Stats & Controls */}
-        <div className="w-full max-w-5xl mx-auto pointer-events-auto mb-2 sm:mb-4">
+        <div className="relative w-full max-w-5xl mx-auto pointer-events-auto mb-2 sm:mb-4">
          
             <div className="flex flex-row gap-2 sm:gap-4 items-end">
              
              {/* Player Status Card - Bottom Left */}
-                         <div className="bg-black/80 backdrop-blur p-2.5 sm:p-3 rounded-xl border border-slate-700 text-white flex-1 sm:w-[320px] sm:flex-none shadow-xl relative panel-glow game-surface">
+                         <div className="bg-[#f7ecdd]/92 backdrop-blur-md p-2.5 sm:p-3 rounded-[18px] border border-[#cfab91] flex-1 sm:w-[320px] sm:flex-none shadow-xl relative">
                                  <div className="flex justify-between items-center mb-1.5">
-                                         <div className="flex items-center gap-2 min-w-0">
-                                                <div className="game-icon-badge w-8 h-8 sm:w-10 sm:h-10 text-cyan-200 shrink-0">
-                                                    <User size={16} />
-                                                </div>
-                                                <div className="min-w-0">
-                                                    <div className="text-[11px] sm:text-xs font-bold text-indigo-300 truncate">{player.name}</div>
-                                                    <div className="text-[10px] sm:text-[11px] font-bold"><span className="text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded">Nv. {player.level}</span></div>
+                                         <div className="min-w-0">
+                                                <div className="text-xs sm:text-sm font-black text-[#6b3141] truncate">{player.name}</div>
+                                                <div className="flex items-center gap-1.5 mt-0.5">
+                                                    <span className="text-[10px] font-bold text-[#8a5a57] truncate">{getPlayerClassById(player.classId).name}</span>
+                                                    <span className="text-[10px] font-black uppercase tracking-[0.14em] text-[#8d5e29] bg-[#f4e5d4] border border-[#d6b9a3] px-1.5 py-0.5 rounded-full">Nv. {player.level}</span>
                                                 </div>
                                          </div>
-                     <div className="flex gap-1 shrink-0">
+                     <div className="flex gap-1.5 shrink-0">
                          <button 
                             onClick={() => setShowBattleStats(s => !s)}
-                            className={`p-1.5 rounded-lg transition-colors ${showBattleStats ? 'bg-indigo-600 text-white' : 'bg-slate-700 hover:bg-slate-600 text-white'}`}
+                            className={`p-2 rounded-[12px] transition-colors border ${showBattleStats ? 'bg-[#c59d82] border-[#c59d82] text-white' : 'bg-[#f4e5d4] border-[#dcc0aa] text-[#6b3141] hover:bg-[#e9d7c2]'}`}
                             title="Atributos"
                          >
-                             <LayoutGrid size={14} />
+                             <LayoutGrid size={18} />
                          </button>
                          <button 
                             onClick={() => setShowInventory(true)}
-                            className="bg-slate-700 hover:bg-emerald-600 text-white p-1.5 rounded-lg transition-colors"
+                            className="bg-[#f4e5d4] border border-[#dcc0aa] text-[#6b3141] hover:bg-[#e9d7c2] p-2 rounded-[12px] transition-colors"
                             title="Mochila"
                          >
-                             <ShoppingBag size={14} />
+                             <GameAssetIcon name="bag" size={20} />
                          </button>
                          <button 
                             onClick={() => setShowProfile(true)}
-                            className="bg-slate-700 hover:bg-slate-600 text-white p-1.5 rounded-lg transition-colors"
+                            className="bg-[#f4e5d4] border border-[#dcc0aa] text-[#6b3141] hover:bg-[#e9d7c2] p-2 rounded-[12px] transition-colors"
                             title="Ver Perfil"
                          >
-                             <User size={14} />
+                             <GameAssetIcon name="book" size={20} />
                          </button>
                      </div>
                  </div>
 
                  {!showBattleStats ? (
-                   <>
-                     <div className="mb-1">
-                        <div className="flex justify-between text-[11px] sm:text-xs font-bold mb-0.5"><span className="text-green-400">VIDA</span> <span>{player.stats.hp}/{player.stats.maxHp}</span></div>
-                        <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden"><div className="h-full bg-green-500" style={{width: `${(player.stats.hp/player.stats.maxHp)*100}%`}}></div></div>
-                     </div>
-                     <div className="mb-1">
-                        <div className="flex justify-between text-[11px] sm:text-xs font-bold mb-0.5"><span className="text-blue-400">MANA</span> <span>{player.stats.mp}/{player.stats.maxMp}</span></div>
-                        <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden"><div className="h-full bg-blue-500" style={{width: `${(player.stats.mp/player.stats.maxMp)*100}%`}}></div></div>
+                   <div className="border-t border-[#dcc0aa] mt-1.5 pt-1.5 space-y-1">
+                     <div>
+                        <div className="flex items-center justify-between mb-0.5">
+                          <span className="text-[9px] font-black uppercase tracking-[0.22em] text-[#9a4151]">HP</span>
+                          <span className="text-[11px] font-black text-[#6b3141]">{player.stats.hp}/{player.stats.maxHp}</span>
+                        </div>
+                        <div className="h-1.5 bg-[#e9d7c2] rounded-full overflow-hidden"><div className="h-full rounded-full bg-[linear-gradient(90deg,#8d2f46,#d17482)]" style={{width: `${(player.stats.hp/player.stats.maxHp)*100}%`}}></div></div>
                      </div>
                      <div>
-                        <div className="flex justify-between text-[10px] sm:text-[11px] font-mono text-amber-400/80 mb-0.5"><span>XP</span> <span>{player.xp}/{player.xpToNext}</span></div>
-                        <div className="h-1 bg-slate-900 rounded-full overflow-hidden"><div className="h-full bg-amber-500" style={{width: `${(player.xp/player.xpToNext)*100}%`}}></div></div>
+                        <div className="flex items-center justify-between mb-0.5">
+                          <span className="text-[9px] font-black uppercase tracking-[0.22em] text-[#346c7f]">Mana</span>
+                          <span className="text-[11px] font-black text-[#6b3141]">{player.stats.mp}/{player.stats.maxMp}</span>
+                        </div>
+                        <div className="h-1.5 bg-[#e9d7c2] rounded-full overflow-hidden"><div className="h-full rounded-full bg-[linear-gradient(90deg,#2b6878,#66b8d2)]" style={{width: `${(player.stats.mp/player.stats.maxMp)*100}%`}}></div></div>
                      </div>
-                   </>
+                     <div>
+                        <div className="flex items-center justify-between mb-0.5">
+                          <span className="text-[9px] font-black uppercase tracking-[0.22em] text-[#9a7068]">XP</span>
+                          <span className="text-[11px] font-black text-[#6b3141]">{player.xp}/{player.xpToNext}</span>
+                        </div>
+                        <div className="h-1 bg-[#e9d7c2] rounded-full overflow-hidden"><div className="h-full rounded-full bg-[linear-gradient(90deg,#7d3d4d,#c89a66)]" style={{width: `${(player.xp/player.xpToNext)*100}%`}}></div></div>
+                     </div>
+                   </div>
                  ) : (
-                   <div className="grid grid-cols-2 gap-1 text-[11px] sm:text-xs">
-                       <div className="rounded-md border border-slate-700 bg-slate-900/60 px-2 py-1 text-slate-300 flex items-center justify-between"><span className="text-red-400/70">ATK</span><span className="text-red-300 font-bold">{player.stats.atk}</span></div>
-                       <div className="rounded-md border border-slate-700 bg-slate-900/60 px-2 py-1 text-slate-300 flex items-center justify-between"><span className="text-blue-400/70">DEF</span><span className="text-blue-300 font-bold">{player.stats.def}</span></div>
-                       <div className="rounded-md border border-slate-700 bg-slate-900/60 px-2 py-1 text-slate-300 flex items-center justify-between"><span className="text-cyan-400/70">SPD</span><span className="text-cyan-300 font-bold">{player.stats.speed}</span></div>
-                       <div className="rounded-md border border-slate-700 bg-slate-900/60 px-2 py-1 text-slate-300 flex items-center justify-between"><span className="text-amber-400/70">LUK</span><span className="text-amber-300 font-bold">{player.stats.luck}</span></div>
-                       <div className="rounded-md border border-green-500/20 bg-green-950/30 px-2 py-1 text-green-100 flex items-center justify-between"><span className="text-green-400/70">HP</span><span className="font-bold">{player.stats.hp}/{player.stats.maxHp}</span></div>
-                       <div className="rounded-md border border-blue-500/20 bg-blue-950/30 px-2 py-1 text-blue-100 flex items-center justify-between"><span className="text-blue-400/70">MP</span><span className="font-bold">{player.stats.mp}/{player.stats.maxMp}</span></div>
+                   <div className="border-t border-[#dcc0aa] mt-1.5 pt-1.5 grid grid-cols-4 gap-1">
+                       <div className="rounded-[10px] border border-[#d6b9a3] bg-[#f4e5d4] px-1.5 py-1 flex flex-col items-center gap-0.5">
+                         <div className="flex h-5 w-5 shrink-0 items-center justify-center text-[#b83a4b]"><Sword size={14} /></div>
+                         <div className="text-center"><div className="text-[7px] font-black uppercase tracking-[0.12em] text-[#9a7068]">ATK</div><div className="text-xs font-black text-[#b83a4b]">{player.stats.atk}</div></div>
+                       </div>
+                       <div className="rounded-[10px] border border-[#d6b9a3] bg-[#f4e5d4] px-1.5 py-1 flex flex-col items-center gap-0.5">
+                         <div className="flex h-5 w-5 shrink-0 items-center justify-center text-[#4d6780]"><Shield size={14} /></div>
+                         <div className="text-center"><div className="text-[7px] font-black uppercase tracking-[0.12em] text-[#9a7068]">DEF</div><div className="text-xs font-black text-[#4d6780]">{player.stats.def}</div></div>
+                       </div>
+                       <div className="rounded-[10px] border border-[#d6b9a3] bg-[#f4e5d4] px-1.5 py-1 flex flex-col items-center gap-0.5">
+                         <div className="flex h-5 w-5 shrink-0 items-center justify-center text-[#7c4c76]"><Zap size={14} /></div>
+                         <div className="text-center"><div className="text-[7px] font-black uppercase tracking-[0.12em] text-[#9a7068]">VEL</div><div className="text-xs font-black text-[#7c4c76]">{player.stats.speed}</div></div>
+                       </div>
+                       <div className="rounded-[10px] border border-[#d6b9a3] bg-[#f4e5d4] px-1.5 py-1 flex flex-col items-center gap-0.5">
+                         <div className="flex h-5 w-5 shrink-0 items-center justify-center text-[#b26a2e]"><Star size={14} /></div>
+                         <div className="text-center"><div className="text-[7px] font-black uppercase tracking-[0.12em] text-[#9a7068]">SRT</div><div className="text-xs font-black text-[#b26a2e]">{player.stats.luck}</div></div>
+                       </div>
                    </div>
                  )}
 
                  {/* ACTIVE BUFFS INDICATORS */}
                  <div className="flex flex-wrap gap-1 mt-1.5">
                      {player.buffs.atkTurns > 0 && (
-                         <div className="flex items-center gap-1 bg-orange-900/50 text-orange-300 px-1.5 py-0.5 rounded text-[8px] font-bold border border-orange-500/30">
-                             <Sword size={8} /> ATK +{(player.buffs.atkMod*100).toFixed(0)}% ({player.buffs.atkTurns}t)
+                         <div className="flex items-center gap-1.5 bg-[#f7ecdd] text-[#6b3141] px-2 py-1 rounded-[10px] text-[8px] font-black border border-[#cfab91]">
+                             <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-[6px] bg-[#f8eddf]"><Sword size={10} className="text-[#b83a4b]" /></span>
+                             <span className="uppercase tracking-[0.12em]">ATK +{(player.buffs.atkMod*100).toFixed(0)}% ({player.buffs.atkTurns}t)</span>
                          </div>
                      )}
                      {player.buffs.defTurns > 0 && (
-                         <div className="flex items-center gap-1 bg-green-900/50 text-green-300 px-1.5 py-0.5 rounded text-[8px] font-bold border border-green-500/30">
-                             <Shield size={8} /> DEF +{(player.buffs.defMod*100).toFixed(0)}% ({player.buffs.defTurns}t)
+                         <div className="flex items-center gap-1.5 bg-[#f7ecdd] text-[#6b3141] px-2 py-1 rounded-[10px] text-[8px] font-black border border-[#cfab91]">
+                             <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-[6px] bg-[#f8eddf]"><Shield size={10} className="text-[#4d6780]" /></span>
+                             <span className="uppercase tracking-[0.12em]">DEF +{(player.buffs.defMod*100).toFixed(0)}% ({player.buffs.defTurns}t)</span>
                          </div>
                      )}
                      {player.buffs.perfectEvadeTurns > 0 && (
-                         <div className="flex items-center gap-1 bg-violet-900/50 text-violet-200 px-1.5 py-0.5 rounded text-[8px] font-bold border border-violet-500/30">
-                             <Sparkles size={8} /> EVADE ({player.buffs.perfectEvadeTurns}t)
+                         <div className="flex items-center gap-1.5 bg-[#f7ecdd] text-[#6b3141] px-2 py-1 rounded-[10px] text-[8px] font-black border border-[#cfab91]">
+                             <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-[6px] bg-[#f8eddf]"><Sparkles size={10} className="text-[#7c4c76]" /></span>
+                             <span className="uppercase tracking-[0.12em]">EVADE ({player.buffs.perfectEvadeTurns}t)</span>
                          </div>
                      )}
                      {player.buffs.doubleAttackTurns > 0 && (
-                         <div className="flex items-center gap-1 bg-orange-900/50 text-orange-200 px-1.5 py-0.5 rounded text-[8px] font-bold border border-orange-500/30">
-                             <Sword size={8} /> x2 ({player.buffs.doubleAttackTurns}t)
+                         <div className="flex items-center gap-1.5 bg-[#f7ecdd] text-[#6b3141] px-2 py-1 rounded-[10px] text-[8px] font-black border border-[#cfab91]">
+                             <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-[6px] bg-[#f8eddf]"><Sword size={10} className="text-[#b83a4b]" /></span>
+                             <span className="uppercase tracking-[0.12em]">x2 ATK ({player.buffs.doubleAttackTurns}t)</span>
                          </div>
                      )}
                  </div>
              </div>
 
-             {/* Action Grid - Right Side, 2x2 on both mobile and desktop */}
-             <div className="flex flex-col gap-1.5 items-end shrink-0 sm:ml-auto">
+             {/* Action Grid - Right side on mobile and desktop */}
+                 <div className="flex flex-col gap-1 items-end shrink-0 pointer-events-auto sm:fixed sm:bottom-4 sm:right-4 sm:z-30">
                      {/* Boss battle button */}
                      {!isDungeonRun && killCount >= 10 && !enemy?.isBoss && (
                          <button
                             onClick={() => onStartBattle(true)}
-                            className="w-[120px] sm:w-40 rounded-lg border border-red-500 bg-red-900/90 py-1.5 text-[10px] sm:text-xs font-black uppercase tracking-[0.12em] text-white transition-all pointer-events-auto hover:bg-red-800 hover:scale-105 animate-pulse shadow-lg shadow-red-900/40 flex items-center justify-center gap-1.5"
+                                     className="w-[100px] sm:w-40 rounded-[12px] border border-rose-400 bg-rose-500 py-1.5 text-[9px] sm:text-xs font-black uppercase tracking-[0.12em] text-white transition-all pointer-events-auto hover:bg-rose-600 hover:scale-105 animate-pulse shadow-lg shadow-rose-500/30 flex items-center justify-center gap-1.5"
                          >
                             <Skull size={14} /> ENFRENTAR CHEFÃO
                          </button>
@@ -2286,7 +1906,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                          <button
                             onClick={() => setShowFleeConfirm(true)}
                             disabled={!isPlayerTurn}
-                            className={`self-end rounded-lg border px-3 py-1 text-[9px] font-black uppercase tracking-[0.15em] transition-colors pointer-events-auto ${!isPlayerTurn ? 'border-slate-800 bg-slate-900 text-slate-600 cursor-not-allowed' : 'border-slate-700 bg-slate-900 text-slate-300 hover:bg-slate-800 hover:text-white'}`}
+                            className={`self-end rounded-[10px] border px-3 py-1 text-[9px] font-black uppercase tracking-[0.15em] transition-colors pointer-events-auto ${!isPlayerTurn ? 'border-[#dcc0aa] bg-[#e9d7c2] text-[#8f6c67] cursor-not-allowed' : 'border-[#cfab91] bg-[#f4e5d4] text-[#6b3141] hover:bg-[#e9d7c2]'}`}
                          >
                             {canLeaveFreely ? 'Sair' : 'Fugir'}
                          </button>
@@ -2295,27 +1915,27 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                      {isDungeonRun && dungeonRewards && (
                           <button
                               onClick={() => setShowDungeonLootPreview(true)}
-                              className="self-end rounded-lg border border-cyan-500/30 bg-cyan-950/70 px-3 py-1 text-[9px] font-black uppercase tracking-[0.15em] text-cyan-100 transition-colors pointer-events-auto hover:bg-cyan-900/70 hover:text-white"
+                              className="self-end rounded-[10px] border border-[#cfab91] bg-[#f4e5d4] px-3 py-1 text-[9px] font-black uppercase tracking-[0.15em] text-[#6b3141] transition-colors pointer-events-auto hover:bg-[#e9d7c2]"
                           >
                               Espólio
                           </button>
                      )}
 
-                     <div className="grid grid-cols-2 gap-1.5 w-[120px] sm:w-40">
-                         <ActionTile icon={<Sword size={16} />} label="ATACAR" onClick={() => { setActiveBattleMenu(null); onAttack(); }} disabled={!isPlayerTurn} variant="attack" />
+                     <div className="grid grid-cols-2 gap-1.5 w-[140px] sm:w-40">
+                         <ActionTile icon={<Sword size={18} />} label="ATACAR" onClick={() => { setActiveBattleMenu(null); onAttack(); }} disabled={!isPlayerTurn} variant="attack" />
 
-                         <ActionTile icon={<Shield size={16} />} label="DEFENDER" onClick={() => { setActiveBattleMenu(null); onDefend(); }} disabled={!isPlayerTurn} variant="defense" />
+                         <ActionTile icon={<Shield size={18} />} label="DEFENDER" onClick={() => { setActiveBattleMenu(null); onDefend(); }} disabled={!isPlayerTurn} variant="defense" />
 
-                         <ActionTile icon={<Sparkles size={16} />} label="HABILIDADES" onClick={() => setActiveBattleMenu(prev => prev === 'skills' ? null : 'skills')} disabled={!isPlayerTurn || player.skills.length === 0} variant="skill" />
+                         <ActionTile icon={<Sparkles size={18} />} label="SKILLS" onClick={() => setActiveBattleMenu(prev => prev === 'skills' ? null : 'skills')} disabled={!isPlayerTurn || player.skills.length === 0} variant="skill" />
 
-                         <ActionTile icon={<FlaskConical size={16} />} label="ITENS" onClick={() => setActiveBattleMenu(prev => prev === 'items' ? null : 'items')} disabled={!isPlayerTurn || usableItems.length === 0} variant="item" />
+                         <ActionTile icon={<FlaskConical size={18} />} label="ITENS" onClick={() => setActiveBattleMenu(prev => prev === 'items' ? null : 'items')} disabled={!isPlayerTurn || usableItems.length === 0} variant="item" />
                      </div>
              </div>
          </div>
       </div>
 
-      {showProfile && <CharacterSheet player={player} shopItems={shopItems} onClose={() => setShowProfile(false)} onOpenInventory={() => { setShowProfile(false); setShowInventory(true); }} />}
-      {showInventory && <InventoryScreen player={player} shopItems={shopItems} onClose={() => setShowInventory(false)} onEquip={onEquipItem} onUse={onUseItem} />}
+    {showProfile && <CharacterSheetModal player={player} shopItems={shopItems} onClose={() => setShowProfile(false)} onOpenInventory={() => { setShowProfile(false); setShowInventory(true); }} />}
+    {showInventory && <InventoryModal player={player} shopItems={shopItems} onClose={() => setShowInventory(false)} onEquip={onEquipItem} onUse={onUseItem} />}
     </div>
   );
 };
