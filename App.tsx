@@ -1440,7 +1440,7 @@ export default function App() {
                 .then(victoryText => setNarration(victoryText))
                 .catch(() => undefined);
          }
-         openCardRewardQueue(updatedPlayer, queuedCardRewards);
+         setTimeout(() => openCardRewardQueue(updatedPlayer, queuedCardRewards), 3200);
      } else if (wasBoss) {
          // Boss win -> Go to Victory Screen (which leads to Tavern)
          setGameState(GameState.VICTORY);
