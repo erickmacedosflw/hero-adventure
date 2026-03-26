@@ -199,58 +199,77 @@ export const KillLootOverlay = ({ loot }: { loot: LootResult | null }) => {
                     72%  { opacity: 1; transform: scale(1) translateY(0); }
                     100% { opacity: 0; transform: scale(0.92) translateY(-16px); }
                 }
+                @keyframes lootShimmer {
+                    0% { background-position: -200% 0; }
+                    100% { background-position: 200% 0; }
+                }
+                @keyframes lootIconPulse {
+                    0%, 100% { transform: scale(1); }
+                    50% { transform: scale(1.12); }
+                }
             `}</style>
-            <div className={`rounded-2xl border-2 shadow-2xl p-4 sm:p-6 text-white text-center max-w-[260px] sm:max-w-xs w-full mx-3 backdrop-blur-md
+            <div className={`rounded-[24px] shadow-2xl p-4 sm:p-6 text-center max-w-[280px] sm:max-w-sm w-full mx-3 backdrop-blur-md relative overflow-hidden
                 ${loot.isBoss
-                    ? 'bg-slate-950/95 border-amber-500 shadow-amber-900/40'
-                    : 'bg-slate-950/95 border-slate-600 shadow-black/60'
+                    ? 'bg-[#f7ecdd]/95 border-2 border-amber-500 shadow-[0_24px_80px_rgba(180,120,40,0.35)]'
+                    : 'bg-[#f7ecdd]/95 border-2 border-[#cfab91] shadow-[0_24px_80px_rgba(107,49,65,0.25)]'
                 }
             `}>
-                <div className="mb-2 sm:mb-3">
-                    <div className="text-2xl sm:text-4xl mb-1">{loot.isBoss ? '💀' : '☠️'}</div>
-                    <div className={`font-gamer font-black text-sm sm:text-lg tracking-widest uppercase
-                        ${loot.isBoss ? 'text-amber-400' : 'text-red-400'}
+                {/* Decorative shimmer stripe */}
+                <div className="absolute inset-0 pointer-events-none opacity-30"
+                    style={{
+                        background: 'linear-gradient(90deg, transparent 0%, rgba(250,204,21,0.3) 50%, transparent 100%)',
+                        backgroundSize: '200% 100%',
+                        animation: 'lootShimmer 2.5s ease-in-out infinite',
+                    }}
+                />
+
+                <div className="relative mb-3 sm:mb-4">
+                    <div className="text-3xl sm:text-5xl mb-1.5" style={{ animation: 'lootIconPulse 1.2s ease-in-out infinite' }}>
+                        {loot.isBoss ? '⚔️' : '🏆'}
+                    </div>
+                    <div className={`font-black text-sm sm:text-lg tracking-[0.18em] uppercase
+                        ${loot.isBoss ? 'text-amber-700' : 'text-[#6b3141]'}
                     `}>
                         {loot.isBoss ? 'CHEFÃO DERROTADO!' : 'INIMIGO DERROTADO'}
                     </div>
-                    <div className="text-slate-500 text-[10px] sm:text-xs mt-0.5 font-bold uppercase tracking-wider">{loot.enemyName}</div>
+                    <div className="text-[#9a7068] text-[10px] sm:text-xs mt-0.5 font-bold uppercase tracking-wider">{loot.enemyName}</div>
                 </div>
 
-                <div className="flex gap-1.5 sm:gap-2 justify-center mb-2 sm:mb-3 flex-wrap">
-                    <div className="flex items-center gap-1.5 bg-amber-950/70 border border-amber-700/50 px-2 sm:px-3 py-1.5 sm:py-2 rounded-xl">
-                        <span className="text-base sm:text-xl">🪙</span>
+                <div className="flex gap-1.5 sm:gap-2 justify-center mb-3 sm:mb-4 flex-wrap relative">
+                    <div className="flex items-center gap-1.5 bg-[#f4e5d4] border border-[#d6b9a3] px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-[14px]">
+                        <GameAssetIcon name="coin" size={18} />
                         <div className="text-left">
-                            <div className="text-[8px] sm:text-[9px] text-amber-400/70 font-bold uppercase tracking-wider">Ouro</div>
-                            <div className="text-amber-300 font-mono font-black text-sm sm:text-base">+{loot.gold}</div>
+                            <div className="text-[8px] sm:text-[9px] text-[#9a7068] font-black uppercase tracking-wider">Ouro</div>
+                            <div className="text-[#8d5e29] font-mono font-black text-sm sm:text-base">+{loot.gold}</div>
                         </div>
                     </div>
-                    <div className="flex items-center gap-1.5 bg-indigo-950/70 border border-indigo-700/50 px-2 sm:px-3 py-1.5 sm:py-2 rounded-xl">
-                        <span className="text-base sm:text-xl">⭐</span>
+                    <div className="flex items-center gap-1.5 bg-[#f4e5d4] border border-[#d6b9a3] px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-[14px]">
+                        <span className="text-base sm:text-lg">⭐</span>
                         <div className="text-left">
-                            <div className="text-[8px] sm:text-[9px] text-indigo-400/70 font-bold uppercase tracking-wider">XP</div>
-                            <div className="text-indigo-300 font-mono font-black text-sm sm:text-base">+{loot.xp}</div>
+                            <div className="text-[8px] sm:text-[9px] text-[#9a7068] font-black uppercase tracking-wider">XP</div>
+                            <div className="text-[#7c4c76] font-mono font-black text-sm sm:text-base">+{loot.xp}</div>
                         </div>
                     </div>
                     {loot.diamonds && loot.diamonds > 0 && (
-                        <div className="flex items-center gap-1.5 bg-cyan-950/70 border border-cyan-700/50 px-2 sm:px-3 py-1.5 sm:py-2 rounded-xl">
-                            <span className="text-base sm:text-xl">💎</span>
+                        <div className="flex items-center gap-1.5 bg-[#f4e5d4] border border-[#d6b9a3] px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-[14px]">
+                            <GameAssetIcon name="diamond" size={18} />
                             <div className="text-left">
-                                <div className="text-[8px] sm:text-[9px] text-cyan-400/70 font-bold uppercase tracking-wider">Gema</div>
-                                <div className="text-cyan-300 font-mono font-black text-sm sm:text-base">+{loot.diamonds}</div>
+                                <div className="text-[8px] sm:text-[9px] text-[#9a7068] font-black uppercase tracking-wider">Gema</div>
+                                <div className="text-[#346c7f] font-mono font-black text-sm sm:text-base">+{loot.diamonds}</div>
                             </div>
                         </div>
                     )}
                 </div>
 
                 {loot.drops.length > 0 && (
-                    <div>
-                        <div className="text-[8px] sm:text-[9px] text-slate-500 uppercase tracking-widest mb-1.5 sm:mb-2 font-bold">— Espólio —</div>
+                    <div className="relative border-t border-[#dcc0aa] pt-2.5 sm:pt-3">
+                        <div className="text-[8px] sm:text-[9px] text-[#9a7068] uppercase tracking-[0.25em] mb-1.5 sm:mb-2 font-black">— Espólio —</div>
                         <div className="flex gap-1.5 justify-center flex-wrap">
                             {loot.drops.map((item, i) => (
-                                <div key={i} className={`flex items-center gap-1 px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-lg border text-[10px] sm:text-xs font-bold
-                                    ${item.rarity === 'gold' ? 'bg-amber-900/40 border-amber-600/50 text-amber-200'
-                                    : item.rarity === 'silver' ? 'bg-slate-800/60 border-slate-500/50 text-slate-200'
-                                    : 'bg-slate-900/60 border-slate-700 text-slate-300'}
+                                <div key={i} className={`flex items-center gap-1 px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-[10px] border text-[10px] sm:text-xs font-bold
+                                    ${item.rarity === 'gold' ? 'bg-amber-50 border-amber-400 text-amber-800'
+                                    : item.rarity === 'silver' ? 'bg-slate-50 border-slate-400 text-slate-700'
+                                    : 'bg-[#f8eddf] border-[#d6b9a3] text-[#6b3141]'}
                                 `}>
                                     <span className="text-sm sm:text-base">{item.icon}</span>
                                     <span>{item.name}</span>
@@ -1128,22 +1147,53 @@ const getCardCategoryBadge = (card: ProgressionCard) => {
     return { icon: <Sparkles size={14} />, label: 'Especial', color: 'text-sky-700 border-sky-300 bg-sky-100' };
 };
 
-export const CardChoiceScreen: React.FC<{ offer: CardRewardOffer, cards: ProgressionCard[], onSelect: (card: ProgressionCard) => void }> = ({ offer, cards, onSelect }) => (
-    <div className="absolute inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 pointer-events-auto animate-[cardScreenFadeIn_0.5s_ease-out_both]">
+export const CardChoiceScreen: React.FC<{ offer: CardRewardOffer, cards: ProgressionCard[], onSelect: (card: ProgressionCard) => void }> = ({ offer, cards, onSelect }) => {
+    const [selectedId, setSelectedId] = useState<string | null>(null);
+    const [isExiting, setIsExiting] = useState(false);
+
+    const handlePick = (card: ProgressionCard) => {
+        if (selectedId) return;
+        setSelectedId(card.id);
+        setTimeout(() => {
+            setIsExiting(true);
+            setTimeout(() => onSelect(card), 500);
+        }, 900);
+    };
+
+    return (
+    <div className={`absolute inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 pointer-events-auto ${isExiting ? 'animate-[cardScreenFadeOut_0.5s_ease-in_both]' : 'animate-[cardScreenFadeIn_0.5s_ease-out_both]'}`}>
         <style>{`
             @keyframes cardScreenFadeIn {
                 0% { opacity: 0; }
                 100% { opacity: 1; }
             }
+            @keyframes cardScreenFadeOut {
+                0% { opacity: 1; }
+                100% { opacity: 0; }
+            }
             @keyframes cardScreenSlideUp {
                 0% { opacity: 0; transform: scale(0.92) translateY(30px); }
                 100% { opacity: 1; transform: scale(1) translateY(0); }
+            }
+            @keyframes cardSelected {
+                0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(250,204,21,0); }
+                30% { transform: scale(1.04); box-shadow: 0 0 40px 8px rgba(250,204,21,0.5); }
+                60% { transform: scale(1.02); box-shadow: 0 0 60px 16px rgba(250,204,21,0.3); }
+                100% { transform: scale(1.0); box-shadow: 0 0 80px 24px rgba(250,204,21,0.0); }
+            }
+            @keyframes cardNotSelected {
+                0% { opacity: 1; transform: scale(1); }
+                100% { opacity: 0.3; transform: scale(0.95); filter: grayscale(0.6); }
+            }
+            @keyframes selectedGlow {
+                0%, 100% { opacity: 0.4; }
+                50% { opacity: 0.8; }
             }
         `}</style>
         <div className="w-full max-w-6xl max-h-[95vh] sm:max-h-none overflow-y-auto rounded-2xl sm:rounded-[28px] border border-[#cfab91] bg-[#f7ecdd] shadow-[0_30px_120px_rgba(107,49,65,0.18)] animate-[cardScreenSlideUp_0.5s_ease-out_both]">
             <div className="border-b border-[#dcc0aa] px-4 py-3 sm:px-8 sm:py-6 text-center">
                 <div className="inline-flex items-center gap-2 rounded-full border border-[#cfab91] bg-[#f4e5d4] px-3 py-1 sm:px-4 sm:py-1.5 text-[10px] sm:text-xs font-black uppercase tracking-[0.3em] text-[#8d5e29]">
-                    <Sparkles size={12} /> Escolha uma carta
+                    <Sparkles size={12} /> {selectedId ? 'Carta Selecionada!' : 'Escolha uma carta'}
                 </div>
                 <h2 className="mt-2 sm:mt-4 text-xl sm:text-4xl font-black text-[#6b3141]">{offer.source === 'boss' ? 'Recompensa do Chefao' : 'Recompensa de Evolucao'}</h2>
                 <p className="mt-1 sm:mt-2 text-xs sm:text-base text-[#7f5b56]">{offer.reason}</p>
@@ -1153,14 +1203,31 @@ export const CardChoiceScreen: React.FC<{ offer: CardRewardOffer, cards: Progres
                 {cards.map(card => {
                     const category = getCardCategoryBadge(card);
                     const effectLines = describeCardEffect(card);
+                    const isThis = selectedId === card.id;
+                    const isOther = selectedId !== null && selectedId !== card.id;
 
                     return (
                         <button
                             key={card.id}
-                            onClick={() => onSelect(card)}
-                            className="group text-left rounded-[16px] sm:rounded-[20px] border border-[#cfab91] bg-[#f7ecdd] p-3.5 sm:p-6 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-xl hover:border-[#c59d82]"
+                            onClick={() => handlePick(card)}
+                            disabled={!!selectedId}
+                            className={`group text-left rounded-[16px] sm:rounded-[20px] border p-3.5 sm:p-6 shadow-sm transition-all duration-200 relative overflow-hidden
+                                ${isThis ? 'border-amber-400 bg-amber-50/80 ring-2 ring-amber-400/50' : 'border-[#cfab91] bg-[#f7ecdd]'}
+                                ${!selectedId ? 'hover:-translate-y-1 hover:shadow-xl hover:border-[#c59d82] cursor-pointer' : ''}
+                                ${isOther ? 'cursor-default' : ''}
+                            `}
+                            style={isThis ? { animation: 'cardSelected 0.9s ease-out both' } : isOther ? { animation: 'cardNotSelected 0.5s 0.1s ease-out both' } : undefined}
                         >
-                            <div className="flex items-start justify-between gap-2 sm:gap-3 mb-2 sm:mb-4">
+                            {/* Yellow glow overlay for selected card */}
+                            {isThis && (
+                                <div className="absolute inset-0 rounded-[16px] sm:rounded-[20px] pointer-events-none"
+                                    style={{
+                                        background: 'radial-gradient(circle at center, rgba(250,204,21,0.25) 0%, transparent 70%)',
+                                        animation: 'selectedGlow 1s ease-in-out infinite',
+                                    }}
+                                />
+                            )}
+                            <div className="relative flex items-start justify-between gap-2 sm:gap-3 mb-2 sm:mb-4">
                                 <div>
                                     <div className="rounded-full border border-[#d6b9a3] bg-[#f8eddf] px-2.5 py-1 text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.35em] text-[#9a7068] inline-block mb-1 sm:mb-2">{card.rarity}</div>
                                     <h3 className="text-lg sm:text-2xl font-black text-[#6b3141] leading-tight">{card.name}</h3>
@@ -1171,9 +1238,9 @@ export const CardChoiceScreen: React.FC<{ offer: CardRewardOffer, cards: Progres
                                 </div>
                             </div>
 
-                            <p className="text-xs sm:text-sm text-[#7f5b56] leading-relaxed min-h-8 sm:min-h-12">{card.description}</p>
+                            <p className="relative text-xs sm:text-sm text-[#7f5b56] leading-relaxed min-h-8 sm:min-h-12">{card.description}</p>
 
-                            <div className="mt-3 sm:mt-5 space-y-1.5 sm:space-y-2">
+                            <div className="relative mt-3 sm:mt-5 space-y-1.5 sm:space-y-2">
                                 {effectLines.map(line => (
                                     <div key={line} className="rounded-xl border border-[#dcc0aa] bg-[#f4e5d4] px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold text-[#6b3141]">
                                         {line}
@@ -1186,7 +1253,8 @@ export const CardChoiceScreen: React.FC<{ offer: CardRewardOffer, cards: Progres
             </div>
         </div>
     </div>
-);
+    );
+};
 
 export const AlchemistScreen: React.FC<{ player: Player, offers: AlchemistCardOffer[], itemOffers: AlchemistItemOffer[], onBuyCard: (offer: AlchemistCardOffer) => void, onBuyItem: (offer: AlchemistItemOffer) => void, onLeave: () => void }> = ({ player, offers, itemOffers, onBuyCard, onBuyItem, onLeave }) => {
     const [selectedType, setSelectedType] = useState<'card' | 'item'>(offers.length > 0 ? 'card' : 'item');

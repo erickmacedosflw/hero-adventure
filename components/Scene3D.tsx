@@ -1302,6 +1302,128 @@ const EquippedWeaponAttachment = ({
 
 // --- MAIN COMPONENTS ---
 
+const SPARKLE_COUNT = 12;
+const SPARKLE_SEEDS = Array.from({ length: SPARKLE_COUNT }, (_, i) => ({
+  orbitSpeed: 1.2 + (i % 4) * 0.35,
+  orbitRadius: 0.45 + (i % 3) * 0.22,
+  baseY: -0.4 + (i / SPARKLE_COUNT) * 2.2,
+  riseSpeed: 0.6 + (i % 5) * 0.2,
+  phase: (i / SPARKLE_COUNT) * Math.PI * 2,
+  size: 0.035 + (i % 2) * 0.02,
+}));
+
+const LevelUpEffect = () => {
+  const groupRef = useRef<THREE.Group>(null);
+  const pillarRef = useRef<THREE.Mesh>(null);
+  const ring0Ref = useRef<THREE.Mesh>(null);
+  const ring1Ref = useRef<THREE.Mesh>(null);
+  const ring2Ref = useRef<THREE.Mesh>(null);
+  const sparklesRef = useRef<(THREE.Mesh | null)[]>([]);
+  const light1Ref = useRef<THREE.PointLight>(null);
+  const light2Ref = useRef<THREE.PointLight>(null);
+  const localTime = useRef(0);
+
+  useFrame((_, delta) => {
+    localTime.current += delta;
+    const t = localTime.current;
+
+    // Intro scale: quick grow from 0 to 1 in ~0.4s
+    if (groupRef.current) {
+      const intro = Math.min(t / 0.4, 1);
+      const s = intro * intro * (3 - 2 * intro); // smoothstep
+      groupRef.current.scale.setScalar(s);
+    }
+
+    // Pillar: pulse opacity + slight scale breathing
+    if (pillarRef.current) {
+      const mat = pillarRef.current.material as THREE.MeshStandardMaterial;
+      mat.opacity = 0.25 + Math.sin(t * 4) * 0.15;
+      mat.emissiveIntensity = 2.5 + Math.sin(t * 3.5) * 1.5;
+      pillarRef.current.scale.x = 1 + Math.sin(t * 5) * 0.15;
+      pillarRef.current.scale.z = 1 + Math.sin(t * 5) * 0.15;
+    }
+
+    // Rings: rotate + expand & pulse scale
+    if (ring0Ref.current) {
+      ring0Ref.current.rotation.z = t * 1.2;
+      const pulse0 = 1 + Math.sin(t * 3) * 0.12;
+      ring0Ref.current.scale.set(pulse0, pulse0, 1);
+    }
+    if (ring1Ref.current) {
+      ring1Ref.current.rotation.z = -t * 0.9;
+      const pulse1 = 1 + Math.sin(t * 3.5 + 1) * 0.1;
+      ring1Ref.current.scale.set(pulse1, pulse1, 1);
+      ring1Ref.current.position.y = 0.3 + Math.sin(t * 2) * 0.1;
+    }
+    if (ring2Ref.current) {
+      ring2Ref.current.rotation.z = t * 1.5;
+      const pulse2 = 1 + Math.sin(t * 4 + 2) * 0.08;
+      ring2Ref.current.scale.set(pulse2, pulse2, 1);
+      ring2Ref.current.position.y = 1.2 + Math.sin(t * 2.5 + 0.5) * 0.12;
+    }
+
+    // Sparkles: orbit + rise + fade
+    sparklesRef.current.forEach((mesh, i) => {
+      if (!mesh) return;
+      const seed = SPARKLE_SEEDS[i];
+      const angle = seed.phase + t * seed.orbitSpeed;
+      const r = seed.orbitRadius + Math.sin(t * 2 + i) * 0.08;
+      mesh.position.x = Math.cos(angle) * r;
+      mesh.position.z = Math.sin(angle) * r;
+      mesh.position.y = seed.baseY + Math.sin(t * seed.riseSpeed + seed.phase) * 0.35;
+      const sparkScale = 0.8 + Math.sin(t * 6 + i * 1.3) * 0.4;
+      mesh.scale.setScalar(sparkScale);
+      const mat = mesh.material as THREE.MeshStandardMaterial;
+      mat.opacity = 0.5 + Math.sin(t * 5 + i * 0.8) * 0.4;
+    });
+
+    // Lights: pulse intensity
+    if (light1Ref.current) {
+      light1Ref.current.intensity = 3 + Math.sin(t * 4) * 2;
+    }
+    if (light2Ref.current) {
+      light2Ref.current.intensity = 1.5 + Math.sin(t * 3 + 1) * 1;
+      light2Ref.current.position.y = 1.5 + Math.sin(t * 2) * 0.3;
+    }
+  });
+
+  return (
+    <group ref={groupRef} position={[0, 0.8, 0]} scale={0}>
+      {/* Central golden pillar of light */}
+      <mesh ref={pillarRef} position={[0, 0.5, 0]}>
+        <cylinderGeometry args={[0.02, 0.5, 3.5, 12, 1, true]} />
+        <meshStandardMaterial color="#facc15" emissive="#fbbf24" emissiveIntensity={3} transparent opacity={0.35} side={THREE.DoubleSide} depthWrite={false} />
+      </mesh>
+      {/* Rings */}
+      <mesh ref={ring0Ref} position={[0, -0.6, 0]} rotation={[Math.PI / 2, 0, 0]}>
+        <torusGeometry args={[0.8, 0.06, 8, 24]} />
+        <meshStandardMaterial color="#fbbf24" emissive="#facc15" emissiveIntensity={2.5} transparent opacity={0.6} />
+      </mesh>
+      <mesh ref={ring1Ref} position={[0, 0.3, 0]} rotation={[Math.PI / 2, 0, 0]}>
+        <torusGeometry args={[0.55, 0.04, 8, 20]} />
+        <meshStandardMaterial color="#fde68a" emissive="#fbbf24" emissiveIntensity={2} transparent opacity={0.45} />
+      </mesh>
+      <mesh ref={ring2Ref} position={[0, 1.2, 0]} rotation={[Math.PI / 2, 0, 0]}>
+        <torusGeometry args={[0.35, 0.03, 8, 16]} />
+        <meshStandardMaterial color="#fef3c7" emissive="#fcd34d" emissiveIntensity={2} transparent opacity={0.35} />
+      </mesh>
+      {/* Orbiting sparkle particles */}
+      {SPARKLE_SEEDS.map((seed, i) => (
+        <mesh key={i} ref={el => { sparklesRef.current[i] = el; }} position={[0, seed.baseY, 0]}>
+          <sphereGeometry args={[seed.size, 6, 6]} />
+          <meshStandardMaterial color="#fef9c3" emissive="#fbbf24" emissiveIntensity={3} transparent opacity={0.8} />
+        </mesh>
+      ))}
+      {/* Pulsing lights */}
+      <pointLight ref={light1Ref} position={[0, 0.6, 0]} color="#fbbf24" intensity={4} distance={6} decay={2} />
+      <pointLight ref={light2Ref} position={[0, 1.5, 0.5]} color="#fde68a" intensity={2} distance={4} decay={2} />
+      {/* Base platforms */}
+      <VoxelPart position={[0, -0.8, 0]} size={[1.8, 0.08, 1.8]} color="#facc15" material="gem" opacity={0.5} />
+      <VoxelPart position={[0, -0.3, 0]} size={[1.2, 0.06, 1.2]} color="#fbbf24" material="gem" opacity={0.35} />
+    </group>
+  );
+};
+
 const HeroVoxel = ({ classId = 'knight', playerAnimationAction = 'idle', animationClipName, preferredAnimationBundle, onAvailableAnimationClipsChange, loadAllAnimationBundles = false, loadSecondaryAnimationBundles = true, previewLoopAllActions = false, isAttacking, isDefending, weaponId, armorId, helmetId, legsId, shieldId, isLevelingUp, isHit, isPlayerCritHit, hasPerfectEvadeAura, hasDoubleAttackAura, contactShadowResolution = 256, idlePositionX = -2, attackPositionX = 0.5, defendPositionX = -1.5, originPosition = [-2, -1, 0], baseRotationY = 0.5, hiddenPartSlots, visiblePartSlots, runtimeAssetsOverride, calibrationOverride, debugRuntimeId, debugRuntimeLabel, onRuntimeDiagnosticChange }: any) => {
   const playerClass = getPlayerClassById(classId);
   const runtimeHeroAssets = runtimeAssetsOverride ?? (hasRuntimeFbxAssets(playerClass.assets) ? playerClass.assets : null);
@@ -1418,12 +1540,7 @@ const HeroVoxel = ({ classId = 'knight', playerAnimationAction = 'idle', animati
             />
           </Suspense>
         ) : null}
-        {isLevelingUp && (
-          <group position={[0, 1, 0]}>
-            <VoxelPart position={[0, 0, 0]} size={[1.5, 0.1, 1.5]} color="#facc15" material="gem" opacity={0.6} />
-            <VoxelPart position={[0, 0.5, 0]} size={[1, 0.1, 1]} color="#facc15" material="gem" opacity={0.4} />
-          </group>
-        )}
+        {isLevelingUp && <LevelUpEffect />}
         <group ref={phantomAuraRef} position={[0, 0.2, 0]} visible={Boolean(hasPerfectEvadeAura)}>
           <mesh rotation={[Math.PI / 2, 0, 0]}>
             <torusGeometry args={[0.72, 0.05, 6, 20]} />

@@ -655,25 +655,50 @@ export const FogController: React.FC = () => {
 
 export const CameraController = ({ screenShake }: { screenShake?: number }) => {
   const cameraRef = useRef<THREE.PerspectiveCamera>(null);
+  const clockRef = useRef(0);
   const isMobile = window.innerWidth < 768;
-  const camZ = isMobile ? 12.5 : 11;
+  const camDistance = isMobile ? 13.5 : 11;
   const camFov = isMobile ? 54 : 50;
+  const lookTarget = useMemo(() => new THREE.Vector3(0, 0.9, 0), []);
 
-  useFrame(() => {
+  useFrame((_, delta) => {
+    clockRef.current += delta;
+    const t = clockRef.current;
+
+    // Slow orbit around the battle scene (subtle arc, not full 360)
+    const orbitAngle = Math.sin(t * 0.06) * 0.175; // sways ~10° each side
+    const orbitX = Math.sin(orbitAngle) * camDistance;
+    const orbitZ = Math.cos(orbitAngle) * camDistance;
+
+    // Handheld drift layered on top
+    const driftX = Math.sin(t * 0.13) * 0.40 + Math.sin(t * 0.07) * 0.18;
+    const driftY = Math.cos(t * 0.11) * 0.20 + Math.sin(t * 0.05) * 0.10;
+    const driftZ = Math.sin(t * 0.09) * 0.22 + Math.cos(t * 0.14) * 0.08;
+
+    // Micro-shake (handheld feel)
+    const microX = Math.sin(t * 3.7) * 0.008 + Math.cos(t * 5.3) * 0.005;
+    const microY = Math.cos(t * 4.1) * 0.006 + Math.sin(t * 6.7) * 0.004;
+
+    const targetX = orbitX + driftX + microX;
+    const targetY = 2.5 + driftY + microY;
+    const targetZ = orbitZ + driftZ;
+
     if (cameraRef.current && screenShake) {
       const shake = screenShake;
-      cameraRef.current.position.x = (Math.random() - 0.5) * shake;
-      cameraRef.current.position.y = 2.5 + (Math.random() - 0.5) * shake;
+      cameraRef.current.position.x = targetX + (Math.random() - 0.5) * shake;
+      cameraRef.current.position.y = targetY + (Math.random() - 0.5) * shake;
+      cameraRef.current.position.z = targetZ;
     } else if (cameraRef.current) {
-      cameraRef.current.position.x = THREE.MathUtils.lerp(cameraRef.current.position.x, 0, 0.1);
-      cameraRef.current.position.y = THREE.MathUtils.lerp(cameraRef.current.position.y, 2.5, 0.1);
+      cameraRef.current.position.x = THREE.MathUtils.lerp(cameraRef.current.position.x, targetX, 0.07);
+      cameraRef.current.position.y = THREE.MathUtils.lerp(cameraRef.current.position.y, targetY, 0.07);
+      cameraRef.current.position.z = THREE.MathUtils.lerp(cameraRef.current.position.z, targetZ, 0.05);
     }
     if (cameraRef.current) {
-      cameraRef.current.lookAt(0, 0.9, 0);
+      cameraRef.current.lookAt(lookTarget);
     }
   });
 
-  return <PerspectiveCamera ref={cameraRef} makeDefault position={[0, 2.5, camZ]} fov={camFov} near={0.5} far={120} />;
+  return <PerspectiveCamera ref={cameraRef} makeDefault position={[0, 2.5, camDistance]} fov={camFov} near={0.5} far={120} />;
 };
 
 export const NightEnemyGlow = ({ gameTime }: { gameTime: string }) => {

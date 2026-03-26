@@ -1461,12 +1461,12 @@ export default function App() {
       if (!currentCardOffer) return;
 
       addLog(`Carta escolhida: ${card.name}`, 'buff');
+      triggerLevelUpPulse();
       const afterCardPlayer = applyCardChoice(player, card);
       const { nextPlayer, levelsGained } = applyLevelProgression(afterCardPlayer);
       let nextQueue = [...cardRewardQueue];
 
       if (levelsGained > 0) {
-        triggerLevelUpPulse();
         nextQueue = [...createLevelUpOffers(levelsGained), ...nextQueue];
       }
 
