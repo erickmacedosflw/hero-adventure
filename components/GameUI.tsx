@@ -21,6 +21,7 @@ interface GameUIProps {
   onDefend: () => void;
   onSkill: (skill: Skill) => void;
   onUseItem: (itemId: string) => void;
+  onUnlockTalent: (nodeId: string) => void;
   onStartBattle: (isBoss: boolean) => void;
   onEnterShop: () => void;
   onBuyItem: (item: Item) => void;
@@ -826,8 +827,9 @@ export const TavernScreen: React.FC<{
     onAlchemist: () => void,
   shopItems: Item[],
   onEquipItem: (item: Item) => void,
-  onUseItem: (itemId: string) => void
-}> = ({ player, killCount, onHunt, onBoss, onDungeon, onShop, onAlchemist, shopItems, onEquipItem, onUseItem }) => {
+  onUseItem: (itemId: string) => void,
+  onUnlockTalent: (nodeId: string) => void
+}> = ({ player, killCount, onHunt, onBoss, onDungeon, onShop, onAlchemist, shopItems, onEquipItem, onUseItem, onUnlockTalent }) => {
   const [showProfile, setShowProfile] = useState(false);
   const [showInventory, setShowInventory] = useState(false);
     const [isClosing, setIsClosing] = useState(false);
@@ -1039,7 +1041,7 @@ export const TavernScreen: React.FC<{
                     </div>
                 </div>
             </div>
-    {showProfile && <CharacterSheetModal player={player} shopItems={shopItems} onClose={() => setShowProfile(false)} onOpenInventory={() => { setShowProfile(false); setShowInventory(true); }} />}
+    {showProfile && <CharacterSheetModal player={player} shopItems={shopItems} onClose={() => setShowProfile(false)} onOpenInventory={() => { setShowProfile(false); setShowInventory(true); }} onUnlockTalent={onUnlockTalent} />}
     {showInventory && <InventoryModal player={player} shopItems={shopItems} onClose={() => setShowInventory(false)} onEquip={onEquipItem} onUse={onUseItem} />}
 
     {showDungeonConfirm && (
@@ -1873,7 +1875,7 @@ export const ShopScreen: React.FC<{ player: Player, items: Item[], onBuy: (i: It
 };
 
 export const BattleHUD: React.FC<GameUIProps> = (props) => {
-        const { player, enemy, turnState, logs, onAttack, onDefend, onSkill, onUseItem, currentNarration, gameState, shopItems, floatingTexts, onFlee, onStartBattle, stage, killCount, onEquipItem, isDungeonRun, dungeonRewards, dungeonCleared = 0, dungeonTotal = 30, gameTime } = props;
+        const { player, enemy, turnState, logs, onAttack, onDefend, onSkill, onUseItem, onUnlockTalent, currentNarration, gameState, shopItems, floatingTexts, onFlee, onStartBattle, stage, killCount, onEquipItem, isDungeonRun, dungeonRewards, dungeonCleared = 0, dungeonTotal = 30, gameTime } = props;
   const [activeBattleMenu, setActiveBattleMenu] = useState<'skills' | 'items' | null>(null);
   const [showProfile, setShowProfile] = useState(false);
   const [showInventory, setShowInventory] = useState(false);
@@ -1891,11 +1893,17 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
   // Filter inventory for usable items (potions)
   const usableItems = shopItems.filter(i => i.type === 'potion' && (player.inventory[i.id] || 0) > 0);
   const describeBattleSkill = (skill: Skill) => {
+      const statusText = skill.statusEffect
+        ? ` • aplica ${skill.statusEffect.kind}`
+        : '';
+      const resourceText = skill.resourceEffect
+        ? ` • ${skill.resourceEffect.cost ? `consome ${skill.resourceEffect.consumeAll ? 'toda' : skill.resourceEffect.cost} ${skill.resourceLabel || player.classResource.name}` : `gera ${skill.resourceEffect.gain || 0} ${skill.resourceLabel || player.classResource.name}`}`
+        : '';
       if (skill.type === 'heal') {
-          return `Cura ${Math.round(skill.damageMult * 100)}% da vida maxima`;
+          return `Cura ${Math.round(skill.damageMult * 100)}% da vida maxima${resourceText}`;
       }
 
-      return `${skill.type === 'magic' ? 'Dano magico' : 'Dano fisico'} x${skill.damageMult.toFixed(1)}${skill.type === 'magic' ? ' • menor chance de desvio' : ''}`;
+      return `${skill.type === 'magic' ? 'Dano magico' : 'Dano fisico'} x${skill.damageMult.toFixed(1)}${skill.type === 'magic' ? ' • menor chance de desvio' : ''}${statusText}${resourceText}`;
   };
 
   const describeBattleItem = (item: Item) => {
@@ -2039,7 +2047,8 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                                               key={skill.id}
                                               onClick={() => { onSkill(skill); setActiveBattleMenu(null); }}
                                               disabled={!isPlayerTurn || !canCast}
-                                              className={`rounded-2xl border p-4 text-left transition-all ${!isPlayerTurn || !canCast ? 'bg-[#e9d7c2] border-[#dcc0aa] text-[#8f6c67] cursor-not-allowed' : 'bg-violet-100 border-violet-300 text-[#6b3141] hover:bg-violet-50 hover:-translate-y-0.5'}`}
+                                              className={`rounded-2xl border p-4 text-left transition-all ${!isPlayerTurn || !canCast ? 'bg-[#e9d7c2] border-[#dcc0aa] text-[#8f6c67] cursor-not-allowed' : 'text-[#6b3141] hover:-translate-y-0.5'}`}
+                                              style={!isPlayerTurn || !canCast ? undefined : { backgroundColor: `${skill.trailColor ?? '#ede9fe'}22`, borderColor: skill.trailColor ?? '#c4b5fd' }}
                                           >
                                               <div className="flex items-start justify-between gap-3">
                                                   <div>
@@ -2167,6 +2176,15 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                   <span className="text-xs font-black text-[#6b3141]">{enemy.stats.hp}/{enemy.stats.maxHp}</span>
                 </div>
                 <div className="h-2 bg-[#e9d7c2] rounded-full overflow-hidden"><div className="h-full rounded-full bg-[linear-gradient(90deg,#8d2f46,#d17482)] transition-all duration-500" style={{width: `${Math.max(0, Math.min(100, (enemy.stats.hp/enemy.stats.maxHp)*100))}%`}}></div></div>
+                {(enemy.statusEffects?.length ?? 0) > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {enemy.statusEffects?.map((status) => (
+                      <span key={status.id} className="rounded-full border px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.14em]" style={{ borderColor: `${status.color}55`, backgroundColor: `${status.color}18`, color: status.color }}>
+                        {status.name} {status.duration}t
+                      </span>
+                    ))}
+                  </div>
+                )}
              </div>
           </div>
         )}
@@ -2236,6 +2254,13 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                           <span className="text-[11px] font-black text-[#6b3141]">{player.xp}/{player.xpToNext}</span>
                         </div>
                         <div className="h-1 bg-[#e9d7c2] rounded-full overflow-hidden"><div className="h-full rounded-full bg-[linear-gradient(90deg,#7d3d4d,#c89a66)]" style={{width: `${(player.xp/player.xpToNext)*100}%`}}></div></div>
+                     </div>
+                     <div>
+                        <div className="flex items-center justify-between mb-0.5">
+                          <span className="text-[9px] font-black uppercase tracking-[0.22em] text-[#7c4c76]">{player.classResource.name}</span>
+                          <span className="text-[11px] font-black text-[#6b3141]">{player.classResource.value}/{player.classResource.max}</span>
+                        </div>
+                        <div className="h-1 bg-[#e9d7c2] rounded-full overflow-hidden"><div className="h-full rounded-full bg-[linear-gradient(90deg,#4c1d95,#c084fc)]" style={{width: `${player.classResource.max > 0 ? (player.classResource.value/player.classResource.max)*100 : 0}%`}}></div></div>
                      </div>
                    </div>
                  ) : (
@@ -2332,7 +2357,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
          </div>
       </div>
 
-    {showProfile && <CharacterSheetModal player={player} shopItems={shopItems} onClose={() => setShowProfile(false)} onOpenInventory={() => { setShowProfile(false); setShowInventory(true); }} />}
+    {showProfile && <CharacterSheetModal player={player} shopItems={shopItems} onClose={() => setShowProfile(false)} onOpenInventory={() => { setShowProfile(false); setShowInventory(true); }} onUnlockTalent={onUnlockTalent} />}
     {showInventory && <InventoryModal player={player} shopItems={shopItems} onClose={() => setShowInventory(false)} onEquip={onEquipItem} onUse={onUseItem} />}
     </div>
   );

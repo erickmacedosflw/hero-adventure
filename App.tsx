@@ -4,6 +4,7 @@ import { ShoppingBag, Play, Sword, Home } from 'lucide-react';
 import { DeveloperConsole } from './components/DeveloperConsole';
 import { GameScene } from './components/Scene3D';
 import { OpeningScreen } from './components/OpeningScreen';
+import { ClassSelectionScreen } from './components/ClassSelectionScreen';
 import { BattleHUD, MenuScreen, ShopScreen, TavernScreen, KillLootOverlay, CardChoiceScreen, AlchemistScreen, DungeonResultScreen, BossVictoryModal } from './components/GameUI';
 import { 
     Player, Enemy, GameState, TurnState, BattleLog, Item, Skill, Stats, Particle, FloatingText, ProgressionCard, CardRewardOffer, AlchemistCardOffer, AlchemistItemOffer, DungeonRunState, DungeonResult, DungeonRewards, EnemyTemplate, DungeonEnemyTemplate, DungeonBossTemplate, PlayerAnimationAction, BossVictoryContext
@@ -13,6 +14,11 @@ import {
 } from './constants';
 import { PROGRESSION_CARDS, ALCHEMIST_CARDS } from './game/data/cards';
 import { applyPlayerClass, PLAYER_CLASSES } from './game/data/classes';
+import { getConstellationByClassId } from './game/data/classTalents';
+import { createEmptyBuffState } from './game/mechanics/combat';
+import { createClassResourceState, getTalentBonuses, syncPlayerConstellationSkills, unlockTalentNode } from './game/mechanics/classProgression';
+import { useBattleController } from './game/hooks/useBattleController';
+import { useBattleResolution } from './game/hooks/useBattleResolution';
 import { generateBattleDescription, generateVictorySpeech } from './services/geminiService';
 
 type BootWindow = Window & { __heroAdventureBootReady?: boolean };
@@ -62,6 +68,10 @@ export default function App() {
         stats: { ...source.stats },
         inventory: { ...source.inventory },
         skills: [...source.skills],
+        talentPoints: source.talentPoints,
+        unlockedTalentNodeIds: [...source.unlockedTalentNodeIds],
+        classResource: { ...source.classResource },
+        statusEffects: [...source.statusEffects],
         chosenCards: [...source.chosenCards],
         cardBonuses: { ...source.cardBonuses },
         buffs: { ...source.buffs },
@@ -106,12 +116,23 @@ export default function App() {
     const [pendingDungeonQueue, setPendingDungeonQueue] = useState<CardRewardOffer[]>([]);
     const [isBootReady, setIsBootReady] = useState(() => getBootReadyMemory());
     const [pathname, setPathname] = useState(() => window.location.pathname);
+    const [selectedStartingClassId, setSelectedStartingClassId] = useState<Player['classId']>(INITIAL_PLAYER.classId);
+    const [hasConfirmedStartingClass, setHasConfirmedStartingClass] = useState(false);
 
     const bootEnemies = useMemo(() => [...ENEMY_DATA, ...DUNGEON_ENEMY_DATA, DUNGEON_BOSS], []);
     const handleBootReady = useCallback(() => {
         setBootReadyMemory(true);
         setIsBootReady(true);
     }, []);
+
+    const createStartingPlayer = useCallback((classId: Player['classId']) => (
+        syncPlayerConstellationSkills({
+            ...applyPlayerClass(clonePlayer(INITIAL_PLAYER), classId),
+            classId,
+            classResource: createClassResourceState(classId),
+            statusEffects: [],
+        }, SKILLS)
+    ), []);
 
   // Game Time (from Scene3D day/night cycle)
   const [gameTime, setGameTime] = useState("12:00");
@@ -259,6 +280,7 @@ export default function App() {
             nextPlayer.level += 1;
             nextPlayer.xp -= nextPlayer.xpToNext;
             nextPlayer.xpToNext = Math.floor(nextPlayer.xpToNext * 1.5);
+            nextPlayer.talentPoints += 1;
         }
 
         if (levelsGained > 0) {
@@ -275,6 +297,18 @@ export default function App() {
     };
 
     const getSkillVisualConfig = (skill: Skill) => {
+        if (skill.visualTheme === 'steel') return { color: '#93c5fd', particleCount: 22, shake: 0.28, castDelay: 520 };
+        if (skill.visualTheme === 'solar') return { color: '#fbbf24', particleCount: 28, shake: 0.36, castDelay: 560 };
+        if (skill.visualTheme === 'ember') return { color: '#fb7185', particleCount: 26, shake: 0.34, castDelay: 540 };
+        if (skill.visualTheme === 'rage') return { color: '#f97316', particleCount: 34, shake: 0.7, castDelay: 620 };
+        if (skill.visualTheme === 'storm') return { color: '#22c55e', particleCount: 20, shake: 0.26, castDelay: 500 };
+        if (skill.visualTheme === 'frost') return { color: '#38bdf8', particleCount: 24, shake: 0.24, castDelay: 560 };
+        if (skill.visualTheme === 'arcane') return { color: '#a78bfa', particleCount: 30, shake: 0.44, castDelay: 600 };
+        if (skill.visualTheme === 'verdant') return { color: '#14b8a6', particleCount: 22, shake: 0.08, castDelay: 540 };
+        if (skill.visualTheme === 'thorn') return { color: '#84cc16', particleCount: 24, shake: 0.32, castDelay: 520 };
+        if (skill.visualTheme === 'shadow') return { color: '#818cf8', particleCount: 24, shake: 0.3, castDelay: 500 };
+        if (skill.visualTheme === 'blood') return { color: '#ef4444', particleCount: 28, shake: 0.42, castDelay: 520 };
+        if (skill.visualTheme === 'lunar') return { color: '#c084fc', particleCount: 30, shake: 0.46, castDelay: 580 };
         if (skill.id === 'skl_1') return { color: '#f59e0b', particleCount: 14, shake: 0.22, castDelay: 420 };
         if (skill.id === 'skl_2') return { color: '#22c55e', particleCount: 18, shake: 0.0, castDelay: 520 };
         if (skill.id === 'skl_3') return { color: '#ef4444', particleCount: 22, shake: 0.34, castDelay: 520 };
@@ -300,6 +334,18 @@ export default function App() {
             ...currentPlayer,
             skills: [...currentPlayer.skills, skill],
         };
+    };
+
+    const handleUnlockTalent = (nodeId: string) => {
+        setPlayer((prev) => {
+            const result = unlockTalentNode(prev, nodeId, SKILLS);
+            if (!result) {
+                return prev;
+            }
+
+            addLog(`Constelacao: ${result.node.title} ativada.`, 'buff');
+            return result.player;
+        });
     };
 
     const applyCardChoice = (basePlayer: Player, card: ProgressionCard) => {
@@ -481,6 +527,7 @@ export default function App() {
       type: enemyTemplate.type as 'beast' | 'humanoid' | 'undead',
       isBoss,
             isDefending: false,
+            statusEffects: [],
                 assets: enemyTemplate.assets,
                 attackStyle: enemyTemplate.attackStyle,
             guaranteedDrops: templateCombatProfile.guaranteedDrops,
@@ -499,11 +546,13 @@ export default function App() {
     }
   };
 
-  const startGame = () => {
+  const startGame = (classId: Player['classId'] = selectedStartingClassId) => {
     setStage(1);
     setKillCount(0);
         setDungeonEvolution(0);
-        setPlayer(clonePlayer(INITIAL_PLAYER));
+        setSelectedStartingClassId(classId);
+        setHasConfirmedStartingClass(true);
+        setPlayer(createStartingPlayer(classId));
     setLogs([]);
         setNarration('');
         setPostCardFlow(null);
@@ -538,6 +587,9 @@ export default function App() {
             const encounterStage = isDungeonBattle ? stage + Math.floor(dungeonCleared / 5) + Math.floor(activeDungeonEvolution / 2) : stage;
             setPlayer(prev => {
                 const nextBuffs = { ...prev.buffs };
+                const talentBonuses = getTalentBonuses(prev);
+                const resourceTemplate = getConstellationByClassId(prev.classId).resource;
+                const resourceMax = resourceTemplate.max + talentBonuses.resourceCap;
                 if (prev.cardBonuses.openingAtkBuff > 0) {
                     nextBuffs.atkMod = Math.max(nextBuffs.atkMod, prev.cardBonuses.openingAtkBuff);
                     nextBuffs.atkTurns = Math.max(nextBuffs.atkTurns, 2);
@@ -546,7 +598,17 @@ export default function App() {
                     nextBuffs.defMod = Math.max(nextBuffs.defMod, prev.cardBonuses.openingDefBuff);
                     nextBuffs.defTurns = Math.max(nextBuffs.defTurns, 2);
                 }
-                return { ...prev, buffs: nextBuffs };
+                return {
+                    ...prev,
+                    buffs: nextBuffs,
+                    isDefending: false,
+                    statusEffects: [],
+                    classResource: {
+                        ...prev.classResource,
+                        max: resourceMax,
+                        value: Math.min(resourceMax, talentBonuses.resourceStart),
+                    },
+                };
             });
     setGameState(GameState.BATTLE);
       setTurnState(TurnState.PLAYER_INPUT);
@@ -557,7 +619,14 @@ export default function App() {
   }
 
     const handleChangePlayerClass = (classId: Player['classId']) => {
-        setPlayer(prev => applyPlayerClass(prev, classId));
+        setPlayer(prev => syncPlayerConstellationSkills({
+            ...applyPlayerClass(prev, classId),
+            classResource: {
+                ...getConstellationByClassId(classId).resource,
+                value: 0,
+            },
+            statusEffects: [],
+        }, SKILLS));
     };
 
   const handleLimitBreak = () => {
@@ -619,7 +688,7 @@ export default function App() {
               hp: prev.stats.maxHp,
           },
           isDefending: false,
-          buffs: { atkMod: 0, defMod: 0, atkTurns: 0, defTurns: 0, perfectEvadeTurns: 0, doubleAttackTurns: 0 } // Reset buffs on flee
+          buffs: createEmptyBuffState() // Reset buffs on flee
       }));
       setKillCount(0);
 
@@ -627,93 +696,6 @@ export default function App() {
       setGameState(GameState.TAVERN);
       setEnemy(null);
   }
-
-    const getEvadeChance = (
-        attackerSpeed: number,
-        defenderSpeed: number,
-        defenderHasPerfectEvade: boolean = false,
-        attackKind: 'physical' | 'magic' = 'physical',
-        defenderIsDefending: boolean = false,
-    ) => {
-        if (defenderHasPerfectEvade) {
-            return 1;
-        }
-
-        const speedDelta = defenderSpeed - attackerSpeed;
-        let evadeChance = 0.03 + (speedDelta * 0.01);
-
-        if (defenderIsDefending) {
-            evadeChance += 0.04;
-        }
-
-        if (attackKind === 'magic') {
-            evadeChance *= 0.45;
-        }
-
-        const cap = attackKind === 'magic' ? 0.12 : 0.22;
-        return Math.max(0.01, Math.min(cap, evadeChance));
-    };
-
-    const calculateDamage = (
-        attackerAtk: number,
-        defenderDef: number,
-        attackerSpeed: number,
-        defenderSpeed: number,
-        defenderHasPerfectEvade: boolean = false,
-        multiplier: number = 1,
-        luck: number = 0,
-        isPlayerAttacking: boolean = false,
-        attackKind: 'physical' | 'magic' = 'physical',
-        defenderIsDefending: boolean = false,
-    ) => {
-    // Apply Player Buffs to Attack or Defense calculations
-    let finalAtk = attackerAtk;
-    let finalDef = defenderDef;
-
-    if (isPlayerAttacking) {
-        if (player.buffs.atkTurns > 0) {
-            finalAtk *= (1 + player.buffs.atkMod);
-        }
-    } else {
-        // Enemy Attacking, Player Defending
-        if (player.buffs.defTurns > 0) {
-            finalDef *= (1 + player.buffs.defMod);
-        }
-    }
-
-        const evadeChance = getEvadeChance(attackerSpeed, defenderSpeed, defenderHasPerfectEvade, attackKind, defenderIsDefending);
-        const evaded = Math.random() < evadeChance;
-        if (evaded) {
-            return {
-                damage: 0,
-                isCrit: false,
-                evaded: true,
-            };
-        }
-
-    const base = Math.max(1, finalAtk - (finalDef * 0.3)); 
-    const variance = Math.random() * 0.2 + 0.9; 
-    
-    // Crit calculation
-    const critChance = luck * 0.02; // 2% per luck point
-    const isCrit = Math.random() < (0.05 + critChance);
-    const critMult = isCrit ? 1.5 : 1;
-
-    return { 
-      damage: Math.floor(base * multiplier * variance * critMult), 
-            isCrit,
-            evaded: false,
-    };
-  };
-
-    const consumePlayerTurnBuffs = (buffs: Player['buffs']) => {
-            const nextBuffs = { ...buffs };
-            if (nextBuffs.atkTurns > 0) nextBuffs.atkTurns--;
-            if (nextBuffs.defTurns > 0) nextBuffs.defTurns--;
-            if (nextBuffs.perfectEvadeTurns > 0) nextBuffs.perfectEvadeTurns--;
-          if (nextBuffs.doubleAttackTurns > 0) nextBuffs.doubleAttackTurns--;
-            return nextBuffs;
-    };
 
     const getBossDamageMultiplier = () => {
         if (!enemy?.isBoss) return 1;
@@ -800,7 +782,7 @@ export default function App() {
             inventory: applyDropsToInventory(updatedInventory, dungeonRun.rewards.drops),
             chosenCards: [...player.chosenCards],
             cardBonuses: { ...player.cardBonuses },
-            buffs: { atkMod: 0, defMod: 0, atkTurns: 0, defTurns: 0, perfectEvadeTurns: 0, doubleAttackTurns: 0 },
+            buffs: createEmptyBuffState(),
             isDefending: false,
         };
 
@@ -817,671 +799,82 @@ export default function App() {
         return true;
     };
 
-  const handlePlayerAttack = () => {
-    if (!enemy || turnState !== TurnState.PLAYER_INPUT) return;
 
-    setTurnState(TurnState.PLAYER_ANIMATION);
-    setIsPlayerAttacking(true);
-        setPlayerAnimationAction('attack');
-                setEnemyAnimationAction(enemy.isDefending ? 'defend' : 'battle-idle');
-    const doubleAttackActive = player.buffs.doubleAttackTurns > 0;
-    // Weapon attack clip is longer than unarmed punch — resolve damage near the end of the animation
-    const attackDelay = player.equippedWeapon ? 650 : 400;
-    const idleDelay = player.equippedWeapon ? 400 : 550;
 
-    const resolveStrike = (remainingHp: number, isFirstStrike: boolean) => {
-        const attackResult = calculateDamage(
-            player.stats.atk,
-            enemy.stats.def,
-            player.stats.speed,
-            enemy.stats.speed,
-            false,
-            getBossDamageMultiplier(),
-            player.stats.luck,
-            true,
-            'physical',
-            isFirstStrike ? enemy.isDefending : false,
-        );
 
-        if (attackResult.evaded) {
-            spawnFloatingText(isFirstStrike ? 'DESVIO!' : '2o DESVIO!', 'enemy', 'buff');
-            addLog(isFirstStrike ? `${enemy.name} desviou do ataque!` : `${enemy.name} desviou do segundo golpe!`, 'evade');
-            triggerEnemyAnimationAction('evade', 520);
-            return { remainingHp, defeated: false, evaded: true };
-        }
 
-        const appliedDamage = isFirstStrike && enemy.isDefending ? Math.floor(attackResult.damage * 0.5) : attackResult.damage;
-        const strikeLabel = isFirstStrike ? '' : '2o GOLPE! ';
-        spawnParticles([2, -0.5, 0], isFirstStrike ? 10 : 12, attackResult.isCrit ? '#fbbf24' : '#ffffff', 'explode');
-        spawnFloatingText(attackResult.isCrit ? `${strikeLabel}CRIT! ${appliedDamage}` : `${strikeLabel}${appliedDamage}`, 'enemy', attackResult.isCrit ? 'crit' : 'damage');
-        setScreenShake(attackResult.isCrit ? 0.5 : 0.2);
-        setIsEnemyHit(true);
-        setTimeout(() => {
-            setScreenShake(0);
-            setIsEnemyHit(false);
-        }, 200);
 
-        const updatedHp = Math.max(0, remainingHp - appliedDamage);
-        triggerEnemyAnimationAction(updatedHp <= 0 ? 'death' : attackResult.isCrit ? 'critical-hit' : 'hit', updatedHp <= 0 ? 900 : attackResult.isCrit ? 620 : 360);
-        setEnemy(prev => {
-            if (!prev) return null;
-            return {
-                ...prev,
-                stats: { ...prev.stats, hp: Math.max(0, prev.stats.hp - appliedDamage) },
-                isDefending: false,
-            };
-        });
-        addLog(`${isFirstStrike ? 'Causou' : 'Segundo golpe:'} ${appliedDamage} dano!${isFirstStrike && enemy.isDefending ? ' (Defendido)' : ''}`, attackResult.isCrit ? 'crit' : 'damage');
-        return { remainingHp: updatedHp, defeated: updatedHp <= 0, evaded: false };
-    };
 
-    setTimeout(() => {
-      setIsPlayerAttacking(false);
+  const { handleVictory } = useBattleResolution({
+    player,
+    enemy,
+    stage,
+    dungeonRun,
+    pendingDungeonQueue,
+    applyLevelProgression,
+    createLevelUpOffers,
+    triggerLevelUpPulse,
+    generateDungeonDrops,
+    applyDropsToInventory,
+    getDungeonMonsterTarget,
+    openCardRewardQueue,
+    enterBattle,
+    addLog,
+    setPlayer,
+    setEnemy,
+    setNarration,
+    setLootResult,
+    setDungeonRun,
+    setDungeonResult,
+    setDungeonEvolution,
+    setBossVictoryContext,
+    setPendingDungeonQueue,
+    setPostCardFlow,
+    setGameState,
+    setStage,
+    setKillCount,
+    setEnemyAnimationAction,
+    setPlayerAnimationAction,
+    generateVictorySpeech,
+  });
 
-      const firstStrike = resolveStrike(enemy.stats.hp, true);
-      if (firstStrike.defeated) {
-          void handleVictory(900);
-          return;
-      }
-
-      // If enemy evaded, wait for the full evade animation (520ms) before starting enemy turn
-      const resolvedIdleDelay = firstStrike.evaded ? Math.max(idleDelay, 570) : idleDelay;
-      if (!doubleAttackActive) {
-          setTimeout(() => {
-              setPlayerAnimationAction('idle');
-              setTurnState(TurnState.ENEMY_TURN);
-          }, resolvedIdleDelay);
-          return;
-      }
-
-      addLog(`Presa Gêmea ativada: segundo golpe imediato!`, 'buff');
-      setTimeout(() => {
-          const secondStrike = resolveStrike(firstStrike.remainingHp, false);
-          if (secondStrike.defeated) {
-              void handleVictory(900);
-              return;
-          }
-          setTimeout(() => {
-              setPlayerAnimationAction('idle');
-              setTurnState(TurnState.ENEMY_TURN);
-          }, 450);
-      }, 260);
-    }, attackDelay);
-  };
-
-  const handlePlayerDefense = () => {
-    if (!enemy || turnState !== TurnState.PLAYER_INPUT) return;
-
-                setTurnState(TurnState.PLAYER_ANIMATION);
-                setPlayerAnimationAction('defend');
-
-        const manaRecovered = Math.max(1, Math.floor(player.stats.maxMp * (0.05 + player.cardBonuses.defendManaRestore)));
-
-        setPlayer(prev => ({
-                ...prev,
-                isDefending: true,
-                stats: {
-                        ...prev.stats,
-                        mp: Math.min(prev.stats.maxMp, prev.stats.mp + manaRecovered),
-                },
-        }));
-        addLog(`Você se preparou para defender, ganhou evasão temporária e recuperou ${manaRecovered} MP!`, "buff");
-    spawnFloatingText("DEFESA!", "player", "buff");
-        spawnFloatingText(`+${manaRecovered} MP`, 'player', 'heal');
-    spawnParticles([-2, -1, 0], 10, "#3b82f6", "spark");
-
-    setTimeout(() => setTurnState(TurnState.ENEMY_TURN), 600);
-  };
-
-  const handleSkill = (skill: Skill) => {
-      if (!enemy || turnState !== TurnState.PLAYER_INPUT || player.stats.mp < skill.manaCost) return;
-      
-      setTurnState(TurnState.PLAYER_ANIMATION);
-      setPlayerAnimationAction(skill.type === 'heal' ? 'heal' : skill.type === 'magic' ? 'skill' : 'attack');
-      setEnemyAnimationAction(enemy.isDefending ? 'defend' : 'battle-idle');
-      setPlayer(p => ({ ...p, stats: { ...p.stats, mp: p.stats.mp - skill.manaCost } }));
-      const visual = getSkillVisualConfig(skill);
-      
-      if (skill.type === 'heal') {
-          const healAmount = getHealingValue(Math.floor(player.stats.maxHp * skill.damageMult));
-          setPlayer(p => ({ ...p, stats: { ...p.stats, hp: Math.min(p.stats.maxHp, p.stats.hp + healAmount) }}));
-          
-          spawnParticles([-2, -1, 0], visual.particleCount + 14, visual.color, 'heal');
-          spawnFloatingText(`+${healAmount}`, 'player', 'heal');
-          addLog(`${skill.name}: curou ${healAmount} HP!`, 'heal');
-          
-          setTimeout(() => {
-              setPlayerAnimationAction('idle');
-              setTurnState(TurnState.ENEMY_TURN);
-          }, 1500);
-      } else {
-          setIsPlayerAttacking(true);
-          const doubleAttackActive = player.buffs.doubleAttackTurns > 0 && skill.type === 'physical';
-          setTimeout(() => {
-              setIsPlayerAttacking(false);
-
-              const resolveSkillStrike = (remainingHp: number, isFirstStrike: boolean) => {
-                  const attackResult = calculateDamage(
-                      player.stats.atk,
-                      enemy.stats.def,
-                      player.stats.speed,
-                      enemy.stats.speed,
-                      false,
-                      skill.damageMult * getBossDamageMultiplier(),
-                      player.stats.luck,
-                      true,
-                      skill.type === 'magic' ? 'magic' : 'physical',
-                      isFirstStrike ? enemy.isDefending : false,
-                  );
-
-                  if (attackResult.evaded) {
-                      spawnFloatingText(isFirstStrike ? 'DESVIO!' : '2o DESVIO!', 'enemy', 'buff');
-                      addLog(isFirstStrike ? `${enemy.name} desviou de ${skill.name}!` : `${enemy.name} desviou da repetição de ${skill.name}!`, 'evade');
-                      triggerEnemyAnimationAction('evade', 520);
-                      return { remainingHp, defeated: false };
-                  }
-
-                  const appliedDamage = isFirstStrike && enemy.isDefending ? Math.floor(attackResult.damage * 0.5) : attackResult.damage;
-                  const strikePrefix = isFirstStrike ? '' : '2o '; 
-                  spawnParticles([2, -0.5, 0], visual.particleCount + (isFirstStrike ? 0 : 4), visual.color, 'explode');
-                  spawnFloatingText(attackResult.isCrit ? `${strikePrefix}CRIT! ${appliedDamage}` : `${strikePrefix}${appliedDamage}`, 'enemy', attackResult.isCrit ? 'crit' : 'damage');
-                  setScreenShake(attackResult.isCrit ? visual.shake + 0.18 : visual.shake);
-                  setTimeout(() => setScreenShake(0), 200);
-
-                  const updatedHp = Math.max(0, remainingHp - appliedDamage);
-                  triggerEnemyAnimationAction(updatedHp <= 0 ? 'death' : attackResult.isCrit ? 'critical-hit' : 'hit', updatedHp <= 0 ? 900 : attackResult.isCrit ? 620 : 360);
-                  setEnemy(prev => {
-                      if (!prev) return null;
-                      return {
-                          ...prev,
-                          stats: { ...prev.stats, hp: Math.max(0, prev.stats.hp - appliedDamage) },
-                          isDefending: false,
-                      };
-                  });
-                  addLog(`${isFirstStrike ? skill.name : `${skill.name} (2o golpe)`}: ${appliedDamage} dano!${isFirstStrike && enemy.isDefending ? ' (Defendido)' : ''}`, attackResult.isCrit ? 'crit' : 'damage');
-                  return { remainingHp: updatedHp, defeated: updatedHp <= 0 };
-              };
-
-              const firstStrike = resolveSkillStrike(enemy.stats.hp, true);
-              if (firstStrike.defeated) {
-                  void handleVictory(900);
-                  return;
-              }
-
-              if (!doubleAttackActive) {
-                  setTimeout(() => {
-                      setPlayerAnimationAction('idle');
-                      setTurnState(TurnState.ENEMY_TURN);
-                  }, 800);
-                  return;
-              }
-
-              addLog(`Presa Gêmea repetiu ${skill.name}!`, 'buff');
-              setTimeout(() => {
-                  const secondStrike = resolveSkillStrike(firstStrike.remainingHp, false);
-                  if (secondStrike.defeated) {
-                      void handleVictory(900);
-                      return;
-                  }
-                  setTimeout(() => {
-                      setPlayerAnimationAction('idle');
-                      setTurnState(TurnState.ENEMY_TURN);
-                  }, 700);
-              }, 260);
-          }, visual.castDelay);
-      }
-  };
-
-  const handleUseItem = (itemId: string) => {
-      if (turnState !== TurnState.PLAYER_INPUT) return;
-
-      const item = ALL_ITEMS.find(i => i.id === itemId);
-      const qty = player.inventory[itemId] || 0;
-      if (!item || qty <= 0) return;
-
-      if (item.id === 'pot_dg_recall') {
-          if (!dungeonRun) {
-              addLog('A Âncora de Retorno só funciona dentro da dungeon.', 'info');
-              return;
-          }
-
-          const withdrew = withdrawFromDungeon('Você ativou a Âncora de Retorno e estabilizou uma rota de fuga, levando todo o espólio acumulado até aqui.', item.id);
-          if (withdrew) {
-              addLog('A Âncora de Retorno abriu uma saída segura da dungeon.', 'crit');
-          }
-          return;
-      }
-
-      if (gameState === GameState.BATTLE) {
-          setTurnState(TurnState.PLAYER_ANIMATION);
-          setPlayerAnimationAction('item');
-      }
-
-      // --- Side-effects OUTSIDE the updater to prevent React double-invocation duplication ---
-      if (item.name.includes("Vida") || item.name.includes("Elixir") || item.name.includes("Ambrosia") || item.name.includes("Menor")) {
-          const healVal = getHealingValue(item.value);
-          spawnParticles([-2, -1, 0], 24, '#4ade80', 'heal');
-          spawnFloatingText(`+${healVal}`, 'player', 'heal');
-          addLog(`Usou ${item.name}, recuperou ${healVal} HP`, 'heal');
-      } else if (item.name.includes("Mana")) {
-          spawnParticles([-2, -1, 0], 24, '#3b82f6', 'heal');
-          spawnFloatingText(`+${item.value} MP`, 'player', 'heal');
-          addLog(`Usou ${item.name}, recuperou ${item.value} MP`, 'heal');
-      } else if (item.id === 'pot_atk') {
-          spawnParticles([-2, -1, 0], 15, '#f97316', 'spark');
-          spawnFloatingText(`ATAQUE UP!`, 'player', 'buff');
-          addLog(`Usou ${item.name}! Dano aumentado por ${item.duration} turnos.`, 'buff');
-      } else if (item.id === 'pot_def') {
-          spawnParticles([-2, -1, 0], 15, '#10b981', 'spark');
-          spawnFloatingText(`DEFESA UP!`, 'player', 'buff');
-          addLog(`Usou ${item.name}! Defesa aumentada por ${item.duration} turnos.`, 'buff');
-      } else if (item.id === 'pot_alc_phantom_veil') {
-          spawnParticles([-2, -1, 0], 18, '#a78bfa', 'spark');
-          spawnFloatingText('INTANGIVEL!', 'player', 'buff');
-          addLog(`Usou ${item.name}! Evasão perfeita ativa por ${item.duration || 4} turnos.`, 'crit');
-      } else if (item.id === 'pot_alc_twin_fang') {
-          spawnParticles([-2, -1, 0], 18, '#f97316', 'spark');
-          spawnFloatingText('ATAQUE DUPLO!', 'player', 'buff');
-          addLog(`Usou ${item.name}! O comando Atacar golpeia duas vezes por ${item.duration || 6} turnos.`, 'crit');
-      }
-
-      setPlayer(p => {
-          const currentQty = p.inventory[itemId] || 0;
-          if (currentQty <= 0) return p;
-
-          const newInv = { ...p.inventory };
-          newInv[itemId] = currentQty - 1;
-          let newHp = p.stats.hp;
-          let newMp = p.stats.mp;
-          let newBuffs = { ...p.buffs };
-
-          if (item.name.includes("Vida") || item.name.includes("Elixir") || item.name.includes("Ambrosia") || item.name.includes("Menor")) {
-              newHp = Math.min(p.stats.maxHp, p.stats.hp + getHealingValue(item.value));
-          } else if (item.name.includes("Mana")) {
-              newMp = Math.min(p.stats.maxMp, p.stats.mp + item.value);
-          } else if (item.id === 'pot_atk') {
-              newBuffs.atkMod = item.value;
-              newBuffs.atkTurns = item.duration || 3;
-          } else if (item.id === 'pot_def') {
-              newBuffs.defMod = item.value;
-              newBuffs.defTurns = item.duration || 3;
-          } else if (item.id === 'pot_alc_phantom_veil') {
-              newBuffs.perfectEvadeTurns = Math.max(newBuffs.perfectEvadeTurns, item.duration || 4);
-          } else if (item.id === 'pot_alc_twin_fang') {
-              newBuffs.doubleAttackTurns = Math.max(newBuffs.doubleAttackTurns, item.duration || 6);
-          }
-
-          return { ...p, inventory: newInv, stats: { ...p.stats, hp: newHp, mp: newMp }, buffs: newBuffs };
-      });
-
-      if (gameState === GameState.BATTLE) {
-          setTimeout(() => {
-              setPlayerAnimationAction('idle');
-              setTurnState(TurnState.ENEMY_TURN);
-          }, 1500);
-      }
-  };
-
-  const handleEnemyTurn = () => {
-    if (!enemy || gameState !== GameState.BATTLE) return;
-
-    const shouldDefend = Math.random() < 0.2;
-    // Reset defense from previous turn immediately
-    setEnemy(prev => prev ? ({ ...prev, isDefending: false }) : null);
-
-    if (shouldDefend) {
-      // Defend in place — no movement toward hero
-      setEnemy(prev => prev ? ({ ...prev, isDefending: true }) : null);
-      addLog(`${enemy.name} está se defendendo e ficou mais difícil de acertar!`, "buff");
-      spawnFloatingText("DEFESA!", "enemy", "buff");
-      spawnParticles([2, -0.5, 0], 10, "#3b82f6", "spark");
-      setPlayer(p => ({ ...p, buffs: consumePlayerTurnBuffs(p.buffs), isDefending: false }));
-      setPlayerAnimationAction('idle');
-      setTurnState(TurnState.PLAYER_INPUT);
-      return;
-    }
-
-    // Enemy attacks — move toward hero and play attack animation
-    setIsEnemyAttacking(true);
-    triggerEnemyAnimationAction('attack', 750);
-
-    // Damage lands mid-animation (~400ms), matching hero attack timing
-    setTimeout(() => {
-      const attackResult = calculateDamage(enemy.stats.atk, player.stats.def, enemy.stats.speed, player.stats.speed, player.buffs.perfectEvadeTurns > 0, 1, 0, false, 'physical', player.isDefending);
-
-      if (attackResult.evaded) {
-          spawnFloatingText('DESVIO!', 'player', 'buff');
-          addLog(`Você desviou do ataque de ${enemy.name}!`, 'evade');
-          setPlayer(p => ({ ...p, buffs: consumePlayerTurnBuffs(p.buffs), isDefending: false }));
-          setPlayerAnimationAction('evade');
-          // Wait for evade animation (520ms) and enemy to retreat (350ms) before giving turn back
-          setTimeout(() => {
-              setIsEnemyAttacking(false);
-              setPlayerAnimationAction('idle');
-              setTurnState(TurnState.PLAYER_INPUT);
-          }, 600);
-          return;
-      }
-
-      const finalDamage = player.isDefending ? Math.floor(attackResult.damage * 0.5) : attackResult.damage;
-      const remainingHpAfterHit = Math.max(0, player.stats.hp - finalDamage);
-      const hitAnimationAction: PlayerAnimationAction = remainingHpAfterHit <= 0
-          ? 'death'
-          : player.isDefending
-              ? 'defend-hit'
-              : attackResult.isCrit
-                  ? 'critical-hit'
-                  : 'hit';
-
-      spawnParticles([-2, -1, 0], 5, '#dc2626', 'spark');
-      spawnFloatingText(finalDamage, 'player', 'damage');
-      setScreenShake(0.2);
-      setIsPlayerHit(true);
-      setIsPlayerCritHit(attackResult.isCrit);
-      setTimeout(() => {
-          setScreenShake(0);
-          setIsPlayerHit(false);
-          setIsPlayerCritHit(false);
-      }, 200);
-
-      setPlayer(prev => {
-          const nextBuffs = consumePlayerTurnBuffs(prev.buffs);
-          return {
-            ...prev,
-            buffs: nextBuffs,
-            isDefending: false,
-            stats: { ...prev.stats, hp: Math.max(0, prev.stats.hp - finalDamage) }
-          };
-      });
-
-      addLog(`${enemy.name} atacou: ${finalDamage} dano!${player.isDefending ? ' (Defendido)' : ''}${attackResult.isCrit ? ' CRITICO!' : ''}`, attackResult.isCrit ? 'crit' : 'damage');
-      setPlayerAnimationAction(hitAnimationAction);
-      if (hitAnimationAction !== 'death') {
-          setTimeout(() => setPlayerAnimationAction('idle'), hitAnimationAction === 'defend-hit' ? 520 : hitAnimationAction === 'critical-hit' ? 620 : 360);
-      }
-
-      const hpRegen = remainingHpAfterHit > 0 ? Math.min(player.cardBonuses.hpRegenPerTurn, player.stats.maxHp - remainingHpAfterHit) : 0;
-      const mpRegen = remainingHpAfterHit > 0 ? Math.min(player.cardBonuses.mpRegenPerTurn, player.stats.maxMp - player.stats.mp) : 0;
-
-      // Enemy retreats after full attack animation completes (400 + 350 = 750ms total)
-      setTimeout(() => {
-        setIsEnemyAttacking(false);
-
-        if (remainingHpAfterHit <= 0) {
-           window.setTimeout(() => {
-               if (dungeonRun) {
-                  setPlayer(prev => ({
-                      ...clonePlayer(dungeonRun.entrySnapshot),
-                      xp: prev.xp,
-                      level: prev.level,
-                      xpToNext: prev.xpToNext,
-                  }));
-                  setDungeonResult({
-                      outcome: 'defeat',
-                      rewards: dungeonRun.rewards,
-                      reason: enemy.isBoss ? 'O chefão final da dungeon venceu você. O espólio acumulado foi perdido, mas o XP obtido nas vitórias foi mantido.' : 'Você caiu antes de terminar a dungeon. O espólio acumulado foi perdido, mas o XP obtido nas vitórias foi mantido.',
-                  });
-                   setDungeonRun(null);
-                   setEnemy(null);
-                   setGameState(GameState.DUNGEON_RESULT);
-               } else if (enemy.isBoss) {
-                   setGameState(GameState.TAVERN);
-                   setPlayer(p => ({ ...p, stats: { ...p.stats, hp: 1 }, buffs: { atkMod:0, defMod:0, atkTurns:0, defTurns:0, perfectEvadeTurns: 0, doubleAttackTurns: 0 }, isDefending: false }));
-                   addLog('Derrotado pelo Chefão. Recuou para Taverna.', 'info');
-               } else {
-                   setGameState(GameState.GAME_OVER);
-               }
-           }, 900);
-        } else {
-           if (hpRegen > 0) { spawnFloatingText(`+${hpRegen} HP`, 'player', 'heal'); }
-           if (mpRegen > 0) { spawnFloatingText(`+${mpRegen} MP`, 'player', 'heal'); }
-           if (hpRegen > 0 || mpRegen > 0) {
-               addLog(`Regeneração: +${hpRegen} HP ${mpRegen > 0 ? `/ +${mpRegen} MP` : ''}`.trim(), 'heal');
-           }
-           setPlayer(p => ({
-               ...p,
-               stats: {
-                   ...p.stats,
-                   hp: Math.min(p.stats.maxHp, p.stats.hp + hpRegen),
-                   mp: Math.min(p.stats.maxMp, p.stats.mp + mpRegen),
-               }
-           }));
-           setPlayer(p => ({ ...p, isDefending: false }));
-           setTurnState(TurnState.PLAYER_INPUT);
-        }
-      }, 350);
-    }, 400);
-  };
+  const { handlePlayerAttack, handlePlayerDefense, handleSkill, handleUseItem, handleEnemyTurn } = useBattleController({
+    player,
+    enemy,
+    gameState,
+    turnState,
+    dungeonRun,
+    clonePlayer,
+    getBossDamageMultiplier,
+    getHealingValue,
+    getSkillVisualConfig,
+    addLog,
+    withdrawFromDungeon,
+    handleVictory,
+    triggerEnemyAnimationAction,
+    spawnParticles,
+    spawnFloatingText,
+    setPlayer,
+    setEnemy,
+    setTurnState,
+    setGameState,
+    setDungeonRun,
+    setDungeonResult,
+    setPlayerAnimationAction,
+    setEnemyAnimationAction,
+    setIsPlayerAttacking,
+    setIsEnemyAttacking,
+    setIsPlayerHit,
+    setIsPlayerCritHit,
+    setIsEnemyHit,
+    setScreenShake,
+  });
 
   useEffect(() => {
     if (turnState === TurnState.ENEMY_TURN && enemy && gameState === GameState.BATTLE) {
-       handleEnemyTurn();
+      handleEnemyTurn();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [turnState]);
-
-    const handleVictory = async (delayMs = 0) => {
-     if (!enemy) return;
-
-        // Reset hero animation immediately so it doesn't stay frozen in attack/skill pose
-        setPlayerAnimationAction('idle');
-
-        if (delayMs > 0) {
-                await new Promise<void>((resolve) => {
-                        window.setTimeout(() => resolve(), delayMs);
-                });
-        }
-     
-    const xpGain = Math.floor(enemy.xpReward * (1 + player.cardBonuses.xpGainMultiplier));
-    const goldGain = Math.floor(enemy.goldReward * (1 + player.cardBonuses.goldGainMultiplier));
-     const wasBoss = enemy.isBoss;
-     
-     // Generate Drops
-     const drops: string[] = [];
-      if (dungeonRun) {
-          drops.push(...generateDungeonDrops(enemy, dungeonRun.evolution, wasBoss));
-      } else {
-          if (Math.random() < 0.6) {
-                if (enemy.type === 'beast') drops.push(Math.random() < 0.5 ? 'mat_bone' : 'mat_slime');
-                else if (enemy.type === 'humanoid') drops.push(Math.random() < 0.5 ? 'mat_cloth' : 'mat_wood');
-                else if (enemy.type === 'undead') drops.push(Math.random() < 0.5 ? 'mat_bone' : 'mat_cloth');
-          }
-          if (wasBoss) {
-                drops.push('mat_iron');
-                if (Math.random() < 0.3) drops.push('mat_gold');
-                if (Math.random() < 0.5) drops.push('pot_1');
-          } else if (Math.random() < 0.15) {
-                drops.push('pot_1');
-          }
-     }
-
-      const dungeonEncounterNumber = dungeonRun ? dungeonRun.rewards.clearedMonsters + (wasBoss ? 0 : 1) : 0;
-      const diamondGain = dungeonRun
-          ? (wasBoss
-                ? 3 + (Math.random() < 0.45 ? 1 : 0)
-                : ((dungeonEncounterNumber % 10 === 0 ? 1 : 0) + (Math.random() < 0.08 ? 1 : 0)))
-        : 0;
-
-     const dropItems = drops.map(d => ALL_ITEMS.find(i => i.id === d)).filter((i): i is Item => Boolean(i));
-
-     if (dungeonRun) {
-         const playerAfterXpGain = {
-             ...player,
-             xp: player.xp + xpGain,
-             chosenCards: [...player.chosenCards],
-             cardBonuses: { ...player.cardBonuses },
-             buffs: { ...player.buffs },
-         };
-         let levelsGained = 0;
-         let progressedDungeonPlayer = playerAfterXpGain;
-         ({ nextPlayer: progressedDungeonPlayer, levelsGained } = applyLevelProgression(playerAfterXpGain));
-
-         const nextDrops = { ...dungeonRun.rewards.drops };
-         drops.forEach(dropId => {
-             nextDrops[dropId] = (nextDrops[dropId] || 0) + 1;
-         });
-
-         const clearedMonsters = wasBoss ? dungeonRun.rewards.clearedMonsters : dungeonRun.rewards.clearedMonsters + 1;
-         const nextRewards: DungeonRewards = {
-             ...dungeonRun.rewards,
-             gold: dungeonRun.rewards.gold + goldGain,
-             xp: dungeonRun.rewards.xp + xpGain,
-             diamonds: dungeonRun.rewards.diamonds + diamondGain,
-             drops: nextDrops,
-             clearedMonsters,
-             bossDefeated: wasBoss,
-         };
-
-         if (levelsGained > 0) {
-             triggerLevelUpPulse();
-         }
-
-         const levelUpOffers = levelsGained > 0 ? createLevelUpOffers(levelsGained) : [];
-
-         setPlayer(progressedDungeonPlayer);
-         if (levelsGained > 0 && !wasBoss) {
-             setPendingDungeonQueue(prev => [...prev, ...levelUpOffers]);
-         }
-
-         addLog(`Vitória na dungeon! +${xpGain} XP ganho agora, +${goldGain} Ouro em reserva${diamondGain > 0 ? `, +${diamondGain} Diamante` : ''}.`, 'crit');
-         setLootResult({ gold: goldGain, xp: xpGain, diamonds: diamondGain, drops: dropItems, isBoss: wasBoss, enemyName: enemy.name });
-         setTimeout(() => setLootResult(null), 2800);
-         setEnemy(null);
-         setEnemyAnimationAction('battle-idle');
-
-         if (wasBoss) {
-             const nextEvolution = dungeonRun.evolution + 1;
-             const nextTotalMonsters = getDungeonMonsterTarget(nextEvolution);
-             let updatedPlayer = {
-                 ...progressedDungeonPlayer,
-                 gold: progressedDungeonPlayer.gold + nextRewards.gold,
-                 diamonds: progressedDungeonPlayer.diamonds + nextRewards.diamonds,
-                 inventory: applyDropsToInventory(progressedDungeonPlayer.inventory, nextRewards.drops),
-                 chosenCards: [...progressedDungeonPlayer.chosenCards],
-                 cardBonuses: { ...progressedDungeonPlayer.cardBonuses },
-                 buffs: { atkMod: 0, defMod: 0, atkTurns: 0, defTurns: 0, perfectEvadeTurns: 0, doubleAttackTurns: 0 }
-             };
-
-             setPlayer(updatedPlayer);
-             setDungeonEvolution(nextEvolution);
-             setBossVictoryContext({
-                 mode: 'dungeon',
-                 bossName: enemy.name,
-                 nextEvolution,
-                 nextTotalMonsters,
-                 rewards: nextRewards,
-             });
-             setNarration('Escolha: continuar para a proxima evolucao da dungeon ou sair sem custo.');
-             setDungeonRun(null);
-             setDungeonResult(null);
-
-             const bossQueue: CardRewardOffer[] = [
-                 { source: 'boss', reason: `Recompensa da dungeon: ${enemy.name}` },
-                 ...pendingDungeonQueue,
-                 ...levelUpOffers,
-             ];
-             setPendingDungeonQueue([]);
-
-             if (bossQueue.length > 0) {
-                 setPostCardFlow('boss-victory');
-                 setTimeout(() => openCardRewardQueue(updatedPlayer, bossQueue), 3200);
-             } else {
-                 setPostCardFlow(null);
-                 setGameState(GameState.BOSS_VICTORY);
-             }
-         } else {
-             setDungeonRun({ ...dungeonRun, rewards: nextRewards });
-             setNarration(clearedMonsters >= nextRewards.totalMonsters ? 'A câmara final se abriu. O chefão aguarda no fundo da dungeon.' : `A dungeon continua. Encontro ${clearedMonsters}/${nextRewards.totalMonsters}.`);
-             setTimeout(() => {
-                enterBattle(clearedMonsters >= nextRewards.totalMonsters, 'dungeon', clearedMonsters);
-             }, 1500);
-         }
-
-         return;
-     }
-
-     const newInventory = { ...player.inventory };
-     drops.forEach(d => {
-         newInventory[d] = (newInventory[d] || 0) + 1;
-     });
-
-     // Give rewards
-     let updatedPlayer = {
-         ...player,
-         xp: player.xp + xpGain,
-         gold: player.gold + goldGain,
-         inventory: newInventory,
-         chosenCards: [...player.chosenCards],
-         cardBonuses: { ...player.cardBonuses },
-         buffs: { atkMod: 0, defMod: 0, atkTurns: 0, defTurns: 0, perfectEvadeTurns: 0, doubleAttackTurns: 0 } // Reset buffs on victory
-     };
-
-     // Update Stage Logic
-     let levelsGained = 0;
-     if (wasBoss) {
-         setStage(s => s + 1);
-         setKillCount(0);
-         setBossVictoryContext({
-             mode: 'hunt',
-             bossName: enemy.name,
-             nextStage: stage + 1,
-         });
-     } else {
-         setKillCount(k => k + 1);
-     }
-
-     // Check Level Up logic
-     ({ nextPlayer: updatedPlayer, levelsGained } = applyLevelProgression(updatedPlayer));
-
-     if (levelsGained > 0) {
-         triggerLevelUpPulse();
-     }
-
-     setPlayer(updatedPlayer);
-     
-     let dropText = drops.length > 0 
-        ? ` Drops: ${drops.map(d => ALL_ITEMS.find(i => i.id === d)?.name).join(', ')}` 
-        : '';
-     addLog(`Vitória! +${xpGain} XP, +${goldGain} Ouro.${dropText}`, 'crit');
-
-     // Show kill loot overlay
-     setLootResult({ gold: goldGain, xp: xpGain, drops: dropItems, isBoss: wasBoss, enemyName: enemy.name });
-     setTimeout(() => setLootResult(null), 2800);
-
-     // Logic for Auto Battle / Level Up Interruption
-     setEnemy(null); // Clear enemy model immediately
-    setEnemyAnimationAction('battle-idle');
-     const queuedCardRewards: CardRewardOffer[] = [];
-     if (wasBoss) {
-        queuedCardRewards.push({ source: 'boss', reason: `Recompensa do chefao ${enemy.name}` });
-     }
-     if (levelsGained > 0) {
-        queuedCardRewards.push(...createLevelUpOffers(levelsGained));
-     }
-     
-     if (queuedCardRewards.length > 0) {
-         setPostCardFlow(wasBoss ? 'boss-victory' : 'resume-hunt');
-         if (wasBoss) {
-             generateVictorySpeech(enemy.name)
-                .then(victoryText => setNarration(victoryText))
-                .catch(() => undefined);
-         }
-         setTimeout(() => openCardRewardQueue(updatedPlayer, queuedCardRewards), 3200);
-     } else if (wasBoss) {
-         // Boss win -> Open post-boss modal with explicit choices
-         setGameState(GameState.BOSS_VICTORY);
-         try {
-            const victoryText = await generateVictorySpeech(enemy.name);
-            setNarration(victoryText);
-         } catch(e) {}
-     } else {
-         // Normal Mob -> Auto Continue after delay
-         setNarration("Procurando próximo inimigo...");
-         setTimeout(() => {
-            enterBattle(false);
-         }, 1500);
-     }
-  };
+  }, [enemy, gameState, handleEnemyTurn, turnState]);
 
   const handleCardSelection = (card: ProgressionCard) => {
       if (!currentCardOffer) return;
@@ -1709,6 +1102,19 @@ export default function App() {
         );
     }
 
+    if (!hasConfirmedStartingClass) {
+        return (
+            <div className="w-full h-screen bg-[#ead6c2] overflow-hidden select-none">
+                <ClassSelectionScreen
+                    classes={PLAYER_CLASSES}
+                    selectedClassId={selectedStartingClassId}
+                    onSelect={setSelectedStartingClassId}
+                    onConfirm={startGame}
+                />
+            </div>
+        );
+    }
+
   return (
     <div className="w-full h-screen bg-black overflow-hidden select-none">
             <SceneErrorBoundary>
@@ -1765,6 +1171,7 @@ export default function App() {
             shopItems={ALL_ITEMS}
             onEquipItem={equipItem}
             onUseItem={handleUseItem}
+            onUnlockTalent={handleUnlockTalent}
           />
       )}
 
@@ -1808,6 +1215,7 @@ export default function App() {
             onDefend={handlePlayerDefense}
             onSkill={handleSkill}
             onUseItem={handleUseItem}
+            onUnlockTalent={handleUnlockTalent}
             onStartBattle={(isBoss) => enterBattle(isBoss)}
             onEnterShop={() => {}} // Disabled in battle
             onBuyItem={buyItem}
@@ -1870,3 +1278,4 @@ export default function App() {
     </div>
   );
 }
+

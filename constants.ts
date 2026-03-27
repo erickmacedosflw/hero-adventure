@@ -1,6 +1,7 @@
 
 import { Item, Skill, EnemyTemplate, DungeonEnemyTemplate, DungeonBossTemplate, AlchemistItemOffer } from './types';
 import { REGISTERED_WEAPON_ITEMS } from './game/data/weaponCatalog';
+import { CONSTELLATION_SKILLS } from './game/data/classTalents';
 export { INITIAL_PLAYER } from './game/data/player';
 
 export const SHOP_ITEMS: Item[] = [
@@ -89,7 +90,7 @@ export const ALCHEMIST_ITEM_OFFERS: AlchemistItemOffer[] = [
   },
 ];
 
-export const SKILLS: Skill[] = [
+const BASE_SKILLS: Skill[] = [
   { id: 'skl_1', name: 'Corte Voxel', cost: 0, damageMult: 1.5, minLevel: 1, description: 'Golpe físico preciso. 8 MP', manaCost: 8, type: 'physical' },
   { id: 'skl_2', name: 'Luz Sagrada', cost: 0, damageMult: 0.4, minLevel: 1, description: 'Cura 40% da vida maxima. 15 MP', manaCost: 15, type: 'heal' },
   { id: 'skl_3', name: 'Bola de Fogo', cost: 0, damageMult: 2.2, minLevel: 3, description: 'Projétil arcano em chamas. 20 MP', manaCost: 20, type: 'magic' },
@@ -101,6 +102,8 @@ export const SKILLS: Skill[] = [
   { id: 'skl_9', name: 'Lança Sombria', cost: 0, damageMult: 3.2, minLevel: 7, description: 'Perfuração sombria com rastro espectral. 34 MP', manaCost: 34, type: 'physical' },
   { id: 'skl_10', name: 'Julgamento Solar', cost: 0, damageMult: 4.1, minLevel: 9, description: 'Coluna sagrada de luz esmagadora. 52 MP', manaCost: 52, type: 'magic' },
 ];
+
+export const SKILLS: Skill[] = [...BASE_SKILLS, ...CONSTELLATION_SKILLS];
 
 const skeletonAnimationFiles = [
   'Rig_Medium_CombatMelee.fbx',

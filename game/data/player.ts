@@ -1,5 +1,6 @@
 import { Player } from '../../types';
 import { createClassBaseStats, DEFAULT_PLAYER_CLASS_ID } from './classes';
+import { createClassResourceState } from '../mechanics/classProgression';
 
 export const INITIAL_PLAYER: Player = {
   name: 'Heroi',
@@ -19,6 +20,10 @@ export const INITIAL_PLAYER: Player = {
   equippedLegs: null,
   equippedShield: null,
   skills: [],
+  talentPoints: 0,
+  unlockedTalentNodeIds: [],
+  classResource: createClassResourceState(DEFAULT_PLAYER_CLASS_ID),
+  statusEffects: [],
   chosenCards: [],
   cardBonuses: {
     goldGainMultiplier: 0,

@@ -162,6 +162,81 @@ export interface DungeonBossTemplate extends EnemyTemplate {
   rareDrops?: LootChance[];
 }
 
+export type StatusEffectKind = 'burn' | 'bleed' | 'marked';
+export type ClassResourceType = 'valor' | 'rage' | 'arcane' | 'focus' | 'shadow';
+export type SkillVisualTheme =
+  | 'steel'
+  | 'solar'
+  | 'ember'
+  | 'rage'
+  | 'storm'
+  | 'frost'
+  | 'arcane'
+  | 'verdant'
+  | 'thorn'
+  | 'shadow'
+  | 'blood'
+  | 'lunar';
+export type TalentTrailNodeEffectBonusKey =
+  | 'critChance'
+  | 'critDamage'
+  | 'healPower'
+  | 'physicalDamage'
+  | 'magicDamage'
+  | 'damageReduction'
+  | 'defendMitigation'
+  | 'statusPotency'
+  | 'burnDamage'
+  | 'bleedDamage'
+  | 'markedDamage'
+  | 'manaOnHit'
+  | 'manaOnDefend'
+  | 'lifeSteal'
+  | 'counterOnDefendChance'
+  | 'resourceOnAttack'
+  | 'resourceOnSkill'
+  | 'resourceCap'
+  | 'resourceStart';
+
+export interface StatusEffect {
+  id: string;
+  kind: StatusEffectKind;
+  name: string;
+  duration: number;
+  potency: number;
+  color: string;
+  source: 'skill' | 'talent' | 'item';
+}
+
+export interface ClassResourceState {
+  type: ClassResourceType;
+  name: string;
+  color: string;
+  value: number;
+  max: number;
+}
+
+export interface SkillStatusEffect {
+  kind: StatusEffectKind;
+  chance: number;
+  duration: number;
+  potency: number;
+}
+
+export interface SkillBuffEffect {
+  target: 'player';
+  kind: 'atk' | 'def';
+  modifier: number;
+  duration: number;
+}
+
+export interface SkillResourceEffect {
+  gain?: number;
+  cost?: number;
+  consumeAll?: boolean;
+  bonusDamagePerPoint?: number;
+}
+
 export interface Skill {
   id: string;
   name: string;
@@ -171,6 +246,76 @@ export interface Skill {
   description: string;
   manaCost: number;
   type: 'physical' | 'magic' | 'heal';
+  classId?: PlayerClassId;
+  source?: 'base' | 'card' | 'constellation';
+  visualTheme?: SkillVisualTheme;
+  trailId?: string;
+  trailColor?: string;
+  statusEffect?: SkillStatusEffect;
+  buffEffect?: SkillBuffEffect;
+  resourceEffect?: SkillResourceEffect;
+  resourceLabel?: string;
+}
+
+export interface TalentNodeEffect {
+  stats?: Partial<Pick<Stats, 'hp' | 'maxHp' | 'mp' | 'maxMp' | 'atk' | 'def' | 'speed' | 'luck'>>;
+  bonuses?: Partial<Record<TalentTrailNodeEffectBonusKey, number>>;
+  unlockSkillId?: string;
+}
+
+export interface TalentNode {
+  id: string;
+  classId: PlayerClassId;
+  trailId: string;
+  trailName: string;
+  title: string;
+  description: string;
+  tier: number;
+  cost: number;
+  requiredLevel: number;
+  color: string;
+  icon: string;
+  prerequisites: string[];
+  effects: TalentNodeEffect[];
+}
+
+export interface ClassTalentTrail {
+  id: string;
+  name: string;
+  description: string;
+  color: string;
+  glowColor: string;
+  nodes: TalentNode[];
+}
+
+export interface ClassConstellationDefinition {
+  classId: PlayerClassId;
+  name: string;
+  subtitle: string;
+  resource: Omit<ClassResourceState, 'value'>;
+  trails: ClassTalentTrail[];
+}
+
+export interface TalentCombatBonuses {
+  critChance: number;
+  critDamage: number;
+  healPower: number;
+  physicalDamage: number;
+  magicDamage: number;
+  damageReduction: number;
+  defendMitigation: number;
+  statusPotency: number;
+  burnDamage: number;
+  bleedDamage: number;
+  markedDamage: number;
+  manaOnHit: number;
+  manaOnDefend: number;
+  lifeSteal: number;
+  counterOnDefendChance: number;
+  resourceOnAttack: number;
+  resourceOnSkill: number;
+  resourceCap: number;
+  resourceStart: number;
 }
 
 export interface CardEffect {
@@ -273,6 +418,10 @@ export interface Player {
   equippedLegs: Item | null;
   equippedShield: Item | null;
   skills: Skill[];
+  talentPoints: number;
+  unlockedTalentNodeIds: string[];
+  classResource: ClassResourceState;
+  statusEffects: StatusEffect[];
   chosenCards: string[];
   cardBonuses: PlayerCardBonuses;
   isDefending: boolean;
@@ -299,6 +448,7 @@ export interface Enemy {
   type: 'beast' | 'humanoid' | 'undead';
   isBoss: boolean;
   isDefending: boolean;
+  statusEffects?: StatusEffect[];
   assets?: PlayerClassAssets;
   attackStyle?: 'armed' | 'unarmed';
   guaranteedDrops?: string[];
