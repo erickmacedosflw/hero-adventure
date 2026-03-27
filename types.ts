@@ -8,6 +8,7 @@ export enum GameState {
   DUNGEON_RESULT,
   GAME_OVER,
   VICTORY,
+  BOSS_VICTORY,
   CARD_REWARD
 }
 
@@ -219,6 +220,15 @@ export interface DungeonRewards {
   totalMonsters: number;
   evolution: number;
   bossDefeated: boolean;
+}
+
+export interface BossVictoryContext {
+  mode: 'hunt' | 'dungeon';
+  bossName: string;
+  nextStage?: number;
+  nextEvolution?: number;
+  nextTotalMonsters?: number;
+  rewards?: DungeonRewards;
 }
 
 export interface DungeonRunState {

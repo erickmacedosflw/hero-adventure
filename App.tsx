@@ -4,9 +4,9 @@ import { ShoppingBag, Play, Sword, Home } from 'lucide-react';
 import { DeveloperConsole } from './components/DeveloperConsole';
 import { GameScene } from './components/Scene3D';
 import { OpeningScreen } from './components/OpeningScreen';
-import { BattleHUD, MenuScreen, ShopScreen, TavernScreen, KillLootOverlay, CardChoiceScreen, AlchemistScreen, DungeonResultScreen } from './components/GameUI';
+import { BattleHUD, MenuScreen, ShopScreen, TavernScreen, KillLootOverlay, CardChoiceScreen, AlchemistScreen, DungeonResultScreen, BossVictoryModal } from './components/GameUI';
 import { 
-    Player, Enemy, GameState, TurnState, BattleLog, Item, Skill, Stats, Particle, FloatingText, ProgressionCard, CardRewardOffer, AlchemistCardOffer, AlchemistItemOffer, DungeonRunState, DungeonResult, DungeonRewards, EnemyTemplate, DungeonEnemyTemplate, DungeonBossTemplate, PlayerAnimationAction
+    Player, Enemy, GameState, TurnState, BattleLog, Item, Skill, Stats, Particle, FloatingText, ProgressionCard, CardRewardOffer, AlchemistCardOffer, AlchemistItemOffer, DungeonRunState, DungeonResult, DungeonRewards, EnemyTemplate, DungeonEnemyTemplate, DungeonBossTemplate, PlayerAnimationAction, BossVictoryContext
 } from './types';
 import { 
     INITIAL_PLAYER, SHOP_ITEMS, ALL_ITEMS, MATERIALS, SKILLS, ENEMY_DATA, ENEMY_COLORS, DUNGEON_ENEMY_DATA, DUNGEON_BOSS, ALCHEMIST_ITEM_OFFERS 
@@ -99,9 +99,10 @@ export default function App() {
     const [cardRewardQueue, setCardRewardQueue] = useState<CardRewardOffer[]>([]);
     const [currentCardOffer, setCurrentCardOffer] = useState<CardRewardOffer | null>(null);
     const [currentCardChoices, setCurrentCardChoices] = useState<ProgressionCard[]>([]);
-    const [postCardFlow, setPostCardFlow] = useState<'tavern' | 'victory' | 'resume-hunt' | null>(null);
+    const [postCardFlow, setPostCardFlow] = useState<'tavern' | 'boss-victory' | 'resume-hunt' | null>(null);
     const [dungeonRun, setDungeonRun] = useState<DungeonRunState | null>(null);
     const [dungeonResult, setDungeonResult] = useState<DungeonResult | null>(null);
+    const [bossVictoryContext, setBossVictoryContext] = useState<BossVictoryContext | null>(null);
     const [pendingDungeonQueue, setPendingDungeonQueue] = useState<CardRewardOffer[]>([]);
     const [isBootReady, setIsBootReady] = useState(() => getBootReadyMemory());
     const [pathname, setPathname] = useState(() => window.location.pathname);
@@ -406,8 +407,8 @@ export default function App() {
             const nextFlow = postCardFlow;
             setPostCardFlow(null);
 
-            if (nextFlow === 'victory') {
-                setGameState(GameState.VICTORY);
+            if (nextFlow === 'boss-victory' && bossVictoryContext) {
+                setGameState(GameState.BOSS_VICTORY);
                 return;
             }
 
@@ -504,8 +505,11 @@ export default function App() {
         setDungeonEvolution(0);
         setPlayer(clonePlayer(INITIAL_PLAYER));
     setLogs([]);
+        setNarration('');
+        setPostCardFlow(null);
         setDungeonRun(null);
         setDungeonResult(null);
+        setBossVictoryContext(null);
         setPendingDungeonQueue([]);
         setCardRewardQueue([]);
         setCurrentCardOffer(null);
@@ -1332,9 +1336,11 @@ export default function App() {
              triggerLevelUpPulse();
          }
 
+         const levelUpOffers = levelsGained > 0 ? createLevelUpOffers(levelsGained) : [];
+
          setPlayer(progressedDungeonPlayer);
-         if (levelsGained > 0) {
-             setPendingDungeonQueue(prev => [...prev, ...createLevelUpOffers(levelsGained)]);
+         if (levelsGained > 0 && !wasBoss) {
+             setPendingDungeonQueue(prev => [...prev, ...levelUpOffers]);
          }
 
          addLog(`Vitória na dungeon! +${xpGain} XP ganho agora, +${goldGain} Ouro em reserva${diamondGain > 0 ? `, +${diamondGain} Diamante` : ''}.`, 'crit');
@@ -1358,16 +1364,31 @@ export default function App() {
 
              setPlayer(updatedPlayer);
              setDungeonEvolution(nextEvolution);
-             setPendingDungeonQueue(prev => [{ source: 'boss', reason: `Recompensa da dungeon: ${enemy.name}` }, ...prev]);
-             setDungeonResult({
-                 outcome: 'victory',
-                 rewards: nextRewards,
-                 reason: `Você limpou a dungeon inteira e garantiu todo o espólio acumulado. A dungeon evoluiu para o nível ${nextEvolution} e agora exige ${nextTotalMonsters} monstros antes do chefão final.`,
+             setBossVictoryContext({
+                 mode: 'dungeon',
+                 bossName: enemy.name,
                  nextEvolution,
                  nextTotalMonsters,
+                 rewards: nextRewards,
              });
+             setNarration('Escolha: continuar para a proxima evolucao da dungeon ou sair sem custo.');
              setDungeonRun(null);
-             setGameState(GameState.DUNGEON_RESULT);
+             setDungeonResult(null);
+
+             const bossQueue: CardRewardOffer[] = [
+                 { source: 'boss', reason: `Recompensa da dungeon: ${enemy.name}` },
+                 ...pendingDungeonQueue,
+                 ...levelUpOffers,
+             ];
+             setPendingDungeonQueue([]);
+
+             if (bossQueue.length > 0) {
+                 setPostCardFlow('boss-victory');
+                 setTimeout(() => openCardRewardQueue(updatedPlayer, bossQueue), 3200);
+             } else {
+                 setPostCardFlow(null);
+                 setGameState(GameState.BOSS_VICTORY);
+             }
          } else {
              setDungeonRun({ ...dungeonRun, rewards: nextRewards });
              setNarration(clearedMonsters >= nextRewards.totalMonsters ? 'A câmara final se abriu. O chefão aguarda no fundo da dungeon.' : `A dungeon continua. Encontro ${clearedMonsters}/${nextRewards.totalMonsters}.`);
@@ -1400,6 +1421,11 @@ export default function App() {
      if (wasBoss) {
          setStage(s => s + 1);
          setKillCount(0);
+         setBossVictoryContext({
+             mode: 'hunt',
+             bossName: enemy.name,
+             nextStage: stage + 1,
+         });
      } else {
          setKillCount(k => k + 1);
      }
@@ -1434,7 +1460,7 @@ export default function App() {
      }
      
      if (queuedCardRewards.length > 0) {
-         setPostCardFlow(wasBoss ? 'victory' : 'resume-hunt');
+         setPostCardFlow(wasBoss ? 'boss-victory' : 'resume-hunt');
          if (wasBoss) {
              generateVictorySpeech(enemy.name)
                 .then(victoryText => setNarration(victoryText))
@@ -1442,8 +1468,8 @@ export default function App() {
          }
          setTimeout(() => openCardRewardQueue(updatedPlayer, queuedCardRewards), 3200);
      } else if (wasBoss) {
-         // Boss win -> Go to Victory Screen (which leads to Tavern)
-         setGameState(GameState.VICTORY);
+         // Boss win -> Open post-boss modal with explicit choices
+         setGameState(GameState.BOSS_VICTORY);
          try {
             const victoryText = await generateVictorySpeech(enemy.name);
             setNarration(victoryText);
@@ -1472,6 +1498,45 @@ export default function App() {
 
       setPlayer(nextPlayer);
       continueProgressionFlow(nextPlayer, nextQueue);
+  };
+
+  const handleBossVictoryContinue = () => {
+      if (!bossVictoryContext) {
+          setGameState(GameState.TAVERN);
+          return;
+      }
+
+      setPostCardFlow(null);
+
+      if (bossVictoryContext.mode === 'hunt') {
+          setBossVictoryContext(null);
+          enterBattle(false);
+          return;
+      }
+
+      const nextEvolution = bossVictoryContext.nextEvolution ?? dungeonEvolution;
+      const nextRun: DungeonRunState = {
+          entrySnapshot: clonePlayer(player),
+          rewards: createEmptyDungeonRewards(nextEvolution),
+          evolution: nextEvolution,
+      };
+
+      setBossVictoryContext(null);
+      setDungeonResult(null);
+      setPendingDungeonQueue([]);
+      setDungeonRun(nextRun);
+      setLogs([]);
+      setEnemy(null);
+      setNarration(`A dungeon evoluiu para o nivel ${nextEvolution}. Um novo ciclo comecou.`);
+      enterBattle(false, 'dungeon', 0);
+  };
+
+  const handleBossVictoryExit = () => {
+      setBossVictoryContext(null);
+      setPostCardFlow(null);
+      setDungeonResult(null);
+      setPendingDungeonQueue([]);
+      setGameState(GameState.TAVERN);
   };
 
   const buyItem = (item: Item) => {
@@ -1615,10 +1680,17 @@ export default function App() {
 
     const resolvedGameState = (() => {
         if (gameState === GameState.CARD_REWARD && (!currentCardOffer || currentCardChoices.length === 0)) {
+            if (postCardFlow === 'boss-victory' && bossVictoryContext) {
+                return GameState.BOSS_VICTORY;
+            }
             return GameState.TAVERN;
         }
 
         if (gameState === GameState.DUNGEON_RESULT && !dungeonResult) {
+            return GameState.TAVERN;
+        }
+
+        if (gameState === GameState.BOSS_VICTORY && !bossVictoryContext) {
             return GameState.TAVERN;
         }
 
@@ -1775,41 +1847,13 @@ export default function App() {
         />
       )}
 
-      {resolvedGameState === GameState.VICTORY && (
-          <div className="absolute inset-0 z-50 bg-black/55 backdrop-blur-sm flex items-center justify-center p-4 pointer-events-auto">
-              <div className="w-full max-w-sm rounded-[28px] border border-[#cfab91] bg-[#f7ecdd] shadow-[0_30px_80px_rgba(107,49,65,0.28)] overflow-hidden animate-fade-in-down">
-                  <div className="bg-[#6b3141] px-6 py-5 text-center">
-                      <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.3em] text-[#f6eadc]">
-                          <Sword size={12} /> Fase {stage - 1} concluída
-                      </div>
-                      <h2 className="mt-3 text-3xl font-black text-white">Vitória!</h2>
-                      {narration && <p className="mt-2 text-sm text-[#dcc0aa] italic">&ldquo;{narration}&rdquo;</p>}
-                  </div>
-
-                  <div className="px-6 py-5">
-                      <div className="rounded-2xl border border-[#cfab91] bg-[#f4e5d4] px-5 py-4 text-center">
-                          <div className="text-[10px] font-black uppercase tracking-[0.26em] text-[#9a7068]">Próxima fase</div>
-                          <div className="mt-1 text-4xl font-black text-[#6b3141]">{stage}</div>
-                          <div className="mt-1 text-xs text-[#8f6c67]">Inimigos mais fortes aguardam</div>
-                      </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3 px-6 pb-6">
-                      <button
-                          onClick={() => setGameState(GameState.TAVERN)}
-                          className="flex items-center justify-center gap-2 rounded-xl border border-[#cfab91] bg-[#f4e5d4] px-4 py-3 font-black text-[#6b3141] transition-colors hover:bg-[#e9d7c2]"
-                      >
-                          <Home size={15} /> Taverna
-                      </button>
-                      <button
-                          onClick={() => { enterBattle(false); }}
-                          className="flex items-center justify-center gap-2 rounded-xl bg-[#b87a3a] px-4 py-3 font-black text-white shadow-[0_8px_24px_rgba(184,122,58,0.3)] transition-all hover:bg-[#c88a4a]"
-                      >
-                          <Sword size={15} /> Caçar
-                      </button>
-                  </div>
-              </div>
-          </div>
+      {resolvedGameState === GameState.BOSS_VICTORY && bossVictoryContext && (
+          <BossVictoryModal
+              context={bossVictoryContext}
+              narration={bossVictoryContext.mode === 'hunt' ? narration : undefined}
+              onContinue={handleBossVictoryContinue}
+              onExit={handleBossVictoryExit}
+          />
       )}
 
       {resolvedGameState === GameState.GAME_OVER && (
