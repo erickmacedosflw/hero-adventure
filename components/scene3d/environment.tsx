@@ -28,14 +28,16 @@ export const getRenderQualityProfile = (): RenderQualityProfile => {
 
   const cores = navigator.hardwareConcurrency ?? 4;
   const memory = (navigator as Navigator & { deviceMemory?: number }).deviceMemory ?? 4;
-  const low = cores <= 4 || memory <= 4 || window.innerWidth < 900;
+  const compactScreen = window.innerWidth < 900;
+  const constrainedDevice = cores <= 4 || memory <= 4;
+  const low = constrainedDevice || (compactScreen && (cores <= 6 || memory <= 6));
 
   return {
     isLowQuality: low,
-    dpr: low ? [0.85, 1] : [1, 1.5],
-    shadowMapSize: low ? 512 : 1024,
+    dpr: low ? [0.85, 1] : compactScreen ? [0.95, 1.25] : [1, 1.5],
+    shadowMapSize: low ? 512 : compactScreen ? 768 : 1024,
     starsCount: low ? 400 : 800,
-    contactShadowResolution: low ? 64 : 128,
+    contactShadowResolution: low ? 64 : compactScreen ? 96 : 128,
     antialias: false,
   };
 };

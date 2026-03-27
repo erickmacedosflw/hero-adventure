@@ -139,6 +139,12 @@ function buildForestLayout(): PropEntry[] {
 // Build layout once at module load
 const FOREST_LAYOUT = buildForestLayout();
 
+const getPropStabilityHash = (entry: PropEntry) => {
+  const [x, y, z] = entry.position;
+  const raw = Math.round((x + 40) * 13 + (y + 10) * 7 + (z + 60) * 17);
+  return Math.abs(raw % 97);
+};
+
 /* ─── Ground ─── */
 
 const ScenarioGround = ({ color, colorAlt }: { color: string; colorAlt: string }) => {
@@ -206,9 +212,13 @@ const ForestProps = ({ entries, lowQuality }: { entries: PropEntry[]; lowQuality
 
   const filtered = useMemo(() => {
     if (!lowQuality) return entries;
+
     return entries.filter((e) => {
-      if (e.key.startsWith('grass')) return false;
-      if (e.key.startsWith('bush') && Math.random() > 0.5) return false;
+      const hash = getPropStabilityHash(e);
+
+      // Keep trees and rocks always; trim only part of small foliage on low quality.
+      if (e.key.startsWith('grass')) return hash % 3 !== 0;
+      if (e.key.startsWith('bush')) return hash % 4 !== 0;
       return true;
     });
   }, [entries, lowQuality]);
