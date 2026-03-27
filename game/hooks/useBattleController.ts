@@ -578,6 +578,10 @@ export const useBattleController = ({
   const handleEnemyTurn = useCallback(() => {
     if (!enemy || gameState !== GameState.BATTLE) return;
 
+    // Prevent the App-level enemy-turn effect from re-entering this handler
+    // when player/enemy state changes during the same enemy action.
+    setTurnState(TurnState.PROCESSING);
+
     const talentBonuses = getTalentBonuses(player);
     const enemyStatusTick = tickStatusEffects(enemy.statusEffects ?? [], enemy.stats.maxHp, {
       burnBonus: talentBonuses.burnDamage,
@@ -799,4 +803,3 @@ export const useBattleController = ({
     handleEnemyTurn,
   };
 };
-

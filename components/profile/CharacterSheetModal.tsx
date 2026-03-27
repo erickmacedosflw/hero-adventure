@@ -1,10 +1,10 @@
 import React, { useMemo, useState } from 'react';
-import { Coins, Lock, Orbit, Shield, Sparkles, Star, Sword, Zap } from 'lucide-react';
+import { CircleHelp, Lock, Orbit, Shield, Sparkles, Star, Sword, WandSparkles, X, Zap } from 'lucide-react';
 import { ALL_CARDS } from '../../game/data/cards';
 import { getConstellationByClassId } from '../../game/data/classTalents';
 import { getPlayerClassById } from '../../game/data/classes';
 import { canUnlockTalentNode } from '../../game/mechanics/classProgression';
-import { ClassTalentTrail, Item, Player, ProgressionCard, TalentNode } from '../../types';
+import { ClassTalentTrail, Item, Player, PlayerClassId, ProgressionCard, TalentNode } from '../../types';
 import { DeveloperHeroScene } from '../Scene3D';
 import { GameAssetIcon } from '../ui/game-asset-icon';
 import { getCardEffectPreview, getRarityColor, getRarityLabel, ItemTypeIcon } from '../ui/game-display';
@@ -20,6 +20,89 @@ type CharacterSheetModalProps = {
 };
 
 type ProfileTab = 'overview' | 'cards' | 'skills' | 'constellation';
+
+type ClassGuideDefinition = {
+  title: string;
+  summary: string;
+  gameplayLoop: string[];
+  uniqueAbilities: Array<{
+    name: string;
+    detail: string;
+  }>;
+};
+
+const CLASS_GUIDES: Record<PlayerClassId, ClassGuideDefinition> = {
+  knight: {
+    title: 'Knight: muralha e controle',
+    summary: 'O Knight gira em torno de Valor, defesa consistente e punicao de alvos marcados. Ele cresce quando voce segura o ritmo da luta.',
+    gameplayLoop: [
+      'Ataque e defesa geram Valor para preparar as skills da constelacao.',
+      'A classe aguenta bem a linha de frente e converte seguranca em pressao.',
+      'Quando o alvo fica marcado, varias ferramentas do Knight rendem melhor.',
+    ],
+    uniqueAbilities: [
+      { name: 'Valor', detail: 'Recurso proprio da classe. Serve para alimentar skills da constelacao e alguns picos de defesa ou dano.' },
+      { name: 'Postura defensiva', detail: 'O Knight aproveita muito bem o comando Defender e talentos que reduzem dano recebido.' },
+      { name: 'Marcacao sagrada', detail: 'Parte das skills e trilhas melhora o dano em inimigos marcados e pune chefes com mais consistencia.' },
+    ],
+  },
+  barbarian: {
+    title: 'Barbarian: furia e explosao',
+    summary: 'O Barbarian quer gerar Furia rapido e transformar isso em burst, sangramento e trocas agressivas de curto prazo.',
+    gameplayLoop: [
+      'Ataques e talentos acumulam Furia para preparar finalizadores.',
+      'A classe troca vida por pressao e encaixa muito bem roubo de vida.',
+      'Quanto melhor voce sincroniza gasto de Furia, maior o impacto dos golpes chave.',
+    ],
+    uniqueAbilities: [
+      { name: 'Furia', detail: 'Recurso proprio que acelera o dano da classe e habilita finalizadores mais violentos.' },
+      { name: 'Sangramento', detail: 'Algumas trilhas fortalecem bleed e fazem o Barbarian pressionar mesmo depois do golpe.' },
+      { name: 'Consume-all finisher', detail: 'Certas skills convertem toda a Furia acumulada em um pico grande de dano.' },
+    ],
+  },
+  mage: {
+    title: 'Mage: mana e escala arcana',
+    summary: 'O Mage joga com mana alta, geracao de Arcano e dano magico sustentado. E mais fragil, mas recompensa setup e leitura de combate.',
+    gameplayLoop: [
+      'As trilhas fazem skills gerarem Arcano e ampliam magia, marca e queimadura.',
+      'A classe vive de sequenciar casts com seguranca e nao de trocar dano bruto na linha de frente.',
+      'Quanto melhor o giro de recurso, mais facil alternar entre dano e suporte.',
+    ],
+    uniqueAbilities: [
+      { name: 'Arcano', detail: 'Recurso da classe usado para fortalecer casts e sustentar a rotacao magica.' },
+      { name: 'Status magicos', detail: 'Mage cresce bastante com burn, marca e bonus de dano magico.' },
+      { name: 'Reserva de mana', detail: 'As trilhas aumentam MP maximo, cura e o teto do recurso magico secundario.' },
+    ],
+  },
+  ranger: {
+    title: 'Ranger: foco e precisao',
+    summary: 'O Ranger usa Foco como um recurso tatico. Ele acumula durante a luta e gasta no momento certo para transformar consistencia em dano preciso.',
+    gameplayLoop: [
+      'Atacar, defender e algumas skills geram Foco durante a batalha.',
+      'O Foco nao fica permanente no heroi: ele e uma reserva usada so no combate atual.',
+      'Voce gasta Foco em skills da constelacao para liberar efeitos ou aumentar o dano.',
+    ],
+    uniqueAbilities: [
+      { name: 'Foco', detail: 'Barra propria do Ranger. Normalmente comeca vazia e vai enchendo ao longo da luta.' },
+      { name: 'Pressao de alvo marcado', detail: 'A trilha Vendaval aumenta o ganho de Foco por ataque e melhora dano em marcados.' },
+      { name: 'Conversao em skill', detail: 'Skills como Saraivada de Espinhos gastam Foco e ainda escalam o dano com o que foi consumido.' },
+    ],
+  },
+  rogue: {
+    title: 'Rogue: sombra, critico e burst',
+    summary: 'O Rogue gira em torno de velocidade, Sombra e explosoes curtas. E uma classe de janela: entra, pressiona, sai.',
+    gameplayLoop: [
+      'A classe gera Sombra para abastecer skills agressivas e de ritmo rapido.',
+      'Critico, alvo marcado e bleed trabalham juntos para abrir janelas de burst.',
+      'Voce rende mais quando escolhe bem o momento de acelerar a ofensiva.',
+    ],
+    uniqueAbilities: [
+      { name: 'Sombra', detail: 'Recurso proprio que habilita skills etereas e aumenta a pressao em combo.' },
+      { name: 'Criticos frequentes', detail: 'Velocidade e sorte alta ajudam o Rogue a capitalizar janelas curtas.' },
+      { name: 'Burst hibrido', detail: 'A classe mistura ferramentas fisicas, bleed, marca e ate dano magico em algumas trilhas.' },
+    ],
+  },
+};
 
 const SummaryCard = ({ label, value, tone }: { label: string; value: React.ReactNode; tone?: string }) => (
   <RpgMenuStat label={label} value={<span className={tone}>{value}</span>} />
@@ -89,13 +172,13 @@ const ConstellationNodeCard = ({
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-3">
-          <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border text-lg ${isUnlocked ? 'border-white/25 bg-white/10' : 'border-[#dcc0aa] bg-[#f8eddf]'}`}>
+          <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border text-xl ${isUnlocked ? 'border-white/25 bg-white/10' : 'border-[#dcc0aa] bg-[#f8eddf]'}`}>
             {node.icon}
           </div>
           <div>
             <div className={`text-[9px] font-black uppercase tracking-[0.22em] ${isUnlocked ? 'text-white/70' : 'text-[#9a7068]'}`}>Tier {node.tier}</div>
-            <div className={`mt-1 text-sm font-black ${isUnlocked ? 'text-white' : 'text-[#6b3141]'}`}>{node.title}</div>
-            <div className={`mt-1 text-[11px] leading-snug ${isUnlocked ? 'text-white/80' : 'text-[#7f5b56]'}`}>{node.description}</div>
+            <div className={`mt-1 text-base font-black ${isUnlocked ? 'text-white' : 'text-[#6b3141]'}`}>{node.title}</div>
+            <div className={`mt-1 text-xs leading-snug ${isUnlocked ? 'text-white/80' : 'text-[#7f5b56]'}`}>{node.description}</div>
           </div>
         </div>
         <div className={`shrink-0 rounded-full border px-2 py-1 text-[9px] font-black uppercase tracking-[0.16em] ${isUnlocked ? 'border-white/25 bg-white/10 text-white' : isAvailable ? 'border-emerald-400/35 bg-emerald-50 text-emerald-700' : 'border-[#dcc0aa] bg-[#f8eddf] text-[#8f6c67]'}`}>
@@ -139,10 +222,85 @@ const TrailSection = ({
   </section>
 );
 
-export const CharacterSheetModal = ({ player, shopItems: _shopItems, onClose, onOpenInventory, onUnlockTalent }: CharacterSheetModalProps) => {
-  const [activeTab, setActiveTab] = useState<ProfileTab>('overview');
+const ClassGuideModal = ({
+  player,
+  onClose,
+}: {
+  player: Player;
+  onClose: () => void;
+}) => {
   const currentClass = getPlayerClassById(player.classId);
   const constellation = getConstellationByClassId(player.classId);
+  const guide = CLASS_GUIDES[player.classId];
+  const constellationSkills = player.skills.filter((skill) => skill.source === 'constellation');
+
+  return (
+    <div className="absolute inset-0 z-[120] flex items-center justify-center bg-[#2e1820]/52 p-3 backdrop-blur-sm">
+      <div className="max-h-[92vh] w-full max-w-3xl overflow-hidden rounded-[28px] border border-[#c59d82] bg-[#f8eddf] shadow-[0_28px_80px_rgba(54,26,33,0.28)]">
+        <div
+          className="flex items-start justify-between gap-4 px-5 py-5 text-white"
+          style={{ background: `linear-gradient(135deg, ${currentClass.visualProfile.secondaryColor}, ${constellation.resource.color}, #6b3141)` }}
+        >
+          <div>
+            <div className="text-[10px] font-black uppercase tracking-[0.28em] text-white/75">Guia da classe</div>
+            <h3 className="mt-2 text-2xl font-black">{guide.title}</h3>
+            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-white/85">{guide.summary}</p>
+          </div>
+          <button
+            onClick={onClose}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/20 bg-white/10 text-white transition-colors hover:bg-white/18"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="max-h-[calc(92vh-7.5rem)] overflow-y-auto p-5 custom-scrollbar">
+          <div className="grid gap-3 sm:grid-cols-3">
+            <SummaryCard label="Classe" value={currentClass.name} tone="text-[#6b3141]" />
+            <SummaryCard label="Recurso unico" value={constellation.resource.name} tone="text-[#346c7f]" />
+            <SummaryCard label="Skills da constelacao" value={constellationSkills.length} tone="text-[#7c4c76]" />
+          </div>
+
+          <section className="mt-4 rounded-[24px] border border-[#cfab91] bg-[#fff7ed] p-4">
+            <div className="flex items-center gap-2 text-sm font-black text-[#6b3141]">
+              <WandSparkles size={18} />
+              Como essa classe joga
+            </div>
+            <div className="mt-3 grid gap-2">
+              {guide.gameplayLoop.map((entry) => (
+                <div key={entry} className="rounded-[16px] border border-[#dcc0aa] bg-[#f8eddf] px-3 py-2 text-sm leading-relaxed text-[#7f5b56]">
+                  {entry}
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="mt-4 rounded-[24px] border border-[#cfab91] bg-[#fff7ed] p-4">
+            <div className="flex items-center gap-2 text-sm font-black text-[#6b3141]">
+              <Sparkles size={18} />
+              Habilidades unicas da classe
+            </div>
+            <div className="mt-3 grid gap-3">
+              {guide.uniqueAbilities.map((ability) => (
+                <article key={ability.name} className="rounded-[18px] border border-[#dcc0aa] bg-[#f8eddf] p-4">
+                  <div className="text-sm font-black text-[#6b3141]">{ability.name}</div>
+                  <p className="mt-2 text-sm leading-relaxed text-[#7f5b56]">{ability.detail}</p>
+                </article>
+              ))}
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export const CharacterSheetModal = ({ player, shopItems: _shopItems, onClose, onOpenInventory, onUnlockTalent }: CharacterSheetModalProps) => {
+  const [activeTab, setActiveTab] = useState<ProfileTab>('overview');
+  const [showClassGuide, setShowClassGuide] = useState(false);
+  const currentClass = getPlayerClassById(player.classId);
+  const constellation = getConstellationByClassId(player.classId);
+  const classGuide = CLASS_GUIDES[player.classId];
 
   const equipmentSlots: Array<{ label: string; item: Item | null; type: Item['type'] }> = [
     { label: 'Arma', item: player.equippedWeapon, type: 'weapon' },
@@ -330,15 +488,53 @@ export const CharacterSheetModal = ({ player, shopItems: _shopItems, onClose, on
             <div className="flex flex-col gap-4">
               <section className="overflow-hidden rounded-[28px] border border-[#cfab91] bg-[#fff7ed] shadow-sm">
                 <div className="px-5 py-5 text-white" style={{ background: `linear-gradient(135deg, ${constellation.trails[0]?.color ?? '#6b3141'}, ${player.classResource.color}, #6b3141)` }}>
-                  <div className="text-[10px] font-black uppercase tracking-[0.28em] text-white/75">Constelacao de Classe</div>
-                  <h3 className="mt-2 text-2xl font-black">{currentClass.name}</h3>
-                  <p className="mt-2 max-w-2xl text-sm text-white/80">{constellation.subtitle}</p>
+                  <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                    <div>
+                      <div className="text-[10px] font-black uppercase tracking-[0.28em] text-white/75">Constelacao de Classe</div>
+                      <h3 className="mt-2 text-2xl font-black">{currentClass.name}</h3>
+                      <p className="mt-2 max-w-2xl text-sm text-white/80">{constellation.subtitle}</p>
+                    </div>
+                    <button
+                      onClick={() => setShowClassGuide(true)}
+                      className="inline-flex items-center gap-2 rounded-[16px] border border-white/18 bg-white/10 px-3 py-2 text-xs font-black uppercase tracking-[0.14em] text-white transition-colors hover:bg-white/18"
+                    >
+                      <CircleHelp size={16} />
+                      Ver guia da classe
+                    </button>
+                  </div>
                 </div>
                 <div className="grid gap-3 px-4 py-4 sm:grid-cols-4">
                   <SummaryCard label="Pontos" value={player.talentPoints} tone="text-[#8d5e29]" />
                   <SummaryCard label="Nodos" value={unlockedNodes.length} tone="text-[#6b3141]" />
                   <SummaryCard label="Skills" value={constellationSkills.length} tone="text-[#7c4c76]" />
                   <SummaryCard label={player.classResource.name} value={`${player.classResource.value}/${player.classResource.max}`} tone="text-[#346c7f]" />
+                </div>
+              </section>
+
+              <section className="rounded-[24px] border border-[#cfab91] bg-[#fff7ed] p-4 shadow-sm">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                  <div className="max-w-2xl">
+                    <div className="flex items-center gap-2 text-sm font-black text-[#6b3141]">
+                      <CircleHelp size={18} />
+                      Habilidades unicas de {currentClass.name}
+                    </div>
+                    <p className="mt-2 text-sm leading-relaxed text-[#7f5b56]">{classGuide.summary}</p>
+                  </div>
+                  <button
+                    onClick={() => setShowClassGuide(true)}
+                    className="rounded-[16px] border border-[#cfab91] bg-[#f4e5d4] px-4 py-2 text-xs font-black uppercase tracking-[0.14em] text-[#6b3141] transition-colors hover:bg-[#ead8c6]"
+                  >
+                    Abrir explicacao completa
+                  </button>
+                </div>
+
+                <div className="mt-4 grid gap-3 lg:grid-cols-3">
+                  {classGuide.uniqueAbilities.map((ability) => (
+                    <article key={ability.name} className="rounded-[18px] border border-[#dcc0aa] bg-[#f8eddf] p-4">
+                      <div className="text-sm font-black text-[#6b3141]">{ability.name}</div>
+                      <p className="mt-2 text-sm leading-relaxed text-[#7f5b56]">{ability.detail}</p>
+                    </article>
+                  ))}
                 </div>
               </section>
 
@@ -386,8 +582,9 @@ export const CharacterSheetModal = ({ player, shopItems: _shopItems, onClose, on
             </button>
           </div>
         </div>
+
+        {showClassGuide && <ClassGuideModal player={player} onClose={() => setShowClassGuide(false)} />}
       </div>
     </RpgMenuShell>
   );
 };
-
