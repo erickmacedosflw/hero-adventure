@@ -1874,6 +1874,33 @@ const EnemyCharacter = ({
   );
 };
 
+const FramePacingController = ({ targetFps }: { targetFps: number }) => {
+  const invalidate = useThree((state) => state.invalidate);
+
+  useEffect(() => {
+    let rafId = 0;
+    let lastFrameTime = 0;
+    const frameInterval = 1000 / Math.max(1, targetFps);
+
+    const tick = (now: number) => {
+      if (now - lastFrameTime >= frameInterval) {
+        lastFrameTime = now;
+        invalidate();
+      }
+      rafId = window.requestAnimationFrame(tick);
+    };
+
+    invalidate();
+    rafId = window.requestAnimationFrame(tick);
+
+    return () => {
+      window.cancelAnimationFrame(rafId);
+    };
+  }, [invalidate, targetFps]);
+
+  return null;
+};
+
 export const GameScene: React.FC<SceneProps> = (props) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [gameTime, setGameTime] = useState("12:00");
@@ -1883,6 +1910,8 @@ export const GameScene: React.FC<SceneProps> = (props) => {
   }, [props.onGameTimeUpdate]);
   const quality = useMemo(() => getRenderQualityProfile(), []);
   const isDungeonRun = Boolean(props.isDungeonRun);
+  const enableFramePacing = quality.isLowQuality;
+  const targetFps = enableFramePacing ? 30 : 60;
 
   const bgColor = useMemo(() => {
     if (isDungeonRun) {
@@ -1910,7 +1939,9 @@ export const GameScene: React.FC<SceneProps> = (props) => {
         dpr={quality.dpr}
         gl={{ antialias: quality.antialias, powerPreference: 'high-performance' }}
         performance={{ min: 0.5 }}
+        frameloop={enableFramePacing ? 'demand' : 'always'}
       >
+        {enableFramePacing && <FramePacingController targetFps={targetFps} />}
         <CameraController screenShake={props.screenShake} />
         {isDungeonRun ? (
           <>
