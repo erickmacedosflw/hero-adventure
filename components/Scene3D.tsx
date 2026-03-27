@@ -1,7 +1,7 @@
 import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame, useLoader, useThree } from '@react-three/fiber';
 import { ContactShadows, Html, PerspectiveCamera, useAnimations, useFBX, useTexture } from '@react-three/drei';
-import { EffectComposer, Vignette } from '@react-three/postprocessing';
+import { DepthOfField, EffectComposer, Vignette } from '@react-three/postprocessing';
 import * as THREE from 'three';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import { Enemy, FloatingText, Particle, Player, PlayerAnimationAction, PlayerClassAnimationMap, PlayerClassAssets, PlayerClassId, StatusEffect, TurnState } from '../types';
@@ -252,6 +252,9 @@ const clampPercent = (value: number, max: number) => {
 
   return Math.max(0, Math.min(100, (value / max) * 100));
 };
+
+const CHARACTER_FOCUS_TARGET: [number, number, number] = [0, 0.9, 0];
+const CHARACTER_FOCUS_RANGE = 5.2;
 
 const BattleStatusBar = ({
   label,
@@ -757,10 +760,24 @@ export const GameScene: React.FC<SceneProps> = (props) => {
 
         {isDungeonRun ? (
           <EffectComposer>
+            {!quality.isLowQuality ? (
+              <DepthOfField
+                target={CHARACTER_FOCUS_TARGET}
+                worldFocusRange={CHARACTER_FOCUS_RANGE}
+                bokehScale={1.75}
+                height={480}
+              />
+            ) : null}
             <Vignette eskil={false} offset={0.1} darkness={0.42} />
           </EffectComposer>
         ) : !quality.isLowQuality ? (
           <EffectComposer>
+            <DepthOfField
+              target={CHARACTER_FOCUS_TARGET}
+              worldFocusRange={CHARACTER_FOCUS_RANGE}
+              bokehScale={1.65}
+              height={480}
+            />
             <Vignette eskil={false} offset={0.06} darkness={0.1} />
           </EffectComposer>
         ) : null}
