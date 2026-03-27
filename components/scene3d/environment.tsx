@@ -28,15 +28,16 @@ export const getRenderQualityProfile = (): RenderQualityProfile => {
 
   const cores = navigator.hardwareConcurrency ?? 4;
   const memory = (navigator as Navigator & { deviceMemory?: number }).deviceMemory ?? 4;
-  const compactScreen = window.innerWidth < 900;
+  const compactScreen = window.innerWidth < 1024;
+  const veryCompactScreen = window.innerWidth < 768;
   const constrainedDevice = cores <= 4 || memory <= 4;
-  const low = constrainedDevice || (compactScreen && (cores <= 6 || memory <= 6));
+  const low = constrainedDevice || veryCompactScreen || (compactScreen && (cores <= 8 || memory <= 8));
 
   return {
     isLowQuality: low,
-    dpr: low ? [0.85, 1] : compactScreen ? [0.95, 1.25] : [1, 1.5],
-    shadowMapSize: low ? 512 : compactScreen ? 768 : 1024,
-    starsCount: low ? 400 : 800,
+    dpr: low ? [0.7, 0.9] : compactScreen ? [0.9, 1.2] : [1, 1.5],
+    shadowMapSize: low ? 256 : compactScreen ? 512 : 1024,
+    starsCount: low ? 240 : 800,
     contactShadowResolution: low ? 64 : compactScreen ? 96 : 128,
     antialias: false,
   };
@@ -297,13 +298,22 @@ export const DayNightCycle = ({
   const lastBgRef = useRef('');
   const lastCloudKeyRef = useRef('');
 
-  const cloudData = useMemo(() => [
-    { pos: [-10, 6, -15] as [number, number, number], speed: 0.05 },
-    { pos: [0, 7, -18] as [number, number, number], speed: 0.03 },
-    { pos: [8, 5, -16] as [number, number, number], speed: 0.07 },
-    { pos: [-5, 8, -20] as [number, number, number], speed: 0.02 },
-    { pos: [12, 6.5, -17] as [number, number, number], speed: 0.04 },
-  ], []);
+  const cloudData = useMemo(() => {
+    if (quality.isLowQuality) {
+      return [
+        { pos: [-8, 6.4, -16] as [number, number, number], speed: 0.035 },
+        { pos: [6, 6.1, -17] as [number, number, number], speed: 0.045 },
+      ];
+    }
+
+    return [
+      { pos: [-10, 6, -15] as [number, number, number], speed: 0.05 },
+      { pos: [0, 7, -18] as [number, number, number], speed: 0.03 },
+      { pos: [8, 5, -16] as [number, number, number], speed: 0.07 },
+      { pos: [-5, 8, -20] as [number, number, number], speed: 0.02 },
+      { pos: [12, 6.5, -17] as [number, number, number], speed: 0.04 },
+    ];
+  }, [quality.isLowQuality]);
 
   useFrame((state) => {
     const cycleDuration = 1440;
@@ -478,7 +488,7 @@ export const DayNightCycle = ({
       <hemisphereLight ref={hemiRef} groundColor="#475569" />
       <directionalLight
         ref={sunLightRef}
-        castShadow
+        castShadow={!quality.isLowQuality}
         shadow-mapSize={[quality.shadowMapSize, quality.shadowMapSize]}
         shadow-camera-left={-10}
         shadow-camera-right={10}
@@ -578,7 +588,7 @@ export const DungeonAtmosphere = ({ quality }: { quality: RenderQualityProfile }
     <group>
       <ambientLight intensity={1.08} color="#f8fafc" />
       <hemisphereLight intensity={0.82} color="#e2e8f0" groundColor="#334155" />
-      <directionalLight position={[0, 6, 6]} intensity={0.78} color="#f8fafc" castShadow shadow-mapSize={[quality.shadowMapSize, quality.shadowMapSize]} />
+      <directionalLight position={[0, 6, 6]} intensity={0.78} color="#f8fafc" castShadow={!quality.isLowQuality} shadow-mapSize={[quality.shadowMapSize, quality.shadowMapSize]} />
       <pointLight position={[0, 1.8, 3.5]} intensity={1.8} distance={18} decay={1.7} color="#fff7ed" />
       {embers.map((ember) => (
         <mesh key={ember.key} position={ember.position}>

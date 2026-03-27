@@ -1574,7 +1574,9 @@ const HeroVoxel = ({ classId = 'knight', playerAnimationAction = 'idle', animati
           </mesh>
           <pointLight position={[0, 0.8, 0.25]} color="#fb923c" intensity={1.35} distance={4.2} decay={2} />
         </group>
-        <ContactShadows opacity={0.35} scale={3} blur={1.8} far={2} resolution={contactShadowResolution} />
+        {contactShadowResolution > 0 && (
+          <ContactShadows opacity={0.35} scale={3} blur={1.8} far={2} resolution={contactShadowResolution} />
+        )}
         <pointLight ref={damageLightRef} color="#ef4444" intensity={0} distance={8} decay={2.5} position={[0, 0.8, 0.3]} />
         <pointLight ref={healLightRef} color="#86efac" intensity={0} distance={9} decay={2.5} position={[0, 0.8, 0.3]} />
       </group>
@@ -1848,7 +1850,9 @@ const EnemyCharacter = ({
       <Suspense fallback={null}>
         <AnimatedEnemyCharacter assets={runtimeEnemyAssets} animationAction={enemyAnimationAction} attackStyle={attackStyle} />
       </Suspense>
-      <ContactShadows opacity={0.35} scale={3} blur={1.8} far={2} resolution={contactShadowResolution} />
+      {contactShadowResolution > 0 && (
+        <ContactShadows opacity={0.35} scale={3} blur={1.8} far={2} resolution={contactShadowResolution} />
+      )}
       <pointLight ref={enemyDamageLightRef} color="#ef4444" intensity={0} distance={8} decay={2.5} position={[0, 0.8, -0.3]} />
       {/* Enemy Defense Shield Effect */}
       <group ref={enemyShieldRef} position={[0, 0.9, 0]} visible={false}>
@@ -1912,6 +1916,12 @@ export const GameScene: React.FC<SceneProps> = (props) => {
   const isDungeonRun = Boolean(props.isDungeonRun);
   const enableFramePacing = quality.isLowQuality;
   const targetFps = enableFramePacing ? 30 : 60;
+  const enableSceneShadows = !quality.isLowQuality;
+  const enablePostProcessing = !quality.isLowQuality;
+  const enableSkybox = !quality.isLowQuality;
+  const enableFogEffects = !quality.isLowQuality;
+  const enableNightGlow = !quality.isLowQuality;
+  const battleContactShadowResolution = quality.isLowQuality ? 0 : quality.contactShadowResolution;
 
   const bgColor = useMemo(() => {
     if (isDungeonRun) {
@@ -1935,7 +1945,7 @@ export const GameScene: React.FC<SceneProps> = (props) => {
       )}
 
       <Canvas
-        shadows={{ type: THREE.PCFSoftShadowMap }}
+        shadows={enableSceneShadows ? { type: THREE.PCFSoftShadowMap } : false}
         dpr={quality.dpr}
         gl={{ antialias: quality.antialias, powerPreference: 'high-performance' }}
         performance={{ min: 0.5 }}
@@ -1952,11 +1962,11 @@ export const GameScene: React.FC<SceneProps> = (props) => {
           </>
         ) : (
           <>
-            <SkyboxController />
-            <FogController />
+            {enableSkybox ? <SkyboxController /> : <color attach="background" args={[bgColor]} />}
+            {enableFogEffects && <FogController />}
             <DayNightCycle containerRef={containerRef} onTimeUpdate={handleTimeUpdate} quality={quality} />
             <pointLight position={[-5, 2, -2]} intensity={0.5} color="#3b82f6" />
-            <NightEnemyGlow gameTime={gameTime} />
+            {enableNightGlow && <NightEnemyGlow gameTime={gameTime} />}
             <Suspense fallback={null}>
               <BattleScenario scenario={activeScenario} lowQuality={quality.isLowQuality} />
             </Suspense>
@@ -1978,7 +1988,7 @@ export const GameScene: React.FC<SceneProps> = (props) => {
           isPlayerCritHit={props.isPlayerCritHit}
           hasPerfectEvadeAura={props.hasPerfectEvadeAura}
           hasDoubleAttackAura={props.hasDoubleAttackAura}
-          contactShadowResolution={quality.contactShadowResolution}
+          contactShadowResolution={battleContactShadowResolution}
         />
         
         <EnemyCharacter 
@@ -1993,15 +2003,17 @@ export const GameScene: React.FC<SceneProps> = (props) => {
           isBoss={props.isEnemyBoss}
           isHit={props.isEnemyHit}
           attackStyle={props.enemyAttackStyle}
-          contactShadowResolution={quality.contactShadowResolution}
+          contactShadowResolution={battleContactShadowResolution}
         />
 
         {props.particles.map(p => <MeshParticle key={p.id} {...p} />)}
         <WorldFloatingTexts texts={props.floatingTexts} />
 
-        <EffectComposer>
-          <Vignette eskil={false} offset={0.1} darkness={0.42} />
-        </EffectComposer>
+        {enablePostProcessing && (
+          <EffectComposer>
+            <Vignette eskil={false} offset={0.1} darkness={0.42} />
+          </EffectComposer>
+        )}
       </Canvas>
     </div>
   );

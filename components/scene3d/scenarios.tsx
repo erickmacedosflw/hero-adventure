@@ -215,10 +215,13 @@ const ForestProps = ({ entries, lowQuality }: { entries: PropEntry[]; lowQuality
 
     return entries.filter((e) => {
       const hash = getPropStabilityHash(e);
+      const nearBattleCenter = Math.abs(e.position[0]) <= 9 && e.position[2] >= -10;
 
-      // Keep trees and rocks always; trim only part of small foliage on low quality.
-      if (e.key.startsWith('grass')) return hash % 3 !== 0;
-      if (e.key.startsWith('bush')) return hash % 4 !== 0;
+      // Preserve the arena silhouette while reducing far/secondary foliage on mobile.
+      if (e.key.startsWith('tree')) return nearBattleCenter || hash % 4 !== 0;
+      if (e.key.startsWith('rock')) return hash % 5 !== 0;
+      if (e.key.startsWith('bush')) return hash % 2 === 0;
+      if (e.key.startsWith('grass')) return hash % 4 === 0;
       return true;
     });
   }, [entries, lowQuality]);
