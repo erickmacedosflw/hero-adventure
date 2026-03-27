@@ -1,10 +1,10 @@
 import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame, useLoader, useThree } from '@react-three/fiber';
-import { ContactShadows, PerspectiveCamera, useAnimations, useFBX, useTexture } from '@react-three/drei';
+import { ContactShadows, Html, PerspectiveCamera, useAnimations, useFBX, useTexture } from '@react-three/drei';
 import { EffectComposer, Vignette } from '@react-three/postprocessing';
 import * as THREE from 'three';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
-import { FloatingText, Particle, PlayerAnimationAction, PlayerClassAnimationMap, PlayerClassAssets, PlayerClassId, TurnState } from '../types';
+import { Enemy, FloatingText, Particle, Player, PlayerAnimationAction, PlayerClassAnimationMap, PlayerClassAssets, PlayerClassId, StatusEffect, TurnState } from '../types';
 import {
   RIGHT_HAND_BONE_CANDIDATES,
   RuntimeHeroAssets,
@@ -23,8 +23,6 @@ import {
   CameraController,
   DayNightCycle,
   DungeonAtmosphere,
-  FogController,
-  NightEnemyGlow,
   SkyboxController,
   getRenderQualityProfile,
 } from './scene3d/environment';
@@ -119,6 +117,8 @@ interface SceneProps {
   stage?: number;
   isDungeonRun?: boolean;
   onGameTimeUpdate?: (time: string) => void;
+  playerState?: Player;
+  enemyState?: Enemy | null;
 }
 
 // --- MAIN COMPONENTS ---
@@ -245,7 +245,93 @@ const LevelUpEffect = () => {
   );
 };
 
-const HeroVoxel = ({ classId = 'knight', playerAnimationAction = 'idle', animationClipName, preferredAnimationBundle, onAvailableAnimationClipsChange, loadAllAnimationBundles = false, loadSecondaryAnimationBundles = true, previewLoopAllActions = false, isAttacking, isDefending, weaponId, armorId, helmetId, legsId, shieldId, isLevelingUp, isHit, isPlayerCritHit, hasPerfectEvadeAura, hasDoubleAttackAura, contactShadowResolution = 256, idlePositionX = -2, attackPositionX = 0.5, defendPositionX = -1.5, originPosition = [-2, -1, 0], baseRotationY = 0.5, hiddenPartSlots, visiblePartSlots, runtimeAssetsOverride, calibrationOverride, debugRuntimeId, debugRuntimeLabel, onRuntimeDiagnosticChange }: any) => {
+const clampPercent = (value: number, max: number) => {
+  if (max <= 0) {
+    return 0;
+  }
+
+  return Math.max(0, Math.min(100, (value / max) * 100));
+};
+
+const BattleStatusBar = ({
+  label,
+  value,
+  max,
+  fillClassName,
+}: {
+  label: string;
+  value: number;
+  max: number;
+  fillClassName: string;
+}) => (
+  <div className="space-y-1">
+    <div className="flex items-center justify-between gap-3">
+      <span className="text-[9px] font-black uppercase tracking-[0.22em] text-white/72">{label}</span>
+      <span className="text-[10px] font-black text-white">{value}/{max}</span>
+    </div>
+    <div className="h-1.5 overflow-hidden rounded-full bg-black/30">
+      <div
+        className={`h-full rounded-full transition-all duration-300 ${fillClassName}`}
+        style={{ width: `${clampPercent(value, max)}%` }}
+      />
+    </div>
+  </div>
+);
+
+const BattleActorStatusHud = ({
+  name,
+  subtitle,
+  accentColor,
+  badge,
+  hp,
+  statusEffects,
+}: {
+  name: string;
+  subtitle?: string;
+  accentColor: string;
+  badge?: string;
+  hp: { value: number; max: number };
+  statusEffects?: StatusEffect[];
+}) => (
+  <Html center sprite distanceFactor={7.2} zIndexRange={[110, 0]} position={[0, 2.7, 0]}>
+    <div className="pointer-events-none w-[210px] select-none sm:w-[260px]">
+      <div className="overflow-hidden rounded-[22px] border border-[#cfab91] bg-[#f7ecdd]/95 px-4 py-3 shadow-[0_18px_40px_rgba(107,49,65,0.18)] backdrop-blur-md">
+        <div className="mb-2 flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <div className="truncate text-xs font-black uppercase tracking-[0.18em] text-[#6b3141]">{name}</div>
+            {subtitle ? <div className="truncate text-[10px] font-semibold uppercase tracking-[0.16em] text-[#8f6c67]">{subtitle}</div> : null}
+          </div>
+          {badge ? (
+            <span
+              className="shrink-0 rounded-full border px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.16em]"
+              style={{ borderColor: `${accentColor}66`, backgroundColor: `${accentColor}1c`, color: accentColor }}
+            >
+              {badge}
+            </span>
+          ) : null}
+        </div>
+
+        <BattleStatusBar label="HP" value={hp.value} max={hp.max} fillClassName="bg-[linear-gradient(90deg,#c85466,#e78f9d)]" />
+
+        {(statusEffects?.length ?? 0) > 0 ? (
+          <div className="mt-2 flex flex-wrap gap-1">
+            {statusEffects?.slice(0, 3).map((status) => (
+              <span
+                key={status.id}
+                className="rounded-full border px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.14em]"
+                style={{ borderColor: `${status.color}55`, backgroundColor: `${status.color}18`, color: status.color }}
+              >
+                {status.name} {status.duration}t
+              </span>
+            ))}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  </Html>
+);
+
+const HeroVoxel = ({ classId = 'knight', playerAnimationAction = 'idle', animationClipName, preferredAnimationBundle, onAvailableAnimationClipsChange, loadAllAnimationBundles = false, loadSecondaryAnimationBundles = true, previewLoopAllActions = false, isAttacking, isDefending, weaponId, armorId, helmetId, legsId, shieldId, isLevelingUp, isHit, isPlayerCritHit, hasPerfectEvadeAura, hasDoubleAttackAura, contactShadowResolution = 256, idlePositionX = -2, attackPositionX = 0.5, defendPositionX = -1.5, originPosition = [-2, -1, 0], baseRotationY = 0.5, hiddenPartSlots, visiblePartSlots, runtimeAssetsOverride, calibrationOverride, debugRuntimeId, debugRuntimeLabel, onRuntimeDiagnosticChange, statusOverlay }: any) => {
   const playerClass = getPlayerClassById(classId);
   const runtimeHeroAssets = runtimeAssetsOverride ?? (hasRuntimeFbxAssets(playerClass.assets) ? playerClass.assets : null);
   const group = useRef<THREE.Group>(null);
@@ -362,6 +448,7 @@ const HeroVoxel = ({ classId = 'knight', playerAnimationAction = 'idle', animati
           </Suspense>
         ) : null}
         {isLevelingUp && <LevelUpEffect />}
+        {statusOverlay}
         <group ref={phantomAuraRef} position={[0, 0.2, 0]} visible={Boolean(hasPerfectEvadeAura)}>
           <mesh rotation={[Math.PI / 2, 0, 0]}>
             <torusGeometry args={[0.72, 0.05, 6, 20]} />
@@ -561,33 +648,6 @@ const CombinedHeroVoxel = ({
   );
 };
 
-const FramePacingController = ({ targetFps }: { targetFps: number }) => {
-  const invalidate = useThree((state) => state.invalidate);
-
-  useEffect(() => {
-    let rafId = 0;
-    let lastFrameTime = 0;
-    const frameInterval = 1000 / Math.max(1, targetFps);
-
-    const tick = (now: number) => {
-      if (now - lastFrameTime >= frameInterval) {
-        lastFrameTime = now;
-        invalidate();
-      }
-      rafId = window.requestAnimationFrame(tick);
-    };
-
-    invalidate();
-    rafId = window.requestAnimationFrame(tick);
-
-    return () => {
-      window.cancelAnimationFrame(rafId);
-    };
-  }, [invalidate, targetFps]);
-
-  return null;
-};
-
 export const GameScene: React.FC<SceneProps> = (props) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [gameTime, setGameTime] = useState("12:00");
@@ -597,19 +657,20 @@ export const GameScene: React.FC<SceneProps> = (props) => {
   }, [props.onGameTimeUpdate]);
   const quality = useMemo(() => getRenderQualityProfile(), []);
   const isDungeonRun = Boolean(props.isDungeonRun);
-  const enableFramePacing = quality.isLowQuality;
-  const targetFps = enableFramePacing ? 30 : 60;
+  const battleContactShadowResolution = useMemo(
+    () => quality.isLowQuality ? 48 : Math.min(quality.contactShadowResolution, 96),
+    [quality.contactShadowResolution, quality.isLowQuality],
+  );
 
   const bgColor = useMemo(() => {
     if (isDungeonRun) {
       return '#111827';
     }
-    const stage = props.stage || 1;
-    const colors = ['#020617', '#0c0a09', '#050505', '#1e1b4b', '#450a0a'];
-    return colors[(stage - 1) % colors.length];
+    return '#d7e6c2';
   }, [isDungeonRun, props.stage]);
 
   const activeScenario = useMemo(() => getScenario('forest'), []);
+  const enemyOverlay = null;
 
   return (
     <div ref={containerRef} className="absolute inset-0 z-0 transition-colors duration-1000" style={{ backgroundColor: bgColor }}>
@@ -626,9 +687,8 @@ export const GameScene: React.FC<SceneProps> = (props) => {
         dpr={quality.dpr}
         gl={{ antialias: quality.antialias, powerPreference: 'high-performance' }}
         performance={{ min: 0.5 }}
-        frameloop={enableFramePacing ? 'demand' : 'always'}
+        frameloop="always"
       >
-        {enableFramePacing && <FramePacingController targetFps={targetFps} />}
         <CameraController screenShake={props.screenShake} />
         {isDungeonRun ? (
           <>
@@ -640,13 +700,21 @@ export const GameScene: React.FC<SceneProps> = (props) => {
         ) : (
           <>
             <SkyboxController />
-            <FogController />
+            <fog attach="fog" args={['#d7e6c2', 16, 46]} />
             <DayNightCycle containerRef={containerRef} onTimeUpdate={handleTimeUpdate} quality={quality} />
-            <pointLight position={[-5, 2, -2]} intensity={0.5} color="#3b82f6" />
-            <NightEnemyGlow gameTime={gameTime} />
+            <ambientLight intensity={0.6} />
+            <hemisphereLight intensity={0.5} groundColor="#243a20" color="#f4ffe6" />
             <Suspense fallback={null}>
               <BattleScenario scenario={activeScenario} lowQuality={quality.isLowQuality} />
             </Suspense>
+            <ContactShadows
+              position={[0, -1.04, -0.2]}
+              opacity={0.34}
+              scale={22}
+              blur={2.2}
+              far={10}
+              resolution={battleContactShadowResolution}
+            />
           </>
         )}
         
@@ -681,14 +749,21 @@ export const GameScene: React.FC<SceneProps> = (props) => {
           isHit={props.isEnemyHit}
           attackStyle={props.enemyAttackStyle}
           contactShadowResolution={quality.contactShadowResolution}
+          statusOverlay={enemyOverlay}
         />
 
         {props.particles.map(p => <MeshParticle key={p.id} {...p} />)}
         <WorldFloatingTexts texts={props.floatingTexts} />
 
-        <EffectComposer>
-          <Vignette eskil={false} offset={0.1} darkness={0.42} />
-        </EffectComposer>
+        {isDungeonRun ? (
+          <EffectComposer>
+            <Vignette eskil={false} offset={0.1} darkness={0.42} />
+          </EffectComposer>
+        ) : !quality.isLowQuality ? (
+          <EffectComposer>
+            <Vignette eskil={false} offset={0.06} darkness={0.1} />
+          </EffectComposer>
+        ) : null}
       </Canvas>
     </div>
   );

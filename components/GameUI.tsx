@@ -1,7 +1,7 @@
 ﻿
 import React, { useState, useEffect } from 'react';
 import { Player, Enemy, BattleLog, TurnState, Item, Skill, GameState, FloatingText, Rarity, ProgressionCard, CardRewardOffer, AlchemistCardOffer, AlchemistItemOffer, DungeonResult, DungeonRewards, BossVictoryContext } from '../types';
-import { Sword, Shield, Zap, Heart, Coins, ShoppingBag, Skull, Play, Plus, FlaskConical, User, X, Home, LogOut, DollarSign, AlertTriangle, MousePointerClick, Shirt, Footprints, Crown, LayoutGrid, Sparkles, Crosshair, ArrowLeft, Star } from 'lucide-react';
+import { Sword, Shield, Zap, Heart, Coins, ShoppingBag, Skull, Play, Plus, FlaskConical, User, X, Home, LogOut, DollarSign, AlertTriangle, MousePointerClick, Shirt, Footprints, Crown, LayoutGrid, Sparkles, Crosshair, ArrowLeft, Star, Clock } from 'lucide-react';
 import { ItemPreviewThree } from './items/ItemPreviewThree';
 import { GameAssetIcon } from './ui/game-asset-icon';
 import { CharacterSheetModal } from './profile/CharacterSheetModal';
@@ -155,10 +155,10 @@ const ActionTile = ({
         <button
             onClick={onClick}
             disabled={disabled}
-            className={`col-span-1 rounded-[14px] aspect-square flex flex-col items-center justify-center gap-0.5 border-b-2 sm:border-b-3 transition-all active:translate-y-0.5 active:border-b-0 ${disabled ? 'bg-[#e9d7c2] border-[#dcc0aa] text-[#8f6c67] cursor-not-allowed' : variantClass}`}
+            className={`col-span-1 rounded-[12px] sm:rounded-[14px] aspect-square flex flex-col items-center justify-center gap-1 sm:gap-1.5 border-b-2 sm:border-b-3 transition-all active:translate-y-0.5 active:border-b-0 ${disabled ? 'bg-[#e9d7c2] border-[#dcc0aa] text-[#8f6c67] cursor-not-allowed' : variantClass}`}
         >
             {icon}
-            <span className="font-black text-[7px] sm:text-[10px] tracking-wide uppercase">{label}</span>
+            <span className="font-black text-[7px] sm:text-[11px] tracking-wide uppercase">{label}</span>
         </button>
     );
 };
@@ -2105,256 +2105,192 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
           </div>
       )}
       
-      {/* STAGE PROGRESS HUD (NEW) */}
-      <div className="absolute top-0 left-0 w-full flex flex-col items-center pointer-events-none z-20 pt-1 sm:pt-2 px-4 sm:px-0">
-          <div className="bg-[#f7ecdd]/92 backdrop-blur-md border border-[#cfab91] px-3 sm:px-4 py-1.5 rounded-[14px] w-full sm:w-auto flex items-center justify-center gap-2 sm:gap-4 shadow-xl animate-fade-in-down">
-              <span className="text-[10px] font-black uppercase tracking-[0.16em] text-[#6b3141]">{isDungeonRun ? 'DUNGEON' : `FASE ${stage}`}</span>
-              <div className="w-px h-4 bg-[#dcc0aa]"></div>
-              <div className="flex items-center gap-2">
-                  <div className="w-20 sm:w-24 h-2 bg-[#e9d7c2] rounded-full overflow-hidden border border-[#dcc0aa] relative">
-                      <div 
-                        className="h-full rounded-full bg-[linear-gradient(90deg,#7d3d4d,#c89a66)] transition-all duration-500" 
-                                                style={{ width: `${isDungeonRun ? Math.min(100, (dungeonCleared / dungeonTotal) * 100) : Math.min(100, (killCount / 10) * 100)}%` }}
-                      />
+      {/* ═══ TOP: Player vitals (left) + Stage (center) + Enemy HP (right) ═══ */}
+      <div className="absolute top-0 left-0 w-full z-20 pointer-events-none pt-1.5 sm:pt-2.5 px-2 sm:px-4">
+          <div className="flex items-start justify-between gap-1.5 sm:gap-3">
+              {/* Player vitals — left */}
+              <div className="rounded-[16px] border border-[#cfab91] bg-[#f7ecdd]/94 px-2.5 py-2 shadow-xl backdrop-blur-md flex-1 max-w-[48%] sm:max-w-[280px] animate-fade-in-down">
+                  <div className="space-y-1.5">
+                      <div>
+                          <div className="flex items-center justify-between mb-0.5">
+                              <span className="text-[9px] font-black uppercase tracking-[0.22em] text-[#9a4151]">HP</span>
+                              <span className="text-[10px] font-black text-[#6b3141]">{player.stats.hp}/{player.stats.maxHp}</span>
+                          </div>
+                          <div className="h-2.5 bg-[#e9d7c2] rounded-full overflow-hidden"><div className="h-full rounded-full bg-[linear-gradient(90deg,#8d2f46,#d17482)] transition-all duration-300" style={{width: `${(player.stats.hp/player.stats.maxHp)*100}%`}}></div></div>
+                      </div>
+                      <div>
+                          <div className="flex items-center justify-between mb-0.5">
+                              <span className="text-[9px] font-black uppercase tracking-[0.22em] text-[#346c7f]">Mana</span>
+                              <span className="text-[10px] font-black text-[#6b3141]">{player.stats.mp}/{player.stats.maxMp}</span>
+                          </div>
+                          <div className="h-2 bg-[#e9d7c2] rounded-full overflow-hidden"><div className="h-full rounded-full bg-[linear-gradient(90deg,#2b6878,#66b8d2)] transition-all duration-300" style={{width: `${(player.stats.mp/player.stats.maxMp)*100}%`}}></div></div>
+                      </div>
+                      {player.classResource.max > 0 && (
+                          <div>
+                              <div className="flex items-center justify-between mb-0.5">
+                                  <span className="text-[9px] font-black uppercase tracking-[0.22em] text-[#7c4c76]">{player.classResource.name}</span>
+                                  <span className="text-[10px] font-black text-[#6b3141]">{player.classResource.value}/{player.classResource.max}</span>
+                              </div>
+                              <div className="h-1.5 bg-[#e9d7c2] rounded-full overflow-hidden"><div className="h-full rounded-full bg-[linear-gradient(90deg,#4c1d95,#c084fc)] transition-all duration-300" style={{width: `${player.classResource.max > 0 ? (player.classResource.value/player.classResource.max)*100 : 0}%`}}></div></div>
+                          </div>
+                      )}
                   </div>
-                  <span className="text-[10px] font-black text-[#6b3141] min-w-[30px] text-right">
-                                        {isDungeonRun ? (dungeonCleared >= dungeonTotal ? <span className="text-rose-500 animate-pulse">CHEFÃO</span> : `${dungeonCleared}/${dungeonTotal}`) : (killCount >= 10 ? <span className="text-rose-500 animate-pulse">CHEFÃO</span> : `${killCount}/10`)}
-                  </span>
+                  {/* XP compact */}
+                  <div className="mt-1.5 pt-1 border-t border-[#dcc0aa]">
+                      <div className="flex items-center gap-1.5">
+                          <span className="text-[8px] font-black uppercase tracking-[0.2em] text-[#9a7068]">XP</span>
+                          <div className="flex-1 h-1 bg-[#e9d7c2] rounded-full overflow-hidden"><div className="h-full rounded-full bg-[linear-gradient(90deg,#7d3d4d,#c89a66)] transition-all duration-500" style={{width: `${(player.xp/player.xpToNext)*100}%`}}></div></div>
+                          <span className="text-[8px] font-black text-[#6b3141]">{player.xp}/{player.xpToNext}</span>
+                      </div>
+                  </div>
+                  {/* Buffs */}
+                  {(player.buffs.atkTurns > 0 || player.buffs.defTurns > 0 || player.buffs.perfectEvadeTurns > 0 || player.buffs.doubleAttackTurns > 0) && (
+                      <div className="mt-1 flex flex-wrap gap-1 max-h-[36px] overflow-hidden">
+                          {player.buffs.atkTurns > 0 && <div className="flex items-center gap-0.5 bg-[#f4e5d4] px-1 py-0.5 rounded-[6px] text-[7px] font-black border border-[#cfab91] text-[#6b3141]"><Sword size={8} className="text-[#b83a4b]" /><span>+{(player.buffs.atkMod*100).toFixed(0)}% ({player.buffs.atkTurns}t)</span></div>}
+                          {player.buffs.defTurns > 0 && <div className="flex items-center gap-0.5 bg-[#f4e5d4] px-1 py-0.5 rounded-[6px] text-[7px] font-black border border-[#cfab91] text-[#6b3141]"><Shield size={8} className="text-[#4d6780]" /><span>+{(player.buffs.defMod*100).toFixed(0)}% ({player.buffs.defTurns}t)</span></div>}
+                          {player.buffs.perfectEvadeTurns > 0 && <div className="flex items-center gap-0.5 bg-[#f4e5d4] px-1 py-0.5 rounded-[6px] text-[7px] font-black border border-[#cfab91] text-[#6b3141]"><Sparkles size={8} className="text-[#7c4c76]" /><span>EVD ({player.buffs.perfectEvadeTurns}t)</span></div>}
+                          {player.buffs.doubleAttackTurns > 0 && <div className="flex items-center gap-0.5 bg-[#f4e5d4] px-1 py-0.5 rounded-[6px] text-[7px] font-black border border-[#cfab91] text-[#6b3141]"><Sword size={8} className="text-[#b83a4b]" /><span>x2 ({player.buffs.doubleAttackTurns}t)</span></div>}
+                      </div>
+                  )}
               </div>
-          </div>
-          {/* Mobile: Gold + Diamonds + Clock below stage card */}
-          <div className="flex sm:hidden items-center justify-center gap-2 mt-1 w-full px-4 pointer-events-auto">
-              {!isDungeonRun && gameTime && (
-                <div className="bg-white/90 backdrop-blur-md border border-[#ddd] px-2.5 py-1 rounded-[12px] flex items-center gap-1.5 shadow-sm">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#888" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                  <span className="font-black text-xs text-[#555]">{gameTime}</span>
-                </div>
+
+              {/* Stage progress — center pill */}
+              <div className="flex flex-col items-center gap-1.5 shrink-0 self-start mt-0.5">
+                  <div className="bg-[#f7ecdd]/92 backdrop-blur-md border border-[#cfab91] px-2 sm:px-3 py-1 rounded-[12px] shadow-xl animate-fade-in-down">
+                      <div className="flex flex-col items-center gap-0.5">
+                          <span className="text-[9px] font-black uppercase tracking-[0.14em] text-[#6b3141]">{isDungeonRun ? 'DUNGEON' : `FASE ${stage}`}</span>
+                          <div className="flex items-center gap-1.5">
+                              <div className="w-10 sm:w-14 h-1.5 bg-[#e9d7c2] rounded-full overflow-hidden border border-[#dcc0aa]">
+                                  <div className="h-full rounded-full bg-[linear-gradient(90deg,#7d3d4d,#c89a66)] transition-all duration-500" style={{ width: `${isDungeonRun ? Math.min(100, (dungeonCleared / dungeonTotal) * 100) : Math.min(100, (killCount / 10) * 100)}%` }} />
+                              </div>
+                              <span className="text-[9px] font-black text-[#6b3141]">
+                                  {isDungeonRun ? (dungeonCleared >= dungeonTotal ? <span className="text-rose-500 animate-pulse">BOSS</span> : `${dungeonCleared}/${dungeonTotal}`) : (killCount >= 10 ? <span className="text-rose-500 animate-pulse">BOSS</span> : `${killCount}/10`)}
+                              </span>
+                          </div>
+                      </div>
+                  </div>
+                  {/* Clock card — same style */}
+                  {gameTime && (
+                      <div className="bg-[#f7ecdd]/92 backdrop-blur-md border border-[#cfab91] px-3 sm:px-4 py-1.5 rounded-[12px] shadow-xl animate-fade-in-down">
+                          <div className="flex items-center gap-2">
+                              <Clock size={16} className="text-[#6b3141]" />
+                              <span className="text-[11px] sm:text-xs font-black uppercase tracking-[0.14em] text-[#6b3141]">{gameTime}</span>
+                          </div>
+                      </div>
+                  )}
+              </div>
+
+              {/* Enemy HP — right */}
+              {enemy && (
+                  <div className="rounded-[16px] border border-[#cfab91] bg-[#f7ecdd]/94 px-2.5 py-2 shadow-xl backdrop-blur-md flex-1 max-w-[48%] sm:max-w-[250px] animate-fade-in-down">
+                      <div className="flex items-center justify-between gap-1.5 mb-1">
+                          <div className="min-w-0">
+                              <div className="truncate text-xs font-black text-[#6b3141]">{enemy.name}</div>
+                              <span className="text-[9px] font-bold uppercase tracking-[0.14em] text-[#8a5a57]">Nv. {enemy.level}</span>
+                          </div>
+                          {enemy.isBoss && (
+                              <span className="shrink-0 rounded-full border border-rose-300 bg-rose-100 px-1.5 py-0.5 text-[8px] font-black uppercase text-rose-600">Chefão</span>
+                          )}
+                      </div>
+                      <div>
+                          <div className="flex items-center justify-between mb-0.5">
+                              <span className="text-[9px] font-black uppercase tracking-[0.22em] text-[#9a4151]">HP</span>
+                              <span className="text-[10px] font-black text-[#6b3141]">{enemy.stats.hp}/{enemy.stats.maxHp}</span>
+                          </div>
+                          <div className="h-2.5 bg-[#e9d7c2] rounded-full overflow-hidden">
+                              <div className="h-full rounded-full bg-[linear-gradient(90deg,#8d2f46,#d17482)] transition-all duration-300" style={{width: `${Math.max(0, (enemy.stats.hp/enemy.stats.maxHp)*100)}%`}}></div>
+                          </div>
+                      </div>
+                      {(enemy.statusEffects?.length ?? 0) > 0 && (
+                          <div className="mt-1 flex flex-wrap gap-1">
+                              {enemy.statusEffects?.slice(0, 3).map((status) => (
+                                  <span key={status.id} className="rounded-full border px-1 py-0.5 text-[7px] font-black uppercase" style={{ borderColor: `${status.color}55`, backgroundColor: `${status.color}18`, color: status.color }}>
+                                      {status.name} {status.duration}t
+                                  </span>
+                              ))}
+                          </div>
+                      )}
+                  </div>
               )}
-              <div className="bg-[#f7ecdd]/92 backdrop-blur-md border border-[#cfab91] px-2.5 py-1 rounded-[12px] flex items-center gap-1.5 shadow-sm">
-                  <GameAssetIcon name="coin" size={14} />
-                  <span className="font-black text-xs text-[#6b3141]">{player.gold}</span>
-              </div>
-              <div className="bg-[#f7ecdd]/92 backdrop-blur-md border border-[#cfab91] px-2.5 py-1 rounded-[12px] flex items-center gap-1.5 shadow-sm">
-                  <GameAssetIcon name="diamond" size={14} />
-                  <span className="font-black text-xs text-[#6b3141]">{player.diamonds}</span>
-              </div>
           </div>
       </div>
 
-      {/* GOLD DISPLAY - Desktop only */}
-        <div className="absolute top-4 right-4 pointer-events-auto z-20 hidden sm:block">
-            <div className="flex items-center gap-2">
-                <div className="bg-[#f7ecdd]/92 backdrop-blur-md border border-[#cfab91] px-3 py-1.5 rounded-[14px] flex items-center gap-2 shadow-lg animate-fade-in-down">
-                    <GameAssetIcon name="coin" size={18} />
-                    <span className="font-black text-sm text-[#6b3141]">{player.gold}</span>
-                </div>
-                <div className="bg-[#f7ecdd]/92 backdrop-blur-md border border-[#cfab91] px-3 py-1.5 rounded-[14px] flex items-center gap-2 shadow-lg animate-fade-in-down">
-                    <GameAssetIcon name="diamond" size={18} />
-                    <span className="font-black text-sm text-[#6b3141]">{player.diamonds}</span>
-                </div>
-            </div>
-      </div>
-
-      {/* Top Bar: Enemy */}
-            <div className="w-full flex justify-center items-start pt-[72px] sm:pt-12 pointer-events-auto px-4 sm:px-0">
-        {enemy && (
-                    <div className={`backdrop-blur-md border p-2.5 sm:p-3 rounded-[18px] shadow-xl w-full sm:w-auto min-w-[220px] max-w-[400px] sm:max-w-[300px] transition-all relative overflow-hidden
-             ${enemy.isBoss ? 'bg-rose-50/95 border-rose-400' : 'bg-[#f7ecdd]/92 border-[#cfab91]'}
-          `}>
-             {enemy.isBoss && <div className="absolute top-0 right-0 bg-rose-500 text-white text-[8px] font-black uppercase tracking-[0.14em] px-2 py-0.5 rounded-bl-[12px] z-10">CHEFÃO</div>}
-             
-             <div className="flex justify-between items-center mb-2">
-                <div className="flex items-center gap-2">
-                   <Skull size={16} className={enemy.isBoss ? "text-rose-500" : "text-[#9a7068]"} />
-                   <span className="font-black text-sm tracking-wide uppercase text-[#6b3141]">{enemy.name}</span>
-                </div>
-                <span className="text-[10px] font-black uppercase tracking-[0.14em] bg-[#f4e5d4] border border-[#d6b9a3] px-1.5 py-0.5 rounded-full ml-2 text-[#8d5e29]">Nv. {enemy.level}</span>
-             </div>
-             <div className="border-t border-[#dcc0aa] pt-1.5">
-                <div className="flex items-center justify-between mb-0.5">
-                  <span className="text-[9px] font-black uppercase tracking-[0.22em] text-[#9a4151]">HP</span>
-                  <span className="text-xs font-black text-[#6b3141]">{enemy.stats.hp}/{enemy.stats.maxHp}</span>
-                </div>
-                <div className="h-2 bg-[#e9d7c2] rounded-full overflow-hidden"><div className="h-full rounded-full bg-[linear-gradient(90deg,#8d2f46,#d17482)] transition-all duration-500" style={{width: `${Math.max(0, Math.min(100, (enemy.stats.hp/enemy.stats.maxHp)*100))}%`}}></div></div>
-                {(enemy.statusEffects?.length ?? 0) > 0 && (
-                  <div className="mt-2 flex flex-wrap gap-1">
-                    {enemy.statusEffects?.map((status) => (
-                      <span key={status.id} className="rounded-full border px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.14em]" style={{ borderColor: `${status.color}55`, backgroundColor: `${status.color}18`, color: status.color }}>
-                        {status.name} {status.duration}t
-                      </span>
-                    ))}
-                  </div>
-                )}
-             </div>
-          </div>
-        )}
-      </div>
-
-      {/* Logs removed from desktop per user request */}
-
-      {/* Bottom: Player Stats & Controls */}
-        <div className="relative w-full max-w-5xl mx-auto pointer-events-auto mb-2 sm:mb-4">
-         
-            <div className="flex flex-row gap-2 sm:gap-4 items-end">
-             
-             {/* Player Status Card - Bottom Left */}
-                         <div className="bg-[#f7ecdd]/92 backdrop-blur-md p-2.5 sm:p-3 rounded-[18px] border border-[#cfab91] flex-1 sm:w-[320px] sm:flex-none shadow-xl relative">
-                                 <div className="flex justify-between items-center mb-1.5">
-                                         <div className="min-w-0">
-                                                <div className="text-xs sm:text-sm font-black text-[#6b3141] truncate">{player.name}</div>
-                                                <div className="flex items-center gap-1.5 mt-0.5">
-                                                    <span className="text-[10px] font-bold text-[#8a5a57] truncate">{getPlayerClassById(player.classId).name}</span>
-                                                    <span className="text-[10px] font-black uppercase tracking-[0.14em] text-[#8d5e29] bg-[#f4e5d4] border border-[#d6b9a3] px-1.5 py-0.5 rounded-full">Nv. {player.level}</span>
-                                                </div>
-                                         </div>
-                     <div className="flex gap-1.5 shrink-0">
-                         <button 
-                            onClick={() => setShowBattleStats(s => !s)}
-                            className={`p-2 rounded-[12px] transition-colors border ${showBattleStats ? 'bg-[#c59d82] border-[#c59d82] text-white' : 'bg-[#f4e5d4] border-[#dcc0aa] text-[#6b3141] hover:bg-[#e9d7c2]'}`}
-                            title="Atributos"
-                         >
-                             <LayoutGrid size={18} />
-                         </button>
-                         <button 
-                            onClick={() => setShowInventory(true)}
-                            className="bg-[#f4e5d4] border border-[#dcc0aa] text-[#6b3141] hover:bg-[#e9d7c2] p-2 rounded-[12px] transition-colors"
-                            title="Mochila"
-                         >
-                             <GameAssetIcon name="bag" size={20} />
-                         </button>
-                         <button 
-                            onClick={() => setShowProfile(true)}
-                            className="bg-[#f4e5d4] border border-[#dcc0aa] text-[#6b3141] hover:bg-[#e9d7c2] p-2 rounded-[12px] transition-colors"
-                            title="Ver Perfil"
-                         >
-                             <GameAssetIcon name="book" size={20} />
-                         </button>
-                     </div>
-                 </div>
-
-                 {!showBattleStats ? (
-                   <div className="border-t border-[#dcc0aa] mt-1.5 pt-1.5 space-y-1">
-                     <div>
-                        <div className="flex items-center justify-between mb-0.5">
-                          <span className="text-[9px] font-black uppercase tracking-[0.22em] text-[#9a4151]">HP</span>
-                          <span className="text-[11px] font-black text-[#6b3141]">{player.stats.hp}/{player.stats.maxHp}</span>
-                        </div>
-                        <div className="h-1.5 bg-[#e9d7c2] rounded-full overflow-hidden"><div className="h-full rounded-full bg-[linear-gradient(90deg,#8d2f46,#d17482)]" style={{width: `${(player.stats.hp/player.stats.maxHp)*100}%`}}></div></div>
-                     </div>
-                     <div>
-                        <div className="flex items-center justify-between mb-0.5">
-                          <span className="text-[9px] font-black uppercase tracking-[0.22em] text-[#346c7f]">Mana</span>
-                          <span className="text-[11px] font-black text-[#6b3141]">{player.stats.mp}/{player.stats.maxMp}</span>
-                        </div>
-                        <div className="h-1.5 bg-[#e9d7c2] rounded-full overflow-hidden"><div className="h-full rounded-full bg-[linear-gradient(90deg,#2b6878,#66b8d2)]" style={{width: `${(player.stats.mp/player.stats.maxMp)*100}%`}}></div></div>
-                     </div>
-                     <div>
-                        <div className="flex items-center justify-between mb-0.5">
-                          <span className="text-[9px] font-black uppercase tracking-[0.22em] text-[#9a7068]">XP</span>
-                          <span className="text-[11px] font-black text-[#6b3141]">{player.xp}/{player.xpToNext}</span>
-                        </div>
-                        <div className="h-1 bg-[#e9d7c2] rounded-full overflow-hidden"><div className="h-full rounded-full bg-[linear-gradient(90deg,#7d3d4d,#c89a66)]" style={{width: `${(player.xp/player.xpToNext)*100}%`}}></div></div>
-                     </div>
-                     <div>
-                        <div className="flex items-center justify-between mb-0.5">
-                          <span className="text-[9px] font-black uppercase tracking-[0.22em] text-[#7c4c76]">{player.classResource.name}</span>
-                          <span className="text-[11px] font-black text-[#6b3141]">{player.classResource.value}/{player.classResource.max}</span>
-                        </div>
-                        <div className="h-1 bg-[#e9d7c2] rounded-full overflow-hidden"><div className="h-full rounded-full bg-[linear-gradient(90deg,#4c1d95,#c084fc)]" style={{width: `${player.classResource.max > 0 ? (player.classResource.value/player.classResource.max)*100 : 0}%`}}></div></div>
-                     </div>
-                   </div>
-                 ) : (
-                   <div className="border-t border-[#dcc0aa] mt-1.5 pt-1.5 grid grid-cols-4 gap-1">
-                       <div className="rounded-[10px] border border-[#d6b9a3] bg-[#f4e5d4] px-1.5 py-1 flex flex-col items-center gap-0.5">
-                         <div className="flex h-5 w-5 shrink-0 items-center justify-center text-[#b83a4b]"><Sword size={14} /></div>
-                         <div className="text-center"><div className="text-[7px] font-black uppercase tracking-[0.12em] text-[#9a7068]">ATK</div><div className="text-xs font-black text-[#b83a4b]">{player.stats.atk}</div></div>
-                       </div>
-                       <div className="rounded-[10px] border border-[#d6b9a3] bg-[#f4e5d4] px-1.5 py-1 flex flex-col items-center gap-0.5">
-                         <div className="flex h-5 w-5 shrink-0 items-center justify-center text-[#4d6780]"><Shield size={14} /></div>
-                         <div className="text-center"><div className="text-[7px] font-black uppercase tracking-[0.12em] text-[#9a7068]">DEF</div><div className="text-xs font-black text-[#4d6780]">{player.stats.def}</div></div>
-                       </div>
-                       <div className="rounded-[10px] border border-[#d6b9a3] bg-[#f4e5d4] px-1.5 py-1 flex flex-col items-center gap-0.5">
-                         <div className="flex h-5 w-5 shrink-0 items-center justify-center text-[#7c4c76]"><Zap size={14} /></div>
-                         <div className="text-center"><div className="text-[7px] font-black uppercase tracking-[0.12em] text-[#9a7068]">VEL</div><div className="text-xs font-black text-[#7c4c76]">{player.stats.speed}</div></div>
-                       </div>
-                       <div className="rounded-[10px] border border-[#d6b9a3] bg-[#f4e5d4] px-1.5 py-1 flex flex-col items-center gap-0.5">
-                         <div className="flex h-5 w-5 shrink-0 items-center justify-center text-[#b26a2e]"><Star size={14} /></div>
-                         <div className="text-center"><div className="text-[7px] font-black uppercase tracking-[0.12em] text-[#9a7068]">SRT</div><div className="text-xs font-black text-[#b26a2e]">{player.stats.luck}</div></div>
-                       </div>
-                   </div>
-                 )}
-
-                 {/* ACTIVE BUFFS INDICATORS */}
-                 <div className="flex flex-wrap gap-1 mt-1.5">
-                     {player.buffs.atkTurns > 0 && (
-                         <div className="flex items-center gap-1.5 bg-[#f7ecdd] text-[#6b3141] px-2 py-1 rounded-[10px] text-[8px] font-black border border-[#cfab91]">
-                             <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-[6px] bg-[#f8eddf]"><Sword size={10} className="text-[#b83a4b]" /></span>
-                             <span className="uppercase tracking-[0.12em]">ATK +{(player.buffs.atkMod*100).toFixed(0)}% ({player.buffs.atkTurns}t)</span>
-                         </div>
-                     )}
-                     {player.buffs.defTurns > 0 && (
-                         <div className="flex items-center gap-1.5 bg-[#f7ecdd] text-[#6b3141] px-2 py-1 rounded-[10px] text-[8px] font-black border border-[#cfab91]">
-                             <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-[6px] bg-[#f8eddf]"><Shield size={10} className="text-[#4d6780]" /></span>
-                             <span className="uppercase tracking-[0.12em]">DEF +{(player.buffs.defMod*100).toFixed(0)}% ({player.buffs.defTurns}t)</span>
-                         </div>
-                     )}
-                     {player.buffs.perfectEvadeTurns > 0 && (
-                         <div className="flex items-center gap-1.5 bg-[#f7ecdd] text-[#6b3141] px-2 py-1 rounded-[10px] text-[8px] font-black border border-[#cfab91]">
-                             <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-[6px] bg-[#f8eddf]"><Sparkles size={10} className="text-[#7c4c76]" /></span>
-                             <span className="uppercase tracking-[0.12em]">EVADE ({player.buffs.perfectEvadeTurns}t)</span>
-                         </div>
-                     )}
-                     {player.buffs.doubleAttackTurns > 0 && (
-                         <div className="flex items-center gap-1.5 bg-[#f7ecdd] text-[#6b3141] px-2 py-1 rounded-[10px] text-[8px] font-black border border-[#cfab91]">
-                             <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-[6px] bg-[#f8eddf]"><Sword size={10} className="text-[#b83a4b]" /></span>
-                             <span className="uppercase tracking-[0.12em]">x2 ATK ({player.buffs.doubleAttackTurns}t)</span>
-                         </div>
-                     )}
-                 </div>
-             </div>
-
-             {/* Action Grid - Right side on mobile and desktop */}
-                 <div className="flex flex-col gap-1 items-end shrink-0 pointer-events-auto sm:fixed sm:bottom-4 sm:right-4 sm:z-30">
-                     {/* Boss battle button */}
-                     {!isDungeonRun && killCount >= 10 && !enemy?.isBoss && (
-                         <button
-                            onClick={() => onStartBattle(true)}
-                                     className="w-[100px] sm:w-40 rounded-[12px] border border-rose-400 bg-rose-500 py-1.5 text-[9px] sm:text-xs font-black uppercase tracking-[0.12em] text-white transition-all pointer-events-auto hover:bg-rose-600 hover:scale-105 animate-pulse shadow-lg shadow-rose-500/30 flex items-center justify-center gap-1.5"
-                         >
-                            <Skull size={14} /> ENFRENTAR CHEFÃO
-                         </button>
-                     )}
-
-                     {!isDungeonRun && !enemy?.isBoss && killCount < 10 && (
-                         <button
-                            onClick={() => setShowFleeConfirm(true)}
-                            disabled={!isPlayerTurn}
-                            className={`self-end rounded-[10px] border px-3 py-1 text-[9px] font-black uppercase tracking-[0.15em] transition-colors pointer-events-auto ${!isPlayerTurn ? 'border-[#dcc0aa] bg-[#e9d7c2] text-[#8f6c67] cursor-not-allowed' : 'border-[#cfab91] bg-[#f4e5d4] text-[#6b3141] hover:bg-[#e9d7c2]'}`}
-                         >
-                            {canLeaveFreely ? 'Sair' : 'Fugir'}
-                         </button>
-                     )}
-
-                     {isDungeonRun && dungeonRewards && (
-                          <button
-                              onClick={() => setShowDungeonLootPreview(true)}
-                              className="self-end rounded-[10px] border border-[#cfab91] bg-[#f4e5d4] px-3 py-1 text-[9px] font-black uppercase tracking-[0.15em] text-[#6b3141] transition-colors pointer-events-auto hover:bg-[#e9d7c2]"
-                          >
-                              Espólio
+      {/* ═══ BOTTOM: Hero name/profile (left) + Actions 2x2 (right) ═══ */}
+      <div className="flex-1" /> {/* spacer to push bottom content down */}
+      <div className="relative w-full pointer-events-auto mb-2 sm:mb-4 px-2 sm:px-4">
+          <div className="flex items-end justify-between gap-2">
+              {/* Left: hero identity + quick buttons */}
+              <div className="flex flex-col gap-2 shrink-0">
+                  {/* Special buttons — above the card */}
+                  {!isDungeonRun && killCount >= 10 && !enemy?.isBoss && (
+                      <button onClick={() => onStartBattle(true)} className="rounded-[12px] border border-rose-400 bg-rose-500 px-3 py-1.5 text-[9px] sm:text-xs font-black uppercase tracking-[0.12em] text-white transition-all hover:bg-rose-600 hover:scale-105 animate-pulse shadow-lg shadow-rose-500/30 flex items-center justify-center gap-1.5">
+                          <Skull size={14} /> ENFRENTAR CHEFÃO
+                      </button>
+                  )}
+                  {!isDungeonRun && !enemy?.isBoss && killCount < 10 && (
+                      <button onClick={() => setShowFleeConfirm(true)} disabled={!isPlayerTurn} className={`self-start rounded-[10px] border px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.15em] transition-colors ${!isPlayerTurn ? 'border-[#dcc0aa] bg-[#e9d7c2] text-[#8f6c67] cursor-not-allowed' : 'border-[#cfab91] bg-[#f4e5d4] text-[#6b3141] hover:bg-[#e9d7c2]'}`}>
+                          {canLeaveFreely ? 'Sair' : 'Fugir'}
+                      </button>
+                  )}
+                  {isDungeonRun && dungeonRewards && (
+                      <button onClick={() => setShowDungeonLootPreview(true)} className="self-start rounded-[10px] border border-[#cfab91] bg-[#f4e5d4] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.15em] text-[#6b3141] transition-colors hover:bg-[#e9d7c2]">
+                          Espólio
+                      </button>
+                  )}
+                  <div className="rounded-[18px] border border-[#cfab91] bg-[#f7ecdd]/94 px-4 py-3.5 shadow-xl backdrop-blur-md max-w-[280px] sm:max-w-[320px]">
+                      <div className="flex items-center gap-3">
+                          <div className="min-w-0">
+                              <div className="truncate text-base sm:text-lg font-black text-[#6b3141]">{player.name}</div>
+                              <div className="flex items-center gap-1.5">
+                                  <span className="truncate text-[11px] sm:text-sm font-bold uppercase tracking-[0.12em] text-[#8a5a57]">{getPlayerClassById(player.classId).name}</span>
+                                  <span className="rounded-full border border-[#d6b9a3] bg-[#f4e5d4] px-2 py-0.5 text-[11px] sm:text-sm font-black text-[#8d5e29]">Nv.{player.level}</span>
+                              </div>
+                          </div>
+                          <div className="flex flex-col gap-1 text-xs sm:text-sm font-black text-[#8f6c67] shrink-0">
+                              <div className="flex items-center gap-1.5 rounded-full border border-[#d6b9a3] bg-[#f4e5d4] px-2.5 py-1">
+                                  <GameAssetIcon name="coin" size={16} /><span>{player.gold}</span>
+                              </div>
+                              <div className="flex items-center gap-1.5 rounded-full border border-[#d6b9a3] bg-[#f4e5d4] px-2.5 py-1">
+                                  <GameAssetIcon name="diamond" size={16} /><span>{player.diamonds}</span>
+                              </div>
+                          </div>
+                      </div>
+                      <div className="mt-2.5 flex items-center gap-2">
+                          <button onClick={() => setShowBattleStats(s => !s)} className={`flex h-10 w-10 items-center justify-center rounded-[12px] border transition-colors ${showBattleStats ? 'bg-[#c59d82] border-[#c59d82] text-white' : 'bg-[#f4e5d4] border-[#dcc0aa] text-[#6b3141] hover:bg-[#e9d7c2]'}`} title="Atributos">
+                              <LayoutGrid size={20} />
                           </button>
-                     )}
+                          <button onClick={() => setShowInventory(true)} className="flex h-10 w-10 items-center justify-center rounded-[12px] border border-[#dcc0aa] bg-[#f4e5d4] text-[#6b3141] transition-colors hover:bg-[#e9d7c2]" title="Mochila">
+                              <GameAssetIcon name="bag" size={22} />
+                          </button>
+                          <button onClick={() => setShowProfile(true)} className="flex h-10 w-10 items-center justify-center rounded-[12px] border border-[#dcc0aa] bg-[#f4e5d4] text-[#6b3141] transition-colors hover:bg-[#e9d7c2]" title="Perfil">
+                              <GameAssetIcon name="book" size={22} />
+                          </button>
+                      </div>
+                  </div>
+                  {/* Stats popup */}
+                  {showBattleStats && (
+                      <div className="rounded-[12px] border border-[#cfab91] bg-[#f7ecdd]/96 p-1.5 shadow-lg backdrop-blur-md max-w-[200px]">
+                          <div className="grid grid-cols-4 gap-1">
+                              <div className="text-center"><Sword size={11} className="mx-auto text-[#b83a4b]" /><div className="text-[7px] font-black text-[#9a7068]">ATK</div><div className="text-[11px] font-black text-[#b83a4b]">{player.stats.atk}</div></div>
+                              <div className="text-center"><Shield size={11} className="mx-auto text-[#4d6780]" /><div className="text-[7px] font-black text-[#9a7068]">DEF</div><div className="text-[11px] font-black text-[#4d6780]">{player.stats.def}</div></div>
+                              <div className="text-center"><Zap size={11} className="mx-auto text-[#7c4c76]" /><div className="text-[7px] font-black text-[#9a7068]">VEL</div><div className="text-[11px] font-black text-[#7c4c76]">{player.stats.speed}</div></div>
+                              <div className="text-center"><Star size={11} className="mx-auto text-[#b26a2e]" /><div className="text-[7px] font-black text-[#9a7068]">SRT</div><div className="text-[11px] font-black text-[#b26a2e]">{player.stats.luck}</div></div>
+                          </div>
+                      </div>
+                  )}
 
-                     <div className="grid grid-cols-2 gap-1.5 w-[140px] sm:w-40">
-                         <ActionTile icon={<Sword size={18} />} label="ATACAR" onClick={() => { setActiveBattleMenu(null); onAttack(); }} disabled={!isPlayerTurn} variant="attack" />
+              </div>
 
-                         <ActionTile icon={<Shield size={18} />} label="DEFENDER" onClick={() => { setActiveBattleMenu(null); onDefend(); }} disabled={!isPlayerTurn} variant="defense" />
-
-                         <ActionTile icon={<Sparkles size={18} />} label="SKILLS" onClick={() => setActiveBattleMenu(prev => prev === 'skills' ? null : 'skills')} disabled={!isPlayerTurn || player.skills.length === 0} variant="skill" />
-
-                         <ActionTile icon={<FlaskConical size={18} />} label="ITENS" onClick={() => setActiveBattleMenu(prev => prev === 'items' ? null : 'items')} disabled={!isPlayerTurn || usableItems.length === 0} variant="item" />
-                     </div>
-             </div>
-         </div>
+              {/* Right: 2x2 action grid */}
+              <div className="flex flex-col items-end gap-2 shrink-0">
+                  <div className="grid grid-cols-2 gap-1.5 w-[130px] sm:gap-2 sm:w-[210px]">
+                      <ActionTile icon={<Sword size={18} />} label="ATACAR" onClick={() => { setActiveBattleMenu(null); onAttack(); }} disabled={!isPlayerTurn} variant="attack" />
+                      <ActionTile icon={<Shield size={18} />} label="DEFENDER" onClick={() => { setActiveBattleMenu(null); onDefend(); }} disabled={!isPlayerTurn} variant="defense" />
+                      <ActionTile icon={<Sparkles size={18} />} label="SKILLS" onClick={() => setActiveBattleMenu(prev => prev === 'skills' ? null : 'skills')} disabled={!isPlayerTurn || player.skills.length === 0} variant="skill" />
+                      <ActionTile icon={<FlaskConical size={18} />} label="ITENS" onClick={() => setActiveBattleMenu(prev => prev === 'items' ? null : 'items')} disabled={!isPlayerTurn || usableItems.length === 0} variant="item" />
+                  </div>
+              </div>
+          </div>
       </div>
 
     {showProfile && <CharacterSheetModal player={player} shopItems={shopItems} onClose={() => setShowProfile(false)} onOpenInventory={() => { setShowProfile(false); setShowInventory(true); }} onUnlockTalent={onUnlockTalent} />}

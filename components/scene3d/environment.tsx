@@ -5,6 +5,8 @@ import * as THREE from 'three';
 import { VoxelPart } from '../items/VoxelPart';
 import type { RenderQualityProfile } from './types';
 
+const disableRaycast = () => null;
+
 export const createModularBuilderQualityProfile = (base: RenderQualityProfile): RenderQualityProfile => ({
   isLowQuality: true,
   dpr: [1, Math.min(base.dpr[1], 1.25)],
@@ -271,7 +273,7 @@ export const SkyboxController: React.FC = () => {
   });
 
   return (
-    <mesh renderOrder={-1000} material={skyMaterial} frustumCulled={false}>
+    <mesh renderOrder={-1000} material={skyMaterial} frustumCulled={false} raycast={disableRaycast}>
       <sphereGeometry args={[500, 32, 24]} />
     </mesh>
   );
@@ -491,11 +493,11 @@ export const DayNightCycle = ({
         shadow-radius={3}
       />
       <directionalLight ref={moonLightRef} color="#c7d2fe" intensity={0} position={[-5, 10, -15]} />
-      <mesh ref={sunMeshRef}>
+      <mesh ref={sunMeshRef} raycast={disableRaycast}>
         <sphereGeometry args={[1.5, 8, 8]} />
         <meshStandardMaterial color="#facc15" emissive="#facc15" emissiveIntensity={2} />
       </mesh>
-      <mesh ref={moonMeshRef}>
+      <mesh ref={moonMeshRef} raycast={disableRaycast}>
         <sphereGeometry args={[1.2, 8, 8]} />
         <meshStandardMaterial color="#e2e8f0" emissive="#c7d2fe" emissiveIntensity={1.2} />
       </mesh>

@@ -288,7 +288,9 @@ export const useBattleController = ({
     spawnFloatingText(`+${manaRecovered} MP`, 'player', 'heal');
     spawnParticles([-2, -1, 0], 10, '#3b82f6', 'spark');
 
-    window.setTimeout(() => setTurnState(TurnState.ENEMY_TURN), 600);
+    window.setTimeout(() => {
+      setTurnState(TurnState.ENEMY_TURN);
+    }, 600);
   }, [
     addLog,
     enemy,

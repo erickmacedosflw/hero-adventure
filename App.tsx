@@ -15,6 +15,7 @@ import {
 import { PROGRESSION_CARDS, ALCHEMIST_CARDS } from './game/data/cards';
 import { applyPlayerClass, PLAYER_CLASSES } from './game/data/classes';
 import { getConstellationByClassId } from './game/data/classTalents';
+import { gameMusicManager, isNightTime, type MusicTrackId } from './game/audio/music';
 import { createEmptyBuffState } from './game/mechanics/combat';
 import { createClassResourceState, getTalentBonuses, syncPlayerConstellationSkills, unlockTalentNode } from './game/mechanics/classProgression';
 import { useBattleController } from './game/hooks/useBattleController';
@@ -1090,6 +1091,64 @@ export default function App() {
         return gameState;
     })();
 
+    const [hasUnlockedMusic, setHasUnlockedMusic] = useState(false);
+    const targetMusicTrack = useMemo<MusicTrackId | null>(() => {
+        if (pathname.startsWith('/developer')) {
+            return null;
+        }
+
+        if (!isBootReady || !hasConfirmedStartingClass || resolvedGameState === GameState.MENU) {
+            return 'title';
+        }
+
+        if (dungeonRun) {
+            return 'dungeon';
+        }
+
+        if (resolvedGameState === GameState.BATTLE) {
+            return isNightTime(gameTime) ? 'forestNight' : 'forestDay';
+        }
+
+        return 'title';
+    }, [dungeonRun, gameTime, hasConfirmedStartingClass, isBootReady, pathname, resolvedGameState]);
+
+    useEffect(() => {
+        if (typeof window === 'undefined' || hasUnlockedMusic) {
+            return;
+        }
+
+        const unlockMusic = () => {
+            gameMusicManager.unlock().finally(() => {
+                setHasUnlockedMusic(true);
+            });
+        };
+
+        window.addEventListener('pointerdown', unlockMusic, { once: true });
+        window.addEventListener('keydown', unlockMusic, { once: true });
+
+        return () => {
+            window.removeEventListener('pointerdown', unlockMusic);
+            window.removeEventListener('keydown', unlockMusic);
+        };
+    }, [hasUnlockedMusic]);
+
+    useEffect(() => {
+        if (!hasUnlockedMusic) {
+            return;
+        }
+
+        if (!targetMusicTrack) {
+            gameMusicManager.stopAll();
+            return;
+        }
+
+        gameMusicManager.transitionTo(targetMusicTrack);
+    }, [hasUnlockedMusic, targetMusicTrack]);
+
+    useEffect(() => () => {
+        gameMusicManager.dispose();
+    }, []);
+
     if (pathname.startsWith('/developer')) {
         return <DeveloperConsole />;
     }
@@ -1150,7 +1209,9 @@ export default function App() {
                         isLevelingUp={isLevelingUp}
                         stage={stage}
                         playerClassId={player.classId}
-                                        isDungeonRun={Boolean(dungeonRun)}
+                        isDungeonRun={Boolean(dungeonRun)}
+                        playerState={player}
+                        enemyState={enemy}
                     />
             </SceneErrorBoundary>
 

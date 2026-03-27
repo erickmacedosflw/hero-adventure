@@ -294,18 +294,32 @@ export const AnimatedClassHero = ({
       return;
     }
 
+    const previousAction = activeActionRef.current;
+    const isSameAction = previousAction === nextAction;
+    const transitionDuration = isManualPreview
+      ? 0.24
+      : animationAction === 'attack'
+        ? 0.18
+        : animationAction === 'hit' || animationAction === 'critical-hit'
+          ? 0.2
+          : animationAction === 'item' || animationAction === 'skill' || animationAction === 'heal'
+            ? 0.3
+            : 0.26;
+
     Object.entries(actions).forEach(([name, action]) => {
-      if (!action || name === targetClipName) {
+      if (!action || action === nextAction || action === previousAction || name === targetClipName) {
         return;
       }
 
-      action.fadeOut(0.18);
+      action.fadeOut(Math.max(0.16, transitionDuration * 0.8));
     });
 
     nextAction.enabled = true;
     nextAction.reset();
     nextAction.setEffectiveWeight(1);
     nextAction.setEffectiveTimeScale(isManualPreview ? 1 : animationAction === 'defend' ? 0.85 : animationAction === 'heal' ? 0.92 : animationAction === 'death' ? 0.82 : 1);
+    nextAction.zeroSlopeAtStart = true;
+    nextAction.zeroSlopeAtEnd = true;
 
     if (isManualPreview || previewLoopAllActions) {
       nextAction.setLoop(THREE.LoopRepeat, Infinity);
@@ -318,7 +332,14 @@ export const AnimatedClassHero = ({
       nextAction.clampWhenFinished = false;
     }
 
-    nextAction.fadeIn(isManualPreview ? 0.18 : animationAction === 'attack' ? 0.14 : animationAction === 'hit' || animationAction === 'critical-hit' ? 0.16 : 0.22).play();
+    if (previousAction && !isSameAction) {
+      previousAction.enabled = true;
+      previousAction.crossFadeTo(nextAction, transitionDuration, true);
+      nextAction.play();
+    } else {
+      nextAction.fadeIn(transitionDuration).play();
+    }
+
     activeActionRef.current = nextAction;
     activePlaybackKeyRef.current = playbackKey;
     emitRuntimeDiagnostic('playing', true);
@@ -376,6 +397,7 @@ interface EnemyCharacterProps {
   originPosition?: [number, number, number];
   baseRotationY?: number;
   disableAmbientMotion?: boolean;
+  statusOverlay?: React.ReactNode;
 }
 
 export const EnemyCharacter = ({
@@ -397,6 +419,7 @@ export const EnemyCharacter = ({
   originPosition = [2, -1, 0],
   baseRotationY = -Math.PI - 0.35,
   disableAmbientMotion = true,
+  statusOverlay,
 }: EnemyCharacterProps) => {
   void color;
   void type;
@@ -476,6 +499,7 @@ export const EnemyCharacter = ({
       <Suspense fallback={null}>
         <AnimatedEnemyCharacter assets={runtimeEnemyAssets} animationAction={enemyAnimationAction} attackStyle={attackStyle} />
       </Suspense>
+      {statusOverlay}
       <ContactShadows opacity={0.35} scale={3} blur={1.8} far={2} resolution={contactShadowResolution} />
       <pointLight ref={enemyDamageLightRef} color="#ef4444" intensity={0} distance={8} decay={2.5} position={[0, 0.8, -0.3]} />
       <group ref={enemyShieldRef} position={[0, 0.9, 0]} visible={false}>

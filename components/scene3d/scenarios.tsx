@@ -3,6 +3,8 @@ import { useFBX, useTexture } from '@react-three/drei';
 import * as THREE from 'three';
 import type { ScenarioDefinition } from '../../game/data/scenarios';
 
+const disableRaycast = () => null;
+
 /* ─── static asset URLs (Vite can resolve these at build time) ─── */
 
 const FOREST_TEXTURE = new URL('../../game/assets/Scenario/Florest/forest_texture.png', import.meta.url).href;
@@ -57,6 +59,7 @@ function cloneWithTexture(source: THREE.Group, texture: THREE.Texture): THREE.Gr
     }
     child.castShadow = true;
     child.receiveShadow = true;
+    child.raycast = disableRaycast;
   });
   return clone;
 }
@@ -165,7 +168,7 @@ const ScenarioGround = ({ color, colorAlt }: { color: string; colorAlt: string }
   return (
     <group>
       {tiles.map((t, i) => (
-        <mesh key={i} position={t.pos} receiveShadow>
+        <mesh key={i} position={t.pos} receiveShadow raycast={disableRaycast}>
           <boxGeometry args={[8, t.h, 8]} />
           <meshStandardMaterial color={t.color} />
         </mesh>
