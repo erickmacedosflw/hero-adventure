@@ -7,6 +7,7 @@ import { OpeningScreen } from './components/OpeningScreen';
 import { ClassSelectionScreen } from './components/ClassSelectionScreen';
 import { BattleHUD, MenuScreen, ShopScreen, TavernScreen, KillLootOverlay, CardChoiceScreen, AlchemistScreen, DungeonResultScreen, BossVictoryModal } from './components/GameUI';
 import { ARModeOverlay } from './components/ARModeOverlay';
+import { ARCameraFallbackOverlay } from './components/ARCameraFallbackOverlay';
 import { ARFallback3DOverlay } from './components/ARFallback3DOverlay';
 import { 
     Player, Enemy, GameState, TurnState, BattleLog, Item, Skill, Stats, Particle, FloatingText, ProgressionCard, CardRewardOffer, AlchemistCardOffer, AlchemistItemOffer, DungeonRunState, DungeonResult, DungeonRewards, EnemyTemplate, DungeonEnemyTemplate, DungeonBossTemplate, PlayerAnimationAction, BossVictoryContext, CardCategory, ArEntryPoint
@@ -129,7 +130,9 @@ export default function App() {
     const { arSupport, refreshArSupport } = useARCapabilities();
     const [isArOverlayOpen, setIsArOverlayOpen] = useState(false);
     const [arEntryPoint, setArEntryPoint] = useState<ArEntryPoint>('tavern');
+    const [isArCameraOpen, setIsArCameraOpen] = useState(false);
     const [isArFallback3DOpen, setIsArFallback3DOpen] = useState(false);
+    const [isWebXrRoutingOpen, setIsWebXrRoutingOpen] = useState(false);
 
     const bootEnemies = useMemo(() => [...ENEMY_DATA, ...DUNGEON_ENEMY_DATA, DUNGEON_BOSS], []);
     const handleBootReady = useCallback(() => {
@@ -158,12 +161,38 @@ export default function App() {
 
     const handleOpenFallback3D = useCallback(() => {
         setIsArOverlayOpen(false);
+        setIsArCameraOpen(false);
         setIsArFallback3DOpen(true);
     }, []);
 
     const handleCloseFallback3D = useCallback(() => {
         setIsArFallback3DOpen(false);
     }, []);
+
+    const handleCloseCameraFallback = useCallback(() => {
+        setIsArCameraOpen(false);
+    }, []);
+
+    const handleCloseWebXrRouting = useCallback(() => {
+        setIsWebXrRoutingOpen(false);
+    }, []);
+
+    const handleStartArExperience = useCallback(() => {
+        if (arSupport.strategy === 'webxr') {
+            setIsArOverlayOpen(false);
+            setIsWebXrRoutingOpen(true);
+            return;
+        }
+
+        if (arSupport.strategy === 'camera-fallback') {
+            setIsArOverlayOpen(false);
+            setIsArFallback3DOpen(false);
+            setIsArCameraOpen(true);
+            return;
+        }
+
+        handleOpenFallback3D();
+    }, [arSupport.strategy, handleOpenFallback3D]);
 
   // Game Time (from Scene3D day/night cycle)
   const [gameTime, setGameTime] = useState("12:00");
@@ -1399,7 +1428,15 @@ export default function App() {
                 entryPoint={arEntryPoint}
                 arSupport={arSupport}
                 onClose={handleCloseAr}
+                onStartAr={handleStartArExperience}
                 onOpenFallback3D={handleOpenFallback3D}
+            />
+
+            <ARCameraFallbackOverlay
+                isOpen={isArCameraOpen}
+                entryPoint={arEntryPoint}
+                onClose={handleCloseCameraFallback}
+                onFallback3D={handleOpenFallback3D}
             />
 
             <ARFallback3DOverlay
@@ -1408,9 +1445,28 @@ export default function App() {
                 onClose={handleCloseFallback3D}
             />
 
+            {isWebXrRoutingOpen && (
+                <div className="absolute inset-0 z-[77] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 pointer-events-auto">
+                    <div className="w-full max-w-md rounded-2xl border border-[#cfab91] bg-[#f7ecdd] p-5 shadow-[0_24px_70px_rgba(0,0,0,0.45)]">
+                        <h3 className="text-xl font-black text-[#6b3141]">Rota WebXR selecionada</h3>
+                        <p className="mt-2 text-sm text-[#7f5b56]">
+                            Este dispositivo suportou immersive-ar. A etapa seguinte e acoplar a sessao XR no renderer para AR real de batalha.
+                        </p>
+                        <div className="mt-4 grid grid-cols-2 gap-2">
+                            <button onClick={handleCloseWebXrRouting} className="rounded-xl border border-[#cfab91] bg-[#f4e5d4] px-3 py-2 text-xs font-black text-[#6b3141]">
+                                Fechar
+                            </button>
+                            <button onClick={handleOpenFallback3D} className="rounded-xl bg-[#4d7a96] px-3 py-2 text-xs font-black text-white">
+                                Usar fallback 3D
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {resolvedGameState === GameState.MENU && <MenuScreen onStart={startGame} />}
       
-                        {resolvedGameState === GameState.TAVERN && showTavernUi && !isArFallback3DOpen && (
+                        {resolvedGameState === GameState.TAVERN && showTavernUi && !isArFallback3DOpen && !isArCameraOpen && (
           <TavernScreen 
             player={player}
             stage={stage}
@@ -1460,7 +1516,7 @@ export default function App() {
                 />
             )}
 
-    {resolvedGameState === GameState.BATTLE && !isArFallback3DOpen && (
+    {resolvedGameState === GameState.BATTLE && !isArFallback3DOpen && !isArCameraOpen && (
         <BattleHUD 
             player={player}
             enemy={enemy}

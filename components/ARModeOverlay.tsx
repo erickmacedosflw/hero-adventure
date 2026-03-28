@@ -7,6 +7,7 @@ interface ARModeOverlayProps {
   entryPoint: ArEntryPoint;
   arSupport: ArSupportState;
   onClose: () => void;
+  onStartAr: () => void;
   onOpenFallback3D: () => void;
 }
 
@@ -35,6 +36,7 @@ export const ARModeOverlay: React.FC<ARModeOverlayProps> = ({
   entryPoint,
   arSupport,
   onClose,
+  onStartAr,
   onOpenFallback3D,
 }) => {
   if (!isOpen) {
@@ -43,6 +45,8 @@ export const ARModeOverlay: React.FC<ARModeOverlayProps> = ({
 
   const isChecking = arSupport.status === 'checking';
   const isSupported = arSupport.status === 'supported';
+  const isWebXrPath = arSupport.strategy === 'webxr';
+  const isCameraPath = arSupport.strategy === 'camera-fallback';
 
   return (
     <div className="absolute inset-0 z-[75] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 pointer-events-auto" onClick={onClose}>
@@ -93,9 +97,11 @@ export const ARModeOverlay: React.FC<ARModeOverlayProps> = ({
               <Camera size={14} /> Proxima etapa
             </div>
             <p className="mt-1 text-sm text-[#6b3141] leading-relaxed">
-              {isSupported
-                ? 'Seu dispositivo detectou suporte AR. A sessao immersive-ar completa entra na proxima fase.'
-                : 'No Safari iOS, WebXR costuma nao estar disponivel. Voce pode continuar agora em fallback 3D para visualizar o cenario sem travar o fluxo.'}
+              {isWebXrPath
+                ? 'Rota WebXR detectada para Android/desktop. Esta e a trilha de AR real do jogo.'
+                : isCameraPath
+                  ? 'Rota de fallback por camera detectada para iPhone. O jogo abre a camera real e mantem o 3D por cima.'
+                  : 'Sem WebXR/camera viavel neste contexto. Voce pode seguir no fallback 3D para nao interromper o gameplay.'}
             </p>
           </div>
 
@@ -105,15 +111,25 @@ export const ARModeOverlay: React.FC<ARModeOverlayProps> = ({
             </button>
             <button
               onClick={() => {
-                if (isSupported) {
-                  onClose();
+                if (isChecking) {
                   return;
                 }
-                onOpenFallback3D();
+                if (arSupport.strategy === 'fallback-3d') {
+                  onOpenFallback3D();
+                  return;
+                }
+                onStartAr();
               }}
-              className={`rounded-xl px-4 py-3 font-black text-white transition-colors ${isSupported ? 'bg-[#4d7a96] hover:bg-[#5a8aa6]' : 'bg-[#8f6c67] hover:bg-[#9f7c77]'}`}
+              disabled={isChecking}
+              className={`rounded-xl px-4 py-3 font-black text-white transition-colors ${isChecking ? 'bg-[#8f6c67]/70 cursor-not-allowed' : isSupported ? 'bg-[#4d7a96] hover:bg-[#5a8aa6]' : 'bg-[#8f6c67] hover:bg-[#9f7c77]'}`}
             >
-              {isSupported ? 'Aguardar sessao AR real' : 'Abrir fallback 3D agora'}
+              {isChecking
+                ? 'Verificando...'
+                : isWebXrPath
+                  ? 'Iniciar rota WebXR'
+                  : isCameraPath
+                    ? 'Iniciar fallback por camera'
+                    : 'Abrir fallback 3D agora'}
             </button>
           </div>
         </div>

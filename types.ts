@@ -22,12 +22,15 @@ export enum TurnState {
 export type ArEntryPoint = 'tavern' | 'battle';
 export type ArSupportStatus = 'checking' | 'supported' | 'unsupported';
 export type ArSupportPlatform = 'android' | 'ios' | 'desktop' | 'unknown';
+export type ArRoutingStrategy = 'webxr' | 'camera-fallback' | 'fallback-3d';
 
 export interface ArSupportState {
   status: ArSupportStatus;
   platform: ArSupportPlatform;
+  isIOS: boolean;
   hasWebXR: boolean;
   isSecureContext: boolean;
+  strategy: ArRoutingStrategy;
   reason: string;
 }
 

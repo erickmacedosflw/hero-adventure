@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { ArSupportPlatform, ArSupportState } from '../../types';
+import type { ArSupportPlatform, ArRoutingStrategy, ArSupportState } from '../../types';
 
 type NavigatorWithXR = Navigator & {
   xr?: {
@@ -32,14 +32,17 @@ const detectPlatform = (): ArSupportPlatform => {
 
 const buildUnsupportedState = (
   platform: ArSupportPlatform,
+  strategy: ArRoutingStrategy,
   hasWebXR: boolean,
   isSecureContext: boolean,
   reason: string,
 ): ArSupportState => ({
   status: 'unsupported',
   platform,
+  isIOS: platform === 'ios',
   hasWebXR,
   isSecureContext,
+  strategy,
   reason,
 });
 
@@ -47,8 +50,10 @@ export const useARCapabilities = () => {
   const [arSupport, setArSupport] = useState<ArSupportState>({
     status: 'checking',
     platform: 'unknown',
+    isIOS: false,
     hasWebXR: false,
     isSecureContext: typeof window !== 'undefined' ? window.isSecureContext : false,
+    strategy: 'fallback-3d',
     reason: 'Verificando suporte AR...',
   });
 
@@ -63,42 +68,56 @@ export const useARCapabilities = () => {
     setArSupport({
       status: 'checking',
       platform,
+      isIOS: platform === 'ios',
       hasWebXR: false,
       isSecureContext: secureContext,
+      strategy: platform === 'ios' ? 'camera-fallback' : 'fallback-3d',
       reason: 'Verificando suporte AR...',
     });
 
     if (!secureContext) {
-      setArSupport(buildUnsupportedState(platform, false, false, 'AR requer HTTPS ou localhost.'));
+      setArSupport(buildUnsupportedState(platform, platform === 'ios' ? 'camera-fallback' : 'fallback-3d', false, false, 'AR requer HTTPS ou localhost.'));
+      return;
+    }
+
+    if (platform === 'ios') {
+      setArSupport({
+        status: 'unsupported',
+        platform,
+        isIOS: true,
+        hasWebXR: false,
+        isSecureContext: true,
+        strategy: 'camera-fallback',
+        reason: 'Safari iOS nao oferece WebXR AR completo. Usando fallback por camera.',
+      });
       return;
     }
 
     const navigatorWithXR = navigator as NavigatorWithXR;
     if (!navigatorWithXR.xr?.isSessionSupported) {
-      const platformHint = platform === 'ios'
-        ? 'Safari iOS costuma exigir fallback para visualizacao 3D.'
-        : 'Este navegador nao exibe a API WebXR.';
-      setArSupport(buildUnsupportedState(platform, false, true, `WebXR nao disponivel. ${platformHint}`));
+      setArSupport(buildUnsupportedState(platform, 'fallback-3d', false, true, 'WebXR nao disponivel. Este navegador nao exibe a API WebXR.'));
       return;
     }
 
     try {
       const supported = await navigatorWithXR.xr.isSessionSupported('immersive-ar');
       if (!supported) {
-        setArSupport(buildUnsupportedState(platform, true, true, 'Sessao immersive-ar nao suportada neste dispositivo.'));
+        setArSupport(buildUnsupportedState(platform, 'fallback-3d', true, true, 'Sessao immersive-ar nao suportada neste dispositivo.'));
         return;
       }
 
       setArSupport({
         status: 'supported',
         platform,
+        isIOS: false,
         hasWebXR: true,
         isSecureContext: true,
+        strategy: 'webxr',
         reason: 'Dispositivo pronto para immersive-ar.',
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Falha desconhecida ao consultar WebXR.';
-      setArSupport(buildUnsupportedState(platform, true, true, `Erro ao verificar AR: ${message}`));
+      setArSupport(buildUnsupportedState(platform, 'fallback-3d', true, true, `Erro ao verificar AR: ${message}`));
     }
   }, []);
 
