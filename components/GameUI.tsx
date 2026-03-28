@@ -1,7 +1,7 @@
 ﻿
 import React, { useState, useEffect, useRef } from 'react';
-import { Player, Enemy, BattleLog, TurnState, Item, Skill, GameState, FloatingText, Rarity, ProgressionCard, CardRewardOffer, AlchemistCardOffer, AlchemistItemOffer, DungeonResult, DungeonRewards, BossVictoryContext } from '../types';
-import { Sword, Shield, Zap, Heart, Coins, ShoppingBag, Skull, Play, Plus, FlaskConical, User, X, Home, LogOut, DollarSign, AlertTriangle, MousePointerClick, Shirt, Footprints, Crown, LayoutGrid, Sparkles, Crosshair, ArrowLeft, Star, Clock } from 'lucide-react';
+import { Player, Enemy, BattleLog, TurnState, Item, Skill, GameState, FloatingText, Rarity, ProgressionCard, CardRewardOffer, AlchemistCardOffer, AlchemistItemOffer, DungeonResult, DungeonRewards, BossVictoryContext, ArSupportState } from '../types';
+import { Sword, Shield, Zap, Heart, Coins, ShoppingBag, Skull, Play, Plus, FlaskConical, User, X, Home, LogOut, DollarSign, AlertTriangle, MousePointerClick, Shirt, Footprints, Crown, LayoutGrid, Sparkles, Crosshair, ArrowLeft, Star, Clock, Camera } from 'lucide-react';
 import { ItemPreviewThree } from './items/ItemPreviewThree';
 import { GameAssetIcon } from './ui/game-asset-icon';
 import { CharacterSheetModal } from './profile/CharacterSheetModal';
@@ -29,6 +29,8 @@ interface GameUIProps {
   onEquipItem: (item: Item) => void;
   onContinue: () => void; // Used for Level Up or Victory -> Tavern
   onFlee: () => void;
+    onOpenAr: () => void;
+    arSupport: ArSupportState;
   currentNarration: string;
   shopItems: Item[];
   floatingTexts?: FloatingText[];
@@ -825,16 +827,20 @@ export const TavernScreen: React.FC<{
     onDungeon: () => void,
   onShop: () => void,
     onAlchemist: () => void,
+    onOpenAr: () => void,
+    arSupport: ArSupportState,
   shopItems: Item[],
   onEquipItem: (item: Item) => void,
   onUseItem: (itemId: string) => void,
   onUnlockTalent: (nodeId: string) => void
-}> = ({ player, killCount, onHunt, onBoss, onDungeon, onShop, onAlchemist, shopItems, onEquipItem, onUseItem, onUnlockTalent }) => {
+}> = ({ player, killCount, onHunt, onBoss, onDungeon, onShop, onAlchemist, onOpenAr, arSupport, shopItems, onEquipItem, onUseItem, onUnlockTalent }) => {
   const [showProfile, setShowProfile] = useState(false);
   const [showInventory, setShowInventory] = useState(false);
     const [isClosing, setIsClosing] = useState(false);
     const [showDungeonConfirm, setShowDungeonConfirm] = useState(false);
   const bossUnlocked = killCount >= 10;
+        const arModeReady = arSupport.status === 'supported';
+        const arModeChecking = arSupport.status === 'checking';
     const killsRemaining = Math.max(0, 10 - killCount);
     const currentClass = getPlayerClassById(player.classId);
     const hpPercent = player.stats.maxHp > 0 ? Math.min(100, (player.stats.hp / player.stats.maxHp) * 100) : 0;
@@ -1023,6 +1029,18 @@ export const TavernScreen: React.FC<{
 
                         <button onClick={() => handleMenuTransition('dungeon')} className="rounded-xl border border-[#3b6580] bg-[#4d7a96]/95 px-2.5 py-2.5 text-center transition-all hover:-translate-y-0.5 hover:bg-[#5a8aa6]">
                             <div className="flex items-center justify-center gap-1.5 text-xs font-black text-white"><Crosshair size={17} /> Dungeon</div>
+                        </button>
+
+                        <button
+                            onClick={onOpenAr}
+                            className={`col-span-2 rounded-xl border px-2.5 py-2.5 text-center transition-all hover:-translate-y-0.5 ${arModeReady ? 'border-[#3b6580] bg-[#4d7a96]/95 text-white hover:bg-[#5a8aa6]' : 'border-[#cfab91] bg-[#f4e5d4] text-[#6b3141] hover:bg-[#e9d7c2]'}`}
+                        >
+                            <div className="flex items-center justify-center gap-1.5 text-xs font-black">
+                                <Camera size={17} /> Ver em AR
+                            </div>
+                            <div className="mt-0.5 text-[9px] font-black uppercase tracking-[0.16em] opacity-80">
+                                {arModeChecking ? 'Verificando' : arModeReady ? 'Suporte detectado' : 'Fallback 3D'}
+                            </div>
                         </button>
                     </div>
 
@@ -1886,7 +1904,7 @@ export const ShopScreen: React.FC<{ player: Player, items: Item[], onBuy: (i: It
 };
 
 export const BattleHUD: React.FC<GameUIProps> = (props) => {
-        const { player, enemy, turnState, logs, onAttack, onDefend, onSkill, onUseItem, onUnlockTalent, currentNarration, gameState, shopItems, floatingTexts, onFlee, onStartBattle, stage, killCount, onEquipItem, isDungeonRun, dungeonRewards, dungeonCleared = 0, dungeonTotal = 30, gameTime } = props;
+    const { player, enemy, turnState, logs, onAttack, onDefend, onSkill, onUseItem, onUnlockTalent, currentNarration, gameState, shopItems, floatingTexts, onFlee, onOpenAr, arSupport, onStartBattle, stage, killCount, onEquipItem, isDungeonRun, dungeonRewards, dungeonCleared = 0, dungeonTotal = 30, gameTime } = props;
   const [activeBattleMenu, setActiveBattleMenu] = useState<'skills' | 'items' | null>(null);
   const [showProfile, setShowProfile] = useState(false);
   const [showInventory, setShowInventory] = useState(false);
@@ -1900,6 +1918,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
     const resourceDeltaTimeoutRef = useRef<number | null>(null);
     const previousResourceRef = useRef(player.classResource.value);
   const isPlayerTurn = turnState === TurnState.PLAYER_INPUT;
+        const arModeReady = arSupport.status === 'supported';
     const canLeaveFreely = !isDungeonRun && killCount >= 10;
     const dungeonRewardItems = Object.entries(dungeonRewards?.drops ?? {})
             .map(([itemId, quantity]) => ({ item: ALL_ITEMS.find(entry => entry.id === itemId), quantity }))
@@ -2315,6 +2334,9 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                           Espólio
                       </button>
                   )}
+                  <button onClick={onOpenAr} className={`sm:hidden self-start rounded-[10px] border px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.15em] transition-colors ${arModeReady ? 'border-[#3b6580] bg-[#4d7a96] text-white hover:bg-[#5a8aa6]' : 'border-[#cfab91] bg-[#f4e5d4] text-[#6b3141] hover:bg-[#e9d7c2]'}`}>
+                      <span className="inline-flex items-center gap-1.5"><Camera size={12} /> Ver em AR</span>
+                  </button>
                   <div className="rounded-[18px] border border-[#cfab91] bg-[#f7ecdd]/94 px-4 py-3.5 shadow-xl backdrop-blur-md max-w-[280px] sm:max-w-[320px]">
                       <div className="flex items-center gap-3">
                           <div className="min-w-0">

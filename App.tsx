@@ -6,8 +6,9 @@ import { GameScene } from './components/Scene3D';
 import { OpeningScreen } from './components/OpeningScreen';
 import { ClassSelectionScreen } from './components/ClassSelectionScreen';
 import { BattleHUD, MenuScreen, ShopScreen, TavernScreen, KillLootOverlay, CardChoiceScreen, AlchemistScreen, DungeonResultScreen, BossVictoryModal } from './components/GameUI';
+import { ARModeOverlay } from './components/ARModeOverlay';
 import { 
-    Player, Enemy, GameState, TurnState, BattleLog, Item, Skill, Stats, Particle, FloatingText, ProgressionCard, CardRewardOffer, AlchemistCardOffer, AlchemistItemOffer, DungeonRunState, DungeonResult, DungeonRewards, EnemyTemplate, DungeonEnemyTemplate, DungeonBossTemplate, PlayerAnimationAction, BossVictoryContext, CardCategory
+    Player, Enemy, GameState, TurnState, BattleLog, Item, Skill, Stats, Particle, FloatingText, ProgressionCard, CardRewardOffer, AlchemistCardOffer, AlchemistItemOffer, DungeonRunState, DungeonResult, DungeonRewards, EnemyTemplate, DungeonEnemyTemplate, DungeonBossTemplate, PlayerAnimationAction, BossVictoryContext, CardCategory, ArEntryPoint
 } from './types';
 import { 
     INITIAL_PLAYER, SHOP_ITEMS, ALL_ITEMS, MATERIALS, SKILLS, ENEMY_DATA, ENEMY_COLORS, DUNGEON_ENEMY_DATA, DUNGEON_BOSS, ALCHEMIST_ITEM_OFFERS 
@@ -19,6 +20,7 @@ import { createEmptyBuffState } from './game/mechanics/combat';
 import { createClassResourceState, getTalentBonuses, getUnlockedResourceMax, syncPlayerConstellationSkills, unlockTalentNode } from './game/mechanics/classProgression';
 import { useBattleController } from './game/hooks/useBattleController';
 import { useBattleResolution } from './game/hooks/useBattleResolution';
+import { useARCapabilities } from './game/hooks/useARCapabilities';
 import { generateBattleDescription, generateVictorySpeech } from './services/geminiService';
 
 type BootWindow = Window & { __heroAdventureBootReady?: boolean };
@@ -123,6 +125,9 @@ export default function App() {
     const [selectedStartingClassId, setSelectedStartingClassId] = useState<Player['classId']>(INITIAL_PLAYER.classId);
     const [hasConfirmedStartingClass, setHasConfirmedStartingClass] = useState(false);
     const [resourceUnlockModal, setResourceUnlockModal] = useState<{ name: string; color: string } | null>(null);
+    const { arSupport, refreshArSupport } = useARCapabilities();
+    const [isArOverlayOpen, setIsArOverlayOpen] = useState(false);
+    const [arEntryPoint, setArEntryPoint] = useState<ArEntryPoint>('tavern');
 
     const bootEnemies = useMemo(() => [...ENEMY_DATA, ...DUNGEON_ENEMY_DATA, DUNGEON_BOSS], []);
     const handleBootReady = useCallback(() => {
@@ -138,6 +143,16 @@ export default function App() {
             statusEffects: [],
         }, SKILLS)
     ), []);
+
+    const handleOpenAr = useCallback((entryPoint: ArEntryPoint) => {
+        setArEntryPoint(entryPoint);
+        setIsArOverlayOpen(true);
+        void refreshArSupport();
+    }, [refreshArSupport]);
+
+    const handleCloseAr = useCallback(() => {
+        setIsArOverlayOpen(false);
+    }, []);
 
   // Game Time (from Scene3D day/night cycle)
   const [gameTime, setGameTime] = useState("12:00");
@@ -1368,6 +1383,13 @@ export default function App() {
                     />
             </SceneErrorBoundary>
 
+            <ARModeOverlay
+                isOpen={isArOverlayOpen}
+                entryPoint={arEntryPoint}
+                arSupport={arSupport}
+                onClose={handleCloseAr}
+            />
+
             {resolvedGameState === GameState.MENU && <MenuScreen onStart={startGame} />}
       
             {resolvedGameState === GameState.TAVERN && showTavernUi && (
@@ -1382,6 +1404,8 @@ export default function App() {
                         onDungeon={startDungeon}
             onShop={() => setGameState(GameState.SHOP)}
                         onAlchemist={() => setGameState(GameState.ALCHEMIST)}
+            onOpenAr={() => handleOpenAr('tavern')}
+            arSupport={arSupport}
             shopItems={ALL_ITEMS}
             onEquipItem={equipItem}
             onUseItem={handleUseItem}
@@ -1437,6 +1461,8 @@ export default function App() {
             onEquipItem={equipItem}
             onContinue={() => {}}
             onFlee={handleFlee}
+            onOpenAr={() => handleOpenAr('battle')}
+            arSupport={arSupport}
             currentNarration={narration}
             shopItems={ALL_ITEMS}
             floatingTexts={floatingTexts}
@@ -1482,7 +1508,7 @@ export default function App() {
           <div className="absolute inset-0 z-50 bg-red-950/90 flex flex-col items-center justify-center text-white">
               <h1 className="text-6xl font-black mb-4 text-red-500 tracking-widest">GAME OVER</h1>
               <p className="text-2xl mb-8 opacity-70">Sua jornada terminou na Fase {stage}</p>
-              <button onClick={startGame} className="px-10 py-4 bg-white text-red-900 font-black rounded hover:bg-gray-200 text-xl uppercase tracking-widest">
+              <button onClick={() => startGame()} className="px-10 py-4 bg-white text-red-900 font-black rounded hover:bg-gray-200 text-xl uppercase tracking-widest">
                   Renascer
               </button>
           </div>

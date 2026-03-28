@@ -1,5 +1,7 @@
 {
   "name": "Hero Adventure",
   "description": "Um RPG tatico de aventura em 3D com preload de assets, combate por turnos e ferramentas internas de desenvolvimento.",
-  "requestFramePermissions": []
+  "requestFramePermissions": [
+    "camera"
+  ]
 }
