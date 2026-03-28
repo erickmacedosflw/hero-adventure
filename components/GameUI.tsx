@@ -323,8 +323,12 @@ const FloatingTextOverlay = ({ texts }: { texts: FloatingText[] }) => {
                         style={{
                             left: `calc(${leftPos} + ${Math.round(t.xOffset * 0.22)}px)`,
                             top: `calc(${topPos} + ${Math.round(t.yOffset * 0.12) + verticalStackOffset}px)`,
-                            fontSize: isCrit ? '2.1rem' : isBuff ? '1.2rem' : '1.55rem',
-                            minWidth: isCrit ? '7.5rem' : '5.5rem',
+                            fontSize: isCrit
+                                ? 'clamp(2.45rem, 9vw, 2.9rem)'
+                                : isBuff
+                                  ? 'clamp(1.35rem, 5.8vw, 1.7rem)'
+                                  : 'clamp(1.85rem, 7.2vw, 2.15rem)',
+                            minWidth: isCrit ? '8.1rem' : '6.2rem',
                             animation: `floatUp 1s forwards ease-out`,
                             zIndex: 100
                         }}
@@ -838,6 +842,7 @@ export const TavernScreen: React.FC<{
   const [showInventory, setShowInventory] = useState(false);
     const [isClosing, setIsClosing] = useState(false);
     const [showDungeonConfirm, setShowDungeonConfirm] = useState(false);
+        const showArOption = false;
   const bossUnlocked = killCount >= 10;
         const arModeReady = arSupport.status === 'supported';
         const arModeChecking = arSupport.status === 'checking';
@@ -1031,17 +1036,19 @@ export const TavernScreen: React.FC<{
                             <div className="flex items-center justify-center gap-1.5 text-xs font-black text-white"><Crosshair size={17} /> Dungeon</div>
                         </button>
 
-                        <button
-                            onClick={onOpenAr}
-                            className={`col-span-2 rounded-xl border px-2.5 py-2.5 text-center transition-all hover:-translate-y-0.5 ${arModeReady ? 'border-[#3b6580] bg-[#4d7a96]/95 text-white hover:bg-[#5a8aa6]' : 'border-[#cfab91] bg-[#f4e5d4] text-[#6b3141] hover:bg-[#e9d7c2]'}`}
-                        >
-                            <div className="flex items-center justify-center gap-1.5 text-xs font-black">
-                                <Camera size={17} /> Ver em AR
-                            </div>
-                            <div className="mt-0.5 text-[9px] font-black uppercase tracking-[0.16em] opacity-80">
-                                {arModeChecking ? 'Verificando' : arModeReady ? 'Suporte detectado' : 'Fallback 3D'}
-                            </div>
-                        </button>
+                        {showArOption && (
+                            <button
+                                onClick={onOpenAr}
+                                className={`col-span-2 rounded-xl border px-2.5 py-2.5 text-center transition-all hover:-translate-y-0.5 ${arModeReady ? 'border-[#3b6580] bg-[#4d7a96]/95 text-white hover:bg-[#5a8aa6]' : 'border-[#cfab91] bg-[#f4e5d4] text-[#6b3141] hover:bg-[#e9d7c2]'}`}
+                            >
+                                <div className="flex items-center justify-center gap-1.5 text-xs font-black">
+                                    <Camera size={17} /> Ver em AR
+                                </div>
+                                <div className="mt-0.5 text-[9px] font-black uppercase tracking-[0.16em] opacity-80">
+                                    {arModeChecking ? 'Verificando' : arModeReady ? 'Suporte detectado' : 'Fallback 3D'}
+                                </div>
+                            </button>
+                        )}
                     </div>
 
                     {bossUnlocked && (
@@ -1050,7 +1057,7 @@ export const TavernScreen: React.FC<{
                         </button>
                     )}
 
-                    <div className={`hidden sm:grid gap-2.5 pointer-events-auto ${bossUnlocked ? 'sm:grid-cols-4' : 'sm:grid-cols-3'}`}>
+                    <div className={`hidden sm:grid gap-2.5 pointer-events-auto ${bossUnlocked ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`}>
                         <button onClick={() => handleMenuTransition('hunt')} className="rounded-2xl border border-[#b26a2e] bg-[#b87a3a]/95 px-4 py-4 text-center transition-all hover:-translate-y-0.5 hover:bg-[#c88a4a]">
                             <div className="flex items-center justify-center gap-2 text-base sm:text-lg font-black text-white"><Sword size={20} /> Cacar</div>
                             <div className="mt-1 text-[10px] uppercase tracking-[0.2em] text-[#f8eddf]">Batalha rapida</div>
@@ -1059,13 +1066,6 @@ export const TavernScreen: React.FC<{
                         <button onClick={() => handleMenuTransition('dungeon')} className="rounded-2xl border border-[#3b6580] bg-[#4d7a96]/95 px-4 py-4 text-center transition-all hover:-translate-y-0.5 hover:bg-[#5a8aa6]">
                             <div className="flex items-center justify-center gap-2 text-base sm:text-lg font-black text-white"><Crosshair size={20} /> Dungeon</div>
                             <div className="mt-1 text-[10px] uppercase tracking-[0.2em] text-sky-100">Modo progressivo</div>
-                        </button>
-
-                        <button onClick={onOpenAr} className={`rounded-2xl border px-4 py-4 text-center transition-all hover:-translate-y-0.5 ${arModeReady ? 'border-[#3b6580] bg-[#4d7a96]/95 hover:bg-[#5a8aa6]' : 'border-[#cfab91] bg-[#f4e5d4] hover:bg-[#e9d7c2]'}`}>
-                            <div className={`flex items-center justify-center gap-2 text-base sm:text-lg font-black ${arModeReady ? 'text-white' : 'text-[#6b3141]'}`}><Camera size={20} /> Ver em AR</div>
-                            <div className={`mt-1 text-[10px] uppercase tracking-[0.2em] ${arModeReady ? 'text-sky-100' : 'text-[#8f6c67]'}`}>
-                                {arModeChecking ? 'Verificando' : arModeReady ? 'Rota AR pronta' : 'Fallback disponivel'}
-                            </div>
                         </button>
 
                         {bossUnlocked && (
@@ -1925,6 +1925,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
     const resourceDeltaTimeoutRef = useRef<number | null>(null);
     const previousResourceRef = useRef(player.classResource.value);
   const isPlayerTurn = turnState === TurnState.PLAYER_INPUT;
+        const showArOption = false;
         const arModeReady = arSupport.status === 'supported';
     const canLeaveFreely = !isDungeonRun && killCount >= 10;
     const dungeonRewardItems = Object.entries(dungeonRewards?.drops ?? {})
@@ -2198,7 +2199,105 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
       
       {/* ═══ TOP: Player vitals (left) + Stage (center) + Enemy HP (right) ═══ */}
       <div className="absolute top-0 left-0 w-full z-20 pointer-events-none pt-1.5 sm:pt-2.5 px-2 sm:px-4">
-          <div className="flex items-start justify-between gap-1.5 sm:gap-3">
+          <div className="sm:hidden space-y-2">
+              <div className="grid grid-cols-[1.55fr_0.85fr] gap-2">
+                  <div className="bg-[#f7ecdd]/92 backdrop-blur-md border border-[#cfab91] px-2.5 py-1.5 rounded-[12px] shadow-xl animate-fade-in-down">
+                      <div className="flex items-center gap-2">
+                          <span className="shrink-0 text-[9px] font-black uppercase tracking-[0.14em] text-[#6b3141]">{isDungeonRun ? 'DUNGEON' : `FASE ${stage}`}</span>
+                          <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                              <div className="h-1.5 flex-1 bg-[#e9d7c2] rounded-full overflow-hidden border border-[#dcc0aa]">
+                                  <div className="h-full rounded-full bg-[linear-gradient(90deg,#7d3d4d,#c89a66)] transition-all duration-500" style={{ width: `${isDungeonRun ? Math.min(100, (dungeonCleared / dungeonTotal) * 100) : Math.min(100, (killCount / 10) * 100)}%` }} />
+                              </div>
+                              <span className="shrink-0 text-[9px] font-black text-[#6b3141]">
+                                  {isDungeonRun ? (dungeonCleared >= dungeonTotal ? <span className="text-rose-500 animate-pulse">BOSS</span> : `${dungeonCleared}/${dungeonTotal}`) : (killCount >= 10 ? <span className="text-rose-500 animate-pulse">BOSS</span> : `${killCount}/10`)}
+                              </span>
+                          </div>
+                      </div>
+                  </div>
+                  {gameTime ? (
+                      <div className="bg-[#f7ecdd]/92 backdrop-blur-md border border-[#cfab91] px-2.5 py-1.5 rounded-[12px] shadow-xl animate-fade-in-down">
+                          <div className="flex h-full items-center justify-center gap-2">
+                              <Clock size={14} className="text-[#6b3141]" />
+                              <span className="text-[10px] font-black uppercase tracking-[0.12em] text-[#6b3141]">{gameTime}</span>
+                          </div>
+                      </div>
+                  ) : (
+                      <div className="rounded-[14px] border border-[#cfab91] bg-[#f7ecdd]/70" />
+                  )}
+              </div>
+
+              <div className={`grid gap-2 ${enemy ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                  <div className="rounded-[18px] border border-[#cfab91] bg-[#f7ecdd]/94 px-3 py-2.5 shadow-xl backdrop-blur-md animate-fade-in-down">
+                      <div className="space-y-2">
+                          <div>
+                              <div className="flex items-center justify-between mb-1">
+                                  <span className="text-[10px] font-black uppercase tracking-[0.24em] text-[#9a4151]">HP</span>
+                                  <span className="text-[12px] font-black text-[#6b3141]">{player.stats.hp}/{player.stats.maxHp}</span>
+                              </div>
+                              <div className="h-3 bg-[#e9d7c2] rounded-full overflow-hidden"><div className="h-full rounded-full bg-[linear-gradient(90deg,#8d2f46,#d17482)] transition-all duration-300" style={{width: `${(player.stats.hp/player.stats.maxHp)*100}%`}}></div></div>
+                          </div>
+                          <div>
+                              <div className="flex items-center justify-between mb-1">
+                                  <span className="text-[10px] font-black uppercase tracking-[0.24em] text-[#346c7f]">Mana</span>
+                                  <span className="text-[12px] font-black text-[#6b3141]">{player.stats.mp}/{player.stats.maxMp}</span>
+                              </div>
+                              <div className="h-2.5 bg-[#e9d7c2] rounded-full overflow-hidden"><div className="h-full rounded-full bg-[linear-gradient(90deg,#2b6878,#66b8d2)] transition-all duration-300" style={{width: `${(player.stats.mp/player.stats.maxMp)*100}%`}}></div></div>
+                          </div>
+                          {player.classResource.max > 0 && (
+                              <div className={`relative rounded-md px-1.5 py-1 transition-all duration-300 ${resourcePulse === 'gain' ? 'bg-emerald-200/35 ring-1 ring-emerald-500/35' : resourcePulse === 'spend' ? 'bg-rose-200/35 ring-1 ring-rose-500/35' : ''}`}>
+                                  <div className="flex items-center justify-between mb-0.5">
+                                      <span className="text-[10px] font-black uppercase tracking-[0.18em] text-[#7c4c76]">{player.classResource.name}</span>
+                                      <span className="text-[11px] font-black text-[#6b3141]">{player.classResource.value}/{player.classResource.max}</span>
+                                  </div>
+                                  <div className="h-2 bg-[#e9d7c2] rounded-full overflow-hidden">
+                                      <div
+                                          className={`h-full rounded-full transition-all duration-300 ${resourcePulse ? 'animate-pulse' : ''}`}
+                                          style={{
+                                              width: `${player.classResource.max > 0 ? (player.classResource.value / player.classResource.max) * 100 : 0}%`,
+                                              background: `linear-gradient(90deg, ${player.classResource.color}, #f5e6ff)`,
+                                          }}
+                                      />
+                                  </div>
+                              </div>
+                          )}
+                          <div className="pt-1 border-t border-[#dcc0aa]">
+                              <div className="flex items-center gap-1.5">
+                                  <span className="text-[9px] font-black uppercase tracking-[0.14em] text-[#9a7068]">XP</span>
+                                  <div className="flex-1 h-1.5 bg-[#e9d7c2] rounded-full overflow-hidden">
+                                      <div className="h-full rounded-full bg-[linear-gradient(90deg,#7d3d4d,#c89a66)] transition-all duration-500" style={{width: `${(player.xp/player.xpToNext)*100}%`}}></div>
+                                  </div>
+                                  <span className="text-[9px] font-black text-[#6b3141]">{player.xp}/{player.xpToNext}</span>
+                              </div>
+                          </div>
+                      </div>
+                  </div>
+
+                  {enemy && (
+                      <div className="rounded-[18px] border border-[#cfab91] bg-[#f7ecdd]/94 px-3 py-2.5 shadow-xl backdrop-blur-md animate-fade-in-down">
+                          <div className="flex items-center justify-between gap-2 mb-1.5">
+                              <div className="min-w-0">
+                                  <div className="truncate text-[13px] font-black text-[#6b3141]">{enemy.name}</div>
+                                  <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#8a5a57]">Nv. {enemy.level}</span>
+                              </div>
+                              {enemy.isBoss && (
+                                  <span className="shrink-0 rounded-full border border-rose-300 bg-rose-100 px-2 py-0.5 text-[9px] font-black uppercase text-rose-600">Chefão</span>
+                              )}
+                          </div>
+                          <div>
+                              <div className="flex items-center justify-between mb-1">
+                                  <span className="text-[10px] font-black uppercase tracking-[0.24em] text-[#9a4151]">HP</span>
+                                  <span className="text-[12px] font-black text-[#6b3141]">{enemy.stats.hp}/{enemy.stats.maxHp}</span>
+                              </div>
+                              <div className="h-3 bg-[#e9d7c2] rounded-full overflow-hidden">
+                                  <div className="h-full rounded-full bg-[linear-gradient(90deg,#8d2f46,#d17482)] transition-all duration-300" style={{width: `${Math.max(0, (enemy.stats.hp/enemy.stats.maxHp)*100)}%`}}></div>
+                              </div>
+                          </div>
+                      </div>
+                  )}
+              </div>
+          </div>
+
+          <div className="hidden sm:flex items-start justify-between gap-1.5 sm:gap-3">
               {/* Player vitals — left */}
               <div className="rounded-[16px] border border-[#cfab91] bg-[#f7ecdd]/94 px-2.5 py-2 shadow-xl backdrop-blur-md flex-1 max-w-[48%] sm:max-w-[280px] animate-fade-in-down">
                   <div className="space-y-1.5">
@@ -2341,9 +2440,11 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                           Espólio
                       </button>
                   )}
-                  <button onClick={onOpenAr} className={`self-start rounded-[10px] border px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.15em] transition-colors ${arModeReady ? 'border-[#3b6580] bg-[#4d7a96] text-white hover:bg-[#5a8aa6]' : 'border-[#cfab91] bg-[#f4e5d4] text-[#6b3141] hover:bg-[#e9d7c2]'}`}>
-                      <span className="inline-flex items-center gap-1.5"><Camera size={12} /> Ver em AR</span>
-                  </button>
+                  {showArOption && (
+                      <button onClick={onOpenAr} className={`sm:hidden self-start rounded-[10px] border px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.15em] transition-colors ${arModeReady ? 'border-[#3b6580] bg-[#4d7a96] text-white hover:bg-[#5a8aa6]' : 'border-[#cfab91] bg-[#f4e5d4] text-[#6b3141] hover:bg-[#e9d7c2]'}`}>
+                          <span className="inline-flex items-center gap-1.5"><Camera size={12} /> Ver em AR</span>
+                      </button>
+                  )}
                   <div className="rounded-[18px] border border-[#cfab91] bg-[#f7ecdd]/94 px-4 py-3.5 shadow-xl backdrop-blur-md max-w-[280px] sm:max-w-[320px]">
                       <div className="flex items-center gap-3">
                           <div className="min-w-0">

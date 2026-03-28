@@ -25,6 +25,8 @@ interface SelectionTransitionState {
 }
 
 const SELECTION_CONFIRM_DURATION_MS = 3600;
+const SELECTION_INTRO_OVERLAY_MS = 5000;
+const DETAILS_PANEL_ANIMATION_MS = 340;
 
 const utf8Decoder = typeof TextDecoder !== 'undefined' ? new TextDecoder('utf-8') : null;
 
@@ -85,12 +87,12 @@ const CLASS_ROLE_ICONS: Record<PlayerClassId, React.ComponentType<{ size?: numbe
   rogue: Zap,
 };
 
-const HERO_INTERACTION_ACTIONS: Record<PlayerClassId, PlayerAnimationAction[]> = {
-  knight: ['item', 'skill'],
-  barbarian: ['skill', 'item'],
-  mage: ['skill', 'item'],
-  ranger: ['skill', 'item'],
-  rogue: ['skill', 'item'],
+const HERO_CLICK_ACTIONS: Record<PlayerClassId, PlayerAnimationAction> = {
+  knight: 'item',
+  barbarian: 'skill',
+  mage: 'skill',
+  ranger: 'skill',
+  rogue: 'skill',
 };
 
 const HERO_STAGE_LAYOUT: Record<PlayerClassId, { position: [number, number, number]; rotationY: number }> = {
@@ -111,21 +113,27 @@ const getTransitionProgress = (transitionState: SelectionTransitionState | null)
 
 const AnimatedSelectionCamera = ({
   focusedClassId,
+  detailsClassId,
   transitionState,
 }: {
   focusedClassId: PlayerClassId;
+  detailsClassId: PlayerClassId | null;
   transitionState: SelectionTransitionState | null;
 }) => {
   const { camera, size } = useThree();
-  const activeClassId = transitionState?.classId ?? focusedClassId;
+  const activeClassId = transitionState?.classId ?? detailsClassId ?? focusedClassId;
   const initialSlot = HERO_STAGE_LAYOUT[activeClassId];
   const lookTargetRef = useRef(new THREE.Vector3(initialSlot.position[0], 0.9, initialSlot.position[2] + 0.18));
   const currentLookTargetRef = useRef(new THREE.Vector3(initialSlot.position[0], 0.9, initialSlot.position[2] + 0.18));
+  const detailViewProgressRef = useRef(0);
 
   useFrame(() => {
     const isMobile = size.width < 768;
     const layout = HERO_STAGE_LAYOUT[activeClassId];
     const [heroX, , heroZ] = layout.position;
+    const targetDetailProgress = detailsClassId ? 1 : 0;
+    detailViewProgressRef.current = THREE.MathUtils.lerp(detailViewProgressRef.current, targetDetailProgress, 0.08);
+    const detailProgress = detailViewProgressRef.current;
     const transitionProgress = transitionState
       ? THREE.MathUtils.smootherstep(getTransitionProgress(transitionState), 0, 1)
       : 0;
@@ -139,7 +147,14 @@ const AnimatedSelectionCamera = ({
       isMobile ? 2.34 : 2.28,
       isMobile ? 7.9 : 7.1,
     );
-    const targetPosition = defaultPosition.lerp(confirmPosition, transitionProgress);
+    const detailPosition = new THREE.Vector3(
+      heroX * (isMobile ? 0.34 : 0.3),
+      isMobile ? 1.84 : 2.62,
+      isMobile ? 7.55 : 6.55,
+    );
+    const targetPosition = defaultPosition
+      .lerp(confirmPosition, transitionProgress)
+      .lerp(detailPosition, detailProgress * (1 - transitionProgress));
 
     const defaultLook = new THREE.Vector3(
       heroX,
@@ -147,7 +162,10 @@ const AnimatedSelectionCamera = ({
       heroZ + 0.18,
     );
     const confirmLook = new THREE.Vector3(heroX, isMobile ? 1.35 : 1.28, heroZ + 0.28);
-    const targetLook = defaultLook.lerp(confirmLook, transitionProgress);
+    const detailLook = new THREE.Vector3(heroX + (isMobile ? 0 : 0.52), isMobile ? 0.82 : 1.08, heroZ + 0.14);
+    const targetLook = defaultLook
+      .lerp(confirmLook, transitionProgress)
+      .lerp(detailLook, detailProgress * (1 - transitionProgress));
 
     lookTargetRef.current.copy(targetLook);
     camera.position.lerp(targetPosition, transitionState ? 0.03 : isMobile ? 0.08 : 0.055);
@@ -185,6 +203,7 @@ const StageHero = ({
   playerClass,
   focused,
   selected,
+  detailsClassId,
   transitionState,
   onFocus,
   onActivate,
@@ -192,6 +211,7 @@ const StageHero = ({
   playerClass: PlayerClassDefinition;
   focused: boolean;
   selected: boolean;
+  detailsClassId: PlayerClassId | null;
   transitionState: SelectionTransitionState | null;
   onFocus: () => void;
   onActivate: () => void;
@@ -207,8 +227,6 @@ const StageHero = ({
   const interactionLockRef = useRef(false);
   const cooldownTimeoutRef = useRef<number | null>(null);
   const resetTimeoutRef = useRef<number | null>(null);
-  const delayedStartTimeoutRef = useRef<number | null>(null);
-  const repeatTimeoutRef = useRef<number | null>(null);
 
   const clearInteractionTimers = useCallback(() => {
     if (cooldownTimeoutRef.current !== null) {
@@ -219,14 +237,6 @@ const StageHero = ({
       window.clearTimeout(resetTimeoutRef.current);
       resetTimeoutRef.current = null;
     }
-    if (delayedStartTimeoutRef.current !== null) {
-      window.clearTimeout(delayedStartTimeoutRef.current);
-      delayedStartTimeoutRef.current = null;
-    }
-    if (repeatTimeoutRef.current !== null) {
-      window.clearTimeout(repeatTimeoutRef.current);
-      repeatTimeoutRef.current = null;
-    }
   }, []);
 
   const triggerInteractionAction = useCallback(() => {
@@ -235,8 +245,7 @@ const StageHero = ({
     }
 
     interactionLockRef.current = true;
-    const actionPool = HERO_INTERACTION_ACTIONS[playerClass.id];
-    const nextAction = actionPool[Math.floor(Math.random() * actionPool.length)] ?? 'item';
+    const nextAction = HERO_CLICK_ACTIONS[playerClass.id] ?? 'item';
     const holdDuration = nextAction === 'item' ? 1050 : 1320;
 
     setAmbientAction(nextAction);
@@ -251,41 +260,20 @@ const StageHero = ({
   }, [playerClass.id]);
 
   useEffect(() => {
-    const shouldAnimate = (isHovered || focused) && !selected;
-
-    clearInteractionTimers();
-
-    if (!shouldAnimate) {
-      interactionLockRef.current = false;
-      setAmbientAction('idle');
-      return;
-    }
-
-    const scheduleInteraction = (delay: number) => {
-      delayedStartTimeoutRef.current = window.setTimeout(() => {
-        triggerInteractionAction();
-
-        repeatTimeoutRef.current = window.setTimeout(() => {
-          if (isHovered || focused) {
-            scheduleInteraction(3400 + Math.random() * 1800);
-          }
-        }, 1900);
-      }, delay);
-    };
-
-    scheduleInteraction(isHovered ? 1800 : 2600);
-
     return () => {
       clearInteractionTimers();
+      interactionLockRef.current = false;
       setAmbientAction('idle');
     };
-  }, [clearInteractionTimers, focused, isHovered, selected, triggerInteractionAction]);
+  }, [clearInteractionTimers]);
 
   useFrame((state) => {
     if (!groupRef.current || !heroRef.current) {
       return;
     }
 
+    const isDetailsOpen = detailsClassId !== null;
+    const isDetailsTarget = detailsClassId === playerClass.id;
     const transitionProgress = transitionState
       ? THREE.MathUtils.smootherstep(getTransitionProgress(transitionState), 0, 1)
       : 0;
@@ -293,23 +281,31 @@ const StageHero = ({
     const bob = Math.sin(state.clock.elapsedTime * 1.6 + stageSlot.position[0] * 0.2) * 0.045;
     const highlightLift = focused || selected ? 0.18 : 0;
     const defaultScale = selected ? 1.12 : focused ? 1.06 : 0.98;
+    const detailsScale = isDetailsTarget ? 1.2 : 0.92;
     const targetX = stageSlot.position[0];
     const targetY = stageSlot.position[1] + highlightLift + bob + (isConfirmingHero ? transitionProgress * 0.12 : 0);
     const targetZ = stageSlot.position[2];
+    const targetScaleWithoutTransition = isDetailsOpen ? detailsScale : defaultScale;
     const targetScale = isConfirmingHero
       ? THREE.MathUtils.lerp(defaultScale, 1.12, transitionProgress)
       : transitionState
         ? THREE.MathUtils.lerp(defaultScale, 0.92, transitionProgress)
-        : defaultScale;
+        : targetScaleWithoutTransition;
+    const targetOpacityWithoutTransition = isDetailsOpen
+      ? isDetailsTarget
+        ? 1
+        : 0
+      : 1;
     const targetOpacity = transitionState
       ? isConfirmingHero
         ? 1 - Math.max(0, (transitionProgress - 0.72) / 0.28)
         : Math.max(0, 1 - transitionProgress * 1.6)
-      : 1;
+      : targetOpacityWithoutTransition;
 
     groupRef.current.position.x = THREE.MathUtils.lerp(groupRef.current.position.x, targetX, transitionState ? 0.05 : 0.08);
     groupRef.current.position.y = THREE.MathUtils.lerp(groupRef.current.position.y, targetY, transitionState ? 0.05 : 0.08);
     groupRef.current.position.z = THREE.MathUtils.lerp(groupRef.current.position.z, targetZ, transitionState ? 0.05 : 0.08);
+    groupRef.current.visible = targetOpacity > 0.01;
     heroRef.current.rotation.y = THREE.MathUtils.lerp(
       heroRef.current.rotation.y,
       stageSlot.rotationY + (focused || selected ? 0.05 : 0),
@@ -329,6 +325,9 @@ const StageHero = ({
       position={stageSlot.position}
       onPointerEnter={(event) => {
         event.stopPropagation();
+        if (detailsClassId && detailsClassId !== playerClass.id) {
+          return;
+        }
         setIsHovered(true);
         onFocus();
       }}
@@ -338,14 +337,24 @@ const StageHero = ({
       }}
       onPointerOver={(event) => {
         event.stopPropagation();
+        if (detailsClassId && detailsClassId !== playerClass.id) {
+          return;
+        }
         onFocus();
       }}
       onPointerDown={(event) => {
         event.stopPropagation();
+        if (detailsClassId && detailsClassId !== playerClass.id) {
+          return;
+        }
         onFocus();
       }}
       onClick={(event) => {
         event.stopPropagation();
+        if (detailsClassId && detailsClassId !== playerClass.id) {
+          return;
+        }
+        triggerInteractionAction();
         onActivate();
       }}
     >
@@ -369,18 +378,31 @@ const StageHero = ({
         position={[0, 1.92, 0.7]}
         onPointerOver={(event) => {
           event.stopPropagation();
+          if (detailsClassId && detailsClassId !== playerClass.id) {
+            return;
+          }
           onFocus();
         }}
         onPointerMove={(event) => {
           event.stopPropagation();
+          if (detailsClassId && detailsClassId !== playerClass.id) {
+            return;
+          }
           onFocus();
         }}
         onPointerDown={(event) => {
           event.stopPropagation();
+          if (detailsClassId && detailsClassId !== playerClass.id) {
+            return;
+          }
           onFocus();
         }}
         onClick={(event) => {
           event.stopPropagation();
+          if (detailsClassId && detailsClassId !== playerClass.id) {
+            return;
+          }
+          triggerInteractionAction();
           onActivate();
         }}
       >
@@ -394,7 +416,7 @@ const StageHero = ({
         </Suspense>
       </group>
 
-      {(focused || selected) && !selected && (
+      {(focused || selected) && !selected && !detailsClassId && (
         <Html position={[0, 3.02, 0.22]} center distanceFactor={10.6}>
           <div
             className="min-w-[10.5rem] rounded-[20px] border px-3 py-2 text-white shadow-[0_14px_32px_rgba(0,0,0,0.28)] backdrop-blur-md"
@@ -435,6 +457,7 @@ const ForestSelectionScene = ({
   classes,
   focusedClassId,
   selectedClassId,
+  detailsClassId,
   transitionState,
   onFocusClass,
   onSelectClass,
@@ -443,6 +466,7 @@ const ForestSelectionScene = ({
   classes: PlayerClassDefinition[];
   focusedClassId: PlayerClassId;
   selectedClassId: PlayerClassId | null;
+  detailsClassId: PlayerClassId | null;
   transitionState: SelectionTransitionState | null;
   onFocusClass: (classId: PlayerClassId) => void;
   onSelectClass: (classId: PlayerClassId) => void;
@@ -479,7 +503,7 @@ const ForestSelectionScene = ({
         performance={{ min: 0.5 }}
       >
         <PerspectiveCamera makeDefault position={[0, 2.62, 17.2]} fov={33} rotation={[-0.075, 0, 0]} />
-        <AnimatedSelectionCamera focusedClassId={focusedClassId} transitionState={transitionState} />
+        <AnimatedSelectionCamera focusedClassId={focusedClassId} detailsClassId={detailsClassId} transitionState={transitionState} />
         <SceneReadyProbe onReady={onSceneReady} />
         <SkyboxController />
         <fog attach="fog" args={['#d7e6c2', 16, 46]} />
@@ -499,6 +523,7 @@ const ForestSelectionScene = ({
             playerClass={playerClass}
             focused={focusedClassId === playerClass.id}
             selected={selectedClassId === playerClass.id}
+            detailsClassId={detailsClassId}
             transitionState={transitionState}
             onFocus={() => onFocusClass(playerClass.id)}
             onActivate={() => onSelectClass(playerClass.id)}
@@ -511,10 +536,12 @@ const ForestSelectionScene = ({
 
 const QuickHeroCard = ({
   playerClass,
+  isVisible,
   onClose,
   onConfirm,
 }: {
   playerClass: PlayerClassDefinition;
+  isVisible: boolean;
   onClose: () => void;
   onConfirm: (classId: PlayerClassId) => void;
 }) => {
@@ -525,8 +552,143 @@ const QuickHeroCard = ({
   const actionBorderColor = playerClass.visualProfile.secondaryColor;
 
   return (
-    <div className="absolute inset-x-0 bottom-0 top-14 z-[130] flex items-end justify-center overflow-y-auto px-3 pb-3 sm:top-20 sm:px-4 sm:pb-4">
-      <div className="w-full max-w-2xl max-h-full overflow-y-auto rounded-[30px] border border-[#cfab91] bg-[linear-gradient(180deg,rgba(255,249,242,0.98)_0%,rgba(247,236,221,0.98)_38%,rgba(242,223,203,0.98)_100%)] p-4 shadow-[0_30px_64px_rgba(54,26,33,0.22)] backdrop-blur-sm sm:max-h-[min(76dvh,720px)] sm:p-5">
+    <>
+      <div
+        className={`absolute inset-0 z-[130] overflow-y-auto md:hidden transition-all duration-300 ease-out ${isVisible ? 'bg-black/20 opacity-100' : 'bg-black/0 opacity-0 pointer-events-none'}`}
+      >
+        <div className="min-h-[62dvh]" />
+        <div className={`origin-bottom rounded-t-[26px] border border-b-0 border-[#cfab91]/90 bg-[linear-gradient(180deg,rgba(255,249,242,0.98)_0%,rgba(247,236,221,0.98)_38%,rgba(242,223,203,0.98)_100%)] shadow-[0_-22px_56px_rgba(54,26,33,0.22)] backdrop-blur-sm transition-all duration-300 ease-out ${isVisible ? 'translate-y-0 scale-100 opacity-100' : 'translate-y-14 scale-[0.98] opacity-0'}`}>
+          <div className="px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
+          <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-[#b78f78]/45" />
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="text-[10px] font-black uppercase tracking-[0.24em] text-[#9a7068]">Heroi escolhido</div>
+              <div className="mt-1 flex items-center gap-3">
+                <span
+                  className="flex h-11 w-11 items-center justify-center rounded-[14px] border text-white shadow-[0_10px_20px_rgba(107,49,65,0.12)]"
+                  style={{
+                    borderColor: `${playerClass.visualProfile.auraColor}55`,
+                    background: `linear-gradient(180deg, ${playerClass.visualProfile.auraColor} 0%, ${playerClass.visualProfile.secondaryColor} 100%)`,
+                  }}
+                >
+                  <RoleIcon size={20} />
+                </span>
+                <div className="font-gamer text-2xl font-black text-[#6b3141]">{playerClass.name}</div>
+              </div>
+              <div className="mt-1 text-xs font-black uppercase tracking-[0.18em] text-[#8a5a57]">{repairGameText(playerClass.title)}</div>
+            </div>
+
+            <button
+              onClick={onClose}
+              className="flex h-10 w-10 items-center justify-center rounded-2xl border border-[#d6b9a3] bg-[#fff8f1] text-[#6b3141] transition-colors hover:bg-[#f7ecdd]"
+            >
+              <X size={18} />
+            </button>
+          </div>
+
+          <div
+            className="mt-4 rounded-[24px] border px-4 py-3"
+            style={{
+              borderColor: `${playerClass.visualProfile.auraColor}33`,
+              background: `linear-gradient(135deg, ${playerClass.visualProfile.auraColor}12 0%, rgba(255,248,241,0.92) 58%, rgba(255,255,255,0.8) 100%)`,
+            }}
+          >
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded-full border border-[#d6b9a3] bg-[#fff8f1] px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.14em] text-[#6b3141]">
+                {classCopy.role}
+              </span>
+              <span
+                className="rounded-full border px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.14em]"
+                style={{
+                  borderColor: `${constellation.resource.color}44`,
+                  color: constellation.resource.color,
+                  backgroundColor: `${constellation.resource.color}14`,
+                }}
+              >
+                {repairGameText(constellation.resource.name)}
+              </span>
+              {classCopy.highlights.map((highlight) => (
+                <span key={`${playerClass.id}-${highlight}`} className="rounded-full border border-[#d6b9a3] bg-[#f7ecdd] px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.14em] text-[#6b3141]">
+                  {highlight}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-4">
+            <p className="text-sm leading-relaxed text-[#7f5b56]">{classCopy.summary}</p>
+
+            <div className="mt-3 grid grid-cols-3 gap-2">
+              {STAT_ITEMS.map(({ key, label, icon: Icon, color, bg }) => (
+                <div key={`${playerClass.id}-${key}`} className="rounded-[18px] border border-[#dcc0aa] bg-[#fffdf9] px-3 py-2.5">
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-[10px]" style={{ color, backgroundColor: bg }}>
+                      <Icon size={14} />
+                    </span>
+                    <div>
+                      <div className="text-[9px] font-black uppercase tracking-[0.16em] text-[#9a7068]">{label}</div>
+                      <div className="text-sm font-black text-[#6b3141]">{playerClass.baseStats[key]}</div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-3 rounded-[22px] border border-[#dcc0aa] bg-[#fff8f1] px-4 py-3 text-sm text-[#7f5b56]">
+              {repairGameText(playerClass.description)}
+            </div>
+
+            <div
+              className="mt-3 rounded-[24px] border px-4 py-4"
+              style={{
+                borderColor: `${constellation.resource.color}44`,
+                background: `linear-gradient(135deg, ${constellation.resource.color}14 0%, rgba(255,250,244,0.98) 100%)`,
+              }}
+            >
+              <div className="text-[10px] font-black uppercase tracking-[0.2em] text-[#9a7068]">Trilhas da classe</div>
+              <div className="mt-3 grid gap-2">
+                {constellation.trails.map((trail) => (
+                  <div
+                    key={trail.id}
+                    className="rounded-[18px] border px-3 py-3"
+                    style={{
+                      borderColor: `${trail.color}44`,
+                      background: `linear-gradient(180deg, ${trail.color}18 0%, rgba(255,255,255,0.88) 100%)`,
+                      boxShadow: `inset 0 0 0 1px ${trail.color}18`,
+                    }}
+                  >
+                    <div
+                      className="text-[10px] font-black uppercase tracking-[0.18em]"
+                      style={{ color: trail.color }}
+                    >
+                      Trilha
+                    </div>
+                    <div className="mt-1 font-gamer text-lg font-black text-[#6b3141]">
+                      {repairGameText(trail.name)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <button
+              onClick={() => onConfirm(playerClass.id)}
+              className="mt-4 inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-[16px] border-b-4 px-5 py-3 text-sm font-black uppercase tracking-[0.16em] text-white transition-all hover:brightness-105 active:translate-y-0.5 active:border-b-0"
+              style={{
+                backgroundColor: actionColor,
+                borderColor: actionBorderColor,
+                boxShadow: `0 10px 22px ${actionColor}30`,
+              }}
+            >
+              Confirmar heroi
+              <ArrowRight size={18} />
+            </button>
+          </div>
+        </div>
+      </div>
+      </div>
+
+      <div className={`absolute bottom-6 right-4 top-8 z-[130] hidden w-[min(560px,42vw)] origin-right overflow-hidden rounded-[32px] border border-[#cfab91] bg-[linear-gradient(180deg,rgba(255,249,242,0.98)_0%,rgba(247,236,221,0.98)_38%,rgba(242,223,203,0.98)_100%)] p-6 shadow-[0_30px_64px_rgba(54,26,33,0.22)] backdrop-blur-sm transition-all duration-300 ease-out md:flex md:flex-col ${isVisible ? 'translate-x-0 scale-100 opacity-100' : 'translate-x-12 scale-[0.97] opacity-0 pointer-events-none'}`}>
         <div className="flex items-start justify-between gap-3">
           <div>
             <div className="text-[10px] font-black uppercase tracking-[0.24em] text-[#9a7068]">Heroi escolhido</div>
@@ -553,37 +715,37 @@ const QuickHeroCard = ({
           </button>
         </div>
 
-        <div
-          className="mt-4 rounded-[24px] border px-4 py-3"
-          style={{
-            borderColor: `${playerClass.visualProfile.auraColor}33`,
-            background: `linear-gradient(135deg, ${playerClass.visualProfile.auraColor}12 0%, rgba(255,248,241,0.92) 58%, rgba(255,255,255,0.8) 100%)`,
-          }}
-        >
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-full border border-[#d6b9a3] bg-[#fff8f1] px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.14em] text-[#6b3141]">
-              {classCopy.role}
-            </span>
-            <span
-              className="rounded-full border px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.14em]"
-              style={{
-                borderColor: `${constellation.resource.color}44`,
-                color: constellation.resource.color,
-                backgroundColor: `${constellation.resource.color}14`,
-              }}
-            >
-              {repairGameText(constellation.resource.name)}
-            </span>
-            {classCopy.highlights.map((highlight) => (
-              <span key={`${playerClass.id}-${highlight}`} className="rounded-full border border-[#d6b9a3] bg-[#f7ecdd] px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.14em] text-[#6b3141]">
-                {highlight}
+        <div className="mt-4 flex-1 overflow-y-auto pr-1">
+          <div
+            className="rounded-[24px] border px-4 py-3"
+            style={{
+              borderColor: `${playerClass.visualProfile.auraColor}33`,
+              background: `linear-gradient(135deg, ${playerClass.visualProfile.auraColor}12 0%, rgba(255,248,241,0.92) 58%, rgba(255,255,255,0.8) 100%)`,
+            }}
+          >
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded-full border border-[#d6b9a3] bg-[#fff8f1] px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.14em] text-[#6b3141]">
+                {classCopy.role}
               </span>
-            ))}
+              <span
+                className="rounded-full border px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.14em]"
+                style={{
+                  borderColor: `${constellation.resource.color}44`,
+                  color: constellation.resource.color,
+                  backgroundColor: `${constellation.resource.color}14`,
+                }}
+              >
+                {repairGameText(constellation.resource.name)}
+              </span>
+              {classCopy.highlights.map((highlight) => (
+                <span key={`${playerClass.id}-${highlight}`} className="rounded-full border border-[#d6b9a3] bg-[#f7ecdd] px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.14em] text-[#6b3141]">
+                  {highlight}
+                </span>
+              ))}
+            </div>
           </div>
-        </div>
 
-        <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
-          <div>
+          <div className="mt-4">
             <p className="text-sm leading-relaxed text-[#7f5b56]">{classCopy.summary}</p>
 
             <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-6">
@@ -639,22 +801,22 @@ const QuickHeroCard = ({
               </div>
             </div>
           </div>
-
-          <button
-            onClick={() => onConfirm(playerClass.id)}
-            className="inline-flex min-h-14 items-center justify-center gap-2 rounded-[16px] border-b-4 px-5 py-3 text-sm font-black uppercase tracking-[0.16em] text-white transition-all hover:brightness-105 active:translate-y-0.5 active:border-b-0 max-lg:w-full"
-            style={{
-              backgroundColor: actionColor,
-              borderColor: actionBorderColor,
-              boxShadow: `0 10px 22px ${actionColor}30`,
-            }}
-          >
-            Confirmar heroi
-            <ArrowRight size={18} />
-          </button>
         </div>
+
+        <button
+          onClick={() => onConfirm(playerClass.id)}
+          className="mt-4 inline-flex min-h-14 items-center justify-center gap-2 rounded-[16px] border-b-4 px-5 py-3 text-sm font-black uppercase tracking-[0.16em] text-white transition-all hover:brightness-105 active:translate-y-0.5 active:border-b-0"
+          style={{
+            backgroundColor: actionColor,
+            borderColor: actionBorderColor,
+            boxShadow: `0 10px 22px ${actionColor}30`,
+          }}
+        >
+          Confirmar heroi
+          <ArrowRight size={18} />
+        </button>
       </div>
-    </div>
+    </>
   );
 };
 
@@ -669,7 +831,10 @@ export const ClassSelectionScreen: React.FC<ClassSelectionScreenProps> = ({
   const initialClassId = classOrder[Math.floor(classOrder.length / 2)] ?? selectedClassId ?? classes[0]?.id;
   const [focusedClassId, setFocusedClassId] = useState<PlayerClassId>(initialClassId);
   const [openClassId, setOpenClassId] = useState<PlayerClassId | null>(null);
+  const [detailsPanelClassId, setDetailsPanelClassId] = useState<PlayerClassId | null>(null);
+  const [isDetailsPanelVisible, setIsDetailsPanelVisible] = useState(false);
   const [transitionState, setTransitionState] = useState<SelectionTransitionState | null>(null);
+  const [showIntroOverlay, setShowIntroOverlay] = useState(true);
   const dragStateRef = useRef<{ pointerType: string | null; startX: number; lastTouchX: number; active: boolean }>({
     pointerType: null,
     startX: 0,
@@ -677,10 +842,11 @@ export const ClassSelectionScreen: React.FC<ClassSelectionScreenProps> = ({
     active: false,
   });
   const confirmTimeoutRef = useRef<number | null>(null);
+  const detailsPanelTimeoutRef = useRef<number | null>(null);
 
   const selectedClass = useMemo(
-    () => classes.find((playerClass) => playerClass.id === openClassId) ?? null,
-    [classes, openClassId],
+    () => classes.find((playerClass) => playerClass.id === detailsPanelClassId) ?? null,
+    [classes, detailsPanelClassId],
   );
 
   const focusClassByIndex = useCallback((index: number) => {
@@ -734,6 +900,49 @@ export const ClassSelectionScreen: React.FC<ClassSelectionScreenProps> = ({
     if (confirmTimeoutRef.current !== null) {
       window.clearTimeout(confirmTimeoutRef.current);
     }
+    if (detailsPanelTimeoutRef.current !== null) {
+      window.clearTimeout(detailsPanelTimeoutRef.current);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (detailsPanelTimeoutRef.current !== null) {
+      window.clearTimeout(detailsPanelTimeoutRef.current);
+      detailsPanelTimeoutRef.current = null;
+    }
+
+    if (openClassId) {
+      setDetailsPanelClassId(openClassId);
+      const timer = window.setTimeout(() => {
+        setIsDetailsPanelVisible(true);
+      }, 28);
+
+      return () => {
+        window.clearTimeout(timer);
+      };
+    }
+
+    setIsDetailsPanelVisible(false);
+    detailsPanelTimeoutRef.current = window.setTimeout(() => {
+      setDetailsPanelClassId(null);
+    }, DETAILS_PANEL_ANIMATION_MS);
+
+    return () => {
+      if (detailsPanelTimeoutRef.current !== null) {
+        window.clearTimeout(detailsPanelTimeoutRef.current);
+        detailsPanelTimeoutRef.current = null;
+      }
+    };
+  }, [openClassId]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setShowIntroOverlay(false);
+    }, SELECTION_INTRO_OVERLAY_MS);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
   }, []);
 
   return (
@@ -788,6 +997,7 @@ export const ClassSelectionScreen: React.FC<ClassSelectionScreenProps> = ({
         classes={classes}
         focusedClassId={focusedClassId}
         selectedClassId={openClassId}
+        detailsClassId={detailsPanelClassId}
         transitionState={transitionState}
         onSceneReady={onReady}
         onFocusClass={setFocusedClassId}
@@ -802,7 +1012,7 @@ export const ClassSelectionScreen: React.FC<ClassSelectionScreenProps> = ({
         }}
       />
 
-      {!transitionState && (
+      {!transitionState && !selectedClass && (
         <div className="absolute inset-x-0 bottom-22 z-[130] flex items-center justify-between px-4 md:hidden">
         <button
           onClick={() => moveFocus(-1)}
@@ -826,7 +1036,7 @@ export const ClassSelectionScreen: React.FC<ClassSelectionScreenProps> = ({
         </div>
       )}
 
-      {!transitionState && (
+      {!transitionState && !selectedClass && (
         <div className="pointer-events-none absolute bottom-5 left-1/2 z-[130] -translate-x-1/2 rounded-full border border-white/14 bg-[#112214]/56 px-4 py-2 text-[10px] font-black uppercase tracking-[0.22em] text-white/72 shadow-[0_16px_32px_rgba(0,0,0,0.2)] backdrop-blur-md">
           Arraste para os lados ou clique em um aventureiro
         </div>
@@ -835,6 +1045,7 @@ export const ClassSelectionScreen: React.FC<ClassSelectionScreenProps> = ({
       {!transitionState && selectedClass && (
         <QuickHeroCard
           playerClass={selectedClass}
+          isVisible={isDetailsPanelVisible}
           onClose={() => setOpenClassId(null)}
           onConfirm={(classId) => {
             beginConfirmTransition(classId);
@@ -850,6 +1061,24 @@ export const ClassSelectionScreen: React.FC<ClassSelectionScreenProps> = ({
             background: 'radial-gradient(circle at center, rgba(255,255,255,0.05) 0%, rgba(8,12,10,0.22) 38%, rgba(4,6,5,0.92) 100%)',
           }}
         />
+      )}
+
+      {showIntroOverlay && (
+        <div className="absolute inset-0 z-[170] pointer-events-auto flex flex-col items-center justify-center bg-[radial-gradient(circle_at_center,rgba(6,10,8,0.42)_0%,rgba(4,7,6,0.72)_42%,rgba(3,5,4,0.9)_100%)] backdrop-blur-[2px]">
+          <div className="px-6 text-center animate-fade-in-down">
+            <h1 className="font-gamer text-5xl sm:text-7xl font-black tracking-tight text-white drop-shadow-[0_12px_28px_rgba(0,0,0,0.55)]">HERO ADVENTURE</h1>
+            <p className="mt-4 text-[11px] sm:text-sm font-black uppercase tracking-[0.28em] text-emerald-100/85">Preparando arena e aventureiros</p>
+            <div className="mx-auto mt-6 h-1.5 w-40 overflow-hidden rounded-full bg-white/20">
+              <div className="h-full w-full bg-[linear-gradient(90deg,#22d3ee_0%,#60a5fa_55%,#a78bfa_100%)] animate-[loadingPulse_1.4s_ease-in-out_infinite]" />
+            </div>
+          </div>
+          <style>{`
+            @keyframes loadingPulse {
+              0%, 100% { transform: scaleX(0.7); opacity: 0.68; }
+              50% { transform: scaleX(1); opacity: 1; }
+            }
+          `}</style>
+        </div>
       )}
     </div>
   );

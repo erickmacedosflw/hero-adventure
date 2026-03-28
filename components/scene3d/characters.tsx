@@ -339,8 +339,8 @@ export const AnimatedClassHero = ({
 
     if (previousAction && !isSameAction) {
       previousAction.enabled = true;
-      previousAction.crossFadeTo(nextAction, transitionDuration, true);
       nextAction.play();
+      previousAction.crossFadeTo(nextAction, transitionDuration, true);
     } else {
       nextAction.fadeIn(transitionDuration).play();
     }

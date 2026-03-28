@@ -529,10 +529,27 @@ export const CharacterSheetModal = ({ player, shopItems: _shopItems, onClose, on
                   </div>
                 </div>
                 <div className="grid gap-3 px-4 py-4 sm:grid-cols-4">
-                  <SummaryCard label="Pontos" value={player.talentPoints} tone="text-[#8d5e29]" />
-                  <SummaryCard label="Nodos" value={unlockedNodes.length} tone="text-[#6b3141]" />
-                  <SummaryCard label="Skills" value={constellationSkills.length} tone="text-[#7c4c76]" />
-                  <SummaryCard label={player.classResource.name} value={`${player.classResource.value}/${player.classResource.max}`} tone="text-[#346c7f]" />
+                  <div className="sm:col-span-4 flex flex-wrap gap-1.5">
+                    <div className="inline-flex items-center gap-1.5 rounded-full border border-[#d6b9a3] bg-[#f8eddf] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[#8d5e29]">
+                      <span className="text-[#9a7068]">Pontos</span>
+                      <span className="text-[#6b3141]">{player.talentPoints}</span>
+                    </div>
+                    <div className="inline-flex items-center gap-1.5 rounded-full border border-[#d6b9a3] bg-[#f8eddf] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[#6b3141]">
+                      <span className="text-[#9a7068]">Nodos</span>
+                      <span>{unlockedNodes.length}</span>
+                    </div>
+                    <div className="inline-flex items-center gap-1.5 rounded-full border border-[#d6b9a3] bg-[#f8eddf] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[#7c4c76]">
+                      <span className="text-[#9a7068]">Skills</span>
+                      <span>{constellationSkills.length}</span>
+                    </div>
+                    <div
+                      className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em]"
+                      style={{ borderColor: `${player.classResource.color}66`, backgroundColor: `${player.classResource.color}1a`, color: player.classResource.color }}
+                    >
+                      <span className="text-[#9a7068]">{player.classResource.name}</span>
+                      <span>{player.classResource.value}/{player.classResource.max}</span>
+                    </div>
+                  </div>
                 </div>
               </section>
 
@@ -541,7 +558,7 @@ export const CharacterSheetModal = ({ player, shopItems: _shopItems, onClose, on
                   <div className="max-w-2xl">
                     <div className="flex items-center gap-2 text-sm font-black text-[#6b3141]">
                       <CircleHelp size={18} />
-                      Habilidades unicas de {currentClass.name}
+                      {player.classId === 'ranger' ? 'Guia da classe Ranger' : `Habilidades unicas de ${currentClass.name}`}
                     </div>
                     <p className="mt-2 text-sm leading-relaxed text-[#7f5b56]">{classGuide.summary}</p>
                   </div>
@@ -553,14 +570,16 @@ export const CharacterSheetModal = ({ player, shopItems: _shopItems, onClose, on
                   </button>
                 </div>
 
-                <div className="mt-4 grid gap-3 lg:grid-cols-3">
-                  {classGuide.uniqueAbilities.map((ability) => (
-                    <article key={ability.name} className="rounded-[18px] border border-[#dcc0aa] bg-[#f8eddf] p-4">
-                      <div className="text-sm font-black text-[#6b3141]">{ability.name}</div>
-                      <p className="mt-2 text-sm leading-relaxed text-[#7f5b56]">{ability.detail}</p>
-                    </article>
-                  ))}
-                </div>
+                {player.classId !== 'ranger' && (
+                  <div className="mt-4 grid gap-3 lg:grid-cols-3">
+                    {classGuide.uniqueAbilities.map((ability) => (
+                      <article key={ability.name} className="rounded-[18px] border border-[#dcc0aa] bg-[#f8eddf] p-4">
+                        <div className="text-sm font-black text-[#6b3141]">{ability.name}</div>
+                        <p className="mt-2 text-sm leading-relaxed text-[#7f5b56]">{ability.detail}</p>
+                      </article>
+                    ))}
+                  </div>
+                )}
               </section>
 
               <div className="rounded-[24px] border border-[#cfab91] bg-[#f4e5d4] p-4">

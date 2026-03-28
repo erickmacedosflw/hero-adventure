@@ -7,7 +7,34 @@ import { DungeonBossTemplate, DungeonEnemyTemplate, EnemyTemplate, PlayerClassDe
 const PRELOAD_CACHE_NAME = 'hero-adventure-assets-v1';
 const PRELOAD_STORAGE_KEY = 'hero-adventure-preload-signature-v1';
 const MIN_SPLASH_VISIBILITY_MS = 900;
-const SPLASH_AUTO_ADVANCE_MS = 1800;
+const MAX_PRELOAD_WAIT_MS = 14000;
+
+const FOREST_SCENARIO_MODEL_URLS = [
+  new URL('../game/assets/Scenario/Florest/Tree_1_A_Color1.fbx', import.meta.url).href,
+  new URL('../game/assets/Scenario/Florest/Tree_2_A_Color1.fbx', import.meta.url).href,
+  new URL('../game/assets/Scenario/Florest/Tree_3_A_Color1.fbx', import.meta.url).href,
+  new URL('../game/assets/Scenario/Florest/Tree_4_A_Color1.fbx', import.meta.url).href,
+  new URL('../game/assets/Scenario/Florest/Bush_1_A_Color1.fbx', import.meta.url).href,
+  new URL('../game/assets/Scenario/Florest/Bush_2_A_Color1.fbx', import.meta.url).href,
+  new URL('../game/assets/Scenario/Florest/Bush_3_A_Color1.fbx', import.meta.url).href,
+  new URL('../game/assets/Scenario/Florest/Rock_1_A_Color1.fbx', import.meta.url).href,
+  new URL('../game/assets/Scenario/Florest/Rock_2_A_Color1.fbx', import.meta.url).href,
+  new URL('../game/assets/Scenario/Florest/Rock_3_A_Color1.fbx', import.meta.url).href,
+  new URL('../game/assets/Scenario/Florest/Grass_1_A_Color1.fbx', import.meta.url).href,
+  new URL('../game/assets/Scenario/Florest/Grass_2_A_Color1.fbx', import.meta.url).href,
+] as const;
+
+const FOREST_SCENARIO_TEXTURE_URLS = [
+  new URL('../game/assets/Scenario/Florest/forest_texture.png', import.meta.url).href,
+] as const;
+
+const SKYBOX_FACE_URLS = [
+  '/skybox/manha/px.png', '/skybox/manha/nx.png', '/skybox/manha/py.png', '/skybox/manha/ny.png', '/skybox/manha/pz.png', '/skybox/manha/nz.png',
+  '/skybox/dia/px.png', '/skybox/dia/nx.png', '/skybox/dia/py.png', '/skybox/dia/ny.png', '/skybox/dia/pz.png', '/skybox/dia/nz.png',
+  '/skybox/sol/px.png', '/skybox/sol/nx.png', '/skybox/sol/py.png', '/skybox/sol/ny.png', '/skybox/sol/pz.png', '/skybox/sol/nz.png',
+  '/skybox/tarde/px.png', '/skybox/tarde/nx.png', '/skybox/tarde/py.png', '/skybox/tarde/ny.png', '/skybox/tarde/pz.png', '/skybox/tarde/nz.png',
+  '/skybox/noite/px.png', '/skybox/noite/nx.png', '/skybox/noite/py.png', '/skybox/noite/ny.png', '/skybox/noite/pz.png', '/skybox/noite/nz.png',
+] as const;
 
 interface OpeningScreenProps {
   classes: PlayerClassDefinition[];
@@ -66,6 +93,10 @@ const buildPreloadManifest = (
 
     assets.animationUrls?.forEach((url) => animationUrls.add(url));
   });
+
+  FOREST_SCENARIO_MODEL_URLS.forEach((url) => modelUrls.add(url));
+  FOREST_SCENARIO_TEXTURE_URLS.forEach((url) => textureUrls.add(url));
+  SKYBOX_FACE_URLS.forEach((url) => textureUrls.add(url));
 
   return {
     modelUrls: [...modelUrls],
@@ -175,7 +206,7 @@ export const OpeningScreen: React.FC<OpeningScreenProps> = ({ classes, enemies, 
 
     const timeout = window.setTimeout(() => {
       setForceComplete(true);
-    }, cacheHitRef.current ? 1400 : 6000);
+    }, cacheHitRef.current ? 1800 : MAX_PRELOAD_WAIT_MS);
 
     return () => window.clearTimeout(timeout);
   }, []);
@@ -185,18 +216,6 @@ export const OpeningScreen: React.FC<OpeningScreenProps> = ({ classes, enemies, 
       window.clearTimeout(finalizeTimerRef.current);
     }
   }, []);
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      if (readyRef.current) {
-        return;
-      }
-      readyRef.current = true;
-      onReady();
-    }, SPLASH_AUTO_ADVANCE_MS);
-
-    return () => window.clearTimeout(timer);
-  }, [onReady]);
 
   const loadingLabel = percentage >= 100
     ? 'Iniciando'
