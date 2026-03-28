@@ -1417,6 +1417,7 @@ export default function App() {
                         isDungeonRun={Boolean(dungeonRun)}
                         playerState={player}
                         enemyState={enemy}
+                        isArCameraMode={isArCameraOpen}
                         isMenuView={resolvedGameState === GameState.TAVERN}
                         menuCameraFocus={shouldMenuCameraFocus}
                         isDungeonScene={sceneRegion === 'dungeon'}

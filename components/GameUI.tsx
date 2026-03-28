@@ -1050,7 +1050,7 @@ export const TavernScreen: React.FC<{
                         </button>
                     )}
 
-                    <div className={`hidden sm:grid gap-2.5 pointer-events-auto ${bossUnlocked ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`}>
+                    <div className={`hidden sm:grid gap-2.5 pointer-events-auto ${bossUnlocked ? 'sm:grid-cols-4' : 'sm:grid-cols-3'}`}>
                         <button onClick={() => handleMenuTransition('hunt')} className="rounded-2xl border border-[#b26a2e] bg-[#b87a3a]/95 px-4 py-4 text-center transition-all hover:-translate-y-0.5 hover:bg-[#c88a4a]">
                             <div className="flex items-center justify-center gap-2 text-base sm:text-lg font-black text-white"><Sword size={20} /> Cacar</div>
                             <div className="mt-1 text-[10px] uppercase tracking-[0.2em] text-[#f8eddf]">Batalha rapida</div>
@@ -1059,6 +1059,13 @@ export const TavernScreen: React.FC<{
                         <button onClick={() => handleMenuTransition('dungeon')} className="rounded-2xl border border-[#3b6580] bg-[#4d7a96]/95 px-4 py-4 text-center transition-all hover:-translate-y-0.5 hover:bg-[#5a8aa6]">
                             <div className="flex items-center justify-center gap-2 text-base sm:text-lg font-black text-white"><Crosshair size={20} /> Dungeon</div>
                             <div className="mt-1 text-[10px] uppercase tracking-[0.2em] text-sky-100">Modo progressivo</div>
+                        </button>
+
+                        <button onClick={onOpenAr} className={`rounded-2xl border px-4 py-4 text-center transition-all hover:-translate-y-0.5 ${arModeReady ? 'border-[#3b6580] bg-[#4d7a96]/95 hover:bg-[#5a8aa6]' : 'border-[#cfab91] bg-[#f4e5d4] hover:bg-[#e9d7c2]'}`}>
+                            <div className={`flex items-center justify-center gap-2 text-base sm:text-lg font-black ${arModeReady ? 'text-white' : 'text-[#6b3141]'}`}><Camera size={20} /> Ver em AR</div>
+                            <div className={`mt-1 text-[10px] uppercase tracking-[0.2em] ${arModeReady ? 'text-sky-100' : 'text-[#8f6c67]'}`}>
+                                {arModeChecking ? 'Verificando' : arModeReady ? 'Rota AR pronta' : 'Fallback disponivel'}
+                            </div>
                         </button>
 
                         {bossUnlocked && (
@@ -2334,7 +2341,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                           Espólio
                       </button>
                   )}
-                  <button onClick={onOpenAr} className={`sm:hidden self-start rounded-[10px] border px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.15em] transition-colors ${arModeReady ? 'border-[#3b6580] bg-[#4d7a96] text-white hover:bg-[#5a8aa6]' : 'border-[#cfab91] bg-[#f4e5d4] text-[#6b3141] hover:bg-[#e9d7c2]'}`}>
+                  <button onClick={onOpenAr} className={`self-start rounded-[10px] border px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.15em] transition-colors ${arModeReady ? 'border-[#3b6580] bg-[#4d7a96] text-white hover:bg-[#5a8aa6]' : 'border-[#cfab91] bg-[#f4e5d4] text-[#6b3141] hover:bg-[#e9d7c2]'}`}>
                       <span className="inline-flex items-center gap-1.5"><Camera size={12} /> Ver em AR</span>
                   </button>
                   <div className="rounded-[18px] border border-[#cfab91] bg-[#f7ecdd]/94 px-4 py-3.5 shadow-xl backdrop-blur-md max-w-[280px] sm:max-w-[320px]">

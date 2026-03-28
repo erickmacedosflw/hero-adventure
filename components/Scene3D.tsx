@@ -118,6 +118,7 @@ interface SceneProps {
   isMenuView?: boolean;
   menuCameraFocus?: boolean;
   isDungeonScene?: boolean;
+  isArCameraMode?: boolean;
   stage?: number;
   isDungeonRun?: boolean;
   onGameTimeUpdate?: (time: string) => void;
@@ -1009,6 +1010,7 @@ export const GameScene: React.FC<SceneProps> = (props) => {
   }, [props.onGameTimeUpdate]);
   const quality = useMemo(() => getRenderQualityProfile(), []);
   const isDungeonRun = Boolean(props.isDungeonScene ?? props.isDungeonRun);
+  const isArCameraMode = Boolean(props.isArCameraMode);
   const battleContactShadowResolution = useMemo(
     () => quality.isLowQuality ? 48 : Math.min(quality.contactShadowResolution, 96),
     [quality.contactShadowResolution, quality.isLowQuality],
@@ -1034,9 +1036,9 @@ export const GameScene: React.FC<SceneProps> = (props) => {
   }, [props.particles]);
 
   return (
-    <div ref={containerRef} className="absolute inset-0 z-0 transition-colors duration-1000" style={{ backgroundColor: bgColor }}>
+    <div ref={containerRef} className="absolute inset-0 z-0 transition-colors duration-1000" style={{ backgroundColor: isArCameraMode ? 'transparent' : bgColor }}>
       {/* Time Display Overlay - Desktop only */}
-      {!isDungeonRun && (
+      {!isDungeonRun && !isArCameraMode && (
         <div className="absolute top-6 left-6 z-10 bg-black/40 backdrop-blur-md border border-white/10 px-4 py-1 rounded-full hidden sm:flex items-center gap-3 pointer-events-none">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-400 shrink-0"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
           <span className="font-mono text-white text-sm tracking-widest">{gameTime}</span>
@@ -1046,12 +1048,33 @@ export const GameScene: React.FC<SceneProps> = (props) => {
       <Canvas
         shadows={{ type: THREE.PCFSoftShadowMap }}
         dpr={quality.dpr}
-        gl={{ antialias: quality.antialias, powerPreference: 'high-performance' }}
+        gl={{ antialias: quality.antialias, powerPreference: 'high-performance', alpha: isArCameraMode }}
+        onCreated={({ gl }) => {
+          if (isArCameraMode) {
+            gl.setClearAlpha(0);
+          }
+        }}
         performance={{ min: 0.5 }}
         frameloop="always"
       >
         <CameraController screenShake={props.screenShake} menuFocus={props.menuCameraFocus ?? Boolean(props.isMenuView)} />
-        {isDungeonRun ? (
+        {isArCameraMode ? (
+          <>
+            <ambientLight intensity={0.65} />
+            <hemisphereLight intensity={0.55} groundColor="#243a20" color="#f4ffe6" />
+            <Suspense fallback={null}>
+              <BattleScenario scenario={activeScenario} lowQuality={quality.isLowQuality} />
+            </Suspense>
+            <ContactShadows
+              position={[0, -1.04, -0.2]}
+              opacity={0.28}
+              scale={20}
+              blur={2}
+              far={9}
+              resolution={battleContactShadowResolution}
+            />
+          </>
+        ) : isDungeonRun ? (
           <>
             <color attach="background" args={[bgColor]} />
             <fog attach="fog" args={['#1f2937', 14, 32]} />
@@ -1132,7 +1155,7 @@ export const GameScene: React.FC<SceneProps> = (props) => {
         {props.particles.map(p => <MeshParticle key={p.id} {...p} />)}
         <WorldFloatingTexts texts={props.floatingTexts} />
 
-        {isDungeonRun ? (
+        {isArCameraMode ? null : isDungeonRun ? (
           <EffectComposer>
             {!quality.isLowQuality ? (
               <DepthOfField
