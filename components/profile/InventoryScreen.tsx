@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, Crown, FlaskConical, LayoutGrid, Shield, Shirt, Sparkles, Sword, X } from 'lucide-react';
+import { ArrowLeft, FlaskConical, Shield, X } from 'lucide-react';
 import { Item, Player } from '../../types';
 import { ItemPreviewThree } from '../items/ItemPreviewThree';
 import { GameAssetIcon } from '../ui/game-asset-icon';
@@ -24,13 +24,7 @@ const FILTERS: Array<{ id: InventoryFilter; label: string; icon: React.ReactNode
   { id: 'material', label: 'Materiais', icon: <GameAssetIcon name="gear" size={22} /> },
 ];
 
-const slotIcons: Record<'weapon' | 'shield' | 'helmet' | 'armor' | 'legs', React.ReactNode> = {
-  weapon: <Sword size={16} />,
-  shield: <Shield size={16} />,
-  helmet: <Crown size={16} />,
-  armor: <Shirt size={16} />,
-  legs: <GameAssetIcon name="boots" size={20} />,
-};
+const SHOW_CURRENT_EQUIPMENT = false;
 
 const ItemDetailCard = ({ item, quantity, onAction }: { item: Item | null; quantity: number; onAction: (item: Item) => void }) => {
   if (!item) {
@@ -63,10 +57,10 @@ const ItemDetailCard = ({ item, quantity, onAction }: { item: Item | null; quant
           </div>
         </div>
 
-        <div className="mt-4 flex flex-wrap gap-2">
-          <span className={`rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.22em] ${getRarityColor(item.rarity)}`}>{getRarityLabel(item.rarity)}</span>
-          <span className="rounded-full border border-[#d6b9a3] bg-[#f3e5d5] px-3 py-1 text-[10px] font-black uppercase tracking-[0.22em] text-[#7f5b56]"><ItemTypeLabel type={item.type} /></span>
-          {item.source && <span className="rounded-full border border-[#d0b58a] bg-[#efe4c9] px-3 py-1 text-[10px] font-black uppercase tracking-[0.22em] text-[#8d5e29]">{item.source}</span>}
+        <div className="mt-4 flex flex-wrap gap-1.5">
+          <span className={`rounded-full border px-2.5 py-0.5 text-[9px] font-black uppercase tracking-[0.16em] ${getRarityColor(item.rarity)}`}>{getRarityLabel(item.rarity)}</span>
+          <span className="rounded-full border border-[#d6b9a3] bg-[#f3e5d5] px-2.5 py-0.5 text-[9px] font-black uppercase tracking-[0.16em] text-[#7f5b56]"><ItemTypeLabel type={item.type} /></span>
+          {item.source && <span className="rounded-full border border-[#d0b58a] bg-[#efe4c9] px-2.5 py-0.5 text-[9px] font-black uppercase tracking-[0.16em] text-[#8d5e29]">{item.source}</span>}
         </div>
 
         <p className="mt-5 text-sm leading-relaxed text-[#7f5b56]">{item.description}</p>
@@ -166,11 +160,11 @@ export const InventoryScreen = ({ player, shopItems, onClose, onEquip, onUse }: 
       accent="gold"
       valueBadge={<span className="inline-flex items-center gap-2.5"><GameAssetIcon name="bag" size={24} /> {inventoryItems.reduce((sum, entry) => sum + entry.quantity, 0)} itens</span>}
     >
-      <div className="grid h-full min-h-0 grid-cols-1 gap-4 xl:grid-cols-[minmax(21rem,27rem)_minmax(0,1fr)]">
+      <div className="grid h-full min-h-0 grid-cols-1 gap-4 pb-16 xl:grid-cols-[minmax(21rem,27rem)_minmax(0,1fr)] xl:pb-0">
         <aside className="flex min-h-0 flex-col gap-4">
           <RpgMenuPanel className="rounded-[24px] p-4">
             <RpgMenuSectionTitle>Filtros</RpgMenuSectionTitle>
-            <div className="mt-4 flex flex-wrap gap-2">
+            <div className="mt-4 hidden flex-wrap gap-2 sm:flex">
               {FILTERS.map((entry) => (
                 <RpgMenuTab key={entry.id} active={filter === entry.id} onClick={() => setFilter(entry.id)} className="inline-flex items-center gap-2">
                   {entry.icon}
@@ -178,23 +172,32 @@ export const InventoryScreen = ({ player, shopItems, onClose, onEquip, onUse }: 
                 </RpgMenuTab>
               ))}
             </div>
-            <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-2">
-              <RpgMenuStat label="Itens" value={inventoryItems.reduce((sum, entry) => sum + entry.quantity, 0)} />
-              <RpgMenuStat label="Tipos" value={new Set(inventoryItems.map((entry) => entry.item.type)).size} />
-              <RpgMenuStat label="Equipados" value={equippedItems.length} />
-              <RpgMenuStat label="Filtro" value={FILTERS.find((entry) => entry.id === filter)?.label} />
+            <div className="mt-4 flex flex-wrap gap-1.5">
+              <span className="inline-flex items-center gap-1 rounded-full border border-[#d6b9a3] bg-[#f8eddf] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.1em] text-[#6b3141]">
+                Itens {inventoryItems.reduce((sum, entry) => sum + entry.quantity, 0)}
+              </span>
+              <span className="inline-flex items-center gap-1 rounded-full border border-[#d6b9a3] bg-[#f8eddf] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.1em] text-[#6b3141]">
+                Tipos {new Set(inventoryItems.map((entry) => entry.item.type)).size}
+              </span>
+              <span className="inline-flex items-center gap-1 rounded-full border border-[#d6b9a3] bg-[#f8eddf] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.1em] text-[#6b3141]">
+                Equip. {equippedItems.length}
+              </span>
+              <span className="inline-flex items-center gap-1 rounded-full border border-[#d6b9a3] bg-[#f8eddf] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.1em] text-[#8a5a57]">
+                {FILTERS.find((entry) => entry.id === filter)?.label}
+              </span>
             </div>
           </RpgMenuPanel>
 
+          {SHOW_CURRENT_EQUIPMENT && (
           <RpgMenuPanel className="rounded-[24px] p-4">
             <RpgMenuSectionTitle>Equipamento atual</RpgMenuSectionTitle>
             <div className="mt-4 grid grid-cols-5 gap-2">
                       {[
-                        { label: 'Arma', icon: slotIcons.weapon, item: player.equippedWeapon },
-                        { label: 'Escudo', icon: slotIcons.shield, item: player.equippedShield },
-                        { label: 'Capacete', icon: slotIcons.helmet, item: player.equippedHelmet },
-                        { label: 'Armadura', icon: slotIcons.armor, item: player.equippedArmor },
-                        { label: 'Pernas', icon: slotIcons.legs, item: player.equippedLegs },
+                        { label: 'Arma', icon: <GameAssetIcon name="sword" size={18} />, item: player.equippedWeapon },
+                        { label: 'Escudo', icon: <GameAssetIcon name="shield" size={18} />, item: player.equippedShield },
+                        { label: 'Capacete', icon: <GameAssetIcon name="helm" size={18} />, item: player.equippedHelmet },
+                        { label: 'Armadura', icon: <GameAssetIcon name="armor" size={18} />, item: player.equippedArmor },
+                        { label: 'Pernas', icon: <GameAssetIcon name="boots" size={18} />, item: player.equippedLegs },
                       ].map((slot) => (
                         <div key={slot.label} className={`flex h-16 items-center justify-center rounded-2xl border ${slot.item ? `${getRarityColor(slot.item.rarity)} bg-[#f4e5d4]` : 'border-[#cfab91] bg-[#f7ecdd] text-[#8f6c67]'}`}>
                           {slot.item ? <span className="text-2xl">{slot.item.icon}</span> : slot.icon}
@@ -202,6 +205,7 @@ export const InventoryScreen = ({ player, shopItems, onClose, onEquip, onUse }: 
                       ))}
             </div>
           </RpgMenuPanel>
+          )}
 
           <ScrollArea className="min-h-0 flex-1 rounded-[24px] border border-[#c59d82] bg-[#f4e7d5] shadow-[0_8px_26px_rgba(107,49,65,0.08)]" viewportClassName="p-4">
                     <div className="grid gap-3">
@@ -227,7 +231,10 @@ export const InventoryScreen = ({ player, shopItems, onClose, onEquip, onUse }: 
                               </div>
                               <div className="min-w-0 flex-1">
                                 <div className="truncate text-sm font-black text-[#6b3141]">{item.name}</div>
-                                <div className="mt-1 text-[10px] uppercase tracking-[0.2em] text-[#9a7068]"><ItemTypeLabel type={item.type} /></div>
+                                <div className="mt-1 flex items-center gap-1.5">
+                                  <span className="inline-flex rounded-full border border-[#d6b9a3] bg-[#f3e5d5] px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.12em] text-[#8a5a57]"><ItemTypeLabel type={item.type} /></span>
+                                  <span className={`inline-flex rounded-full border px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.12em] ${getRarityColor(item.rarity)}`}>{getRarityLabel(item.rarity)}</span>
+                                </div>
                               </div>
                               <div className="rounded-xl border border-[#d6b9a3] bg-[#f3e5d5] px-2 py-1 text-xs font-black text-[#6b3141]">x{quantity}</div>
                             </button>
@@ -242,6 +249,27 @@ export const InventoryScreen = ({ player, shopItems, onClose, onEquip, onUse }: 
           <ItemDetailCard item={selectedEntry?.item ?? null} quantity={selectedEntry?.quantity ?? 0} onAction={handleAction} />
         </section>
       </div>
+
+      {!mobileEntry && (
+      <div className="pointer-events-none fixed inset-x-0 bottom-4 z-[90] flex justify-center px-4 sm:hidden">
+        <div className="pointer-events-auto grid w-full max-w-md grid-cols-4 gap-1.5 rounded-[16px] border border-[#c59d82] bg-[#f7eddc]/92 p-1.5 shadow-[0_14px_28px_rgba(54,26,33,0.18)] backdrop-blur-md">
+          {FILTERS.map((entry) => {
+            const active = filter === entry.id;
+
+            return (
+              <button
+                key={`mobile-nav-${entry.id}`}
+                onClick={() => setFilter(entry.id)}
+                className={`flex flex-col items-center justify-center rounded-[12px] px-2 py-1.5 transition-all ${active ? 'bg-[#fff4e7] text-[#6b3141] shadow-sm' : 'text-[#8f6c67]'}`}
+              >
+                <span className={`transition-all duration-200 ${active ? 'scale-105' : 'opacity-80'}`}>{entry.icon}</span>
+                <span className={`mt-0.5 text-[9px] font-black uppercase tracking-[0.1em] ${active ? '' : 'opacity-70'}`}>{entry.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+      )}
 
         {mobileEntry && (
           <div className="absolute inset-0 z-20 bg-[rgba(40,20,25,0.36)] backdrop-blur md:hidden" onClick={() => setMobileDetailItemId(null)}>

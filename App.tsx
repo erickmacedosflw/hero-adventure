@@ -1502,6 +1502,7 @@ export default function App() {
             items={ALL_ITEMS} 
             onBuy={buyItem} 
             onSell={sellItem}
+            onEquip={equipItem}
             onLeave={() => setGameState(GameState.TAVERN)} 
         />
       )}

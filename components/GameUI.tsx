@@ -1906,8 +1906,8 @@ export const BossVictoryModal: React.FC<{
 
 type ShopFilter = 'all' | 'weapon' | 'shield' | 'helmet' | 'armor' | 'legs' | 'potion';
 
-export const ShopScreen: React.FC<{ player: Player, items: Item[], onBuy: (i: Item) => void, onSell: (i: Item) => void, onLeave: () => void }> = ({ player, items, onBuy, onSell, onLeave }) => {
-  return <ShopMenuScreen player={player} items={items} onBuy={onBuy} onSell={onSell} onLeave={onLeave} />;
+export const ShopScreen: React.FC<{ player: Player, items: Item[], onBuy: (i: Item) => void, onSell: (i: Item) => void, onEquip: (i: Item) => void, onLeave: () => void }> = ({ player, items, onBuy, onSell, onEquip, onLeave }) => {
+    return <ShopMenuScreen player={player} items={items} onBuy={onBuy} onSell={onSell} onEquip={onEquip} onLeave={onLeave} />;
 };
 
 export const BattleHUD: React.FC<GameUIProps> = (props) => {
