@@ -7,6 +7,7 @@ interface ARModeOverlayProps {
   entryPoint: ArEntryPoint;
   arSupport: ArSupportState;
   onClose: () => void;
+  onOpenFallback3D: () => void;
 }
 
 const getEntryLabel = (entryPoint: ArEntryPoint) => (
@@ -34,6 +35,7 @@ export const ARModeOverlay: React.FC<ARModeOverlayProps> = ({
   entryPoint,
   arSupport,
   onClose,
+  onOpenFallback3D,
 }) => {
   if (!isOpen) {
     return null;
@@ -91,7 +93,9 @@ export const ARModeOverlay: React.FC<ARModeOverlayProps> = ({
               <Camera size={14} /> Proxima etapa
             </div>
             <p className="mt-1 text-sm text-[#6b3141] leading-relaxed">
-              Esta primeira fase habilita deteccao, entrada por UI e fallback seguro. A renderizacao do cenario em AR real sera conectada no proximo passo do implementation.
+              {isSupported
+                ? 'Seu dispositivo detectou suporte AR. A sessao immersive-ar completa entra na proxima fase.'
+                : 'No Safari iOS, WebXR costuma nao estar disponivel. Voce pode continuar agora em fallback 3D para visualizar o cenario sem travar o fluxo.'}
             </p>
           </div>
 
@@ -99,8 +103,17 @@ export const ARModeOverlay: React.FC<ARModeOverlayProps> = ({
             <button onClick={onClose} className="rounded-xl border border-[#cfab91] bg-[#f4e5d4] px-4 py-3 font-black text-[#6b3141] transition-colors hover:bg-[#e9d7c2]">
               Voltar ao jogo
             </button>
-            <button onClick={onClose} className={`rounded-xl px-4 py-3 font-black text-white transition-colors ${isSupported ? 'bg-[#4d7a96] hover:bg-[#5a8aa6]' : 'bg-[#8f6c67] hover:bg-[#9f7c77]'}`}>
-              {isSupported ? 'Continuar prototipo AR' : 'Usar visualizacao padrao'}
+            <button
+              onClick={() => {
+                if (isSupported) {
+                  onClose();
+                  return;
+                }
+                onOpenFallback3D();
+              }}
+              className={`rounded-xl px-4 py-3 font-black text-white transition-colors ${isSupported ? 'bg-[#4d7a96] hover:bg-[#5a8aa6]' : 'bg-[#8f6c67] hover:bg-[#9f7c77]'}`}
+            >
+              {isSupported ? 'Aguardar sessao AR real' : 'Abrir fallback 3D agora'}
             </button>
           </div>
         </div>

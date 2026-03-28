@@ -7,6 +7,7 @@ import { OpeningScreen } from './components/OpeningScreen';
 import { ClassSelectionScreen } from './components/ClassSelectionScreen';
 import { BattleHUD, MenuScreen, ShopScreen, TavernScreen, KillLootOverlay, CardChoiceScreen, AlchemistScreen, DungeonResultScreen, BossVictoryModal } from './components/GameUI';
 import { ARModeOverlay } from './components/ARModeOverlay';
+import { ARFallback3DOverlay } from './components/ARFallback3DOverlay';
 import { 
     Player, Enemy, GameState, TurnState, BattleLog, Item, Skill, Stats, Particle, FloatingText, ProgressionCard, CardRewardOffer, AlchemistCardOffer, AlchemistItemOffer, DungeonRunState, DungeonResult, DungeonRewards, EnemyTemplate, DungeonEnemyTemplate, DungeonBossTemplate, PlayerAnimationAction, BossVictoryContext, CardCategory, ArEntryPoint
 } from './types';
@@ -128,6 +129,7 @@ export default function App() {
     const { arSupport, refreshArSupport } = useARCapabilities();
     const [isArOverlayOpen, setIsArOverlayOpen] = useState(false);
     const [arEntryPoint, setArEntryPoint] = useState<ArEntryPoint>('tavern');
+    const [isArFallback3DOpen, setIsArFallback3DOpen] = useState(false);
 
     const bootEnemies = useMemo(() => [...ENEMY_DATA, ...DUNGEON_ENEMY_DATA, DUNGEON_BOSS], []);
     const handleBootReady = useCallback(() => {
@@ -152,6 +154,15 @@ export default function App() {
 
     const handleCloseAr = useCallback(() => {
         setIsArOverlayOpen(false);
+    }, []);
+
+    const handleOpenFallback3D = useCallback(() => {
+        setIsArOverlayOpen(false);
+        setIsArFallback3DOpen(true);
+    }, []);
+
+    const handleCloseFallback3D = useCallback(() => {
+        setIsArFallback3DOpen(false);
     }, []);
 
   // Game Time (from Scene3D day/night cycle)
@@ -1388,11 +1399,18 @@ export default function App() {
                 entryPoint={arEntryPoint}
                 arSupport={arSupport}
                 onClose={handleCloseAr}
+                onOpenFallback3D={handleOpenFallback3D}
+            />
+
+            <ARFallback3DOverlay
+                isOpen={isArFallback3DOpen}
+                entryPoint={arEntryPoint}
+                onClose={handleCloseFallback3D}
             />
 
             {resolvedGameState === GameState.MENU && <MenuScreen onStart={startGame} />}
       
-            {resolvedGameState === GameState.TAVERN && showTavernUi && (
+                        {resolvedGameState === GameState.TAVERN && showTavernUi && !isArFallback3DOpen && (
           <TavernScreen 
             player={player}
             stage={stage}
@@ -1442,7 +1460,7 @@ export default function App() {
                 />
             )}
 
-    {resolvedGameState === GameState.BATTLE && (
+    {resolvedGameState === GameState.BATTLE && !isArFallback3DOpen && (
         <BattleHUD 
             player={player}
             enemy={enemy}
