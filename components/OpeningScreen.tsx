@@ -7,6 +7,7 @@ import { DungeonBossTemplate, DungeonEnemyTemplate, EnemyTemplate, PlayerClassDe
 const PRELOAD_CACHE_NAME = 'hero-adventure-assets-v1';
 const PRELOAD_STORAGE_KEY = 'hero-adventure-preload-signature-v1';
 const MIN_SPLASH_VISIBILITY_MS = 900;
+const SPLASH_AUTO_ADVANCE_MS = 1800;
 
 interface OpeningScreenProps {
   classes: PlayerClassDefinition[];
@@ -184,6 +185,18 @@ export const OpeningScreen: React.FC<OpeningScreenProps> = ({ classes, enemies, 
       window.clearTimeout(finalizeTimerRef.current);
     }
   }, []);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      if (readyRef.current) {
+        return;
+      }
+      readyRef.current = true;
+      onReady();
+    }, SPLASH_AUTO_ADVANCE_MS);
+
+    return () => window.clearTimeout(timer);
+  }, [onReady]);
 
   const loadingLabel = percentage >= 100
     ? 'Iniciando'

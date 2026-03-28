@@ -4,17 +4,75 @@ import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { FloatingText, Particle } from '../../types';
 
-export const MeshParticle: React.FC<Particle> = ({ position, color, velocity }) => {
-  const ref = useRef<THREE.Mesh>(null);
-  const [alive, setAlive] = useState(true);
+const SOFT_PARTICLE_TEXTURE = (() => {
+  const size = 64;
+  const data = new Uint8Array(size * size * 4);
+  let offset = 0;
 
-  useFrame((_, delta) => {
+  for (let y = 0; y < size; y += 1) {
+    for (let x = 0; x < size; x += 1) {
+      const nx = (x / (size - 1)) * 2 - 1;
+      const ny = (y / (size - 1)) * 2 - 1;
+      const dist = Math.sqrt((nx * nx) + (ny * ny));
+      const alpha = Math.max(0, 1 - dist);
+      const intensity = Math.floor(255 * Math.pow(alpha, 1.9));
+      data[offset] = 255;
+      data[offset + 1] = 255;
+      data[offset + 2] = 255;
+      data[offset + 3] = intensity;
+      offset += 4;
+    }
+  }
+
+  const texture = new THREE.DataTexture(data, size, size, THREE.RGBAFormat);
+  texture.needsUpdate = true;
+  texture.magFilter = THREE.LinearFilter;
+  texture.minFilter = THREE.LinearFilter;
+  texture.wrapS = THREE.ClampToEdgeWrapping;
+  texture.wrapT = THREE.ClampToEdgeWrapping;
+  return texture;
+})();
+
+export const MeshParticle: React.FC<Particle> = ({ position, color, velocity, scale = 0.22, life = 1, ttl = 0.9, renderMode }) => {
+  const ref = useRef<THREE.Group>(null);
+  const materialRef = useRef<THREE.Material>(null);
+  const [alive, setAlive] = useState(true);
+  const lifeRef = useRef(Math.max(0.05, life));
+  const rotationSeed = useMemo<[number, number, number]>(() => (
+    [Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI]
+  ), []);
+  const spinSeed = useMemo<[number, number, number]>(() => (
+    [(Math.random() - 0.5) * 8, (Math.random() - 0.5) * 8, (Math.random() - 0.5) * 8]
+  ), []);
+  const mode = renderMode ?? 'sprite2d';
+  const maxLife = Math.max(0.05, life);
+  const ttlSeconds = Math.max(0.2, ttl);
+
+  useFrame((state, delta) => {
     if (ref.current && alive) {
+      lifeRef.current -= delta / ttlSeconds;
       ref.current.position.x += velocity[0] * delta;
       ref.current.position.y += velocity[1] * delta;
       ref.current.position.z += velocity[2] * delta;
-      ref.current.scale.multiplyScalar(0.95);
-      if (ref.current.scale.x < 0.01) {
+
+      const life = Math.max(lifeRef.current, 0);
+      const fade = Math.min(Math.max(life / maxLife, 0), 1);
+      const baseScale = Math.max(0.06, scale);
+      ref.current.scale.setScalar(Math.max(0.02, baseScale * fade));
+
+      if (mode === 'sprite2d') {
+        ref.current.quaternion.copy(state.camera.quaternion);
+      } else {
+        ref.current.rotation.x += spinSeed[0] * delta * 0.2;
+        ref.current.rotation.y += spinSeed[1] * delta * 0.2;
+        ref.current.rotation.z += spinSeed[2] * delta * 0.2;
+      }
+
+      if (materialRef.current instanceof THREE.MeshBasicMaterial || materialRef.current instanceof THREE.MeshStandardMaterial) {
+        materialRef.current.opacity = mode === 'shard3d' ? Math.max(0.16, fade) : Math.max(0.08, fade * 0.92);
+      }
+
+      if (life <= 0) {
         setAlive(false);
       }
     }
@@ -24,11 +82,43 @@ export const MeshParticle: React.FC<Particle> = ({ position, color, velocity }) 
     return null;
   }
 
+  if (mode === 'shard3d') {
+    return (
+      <group ref={ref} position={position} rotation={rotationSeed}>
+        <mesh castShadow={false} receiveShadow={false}>
+          <tetrahedronGeometry args={[1, 0]} />
+          <meshStandardMaterial
+            ref={materialRef as React.MutableRefObject<THREE.MeshStandardMaterial | null>}
+            color={color}
+            emissive={color}
+            emissiveIntensity={0.42}
+            roughness={0.44}
+            metalness={0.05}
+            transparent
+            opacity={0.95}
+            depthWrite={false}
+          />
+        </mesh>
+      </group>
+    );
+  }
+
   return (
-    <mesh ref={ref} position={position}>
-      <boxGeometry args={[0.2, 0.2, 0.2]} />
-      <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.5} />
-    </mesh>
+    <group ref={ref} position={position}>
+      <mesh castShadow={false} receiveShadow={false}>
+        <planeGeometry args={[1, 1]} />
+        <meshBasicMaterial
+          ref={materialRef as React.MutableRefObject<THREE.MeshBasicMaterial | null>}
+          map={SOFT_PARTICLE_TEXTURE}
+          color={color}
+          transparent
+          opacity={0.9}
+          depthWrite={false}
+          blending={THREE.AdditiveBlending}
+          toneMapped={false}
+        />
+      </mesh>
+    </group>
   );
 };
 
@@ -66,19 +156,26 @@ const WorldFloatingText = ({
   });
 
   const tone = type === 'damage'
-    ? 'text-red-400'
+    ? 'text-red-500'
     : type === 'heal'
-      ? 'text-emerald-300'
+      ? 'text-emerald-400'
       : type === 'crit'
-        ? 'text-amber-300'
-        : 'text-sky-300';
+        ? 'text-amber-400'
+        : 'text-sky-400';
 
   const textSize = type === 'crit' ? 'text-3xl' : type === 'buff' ? 'text-lg' : 'text-2xl';
 
   return (
     <group ref={groupRef} position={basePosition}>
       <Html center sprite distanceFactor={10} zIndexRange={[120, 0]}>
-        <div className={`min-w-[5.5rem] rounded-xl border border-white/10 bg-black/45 px-3 py-1.5 text-center font-black ${tone} ${textSize} shadow-[0_6px_18px_rgba(0,0,0,0.45)] backdrop-blur-[2px] select-none`}>
+        <div
+          className={`px-1 text-center font-black ${tone} ${textSize} select-none`}
+          style={{
+            WebkitTextStroke: '4px rgba(255,255,255,1)',
+            paintOrder: 'stroke fill',
+            opacity: 0.94,
+          }}
+        >
           {text.text}
         </div>
       </Html>

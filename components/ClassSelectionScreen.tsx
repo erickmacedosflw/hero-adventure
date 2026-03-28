@@ -1,6 +1,6 @@
 import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { ContactShadows, Html, PerspectiveCamera } from '@react-three/drei';
+import { ContactShadows, Html, PerspectiveCamera, useProgress } from '@react-three/drei';
 import * as THREE from 'three';
 import { ArrowLeft, ArrowRight, Heart, Shield, Star, Swords, WandSparkles, X, Zap } from 'lucide-react';
 import { getConstellationByClassId } from '../game/data/classTalents';
@@ -16,6 +16,7 @@ interface ClassSelectionScreenProps {
   selectedClassId: PlayerClassId;
   onSelect: (classId: PlayerClassId) => void;
   onConfirm: (classId: PlayerClassId) => void;
+  onReady?: () => void;
 }
 
 interface SelectionTransitionState {
@@ -437,6 +438,7 @@ const ForestSelectionScene = ({
   transitionState,
   onFocusClass,
   onSelectClass,
+  onSceneReady,
 }: {
   classes: PlayerClassDefinition[];
   focusedClassId: PlayerClassId;
@@ -444,11 +446,29 @@ const ForestSelectionScene = ({
   transitionState: SelectionTransitionState | null;
   onFocusClass: (classId: PlayerClassId) => void;
   onSelectClass: (classId: PlayerClassId) => void;
+  onSceneReady?: () => void;
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const quality = useMemo(() => getRenderQualityProfile(), []);
   const scenario = useMemo(() => getScenario('forest'), []);
   const handleTimeUpdate = useCallback(() => {}, []);
+
+  const SceneReadyProbe = ({ onReady }: { onReady?: () => void }) => {
+    const { active } = useProgress();
+    const readySentRef = useRef(false);
+
+    useEffect(() => {
+      if (!onReady || readySentRef.current || active) {
+        return;
+      }
+
+      readySentRef.current = true;
+      const timer = window.setTimeout(() => onReady(), 120);
+      return () => window.clearTimeout(timer);
+    }, [active, onReady]);
+
+    return null;
+  };
 
   return (
     <div ref={containerRef} className="absolute inset-0">
@@ -460,6 +480,7 @@ const ForestSelectionScene = ({
       >
         <PerspectiveCamera makeDefault position={[0, 2.62, 17.2]} fov={33} rotation={[-0.075, 0, 0]} />
         <AnimatedSelectionCamera focusedClassId={focusedClassId} transitionState={transitionState} />
+        <SceneReadyProbe onReady={onSceneReady} />
         <SkyboxController />
         <fog attach="fog" args={['#d7e6c2', 16, 46]} />
         <DayNightCycle containerRef={containerRef} onTimeUpdate={handleTimeUpdate} quality={quality} />
@@ -642,6 +663,7 @@ export const ClassSelectionScreen: React.FC<ClassSelectionScreenProps> = ({
   selectedClassId,
   onSelect,
   onConfirm,
+  onReady,
 }) => {
   const classOrder = useMemo(() => classes.map((playerClass) => playerClass.id), [classes]);
   const initialClassId = classOrder[Math.floor(classOrder.length / 2)] ?? selectedClassId ?? classes[0]?.id;
@@ -767,6 +789,7 @@ export const ClassSelectionScreen: React.FC<ClassSelectionScreenProps> = ({
         focusedClassId={focusedClassId}
         selectedClassId={openClassId}
         transitionState={transitionState}
+        onSceneReady={onReady}
         onFocusClass={setFocusedClassId}
         onSelectClass={(classId) => {
           if (transitionState) {

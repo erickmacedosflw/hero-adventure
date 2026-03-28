@@ -117,10 +117,10 @@ export const useBattleController = ({
       addLog(`Fluxo da constelacao restaurou ${manaGain} MP.`, 'heal');
     }
 
-    if (resourceGain > 0) {
+    if (resourceGain > 0 && player.classResource.max > 0) {
       spawnFloatingText(`+${resourceGain} ${player.classResource.name}`, 'player', 'buff');
     }
-  }, [addLog, player.classResource.name, setPlayer, spawnFloatingText]);
+  }, [addLog, player.classResource.max, player.classResource.name, setPlayer, spawnFloatingText]);
 
   const tryApplySkillStatus = useCallback((skill: Skill, talentBonuses: ReturnType<typeof getTalentBonuses>) => {
     if (!enemy || !skill.statusEffect) {
@@ -309,6 +309,7 @@ export const useBattleController = ({
 
     const talentBonuses = getTalentBonuses(player);
     const visual = getSkillVisualConfig(skill);
+    const impactColor = skill.trailColor ?? visual.color;
     const resourceSpent = skill.resourceEffect?.consumeAll ? player.classResource.value : requiredResource;
 
     setTurnState(TurnState.PLAYER_ANIMATION);
@@ -322,6 +323,12 @@ export const useBattleController = ({
         value: Math.max(0, prev.classResource.value - resourceSpent),
       },
     }));
+
+    if (resourceSpent > 0) {
+      spawnFloatingText(`-${resourceSpent} ${player.classResource.name}`, 'player', 'buff');
+      spawnParticles([-2, -1, 0], 14, player.classResource.color, 'spark');
+      addLog(`${skill.name} consumiu ${resourceSpent} ${player.classResource.name}.`, 'info');
+    }
 
     if (skill.type === 'heal') {
       const healPower = 1 + talentBonuses.healPower;
@@ -351,6 +358,10 @@ export const useBattleController = ({
           },
         };
       });
+
+      if (resourceGain > 0 && player.classResource.max > 0) {
+        spawnFloatingText(`+${resourceGain} ${player.classResource.name}`, 'player', 'buff');
+      }
 
       spawnParticles([-2, -1, 0], visual.particleCount + 14, visual.color, 'heal');
       spawnFloatingText(`+${healAmount}`, 'player', 'heal');
@@ -401,8 +412,13 @@ export const useBattleController = ({
 
         const appliedDamage = isFirstStrike && enemy.isDefending ? Math.floor(attackResult.damage * 0.5) : attackResult.damage;
         const strikePrefix = isFirstStrike ? '' : '2o ';
-        spawnParticles([2, -0.5, 0], visual.particleCount + (isFirstStrike ? 0 : 4), visual.color, 'explode');
+        const impactPosition: [number, number, number] = [2, 0.62, 0.06];
+        const strikeBurstCount = visual.particleCount + (isFirstStrike ? 10 : 14) + (attackResult.isCrit ? 8 : 0);
+        spawnParticles(impactPosition, strikeBurstCount, impactColor, 'explode');
+        spawnParticles(impactPosition, 14 + (attackResult.isCrit ? 6 : 0), impactColor, 'spark');
         spawnFloatingText(attackResult.isCrit ? `${strikePrefix}CRIT! ${appliedDamage}` : `${strikePrefix}${appliedDamage}`, 'enemy', attackResult.isCrit ? 'crit' : 'damage');
+        setIsEnemyHit(true);
+        window.setTimeout(() => setIsEnemyHit(false), 150);
         setScreenShake(attackResult.isCrit ? visual.shake + 0.18 : visual.shake);
         window.setTimeout(() => setScreenShake(0), 200);
 
@@ -467,6 +483,7 @@ export const useBattleController = ({
     setPlayer,
     setPlayerAnimationAction,
     setScreenShake,
+    setIsEnemyHit,
     setTurnState,
     spawnFloatingText,
     spawnParticles,

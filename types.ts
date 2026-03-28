@@ -467,6 +467,8 @@ export interface Particle {
   scale: number;
   velocity: [number, number, number];
   life: number;
+  ttl?: number;
+  renderMode?: 'sprite2d' | 'shard3d';
 }
 
 export interface FloatingText {

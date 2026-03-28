@@ -1,10 +1,10 @@
 import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame, useLoader, useThree } from '@react-three/fiber';
 import { ContactShadows, Html, PerspectiveCamera, useAnimations, useFBX, useTexture } from '@react-three/drei';
-import { DepthOfField, EffectComposer, Vignette } from '@react-three/postprocessing';
+import { Bloom, DepthOfField, EffectComposer, Vignette } from '@react-three/postprocessing';
 import * as THREE from 'three';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
-import { Enemy, FloatingText, Particle, Player, PlayerAnimationAction, PlayerClassAnimationMap, PlayerClassAssets, PlayerClassId, StatusEffect, TurnState } from '../types';
+import { CardCategory, Enemy, FloatingText, Particle, Player, PlayerAnimationAction, PlayerClassAnimationMap, PlayerClassAssets, PlayerClassId, StatusEffect, TurnState } from '../types';
 import {
   RIGHT_HAND_BONE_CANDIDATES,
   RuntimeHeroAssets,
@@ -114,6 +114,10 @@ interface SceneProps {
   hasDoubleAttackAura?: boolean;
   screenShake?: number;
   isLevelingUp?: boolean;
+  levelUpCardCategory?: CardCategory;
+  isMenuView?: boolean;
+  menuCameraFocus?: boolean;
+  isDungeonScene?: boolean;
   stage?: number;
   isDungeonRun?: boolean;
   onGameTimeUpdate?: (time: string) => void;
@@ -123,26 +127,64 @@ interface SceneProps {
 
 // --- MAIN COMPONENTS ---
 
-const SPARKLE_COUNT = 12;
-const SPARKLE_SEEDS = Array.from({ length: SPARKLE_COUNT }, (_, i) => ({
-  orbitSpeed: 1.2 + (i % 4) * 0.35,
-  orbitRadius: 0.45 + (i % 3) * 0.22,
-  baseY: -0.4 + (i / SPARKLE_COUNT) * 2.2,
-  riseSpeed: 0.6 + (i % 5) * 0.2,
-  phase: (i / SPARKLE_COUNT) * Math.PI * 2,
-  size: 0.035 + (i % 2) * 0.02,
+const createParticleTexture = (size: number, exponent: number) => {
+  const data = new Uint8Array(size * size * 4);
+  let offset = 0;
+  for (let y = 0; y < size; y += 1) {
+    for (let x = 0; x < size; x += 1) {
+      const nx = (x / (size - 1)) * 2 - 1;
+      const ny = (y / (size - 1)) * 2 - 1;
+      const dist = Math.sqrt((nx * nx) + (ny * ny));
+      const alpha = Math.max(0, 1 - dist);
+      const intensity = Math.floor(255 * Math.pow(alpha, exponent));
+      data[offset] = 255;
+      data[offset + 1] = 255;
+      data[offset + 2] = 255;
+      data[offset + 3] = intensity;
+      offset += 4;
+    }
+  }
+  const texture = new THREE.DataTexture(data, size, size, THREE.RGBAFormat);
+  texture.needsUpdate = true;
+  texture.magFilter = THREE.LinearFilter;
+  texture.minFilter = THREE.LinearFilter;
+  texture.wrapS = THREE.ClampToEdgeWrapping;
+  texture.wrapT = THREE.ClampToEdgeWrapping;
+  return texture;
+};
+
+const ORB_TEXTURE = createParticleTexture(64, 1.55);
+const CORE_TEXTURE = createParticleTexture(64, 2.8);
+
+const LEVEL_UP_PARTICLE_COUNT = 44;
+const LEVEL_UP_PARTICLE_SEEDS = Array.from({ length: LEVEL_UP_PARTICLE_COUNT }, (_, i) => ({
+  phase: (i / LEVEL_UP_PARTICLE_COUNT) * Math.PI * 2,
+  speed: 0.9 + (i % 7) * 0.16,
+  radius: 0.45 + Math.random() * 0.62,
+  yBase: -0.35 + Math.random() * 2.2,
+  ySwing: 0.16 + Math.random() * 0.2,
+  zDepth: (Math.random() - 0.5) * 0.4,
+  size: 0.06 + Math.random() * 0.08,
+  alpha: 0.16 + Math.random() * 0.25,
 }));
 
-const LevelUpEffect = () => {
+const getCardCategoryVfxColor = (category: CardCategory) => {
+  if (category === 'batalha') return '#ef4444';
+  if (category === 'atributo') return '#22c55e';
+  if (category === 'especial') return '#38bdf8';
+  return '#f59e0b';
+};
+
+const LevelUpEffect = ({ category = 'especial' }: { category?: CardCategory }) => {
   const groupRef = useRef<THREE.Group>(null);
-  const pillarRef = useRef<THREE.Mesh>(null);
-  const ring0Ref = useRef<THREE.Mesh>(null);
-  const ring1Ref = useRef<THREE.Mesh>(null);
-  const ring2Ref = useRef<THREE.Mesh>(null);
-  const sparklesRef = useRef<(THREE.Mesh | null)[]>([]);
+  const coreRef = useRef<THREE.Sprite>(null);
+  const auraRef = useRef<THREE.Sprite>(null);
+  const sparklesRef = useRef<(THREE.Sprite | null)[]>([]);
   const light1Ref = useRef<THREE.PointLight>(null);
   const light2Ref = useRef<THREE.PointLight>(null);
   const localTime = useRef(0);
+  const color = useMemo(() => new THREE.Color(getCardCategoryVfxColor(category)), [category]);
+  const brightColor = useMemo(() => color.clone().lerp(new THREE.Color('#ffffff'), 0.55), [color]);
 
   useFrame((_, delta) => {
     localTime.current += delta;
@@ -155,92 +197,88 @@ const LevelUpEffect = () => {
       groupRef.current.scale.setScalar(s);
     }
 
-    // Pillar: pulse opacity + slight scale breathing
-    if (pillarRef.current) {
-      const mat = pillarRef.current.material as THREE.MeshStandardMaterial;
-      mat.opacity = 0.25 + Math.sin(t * 4) * 0.15;
-      mat.emissiveIntensity = 2.5 + Math.sin(t * 3.5) * 1.5;
-      pillarRef.current.scale.x = 1 + Math.sin(t * 5) * 0.15;
-      pillarRef.current.scale.z = 1 + Math.sin(t * 5) * 0.15;
+    if (coreRef.current) {
+      const pulse = 0.62 + Math.sin(t * 10.5) * 0.15;
+      coreRef.current.position.set(0, 0.65, 0.08);
+      coreRef.current.scale.setScalar(0.72 + pulse * 0.3);
+      const mat = coreRef.current.material as THREE.SpriteMaterial;
+      mat.color.copy(brightColor);
+      mat.opacity = 0.48 + pulse * 0.34;
     }
 
-    // Rings: rotate + expand & pulse scale
-    if (ring0Ref.current) {
-      ring0Ref.current.rotation.z = t * 1.2;
-      const pulse0 = 1 + Math.sin(t * 3) * 0.12;
-      ring0Ref.current.scale.set(pulse0, pulse0, 1);
-    }
-    if (ring1Ref.current) {
-      ring1Ref.current.rotation.z = -t * 0.9;
-      const pulse1 = 1 + Math.sin(t * 3.5 + 1) * 0.1;
-      ring1Ref.current.scale.set(pulse1, pulse1, 1);
-      ring1Ref.current.position.y = 0.3 + Math.sin(t * 2) * 0.1;
-    }
-    if (ring2Ref.current) {
-      ring2Ref.current.rotation.z = t * 1.5;
-      const pulse2 = 1 + Math.sin(t * 4 + 2) * 0.08;
-      ring2Ref.current.scale.set(pulse2, pulse2, 1);
-      ring2Ref.current.position.y = 1.2 + Math.sin(t * 2.5 + 0.5) * 0.12;
+    if (auraRef.current) {
+      const pulse = 0.65 + Math.sin(t * 6.8 + 0.6) * 0.2;
+      auraRef.current.position.set(0, 0.65, 0.06);
+      auraRef.current.scale.set(2.25 + pulse * 0.95, 1.48 + pulse * 0.58, 1);
+      const mat = auraRef.current.material as THREE.SpriteMaterial;
+      mat.color.copy(color);
+      mat.opacity = 0.14 + pulse * 0.2;
     }
 
-    // Sparkles: orbit + rise + fade
-    sparklesRef.current.forEach((mesh, i) => {
-      if (!mesh) return;
-      const seed = SPARKLE_SEEDS[i];
-      const angle = seed.phase + t * seed.orbitSpeed;
-      const r = seed.orbitRadius + Math.sin(t * 2 + i) * 0.08;
-      mesh.position.x = Math.cos(angle) * r;
-      mesh.position.z = Math.sin(angle) * r;
-      mesh.position.y = seed.baseY + Math.sin(t * seed.riseSpeed + seed.phase) * 0.35;
-      const sparkScale = 0.8 + Math.sin(t * 6 + i * 1.3) * 0.4;
-      mesh.scale.setScalar(sparkScale);
-      const mat = mesh.material as THREE.MeshStandardMaterial;
-      mat.opacity = 0.5 + Math.sin(t * 5 + i * 0.8) * 0.4;
+    sparklesRef.current.forEach((sprite, i) => {
+      if (!sprite) return;
+      const seed = LEVEL_UP_PARTICLE_SEEDS[i];
+      const angle = seed.phase + t * seed.speed;
+      const radius = seed.radius + Math.sin(t * 2.6 + i * 0.37) * 0.12;
+      sprite.position.set(
+        Math.cos(angle) * radius,
+        seed.yBase + Math.sin((t * seed.speed * 0.9) + seed.phase) * seed.ySwing,
+        Math.sin(angle) * 0.18 + seed.zDepth,
+      );
+      const scale = seed.size * (1 + Math.sin(t * 7.2 + i) * 0.34);
+      sprite.scale.set(scale * 1.85, scale, 1);
+      const mat = sprite.material as THREE.SpriteMaterial;
+      mat.color.copy(i % 3 === 0 ? brightColor : color);
+      mat.opacity = Math.max(0.05, seed.alpha + Math.sin(t * 5.2 + i * 0.8) * 0.2);
     });
 
-    // Lights: pulse intensity
     if (light1Ref.current) {
-      light1Ref.current.intensity = 3 + Math.sin(t * 4) * 2;
+      light1Ref.current.color.copy(color);
+      light1Ref.current.intensity = 1.4 + Math.sin(t * 5.2) * 0.8;
     }
     if (light2Ref.current) {
-      light2Ref.current.intensity = 1.5 + Math.sin(t * 3 + 1) * 1;
-      light2Ref.current.position.y = 1.5 + Math.sin(t * 2) * 0.3;
+      light2Ref.current.color.copy(brightColor);
+      light2Ref.current.intensity = 0.9 + Math.sin(t * 4 + 1) * 0.55;
+      light2Ref.current.position.y = 1.45 + Math.sin(t * 2.4) * 0.24;
     }
   });
 
   return (
     <group ref={groupRef} position={[0, 0.8, 0]} scale={0}>
-      {/* Central golden pillar of light */}
-      <mesh ref={pillarRef} position={[0, 0.5, 0]}>
-        <cylinderGeometry args={[0.02, 0.5, 3.5, 12, 1, true]} />
-        <meshStandardMaterial color="#facc15" emissive="#fbbf24" emissiveIntensity={3} transparent opacity={0.35} side={THREE.DoubleSide} depthWrite={false} />
-      </mesh>
-      {/* Rings */}
-      <mesh ref={ring0Ref} position={[0, -0.6, 0]} rotation={[Math.PI / 2, 0, 0]}>
-        <torusGeometry args={[0.8, 0.06, 8, 24]} />
-        <meshStandardMaterial color="#fbbf24" emissive="#facc15" emissiveIntensity={2.5} transparent opacity={0.6} />
-      </mesh>
-      <mesh ref={ring1Ref} position={[0, 0.3, 0]} rotation={[Math.PI / 2, 0, 0]}>
-        <torusGeometry args={[0.55, 0.04, 8, 20]} />
-        <meshStandardMaterial color="#fde68a" emissive="#fbbf24" emissiveIntensity={2} transparent opacity={0.45} />
-      </mesh>
-      <mesh ref={ring2Ref} position={[0, 1.2, 0]} rotation={[Math.PI / 2, 0, 0]}>
-        <torusGeometry args={[0.35, 0.03, 8, 16]} />
-        <meshStandardMaterial color="#fef3c7" emissive="#fcd34d" emissiveIntensity={2} transparent opacity={0.35} />
-      </mesh>
-      {/* Orbiting sparkle particles */}
-      {SPARKLE_SEEDS.map((seed, i) => (
-        <mesh key={i} ref={el => { sparklesRef.current[i] = el; }} position={[0, seed.baseY, 0]}>
-          <sphereGeometry args={[seed.size, 6, 6]} />
-          <meshStandardMaterial color="#fef9c3" emissive="#fbbf24" emissiveIntensity={3} transparent opacity={0.8} />
-        </mesh>
+      <sprite ref={auraRef} renderOrder={5}>
+        <spriteMaterial
+          map={ORB_TEXTURE}
+          transparent
+          opacity={0}
+          depthWrite={false}
+          blending={THREE.AdditiveBlending}
+          toneMapped={false}
+        />
+      </sprite>
+      <sprite ref={coreRef} renderOrder={6}>
+        <spriteMaterial
+          map={CORE_TEXTURE}
+          transparent
+          opacity={0}
+          depthWrite={false}
+          blending={THREE.AdditiveBlending}
+          toneMapped={false}
+        />
+      </sprite>
+      {LEVEL_UP_PARTICLE_SEEDS.map((seed, i) => (
+        <sprite key={`lvlup_particle_${i}`} ref={(el) => { sparklesRef.current[i] = el; }} position={[0, seed.yBase, seed.zDepth]} renderOrder={5}>
+          <spriteMaterial
+            map={ORB_TEXTURE}
+            transparent
+            opacity={0}
+            depthWrite={false}
+            blending={THREE.AdditiveBlending}
+            toneMapped={false}
+          />
+        </sprite>
       ))}
-      {/* Pulsing lights */}
-      <pointLight ref={light1Ref} position={[0, 0.6, 0]} color="#fbbf24" intensity={4} distance={6} decay={2} />
-      <pointLight ref={light2Ref} position={[0, 1.5, 0.5]} color="#fde68a" intensity={2} distance={4} decay={2} />
-      {/* Base platforms */}
-      <VoxelPart position={[0, -0.8, 0]} size={[1.8, 0.08, 1.8]} color="#facc15" material="gem" opacity={0.5} />
-      <VoxelPart position={[0, -0.3, 0]} size={[1.2, 0.06, 1.2]} color="#fbbf24" material="gem" opacity={0.35} />
+      <pointLight ref={light1Ref} position={[0, 0.7, 0.4]} intensity={1.5} distance={4.8} decay={2} />
+      <pointLight ref={light2Ref} position={[0, 1.45, 0.1]} intensity={1.0} distance={4.2} decay={2} />
     </group>
   );
 };
@@ -254,7 +292,319 @@ const clampPercent = (value: number, max: number) => {
 };
 
 const CHARACTER_FOCUS_TARGET: [number, number, number] = [0, 0.9, 0];
-const CHARACTER_FOCUS_RANGE = 5.2;
+const DUNGEON_FOCUS_RANGE = 3.9;
+const FOREST_FOCUS_RANGE = 3.4;
+
+const COMBAT_TRAIL_COUNT = 18;
+const COMBAT_TRAIL_SEEDS = Array.from({ length: COMBAT_TRAIL_COUNT }, (_, i) => ({
+  phase: i / COMBAT_TRAIL_COUNT,
+  speed: 0.75 + (i % 5) * 0.18,
+  yOffset: (Math.random() - 0.5) * 0.42,
+  zOffset: (Math.random() - 0.5) * 0.34,
+  size: 0.08 + (i % 4) * 0.026,
+}));
+
+const CombatCinematicFX = ({
+  playerAnimationAction,
+  enemyAnimationAction,
+  isPlayerAttacking,
+  isEnemyAttacking,
+  isEnemyHit,
+  isPlayerHit,
+  latestEnemyImpactColor,
+}: {
+  playerAnimationAction?: PlayerAnimationAction;
+  enemyAnimationAction?: PlayerAnimationAction;
+  isPlayerAttacking?: boolean;
+  isEnemyAttacking?: boolean;
+  isEnemyHit?: boolean;
+  isPlayerHit?: boolean;
+  latestEnemyImpactColor?: string;
+}) => {
+  const playerRefs = useRef<(THREE.Sprite | null)[]>([]);
+  const enemyRefs = useRef<(THREE.Sprite | null)[]>([]);
+  const playerCastAuraRef = useRef<THREE.Sprite>(null);
+  const playerCastCoreRef = useRef<THREE.Sprite>(null);
+  const enemyCastAuraRef = useRef<THREE.Sprite>(null);
+  const enemyCastCoreRef = useRef<THREE.Sprite>(null);
+  const hitBurstEnemyRef = useRef<THREE.Sprite>(null);
+  const hitBurstPlayerRef = useRef<THREE.Sprite>(null);
+  const hitEnemyLightRef = useRef<THREE.PointLight>(null);
+  const hitEnemyPulseRef = useRef(0);
+  const hitPlayerPulseRef = useRef(0);
+  const wasEnemyHitRef = useRef(false);
+  const wasPlayerHitRef = useRef(false);
+
+  useFrame((state, delta) => {
+    const t = state.clock.elapsedTime;
+    const playerSkillActive = playerAnimationAction === 'skill';
+    const enemySkillActive = enemyAnimationAction === 'skill';
+
+    COMBAT_TRAIL_SEEDS.forEach((seed, i) => {
+      const playerSprite = playerRefs.current[i];
+      if (playerSprite) {
+        if (playerSkillActive) {
+          const travel = (seed.phase + t * (0.65 + seed.speed * 0.2)) % 1;
+          const x = THREE.MathUtils.lerp(-1.82, 1.9, travel);
+          const arc = Math.sin(travel * Math.PI) * 0.38;
+          playerSprite.position.set(
+            x,
+            0.64 + arc + seed.yOffset,
+            seed.zOffset,
+          );
+          playerSprite.scale.set(seed.size * 2.3, seed.size, 1);
+          (playerSprite.material as THREE.SpriteMaterial).opacity = 0.2 + (Math.sin((travel * Math.PI * 2) + t * 2.4) * 0.16 + 0.18);
+        } else {
+          (playerSprite.material as THREE.SpriteMaterial).opacity = THREE.MathUtils.lerp((playerSprite.material as THREE.SpriteMaterial).opacity, 0, 0.16);
+        }
+      }
+
+      const enemySprite = enemyRefs.current[i];
+      if (enemySprite) {
+        if (enemySkillActive) {
+          const travel = (seed.phase + t * (0.62 + seed.speed * 0.18)) % 1;
+          const x = THREE.MathUtils.lerp(1.82, -1.9, travel);
+          const arc = Math.sin(travel * Math.PI) * 0.28;
+          enemySprite.position.set(
+            x,
+            0.55 + arc + seed.yOffset * 0.75,
+            seed.zOffset,
+          );
+          enemySprite.scale.set(seed.size * 2.1, seed.size * 0.9, 1);
+          (enemySprite.material as THREE.SpriteMaterial).opacity = 0.14 + (Math.sin((travel * Math.PI * 2) + t * 2.1) * 0.12 + 0.14);
+        } else {
+          (enemySprite.material as THREE.SpriteMaterial).opacity = THREE.MathUtils.lerp((enemySprite.material as THREE.SpriteMaterial).opacity, 0, 0.16);
+        }
+      }
+    });
+
+    if (playerCastAuraRef.current && playerCastCoreRef.current) {
+      if (playerSkillActive) {
+        const pulse = 0.55 + Math.sin(t * 11.5) * 0.12;
+        playerCastAuraRef.current.position.set(-1.8, 0.58, 0.06);
+        playerCastAuraRef.current.scale.set(1.5 + pulse * 0.55, 0.82 + pulse * 0.2, 1);
+        (playerCastAuraRef.current.material as THREE.SpriteMaterial).opacity = 0.18 + pulse * 0.13;
+        playerCastCoreRef.current.position.set(-1.8, 0.58, 0.07);
+        playerCastCoreRef.current.scale.setScalar(0.42 + pulse * 0.22);
+        (playerCastCoreRef.current.material as THREE.SpriteMaterial).opacity = 0.2 + pulse * 0.2;
+      } else {
+        (playerCastAuraRef.current.material as THREE.SpriteMaterial).opacity = THREE.MathUtils.lerp((playerCastAuraRef.current.material as THREE.SpriteMaterial).opacity, 0, 0.2);
+        (playerCastCoreRef.current.material as THREE.SpriteMaterial).opacity = THREE.MathUtils.lerp((playerCastCoreRef.current.material as THREE.SpriteMaterial).opacity, 0, 0.2);
+      }
+    }
+
+    if (enemyCastAuraRef.current && enemyCastCoreRef.current) {
+      if (enemySkillActive) {
+        const pulse = 0.52 + Math.sin((t * 10.2) + 0.8) * 0.1;
+        enemyCastAuraRef.current.position.set(1.8, 0.58, 0.06);
+        enemyCastAuraRef.current.scale.set(1.45 + pulse * 0.5, 0.78 + pulse * 0.18, 1);
+        (enemyCastAuraRef.current.material as THREE.SpriteMaterial).opacity = 0.16 + pulse * 0.12;
+        enemyCastCoreRef.current.position.set(1.8, 0.58, 0.07);
+        enemyCastCoreRef.current.scale.setScalar(0.38 + pulse * 0.2);
+        (enemyCastCoreRef.current.material as THREE.SpriteMaterial).opacity = 0.18 + pulse * 0.18;
+      } else {
+        (enemyCastAuraRef.current.material as THREE.SpriteMaterial).opacity = THREE.MathUtils.lerp((enemyCastAuraRef.current.material as THREE.SpriteMaterial).opacity, 0, 0.2);
+        (enemyCastCoreRef.current.material as THREE.SpriteMaterial).opacity = THREE.MathUtils.lerp((enemyCastCoreRef.current.material as THREE.SpriteMaterial).opacity, 0, 0.2);
+      }
+    }
+
+    if (isEnemyHit && !wasEnemyHitRef.current) {
+      hitEnemyPulseRef.current = 1;
+    }
+    if (isPlayerHit && !wasPlayerHitRef.current) {
+      hitPlayerPulseRef.current = 1;
+    }
+    wasEnemyHitRef.current = Boolean(isEnemyHit);
+    wasPlayerHitRef.current = Boolean(isPlayerHit);
+
+    hitEnemyPulseRef.current = THREE.MathUtils.lerp(hitEnemyPulseRef.current, 0, 0.2 + delta * 2.2);
+    hitPlayerPulseRef.current = THREE.MathUtils.lerp(hitPlayerPulseRef.current, 0, 0.2 + delta * 2.2);
+
+    if (hitBurstEnemyRef.current) {
+      const pulse = hitEnemyPulseRef.current;
+      hitBurstEnemyRef.current.position.set(2.0, 0.62, 0.05);
+      hitBurstEnemyRef.current.scale.setScalar(0.24 + pulse * 1.6);
+      const hitEnemyMaterial = hitBurstEnemyRef.current.material as THREE.SpriteMaterial;
+      hitEnemyMaterial.color.set(latestEnemyImpactColor ?? '#fef08a');
+      hitEnemyMaterial.opacity = pulse * 0.68;
+    }
+
+    if (hitEnemyLightRef.current) {
+      const pulse = hitEnemyPulseRef.current;
+      hitEnemyLightRef.current.color.set(latestEnemyImpactColor ?? '#fef08a');
+      hitEnemyLightRef.current.intensity = pulse * 1.2;
+      hitEnemyLightRef.current.position.set(2.0, 0.7, 0.16);
+    }
+
+    if (hitBurstPlayerRef.current) {
+      const pulse = hitPlayerPulseRef.current;
+      hitBurstPlayerRef.current.position.set(-2.0, 0.62, 0.05);
+      hitBurstPlayerRef.current.scale.setScalar(0.24 + pulse * 1.6);
+      (hitBurstPlayerRef.current.material as THREE.SpriteMaterial).opacity = pulse * 0.62;
+    }
+  });
+
+  return (
+    <group>
+      <sprite ref={playerCastAuraRef}>
+        <spriteMaterial
+          map={ORB_TEXTURE}
+          color="#67e8f9"
+          transparent
+          opacity={0}
+          depthWrite={false}
+          blending={THREE.AdditiveBlending}
+          toneMapped={false}
+        />
+      </sprite>
+      <sprite ref={playerCastCoreRef}>
+        <spriteMaterial
+          map={CORE_TEXTURE}
+          color="#ecfeff"
+          transparent
+          opacity={0}
+          depthWrite={false}
+          blending={THREE.AdditiveBlending}
+          toneMapped={false}
+        />
+      </sprite>
+      <sprite ref={enemyCastAuraRef}>
+        <spriteMaterial
+          map={ORB_TEXTURE}
+          color="#fca5a5"
+          transparent
+          opacity={0}
+          depthWrite={false}
+          blending={THREE.AdditiveBlending}
+          toneMapped={false}
+        />
+      </sprite>
+      <sprite ref={enemyCastCoreRef}>
+        <spriteMaterial
+          map={CORE_TEXTURE}
+          color="#fff1f2"
+          transparent
+          opacity={0}
+          depthWrite={false}
+          blending={THREE.AdditiveBlending}
+          toneMapped={false}
+        />
+      </sprite>
+      {COMBAT_TRAIL_SEEDS.map((seed, i) => (
+        <sprite key={`trail_player_${i}`} ref={(el) => { playerRefs.current[i] = el; }} position={[-1.8, 0.6, 0]}>
+          <spriteMaterial
+            map={ORB_TEXTURE}
+            color="#8be9ff"
+            transparent
+            opacity={0}
+            depthWrite={false}
+            blending={THREE.AdditiveBlending}
+            toneMapped={false}
+          />
+        </sprite>
+      ))}
+      {COMBAT_TRAIL_SEEDS.map((seed, i) => (
+        <sprite key={`trail_enemy_${i}`} ref={(el) => { enemyRefs.current[i] = el; }} position={[1.8, 0.6, 0]}>
+          <spriteMaterial
+            map={ORB_TEXTURE}
+            color="#fca5a5"
+            transparent
+            opacity={0}
+            depthWrite={false}
+            blending={THREE.AdditiveBlending}
+            toneMapped={false}
+          />
+        </sprite>
+      ))}
+      <sprite ref={hitBurstEnemyRef}>
+        <spriteMaterial
+          map={CORE_TEXTURE}
+          color="#fef08a"
+          transparent
+          opacity={0}
+          depthWrite={false}
+          blending={THREE.AdditiveBlending}
+          toneMapped={false}
+        />
+      </sprite>
+      <sprite ref={hitBurstPlayerRef}>
+        <spriteMaterial
+          map={CORE_TEXTURE}
+          color="#fef08a"
+          transparent
+          opacity={0}
+          depthWrite={false}
+          blending={THREE.AdditiveBlending}
+          toneMapped={false}
+        />
+      </sprite>
+      <pointLight ref={hitEnemyLightRef} color="#fef08a" intensity={0} distance={3.2} decay={2} />
+    </group>
+  );
+};
+
+const DRIFT_PARTICLE_COUNT = 18;
+const DRIFT_PARTICLE_SEEDS = Array.from({ length: DRIFT_PARTICLE_COUNT }, (_, i) => {
+  const isPlayerSide = i % 2 === 0;
+  return {
+    baseX: (isPlayerSide ? -2.15 : 2.15) + (Math.random() - 0.5) * 1.9,
+    baseY: -0.35 + Math.random() * 2.7,
+    baseZ: (Math.random() - 0.5) * 2.2,
+    swayX: 0.04 + Math.random() * 0.12,
+    swayY: 0.06 + Math.random() * 0.1,
+    swayZ: 0.06 + Math.random() * 0.14,
+    speed: 0.45 + Math.random() * 0.85,
+    phase: Math.random() * Math.PI * 2,
+    size: 0.055 + Math.random() * 0.09,
+    alpha: 0.12 + Math.random() * 0.14,
+  };
+});
+
+const AmbientDriftParticles = ({ isLowQuality, isDungeonRun }: { isLowQuality: boolean; isDungeonRun: boolean }) => {
+  const spriteRefs = useRef<(THREE.Sprite | null)[]>([]);
+  const activeCount = isLowQuality ? 10 : DRIFT_PARTICLE_COUNT;
+  const colors = isDungeonRun ? ['#8b5cf6', '#60a5fa', '#a78bfa'] : ['#86efac', '#7dd3fc', '#fde68a'];
+
+  useFrame((state) => {
+    const t = state.clock.elapsedTime;
+    for (let i = 0; i < activeCount; i += 1) {
+      const sprite = spriteRefs.current[i];
+      if (!sprite) continue;
+      const seed = DRIFT_PARTICLE_SEEDS[i];
+      sprite.position.set(
+        seed.baseX + Math.sin(t * seed.speed + seed.phase) * seed.swayX,
+        seed.baseY + Math.sin(t * (seed.speed * 0.7) + seed.phase * 1.3) * seed.swayY,
+        seed.baseZ + Math.cos(t * (seed.speed * 0.85) + seed.phase) * seed.swayZ,
+      );
+      const pulse = 0.88 + Math.sin(t * (seed.speed * 1.8) + seed.phase) * 0.22;
+      sprite.scale.setScalar(seed.size * pulse);
+      const material = sprite.material as THREE.SpriteMaterial;
+      material.opacity = Math.max(0.05, seed.alpha * (0.7 + Math.sin(t * (seed.speed * 1.3) + seed.phase) * 0.3));
+    }
+  });
+
+  return (
+    <group>
+      {DRIFT_PARTICLE_SEEDS.slice(0, activeCount).map((seed, i) => (
+        <sprite
+          key={i}
+          ref={(el) => { spriteRefs.current[i] = el; }}
+          position={[seed.baseX, seed.baseY, seed.baseZ]}
+          scale={[seed.size, seed.size, seed.size]}
+        >
+          <spriteMaterial
+            color={colors[i % colors.length]}
+            transparent
+            opacity={seed.alpha}
+            depthWrite={false}
+            blending={THREE.AdditiveBlending}
+            toneMapped={false}
+          />
+        </sprite>
+      ))}
+    </group>
+  );
+};
 
 const BattleStatusBar = ({
   label,
@@ -334,7 +684,7 @@ const BattleActorStatusHud = ({
   </Html>
 );
 
-const HeroVoxel = ({ classId = 'knight', playerAnimationAction = 'idle', animationClipName, preferredAnimationBundle, onAvailableAnimationClipsChange, loadAllAnimationBundles = false, loadSecondaryAnimationBundles = true, previewLoopAllActions = false, isAttacking, isDefending, weaponId, armorId, helmetId, legsId, shieldId, isLevelingUp, isHit, isPlayerCritHit, hasPerfectEvadeAura, hasDoubleAttackAura, contactShadowResolution = 256, idlePositionX = -2, attackPositionX = 0.5, defendPositionX = -1.5, originPosition = [-2, -1, 0], baseRotationY = 0.5, hiddenPartSlots, visiblePartSlots, runtimeAssetsOverride, calibrationOverride, debugRuntimeId, debugRuntimeLabel, onRuntimeDiagnosticChange, statusOverlay }: any) => {
+const HeroVoxel = ({ classId = 'knight', playerAnimationAction = 'idle', animationClipName, preferredAnimationBundle, onAvailableAnimationClipsChange, loadAllAnimationBundles = false, loadSecondaryAnimationBundles = true, previewLoopAllActions = false, isAttacking, isDefending, weaponId, armorId, helmetId, legsId, shieldId, isLevelingUp, levelUpCardCategory = 'especial', isMenuView = false, isHit, isPlayerCritHit, hasPerfectEvadeAura, hasDoubleAttackAura, contactShadowResolution = 256, idlePositionX = -2, attackPositionX = 0.5, defendPositionX = -1.5, originPosition = [-2, -1, 0], baseRotationY = 0.5, hiddenPartSlots, visiblePartSlots, runtimeAssetsOverride, calibrationOverride, debugRuntimeId, debugRuntimeLabel, onRuntimeDiagnosticChange, statusOverlay }: any) => {
   const playerClass = getPlayerClassById(classId);
   const runtimeHeroAssets = runtimeAssetsOverride ?? (hasRuntimeFbxAssets(playerClass.assets) ? playerClass.assets : null);
   const group = useRef<THREE.Group>(null);
@@ -342,17 +692,18 @@ const HeroVoxel = ({ classId = 'knight', playerAnimationAction = 'idle', animati
   const phantomAuraRef = useRef<THREE.Group>(null);
   const twinAuraRef = useRef<THREE.Group>(null);
   const flashRef = useRef<number>(0);
+  const wasHitRef = useRef(false);
   const damageLightRef = useRef<THREE.PointLight>(null);
   const healLightRef = useRef<THREE.PointLight>(null);
 
   useFrame((state) => {
     if (damageLightRef.current) {
-      if (isHit) damageLightRef.current.intensity = 3.5;
-      else damageLightRef.current.intensity = THREE.MathUtils.lerp(damageLightRef.current.intensity, 0, 0.09);
+      damageLightRef.current.intensity = THREE.MathUtils.lerp(damageLightRef.current.intensity, 0, 0.14);
       damageLightRef.current.color.set(isPlayerCritHit ? '#facc15' : '#ef4444');
     }
     if (healLightRef.current) {
-      if (playerAnimationAction === 'heal' || playerAnimationAction === 'item') {
+      const shouldShowHealLight = !isMenuView && (playerAnimationAction === 'heal' || playerAnimationAction === 'item');
+      if (shouldShowHealLight) {
         healLightRef.current.intensity = THREE.MathUtils.lerp(healLightRef.current.intensity, 2.5, 0.07);
       } else {
         healLightRef.current.intensity = THREE.MathUtils.lerp(healLightRef.current.intensity, 0, 0.09);
@@ -381,19 +732,17 @@ const HeroVoxel = ({ classId = 'knight', playerAnimationAction = 'idle', animati
 
       group.current.rotation.y = THREE.MathUtils.lerp(group.current.rotation.y, baseRotationY, 0.16);
 
-      // Hit Flash
-      if (isHit) {
+      if (isHit && !wasHitRef.current) {
         flashRef.current = 1;
-      } else {
-        flashRef.current = THREE.MathUtils.lerp(flashRef.current, 0, 0.1);
       }
-      const heroFlashColor = isDefending ? '#60a5fa' : '#ffffff';
+      flashRef.current = THREE.MathUtils.lerp(flashRef.current, 0, 0.32);
+      wasHitRef.current = Boolean(isHit);
       group.current.traverse((child: any) => {
         if (child.isMesh && child.material) {
           if (Array.isArray(child.material)) {
-            child.material.forEach((material: THREE.Material) => applyHitFlashToMaterial(material, Boolean(isHit), flashRef.current * 2, heroFlashColor));
+            child.material.forEach((material: THREE.Material) => applyHitFlashToMaterial(material, flashRef.current > 0.03, flashRef.current * 0.65, '#ffffff'));
           } else {
-            applyHitFlashToMaterial(child.material, Boolean(isHit), flashRef.current * 2, heroFlashColor);
+            applyHitFlashToMaterial(child.material, flashRef.current > 0.03, flashRef.current * 0.65, '#ffffff');
           }
         }
       });
@@ -450,7 +799,7 @@ const HeroVoxel = ({ classId = 'knight', playerAnimationAction = 'idle', animati
             />
           </Suspense>
         ) : null}
-        {isLevelingUp && <LevelUpEffect />}
+        {isLevelingUp && <LevelUpEffect category={levelUpCardCategory} />}
         {statusOverlay}
         <group ref={phantomAuraRef} position={[0, 0.2, 0]} visible={Boolean(hasPerfectEvadeAura)}>
           <mesh rotation={[Math.PI / 2, 0, 0]}>
@@ -659,7 +1008,7 @@ export const GameScene: React.FC<SceneProps> = (props) => {
     props.onGameTimeUpdate?.(time);
   }, [props.onGameTimeUpdate]);
   const quality = useMemo(() => getRenderQualityProfile(), []);
-  const isDungeonRun = Boolean(props.isDungeonRun);
+  const isDungeonRun = Boolean(props.isDungeonScene ?? props.isDungeonRun);
   const battleContactShadowResolution = useMemo(
     () => quality.isLowQuality ? 48 : Math.min(quality.contactShadowResolution, 96),
     [quality.contactShadowResolution, quality.isLowQuality],
@@ -674,6 +1023,15 @@ export const GameScene: React.FC<SceneProps> = (props) => {
 
   const activeScenario = useMemo(() => getScenario('forest'), []);
   const enemyOverlay = null;
+  const latestEnemyImpactColor = useMemo(() => {
+    for (let i = props.particles.length - 1; i >= 0; i -= 1) {
+      const particle = props.particles[i];
+      if (particle.position[0] > 0.8) {
+        return particle.color;
+      }
+    }
+    return '#fef08a';
+  }, [props.particles]);
 
   return (
     <div ref={containerRef} className="absolute inset-0 z-0 transition-colors duration-1000" style={{ backgroundColor: bgColor }}>
@@ -692,7 +1050,7 @@ export const GameScene: React.FC<SceneProps> = (props) => {
         performance={{ min: 0.5 }}
         frameloop="always"
       >
-        <CameraController screenShake={props.screenShake} />
+        <CameraController screenShake={props.screenShake} menuFocus={props.menuCameraFocus ?? Boolean(props.isMenuView)} />
         {isDungeonRun ? (
           <>
             <color attach="background" args={[bgColor]} />
@@ -732,6 +1090,8 @@ export const GameScene: React.FC<SceneProps> = (props) => {
           legsId={props.equippedLegsId}
           shieldId={props.equippedShieldId}
           isLevelingUp={props.isLevelingUp}
+          levelUpCardCategory={props.levelUpCardCategory}
+          isMenuView={props.isMenuView}
           isHit={props.isPlayerHit}
           isPlayerCritHit={props.isPlayerCritHit}
           hasPerfectEvadeAura={props.hasPerfectEvadeAura}
@@ -739,6 +1099,7 @@ export const GameScene: React.FC<SceneProps> = (props) => {
           contactShadowResolution={quality.contactShadowResolution}
         />
         
+        {!props.isMenuView && (
         <EnemyCharacter 
           assets={props.enemyAssets}
           color={props.enemyColor}
@@ -754,6 +1115,19 @@ export const GameScene: React.FC<SceneProps> = (props) => {
           contactShadowResolution={quality.contactShadowResolution}
           statusOverlay={enemyOverlay}
         />
+        )}
+        {!props.isMenuView && (
+        <CombatCinematicFX
+          playerAnimationAction={props.playerAnimationAction}
+          enemyAnimationAction={props.enemyAnimationAction}
+          isPlayerAttacking={props.isPlayerAttacking}
+          isEnemyAttacking={props.isEnemyAttacking}
+          isEnemyHit={props.isEnemyHit}
+          isPlayerHit={props.isPlayerHit}
+          latestEnemyImpactColor={latestEnemyImpactColor}
+        />
+        )}
+        <AmbientDriftParticles isLowQuality={quality.isLowQuality} isDungeonRun={isDungeonRun} />
 
         {props.particles.map(p => <MeshParticle key={p.id} {...p} />)}
         <WorldFloatingTexts texts={props.floatingTexts} />
@@ -763,21 +1137,23 @@ export const GameScene: React.FC<SceneProps> = (props) => {
             {!quality.isLowQuality ? (
               <DepthOfField
                 target={CHARACTER_FOCUS_TARGET}
-                worldFocusRange={CHARACTER_FOCUS_RANGE}
-                bokehScale={1.75}
-                height={480}
+                worldFocusRange={DUNGEON_FOCUS_RANGE}
+                bokehScale={2.15}
+                height={560}
               />
             ) : null}
+            <Bloom intensity={0.32} luminanceThreshold={0.5} luminanceSmoothing={0.85} mipmapBlur />
             <Vignette eskil={false} offset={0.1} darkness={0.42} />
           </EffectComposer>
         ) : !quality.isLowQuality ? (
           <EffectComposer>
             <DepthOfField
               target={CHARACTER_FOCUS_TARGET}
-              worldFocusRange={CHARACTER_FOCUS_RANGE}
-              bokehScale={1.65}
-              height={480}
+              worldFocusRange={FOREST_FOCUS_RANGE}
+              bokehScale={2.35}
+              height={560}
             />
+            <Bloom intensity={0.55} luminanceThreshold={0.42} luminanceSmoothing={0.8} mipmapBlur />
             <Vignette eskil={false} offset={0.06} darkness={0.1} />
           </EffectComposer>
         ) : null}

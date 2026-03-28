@@ -35,8 +35,13 @@ export const applyHitFlashToMaterial = (
     return;
   }
 
+  if (!active) {
+    standardMaterial.emissiveIntensity = THREE.MathUtils.lerp(standardMaterial.emissiveIntensity, 0, 0.32);
+    return;
+  }
+
   standardMaterial.emissive.set(color);
-  standardMaterial.emissiveIntensity = active ? intensity : intensity * 0.35;
+  standardMaterial.emissiveIntensity = Math.min(0.38, 0.08 + intensity * 0.55);
 };
 
 interface AnimatedClassHeroProps {
@@ -430,12 +435,12 @@ export const EnemyCharacter = ({
   const enemyShieldRef = useRef<THREE.Group>(null);
   const enemyDamageLightRef = useRef<THREE.PointLight>(null);
   const flashRef = useRef<number>(0);
+  const wasHitRef = useRef(false);
   const runtimeEnemyAssets = hasRuntimeFbxAssets(assets) ? assets : null;
 
   useFrame((state) => {
     if (enemyDamageLightRef.current) {
-      if (isHit) enemyDamageLightRef.current.intensity = 3.5;
-      else enemyDamageLightRef.current.intensity = THREE.MathUtils.lerp(enemyDamageLightRef.current.intensity, 0, 0.09);
+      enemyDamageLightRef.current.intensity = THREE.MathUtils.lerp(enemyDamageLightRef.current.intensity, 0, 0.14);
     }
     if (enemyShieldRef.current) {
       enemyShieldRef.current.visible = Boolean(isDefending);
@@ -461,20 +466,19 @@ export const EnemyCharacter = ({
         group.current.rotation.x = 0;
       }
 
-      if (isHit) {
+      if (isHit && !wasHitRef.current) {
         flashRef.current = 1;
-      } else {
-        flashRef.current = THREE.MathUtils.lerp(flashRef.current, 0, 0.1);
       }
+      flashRef.current = THREE.MathUtils.lerp(flashRef.current, 0, 0.32);
+      wasHitRef.current = Boolean(isHit);
 
-      const enemyFlashColor = isDefending ? '#60a5fa' : '#ffffff';
       group.current.traverse((child: THREE.Object3D) => {
         const mesh = child as THREE.Mesh;
         if (mesh.isMesh && mesh.material) {
           if (Array.isArray(mesh.material)) {
-            mesh.material.forEach((material: THREE.Material) => applyHitFlashToMaterial(material, Boolean(isHit), flashRef.current * 2, enemyFlashColor));
+            mesh.material.forEach((material: THREE.Material) => applyHitFlashToMaterial(material, flashRef.current > 0.03, flashRef.current * 0.65, '#ffffff'));
           } else {
-            applyHitFlashToMaterial(mesh.material, Boolean(isHit), flashRef.current * 2, enemyFlashColor);
+            applyHitFlashToMaterial(mesh.material, flashRef.current > 0.03, flashRef.current * 0.65, '#ffffff');
           }
         }
       });

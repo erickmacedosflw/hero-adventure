@@ -82,24 +82,6 @@ export const Tree = ({ position, scale = 1 }: { position: [number, number, numbe
   </group>
 );
 
-export const Cloud = ({ position, speed }: { position: [number, number, number]; speed: number }) => {
-  const ref = useRef<THREE.Group>(null);
-
-  useFrame((state) => {
-    if (ref.current) {
-      ref.current.position.x = ((position[0] + state.clock.elapsedTime * speed + 15) % 30) - 15;
-    }
-  });
-
-  return (
-    <group ref={ref} position={position}>
-      <VoxelPart position={[0, 0, 0]} size={[1.2, 0.4, 0.8]} color="#ffffff" opacity={0.8} castShadow={false} receiveShadow={false} />
-      <VoxelPart position={[0.4, 0.2, 0]} size={[0.8, 0.4, 0.6]} color="#ffffff" opacity={0.8} castShadow={false} receiveShadow={false} />
-      <VoxelPart position={[-0.4, 0.1, 0.2]} size={[0.6, 0.3, 0.5]} color="#ffffff" opacity={0.8} castShadow={false} receiveShadow={false} />
-    </group>
-  );
-};
-
 const SKYBOX_FACES = ['px.png', 'nx.png', 'py.png', 'ny.png', 'pz.png', 'nz.png'] as const;
 
 const SKYBOX_PATHS: Record<string, string> = {
@@ -294,20 +276,14 @@ export const DayNightCycle = ({
   const moonLightRef = useRef<THREE.DirectionalLight>(null);
   const sunMeshRef = useRef<THREE.Mesh>(null);
   const moonMeshRef = useRef<THREE.Mesh>(null);
-  const cloudsRef = useRef<THREE.Group>(null);
+  const sunGlowRef = useRef<THREE.Sprite>(null);
+  const sunRaysRef = useRef<THREE.Sprite>(null);
+  const sunGlowMaterialRef = useRef<THREE.SpriteMaterial>(null);
+  const sunRaysMaterialRef = useRef<THREE.SpriteMaterial>(null);
   const lastMinuteRef = useRef(-1);
   const lastBgRef = useRef('');
-  const lastCloudKeyRef = useRef('');
 
-  const cloudData = useMemo(() => [
-    { pos: [-10, 6, -15] as [number, number, number], speed: 0.05 },
-    { pos: [0, 7, -18] as [number, number, number], speed: 0.03 },
-    { pos: [8, 5, -16] as [number, number, number], speed: 0.07 },
-    { pos: [-5, 8, -20] as [number, number, number], speed: 0.02 },
-    { pos: [12, 6.5, -17] as [number, number, number], speed: 0.04 },
-  ], []);
-
-  useFrame((state) => {
+  useFrame((state, delta) => {
     const cycleDuration = 1440;
     const gameTimeMultiplier = 2;
     const t = ((state.clock.elapsedTime * gameTimeMultiplier + 720) / cycleDuration) % 1;
@@ -428,35 +404,28 @@ export const DayNightCycle = ({
       sunMeshRef.current.position.copy(sunPos);
       sunMeshRef.current.scale.setScalar(sunPos.y > -1 ? 1 : 0);
     }
+    if (sunGlowRef.current && sunRaysRef.current) {
+      const visible = sunPos.y > -1 && sunIntensity > 0.05;
+      const glowStrength = THREE.MathUtils.clamp(sunIntensity / 1.75, 0, 1.2);
+
+      sunGlowRef.current.visible = visible;
+      sunRaysRef.current.visible = visible;
+      sunGlowRef.current.position.copy(sunPos);
+      sunRaysRef.current.position.copy(sunPos);
+      sunGlowRef.current.scale.setScalar(4.8 + glowStrength * 2.6);
+      sunRaysRef.current.scale.setScalar(9.8 + glowStrength * 4.2);
+
+      if (sunGlowMaterialRef.current) {
+        sunGlowMaterialRef.current.opacity = 0.2 + glowStrength * 0.5;
+      }
+      if (sunRaysMaterialRef.current) {
+        sunRaysMaterialRef.current.opacity = 0.06 + glowStrength * 0.2;
+        sunRaysMaterialRef.current.rotation += delta * 0.05;
+      }
+    }
     if (moonMeshRef.current) {
       moonMeshRef.current.position.copy(moonPos);
       moonMeshRef.current.scale.setScalar(moonPos.y > -1 ? 1 : 0);
-    }
-
-    let cloudColor = new THREE.Color('#ffffff');
-    let cloudOpacity = 0.8;
-    if (t < T_MANHA || t >= T_NOITE) {
-      cloudColor.set('#3a4a6b');
-      cloudOpacity = 0.35;
-    } else if (t >= T_TARDE) {
-      const p = frac(T_TARDE, T_NOITE);
-      cloudColor.lerpColors(new THREE.Color('#ffffff'), new THREE.Color('#ff9d6e'), p * 2 > 1 ? 1 : p * 2);
-      cloudOpacity = THREE.MathUtils.lerp(0.8, 0.35, p);
-    }
-
-    const cloudKey = `${cloudColor.getHexString()}-${cloudOpacity.toFixed(2)}`;
-    if (cloudsRef.current && cloudKey !== lastCloudKeyRef.current) {
-      lastCloudKeyRef.current = cloudKey;
-      cloudsRef.current.children.forEach((cloudGroup) => {
-        cloudGroup.children.forEach((voxel) => {
-          const material = (voxel as THREE.Mesh).material as THREE.MeshStandardMaterial | undefined;
-          if (material) {
-            material.color.copy(cloudColor);
-            material.opacity = cloudOpacity;
-            material.transparent = cloudOpacity < 1;
-          }
-        });
-      });
     }
 
     const bgColor = t >= T_MANHA && t < T_DIA
@@ -497,15 +466,32 @@ export const DayNightCycle = ({
         <sphereGeometry args={[1.5, 8, 8]} />
         <meshStandardMaterial color="#facc15" emissive="#facc15" emissiveIntensity={2} />
       </mesh>
+      <sprite ref={sunRaysRef} raycast={disableRaycast} renderOrder={4}>
+        <spriteMaterial
+          ref={sunRaysMaterialRef}
+          color="#ffd27a"
+          transparent
+          opacity={0.12}
+          depthWrite={false}
+          blending={THREE.AdditiveBlending}
+          toneMapped={false}
+        />
+      </sprite>
+      <sprite ref={sunGlowRef} raycast={disableRaycast} renderOrder={5}>
+        <spriteMaterial
+          ref={sunGlowMaterialRef}
+          color="#ffe9a8"
+          transparent
+          opacity={0.3}
+          depthWrite={false}
+          blending={THREE.AdditiveBlending}
+          toneMapped={false}
+        />
+      </sprite>
       <mesh ref={moonMeshRef} raycast={disableRaycast}>
         <sphereGeometry args={[1.2, 8, 8]} />
         <meshStandardMaterial color="#e2e8f0" emissive="#c7d2fe" emissiveIntensity={1.2} />
       </mesh>
-      <group ref={cloudsRef}>
-        {cloudData.map((cloud, index) => (
-          <Cloud key={index} position={cloud.pos} speed={cloud.speed} />
-        ))}
-      </group>
     </>
   );
 };
@@ -634,54 +620,137 @@ export const FogController: React.FC = () => {
   return <fog attach="fog" args={[FOG.dia.getHex(), 14, 45]} />;
 };
 
-export const CameraController = ({ screenShake }: { screenShake?: number }) => {
+export const CameraController = ({
+  screenShake,
+  menuFocus = false,
+}: {
+  screenShake?: number;
+  menuFocus?: boolean;
+}) => {
   const cameraRef = useRef<THREE.PerspectiveCamera>(null);
   const clockRef = useRef(0);
   const isMobile = window.innerWidth < 768;
-  const camDistance = isMobile ? 13.5 : 11;
-  const camFov = isMobile ? 54 : 50;
+  const menuDistance = isMobile ? 7.2 : 5.8;
+  const battleDistance = isMobile ? 13.5 : 11;
+  const menuFov = isMobile ? 50 : 46;
+  const battleFov = isMobile ? 54 : 50;
+  const focusBlendRef = useRef(menuFocus ? 1 : 0);
+  const focusBlendTargetRef = useRef(menuFocus ? 1 : 0);
   const lookTarget = useMemo(() => new THREE.Vector3(0, 0.9, 0), []);
-
+  const menuLookTarget = useMemo(() => new THREE.Vector3(-2, 0.82, 0), []);
+  const mixedLookTarget = useMemo(() => new THREE.Vector3(), []);
+  const menuOrbitRef = useRef(0);
+  const menuOrbitTargetRef = useRef(0);
+  const menuHeightRef = useRef(0);
+  const menuHeightTargetRef = useRef(0);
+  const dragActiveRef = useRef(false);
+  const dragXRef = useRef(0);
+  useEffect(() => {
+    focusBlendTargetRef.current = menuFocus ? 1 : 0;
+  }, [menuFocus]);
+  useEffect(() => {
+    if (!menuFocus || typeof window === 'undefined') {
+      dragActiveRef.current = false;
+      menuOrbitTargetRef.current = 0;
+      menuHeightTargetRef.current = 0;
+      return;
+    }
+    const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+    const updateFromPoint = (x: number, y: number) => {
+      const nx = clamp((x / window.innerWidth) * 2 - 1, -1, 1);
+      const ny = clamp((y / window.innerHeight) * 2 - 1, -1, 1);
+      menuOrbitTargetRef.current = nx * 0.55;
+      menuHeightTargetRef.current = -ny * 0.16;
+    };
+    const onPointerDown = (event: PointerEvent) => {
+      dragActiveRef.current = true;
+      dragXRef.current = event.clientX;
+      updateFromPoint(event.clientX, event.clientY);
+    };
+    const onPointerMove = (event: PointerEvent) => {
+      if (dragActiveRef.current) {
+        const delta = (event.clientX - dragXRef.current) / Math.max(window.innerWidth, 1);
+        dragXRef.current = event.clientX;
+        menuOrbitTargetRef.current = clamp(menuOrbitTargetRef.current + delta * 2.2, -0.75, 0.75);
+      } else {
+        updateFromPoint(event.clientX, event.clientY);
+      }
+    };
+    const onPointerUp = () => {
+      dragActiveRef.current = false;
+    };
+    const onTouchMove = (event: TouchEvent) => {
+      const touch = event.touches[0];
+      if (!touch) return;
+      updateFromPoint(touch.clientX, touch.clientY);
+    };
+    window.addEventListener('pointerdown', onPointerDown, { passive: true });
+    window.addEventListener('pointermove', onPointerMove, { passive: true });
+    window.addEventListener('pointerup', onPointerUp, { passive: true });
+    window.addEventListener('touchmove', onTouchMove, { passive: true });
+    return () => {
+      window.removeEventListener('pointerdown', onPointerDown);
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerUp);
+      window.removeEventListener('touchmove', onTouchMove);
+    };
+  }, [menuFocus]);
   useFrame((_, delta) => {
     clockRef.current += delta;
     const t = clockRef.current;
-
-    // Slow orbit around the battle scene (subtle arc, not full 360)
-    const orbitAngle = Math.sin(t * 0.06) * 0.175; // sways ~10° each side
-    const orbitX = Math.sin(orbitAngle) * camDistance;
-    const orbitZ = Math.cos(orbitAngle) * camDistance;
-
-    // Handheld drift layered on top
+    const transitionDurationSeconds = 2.5;
+    const blendDiff = focusBlendTargetRef.current - focusBlendRef.current;
+    const maxBlendStep = delta / transitionDurationSeconds;
+    if (Math.abs(blendDiff) <= maxBlendStep) {
+      focusBlendRef.current = focusBlendTargetRef.current;
+    } else {
+      focusBlendRef.current += Math.sign(blendDiff) * maxBlendStep;
+    }
+    const focusBlend = THREE.MathUtils.clamp(focusBlendRef.current, 0, 1);
+    // Menu camera target
+    menuOrbitRef.current = THREE.MathUtils.lerp(menuOrbitRef.current, menuOrbitTargetRef.current, 0.08);
+    menuHeightRef.current = THREE.MathUtils.lerp(menuHeightRef.current, menuHeightTargetRef.current, 0.08);
+    const sway = Math.sin(t * 0.4) * 0.06;
+    const menuTargetX = (isMobile ? -0.6 : -0.95) + Math.sin(menuOrbitRef.current) * 0.55 + sway;
+    const menuTargetY = 1.62 + Math.sin(t * 0.35) * 0.04 + menuHeightRef.current;
+    const menuTargetZ = menuDistance + Math.cos(menuOrbitRef.current) * 0.25 + Math.cos(t * 0.45) * 0.05;
+    // Battle camera target
+    const orbitAngle = Math.sin(t * 0.06) * 0.175;
+    const orbitX = Math.sin(orbitAngle) * battleDistance;
+    const orbitZ = Math.cos(orbitAngle) * battleDistance;
     const driftX = Math.sin(t * 0.13) * 0.40 + Math.sin(t * 0.07) * 0.18;
     const driftY = Math.cos(t * 0.11) * 0.20 + Math.sin(t * 0.05) * 0.10;
     const driftZ = Math.sin(t * 0.09) * 0.22 + Math.cos(t * 0.14) * 0.08;
-
-    // Micro-shake (handheld feel)
     const microX = Math.sin(t * 3.7) * 0.008 + Math.cos(t * 5.3) * 0.005;
     const microY = Math.cos(t * 4.1) * 0.006 + Math.sin(t * 6.7) * 0.004;
-
-    const targetX = orbitX + driftX + microX;
-    const targetY = 2.5 + driftY + microY;
-    const targetZ = orbitZ + driftZ;
-
-    if (cameraRef.current && screenShake) {
+    const battleTargetX = orbitX + driftX + microX;
+    const battleTargetY = 2.5 + driftY + microY;
+    const battleTargetZ = orbitZ + driftZ;
+    const targetX = THREE.MathUtils.lerp(battleTargetX, menuTargetX, focusBlend);
+    const targetY = THREE.MathUtils.lerp(battleTargetY, menuTargetY, focusBlend);
+    const targetZ = THREE.MathUtils.lerp(battleTargetZ, menuTargetZ, focusBlend);
+    if (cameraRef.current && screenShake && focusBlend < 0.2) {
       const shake = screenShake;
       cameraRef.current.position.x = targetX + (Math.random() - 0.5) * shake;
       cameraRef.current.position.y = targetY + (Math.random() - 0.5) * shake;
       cameraRef.current.position.z = targetZ;
     } else if (cameraRef.current) {
-      cameraRef.current.position.x = THREE.MathUtils.lerp(cameraRef.current.position.x, targetX, 0.07);
-      cameraRef.current.position.y = THREE.MathUtils.lerp(cameraRef.current.position.y, targetY, 0.07);
-      cameraRef.current.position.z = THREE.MathUtils.lerp(cameraRef.current.position.z, targetZ, 0.05);
+      cameraRef.current.position.x = THREE.MathUtils.lerp(cameraRef.current.position.x, targetX, 0.08);
+      cameraRef.current.position.y = THREE.MathUtils.lerp(cameraRef.current.position.y, targetY, 0.08);
+      cameraRef.current.position.z = THREE.MathUtils.lerp(cameraRef.current.position.z, targetZ, 0.08);
     }
     if (cameraRef.current) {
-      cameraRef.current.lookAt(lookTarget);
+      mixedLookTarget.lerpVectors(lookTarget, menuLookTarget, focusBlend);
+      cameraRef.current.lookAt(mixedLookTarget);
+      const targetFov = THREE.MathUtils.lerp(battleFov, menuFov, focusBlend);
+      if (Math.abs(cameraRef.current.fov - targetFov) > 0.01) {
+        cameraRef.current.fov = targetFov;
+        cameraRef.current.updateProjectionMatrix();
+      }
     }
   });
-
-  return <PerspectiveCamera ref={cameraRef} makeDefault position={[0, 2.5, camDistance]} fov={camFov} near={0.5} far={120} />;
+  return <PerspectiveCamera ref={cameraRef} makeDefault position={[0, 2.5, battleDistance]} fov={battleFov} near={0.5} far={120} />;
 };
-
 export const NightEnemyGlow = ({ gameTime }: { gameTime: string }) => {
   const glowRef = useRef<THREE.PointLight>(null);
   const rimRef = useRef<THREE.PointLight>(null);

@@ -1,5 +1,5 @@
 ﻿
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Player, Enemy, BattleLog, TurnState, Item, Skill, GameState, FloatingText, Rarity, ProgressionCard, CardRewardOffer, AlchemistCardOffer, AlchemistItemOffer, DungeonResult, DungeonRewards, BossVictoryContext } from '../types';
 import { Sword, Shield, Zap, Heart, Coins, ShoppingBag, Skull, Play, Plus, FlaskConical, User, X, Home, LogOut, DollarSign, AlertTriangle, MousePointerClick, Shirt, Footprints, Crown, LayoutGrid, Sparkles, Crosshair, ArrowLeft, Star, Clock } from 'lucide-react';
 import { ItemPreviewThree } from './items/ItemPreviewThree';
@@ -896,10 +896,15 @@ export const TavernScreen: React.FC<{
         setIsClosing(true);
         setTimeout(() => { onDungeon(); }, 240);
     };
+    const handleServiceTransition = (action: () => void) => {
+        if (isClosing) return;
+        setIsClosing(true);
+        setTimeout(() => { action(); }, 240);
+    };
   
   return (
     <>
-     <div className={`absolute inset-0 z-40 flex items-center justify-center bg-black/45 backdrop-blur-[2px] text-white pointer-events-auto p-3 sm:p-4 md:p-6 ${isClosing ? 'animate-[tavernBackdropOut_240ms_ease-in_forwards]' : 'animate-[tavernBackdropIn_280ms_ease-out_both]'}`}>
+     <div className={`absolute inset-0 z-40 text-white ${isClosing ? 'animate-[tavernBackdropOut_240ms_ease-in_forwards]' : 'animate-[tavernBackdropIn_280ms_ease-out_both]'}`}>
                 <style>{`
                     @keyframes tavernBackdropIn {
                         0% { opacity: 0; }
@@ -909,137 +914,143 @@ export const TavernScreen: React.FC<{
                         0% { opacity: 1; }
                         100% { opacity: 0; }
                     }
-                    @keyframes tavernCardIn {
-                        0% { opacity: 0; transform: translateY(22px) scale(0.98); }
-                        100% { opacity: 1; transform: translateY(0) scale(1); }
-                    }
-                    @keyframes tavernCardOut {
-                        0% { opacity: 1; transform: translateY(0) scale(1); }
-                        100% { opacity: 0; transform: translateY(-14px) scale(0.985); }
-                    }
                 `}</style>
-                <div className={`w-full max-w-5xl rounded-[28px] border border-[#cfab91] bg-[#f7ecdd]/95 p-4 sm:p-6 lg:p-8 max-h-[92dvh] overflow-y-auto custom-scrollbar shadow-[0_24px_90px_rgba(0,0,0,0.32)] ${isClosing ? 'animate-[tavernCardOut_240ms_ease-in_forwards]' : 'animate-[tavernCardIn_320ms_ease-out_both]'}`}>
-                    <div className="grid gap-4 sm:gap-5 lg:grid-cols-[1.08fr_0.92fr]">
-                        <section className="rounded-2xl border border-[#cfab91] bg-[#fff7ed] p-4 sm:p-5">
-                            <div className="flex items-start justify-between gap-3">
-                                <div>
-                                    <div className="text-[10px] font-black uppercase tracking-[0.26em] text-[#9a7068]">Painel do jogador</div>
-                                    <h2 className="mt-1 font-gamer text-2xl sm:text-3xl text-[#6b3141]">{player.name}</h2>
-                                    <p className="mt-1 text-xs sm:text-sm text-[#8f6c67]">{currentClass.name} • {currentClass.title}</p>
-                                </div>
-                                <div className="rounded-xl border border-[#cfab91] bg-[#f4e5d4] px-3 py-2 text-center min-w-[4.5rem]">
-                                    <div className="text-[10px] uppercase tracking-[0.22em] text-[#9a7068]">Nivel</div>
-                                    <div className="text-xl font-black text-[#6b3141]">{player.level}</div>
-                                </div>
-                            </div>
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(10,16,28,0.04)_0%,rgba(8,12,18,0.46)_64%,rgba(0,0,0,0.62)_100%)] pointer-events-none" />
 
-                            <div className="mt-4 space-y-3">
-                                <div>
-                                    <div className="mb-1 flex items-center justify-between text-xs font-bold uppercase tracking-[0.16em] text-[#9a4151]">
-                                        <span>Vida</span>
-                                        <span>{player.stats.hp}/{player.stats.maxHp}</span>
-                                    </div>
-                                    <div className="h-2 rounded-full bg-[#e9d7c2] overflow-hidden border border-[#dcc0aa]">
-                                        <div className="h-full rounded-full bg-[linear-gradient(90deg,#8d2f46,#d17482)] transition-all" style={{ width: `${hpPercent}%` }} />
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <div className="mb-1 flex items-center justify-between text-xs font-bold uppercase tracking-[0.16em] text-[#346c7f]">
-                                        <span>Mana</span>
-                                        <span>{player.stats.mp}/{player.stats.maxMp}</span>
-                                    </div>
-                                    <div className="h-2 rounded-full bg-[#e9d7c2] overflow-hidden border border-[#dcc0aa]">
-                                        <div className="h-full rounded-full bg-[linear-gradient(90deg,#2b6878,#66b8d2)] transition-all" style={{ width: `${mpPercent}%` }} />
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <div className="mb-1 flex items-center justify-between text-xs font-bold uppercase tracking-[0.16em] text-[#8d5e29]">
-                                        <span>XP</span>
-                                        <span>{player.xp}/{player.xpToNext}</span>
-                                    </div>
-                                    <div className="h-2 rounded-full bg-[#e9d7c2] overflow-hidden border border-[#dcc0aa]">
-                                        <div className="h-full rounded-full bg-[linear-gradient(90deg,#7d3d4d,#c89a66)] transition-all" style={{ width: `${xpPercent}%` }} />
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="mt-4 grid grid-cols-2 gap-2">
-                                {profileActions.map((action) => (
-                                    <button
-                                        key={action.id}
-                                        onClick={action.onClick}
-                                        className={`rounded-xl border px-3 py-2.5 transition-all flex items-center justify-center gap-2 font-black uppercase tracking-[0.16em] text-xs ${action.accent}`}
-                                    >
-                                        {action.icon}
-                                        <span>{action.label}</span>
-                                    </button>
-                                ))}
-                            </div>
-                        </section>
-
-                        <section className="rounded-2xl border border-[#cfab91] bg-[#fff7ed] p-4 sm:p-5">
-                            <div className="text-[10px] font-black uppercase tracking-[0.26em] text-[#9a7068]">Servicos</div>
-                            <h3 className="mt-2 text-xl sm:text-2xl font-black text-[#6b3141]">Mercador e Alquimista</h3>
-                            <div className="grid grid-cols-1 gap-3">
-                                {serviceActions.map((action) => (
-                                    <button
-                                        key={action.id}
-                                        onClick={action.onClick}
-                                        className={`rounded-2xl border p-4 transition-all hover:-translate-y-0.5 ${action.accent}`}
-                                    >
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-11 h-11 rounded-xl border border-[#dcc0aa] bg-[#f7ecdd] flex items-center justify-center shrink-0">{action.icon}</div>
-                                            <div className="text-left">
-                                                <div className="text-base font-black uppercase tracking-[0.1em]">{action.label}</div>
-                                                <div className="text-xs font-semibold opacity-80">{action.subtitle}</div>
-                                                <div className="mt-1 inline-flex items-center gap-1.5 rounded-full border border-current/30 bg-white/60 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.14em]">
-                                                    {action.resourceIcon}
-                                                    <span>{action.resourceLabel}</span>
-                                                    <span>{action.resourceValue}</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </button>
-                                ))}
-                            </div>
-                        </section>
-
-                        <section className="lg:col-span-2 rounded-2xl border border-[#cfab91] bg-[#f4e5d4] p-4 sm:p-5">
-                            <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-                                <div>
-                                    <div className="text-[10px] font-black uppercase tracking-[0.26em] text-[#9a7068]">Acoes da jornada</div>
-                                    <h3 className="mt-1 text-2xl sm:text-3xl font-black text-[#6b3141]">Aventura</h3>
-                                </div>
-                                {!bossUnlocked && (
-                                    <div className="rounded-full border border-[#cfab91] bg-[#f7ecdd] px-3 py-1.5 text-xs font-black uppercase tracking-[0.18em] text-[#8f6c67]">
-                                        Faltam {killsRemaining} para liberar o chefao
-                                    </div>
-                                )}
-                            </div>
-
-                            <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3">
-                                <button onClick={() => handleMenuTransition('hunt')} className="rounded-2xl border border-[#b26a2e] bg-[#b87a3a] px-4 py-5 text-center transition-all hover:-translate-y-0.5 hover:bg-[#c88a4a]">
-                                    <div className="flex items-center justify-center gap-2 text-lg font-black text-white"><Sword size={22} /> Cacar monstros</div>
-                                    <div className="mt-1 text-xs uppercase tracking-[0.18em] text-[#f8eddf]">Batalha rapida</div>
-                                </button>
-
-                                {bossUnlocked && (
-                                    <button onClick={onBoss} className="rounded-2xl border border-[#a83a42] bg-[#c44b54] px-4 py-5 text-center transition-all hover:-translate-y-0.5 hover:bg-[#b5424a]">
-                                        <div className="flex items-center justify-center gap-2 text-lg font-black text-white"><Skull size={22} /> Enfrentar chefao</div>
-                                        <div className="mt-1 text-xs uppercase tracking-[0.18em] text-rose-100">Avanca de fase</div>
-                                    </button>
-                                )}
-
-                                <button onClick={() => handleMenuTransition('dungeon')} className="rounded-2xl border border-[#3b6580] bg-[#4d7a96] px-4 py-5 text-center transition-all hover:-translate-y-0.5 hover:bg-[#5a8aa6]">
-                                    <div className="flex items-center justify-center gap-2 text-lg font-black text-white"><Crosshair size={22} /> Dungeon de aventura</div>
-                                    <div className="mt-1 text-xs uppercase tracking-[0.18em] text-sky-100">Modo progressivo</div>
-                                </button>
-                            </div>
-                        </section>
+                <section className="absolute top-2 left-1/2 -translate-x-1/2 sm:translate-x-0 sm:top-5 sm:left-5 w-[min(94vw,320px)] sm:w-[min(92vw,360px)] rounded-2xl border border-[#cfab91] bg-[#fff7ed]/95 p-2.5 sm:p-4 shadow-[0_20px_40px_rgba(0,0,0,0.25)] pointer-events-auto">
+                    <div className="flex items-start justify-between gap-3">
+                        <div>
+                            <div className="text-[9px] font-black uppercase tracking-[0.22em] text-[#9a7068]">Painel do jogador</div>
+                            <h2 className="mt-1 font-gamer text-lg sm:text-2xl text-[#6b3141]">{player.name}</h2>
+                            <p className="mt-0.5 text-[11px] sm:text-xs text-[#8f6c67]">{currentClass.name} • {currentClass.title}</p>
+                        </div>
+                        <div className="rounded-xl border border-[#cfab91] bg-[#f4e5d4] px-2.5 py-1.5 text-center min-w-[4rem]">
+                            <div className="text-[9px] uppercase tracking-[0.18em] text-[#9a7068]">Nv</div>
+                            <div className="text-lg font-black text-[#6b3141]">{player.level}</div>
+                        </div>
                     </div>
-                </div>
+
+                    <div className="mt-3 space-y-2.5">
+                        <div>
+                            <div className="mb-1 flex items-center justify-between text-[10px] font-bold uppercase tracking-[0.14em] text-[#9a4151]">
+                                <span>Vida</span>
+                                <span>{player.stats.hp}/{player.stats.maxHp}</span>
+                            </div>
+                            <div className="h-2 rounded-full bg-[#e9d7c2] overflow-hidden border border-[#dcc0aa]">
+                                <div className="h-full rounded-full bg-[linear-gradient(90deg,#8d2f46,#d17482)] transition-all" style={{ width: `${hpPercent}%` }} />
+                            </div>
+                        </div>
+                        <div>
+                            <div className="mb-1 flex items-center justify-between text-[10px] font-bold uppercase tracking-[0.14em] text-[#346c7f]">
+                                <span>Mana</span>
+                                <span>{player.stats.mp}/{player.stats.maxMp}</span>
+                            </div>
+                            <div className="h-2 rounded-full bg-[#e9d7c2] overflow-hidden border border-[#dcc0aa]">
+                                <div className="h-full rounded-full bg-[linear-gradient(90deg,#2b6878,#66b8d2)] transition-all" style={{ width: `${mpPercent}%` }} />
+                            </div>
+                        </div>
+                        <div>
+                            <div className="mb-1 flex items-center justify-between text-[10px] font-bold uppercase tracking-[0.14em] text-[#8d5e29]">
+                                <span>XP</span>
+                                <span>{player.xp}/{player.xpToNext}</span>
+                            </div>
+                            <div className="h-2 rounded-full bg-[#e9d7c2] overflow-hidden border border-[#dcc0aa]">
+                                <div className="h-full rounded-full bg-[linear-gradient(90deg,#7d3d4d,#c89a66)] transition-all" style={{ width: `${xpPercent}%` }} />
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section className="absolute top-[8.8rem] left-1/2 -translate-x-1/2 sm:translate-x-0 sm:top-5 sm:left-auto sm:right-5 w-[min(94vw,320px)] sm:w-[min(92vw,340px)] flex flex-col gap-2 pointer-events-auto">
+                    <div className="rounded-2xl border border-[#cfab91] bg-[#fff7ed]/95 p-2.5 sm:p-3 shadow-[0_20px_40px_rgba(0,0,0,0.25)]">
+                        <div className="text-[9px] font-black uppercase tracking-[0.22em] text-[#9a7068] mb-2">Perfil e mochila</div>
+                        <div className="grid grid-cols-2 gap-2">
+                            {profileActions.map((action) => (
+                                <button
+                                    key={action.id}
+                                    onClick={action.onClick}
+                                    className={`rounded-xl border px-2.5 sm:px-3 py-2 transition-all flex items-center justify-center gap-2 font-black uppercase tracking-[0.12em] text-[9px] sm:text-[10px] ${action.accent}`}
+                                >
+                                    {action.icon}
+                                    <span>{action.label}</span>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {serviceActions.map((action) => (
+                        <button
+                            key={action.id}
+                            onClick={() => handleServiceTransition(action.onClick)}
+                            className={`hidden sm:block rounded-2xl border px-4 py-3 transition-all hover:-translate-y-0.5 pointer-events-auto ${action.accent}`}
+                        >
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-xl border border-[#dcc0aa] bg-[#f7ecdd] flex items-center justify-center shrink-0">{action.icon}</div>
+                                <div className="text-left">
+                                    <div className="text-sm font-black uppercase tracking-[0.12em]">{action.label}</div>
+                                    <div className="text-[11px] font-semibold opacity-80">{action.subtitle}</div>
+                                    <div className="mt-1 inline-flex items-center gap-1.5 rounded-full border border-current/30 bg-white/60 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.14em]">
+                                        {action.resourceIcon}
+                                        <span>{action.resourceValue}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </button>
+                    ))}
+                </section>
+
+                <section className="absolute left-1/2 -translate-x-1/2 bottom-2 sm:bottom-6 w-[min(94vw,380px)] sm:w-[min(96vw,900px)] pointer-events-none">
+                    <div className="text-center text-[#f8eddf] drop-shadow-[0_4px_12px_rgba(0,0,0,0.65)] mb-1.5 sm:mb-3 pointer-events-none">
+                        <div className="text-[9px] sm:text-[11px] font-black uppercase tracking-[0.24em]">Aventura</div>
+                        {!bossUnlocked && <div className="mt-0.5 text-[9px] sm:text-xs font-bold uppercase tracking-[0.16em] text-[#f8d9c1]">Faltam {killsRemaining} para liberar o chefao</div>}
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 pointer-events-auto mb-2 sm:hidden">
+                        {serviceActions.map((action) => (
+                            <button
+                                key={`mobile_${action.id}`}
+                                onClick={() => handleServiceTransition(action.onClick)}
+                                className={`rounded-xl border px-2.5 py-2.5 text-center transition-all hover:-translate-y-0.5 ${action.accent}`}
+                            >
+                                <div className="flex items-center justify-center gap-1.5 text-xs font-black uppercase tracking-[0.1em]">
+                                    {action.icon}
+                                    {action.label}
+                                </div>
+                            </button>
+                        ))}
+                        <button onClick={() => handleMenuTransition('hunt')} className="rounded-xl border border-[#b26a2e] bg-[#b87a3a]/95 px-2.5 py-2.5 text-center transition-all hover:-translate-y-0.5 hover:bg-[#c88a4a]">
+                            <div className="flex items-center justify-center gap-1.5 text-xs font-black text-white"><Sword size={17} /> Cacar</div>
+                        </button>
+
+                        <button onClick={() => handleMenuTransition('dungeon')} className="rounded-xl border border-[#3b6580] bg-[#4d7a96]/95 px-2.5 py-2.5 text-center transition-all hover:-translate-y-0.5 hover:bg-[#5a8aa6]">
+                            <div className="flex items-center justify-center gap-1.5 text-xs font-black text-white"><Crosshair size={17} /> Dungeon</div>
+                        </button>
+                    </div>
+
+                    {bossUnlocked && (
+                        <button onClick={() => handleServiceTransition(onBoss)} className="mb-2 rounded-xl border border-[#a83a42] bg-[#c44b54]/95 px-2.5 py-2.5 text-center transition-all hover:-translate-y-0.5 hover:bg-[#b5424a] pointer-events-auto sm:hidden">
+                            <div className="flex items-center justify-center gap-1.5 text-xs font-black text-white"><Skull size={17} /> Chefao</div>
+                        </button>
+                    )}
+
+                    <div className={`hidden sm:grid gap-2.5 pointer-events-auto ${bossUnlocked ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`}>
+                        <button onClick={() => handleMenuTransition('hunt')} className="rounded-2xl border border-[#b26a2e] bg-[#b87a3a]/95 px-4 py-4 text-center transition-all hover:-translate-y-0.5 hover:bg-[#c88a4a]">
+                            <div className="flex items-center justify-center gap-2 text-base sm:text-lg font-black text-white"><Sword size={20} /> Cacar</div>
+                            <div className="mt-1 text-[10px] uppercase tracking-[0.2em] text-[#f8eddf]">Batalha rapida</div>
+                        </button>
+
+                        <button onClick={() => handleMenuTransition('dungeon')} className="rounded-2xl border border-[#3b6580] bg-[#4d7a96]/95 px-4 py-4 text-center transition-all hover:-translate-y-0.5 hover:bg-[#5a8aa6]">
+                            <div className="flex items-center justify-center gap-2 text-base sm:text-lg font-black text-white"><Crosshair size={20} /> Dungeon</div>
+                            <div className="mt-1 text-[10px] uppercase tracking-[0.2em] text-sky-100">Modo progressivo</div>
+                        </button>
+
+                        {bossUnlocked && (
+                        <button onClick={() => handleServiceTransition(onBoss)} className="rounded-2xl border px-4 py-4 text-center transition-all border-[#a83a42] bg-[#c44b54]/95 hover:-translate-y-0.5 hover:bg-[#b5424a]">
+                            <div className="flex items-center justify-center gap-2 text-base sm:text-lg font-black text-white"><Skull size={20} /> Chefao</div>
+                            <div className="mt-1 text-[10px] uppercase tracking-[0.2em] text-rose-100">Avanca fase</div>
+                        </button>
+                        )}
+                    </div>
+                </section>
             </div>
     {showProfile && <CharacterSheetModal player={player} shopItems={shopItems} onClose={() => setShowProfile(false)} onOpenInventory={() => { setShowProfile(false); setShowInventory(true); }} onUnlockTalent={onUnlockTalent} />}
     {showInventory && <InventoryModal player={player} shopItems={shopItems} onClose={() => setShowInventory(false)} onEquip={onEquipItem} onUse={onUseItem} />}
@@ -1884,6 +1895,10 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
     const [pendingDungeonExtractItem, setPendingDungeonExtractItem] = useState<Item | null>(null);
     const [showDungeonLootPreview, setShowDungeonLootPreview] = useState(false);
     const [showBattleStats, setShowBattleStats] = useState(false);
+    const [resourceDelta, setResourceDelta] = useState<number>(0);
+    const [resourcePulse, setResourcePulse] = useState<'gain' | 'spend' | null>(null);
+    const resourceDeltaTimeoutRef = useRef<number | null>(null);
+    const previousResourceRef = useRef(player.classResource.value);
   const isPlayerTurn = turnState === TurnState.PLAYER_INPUT;
     const canLeaveFreely = !isDungeonRun && killCount >= 10;
     const dungeonRewardItems = Object.entries(dungeonRewards?.drops ?? {})
@@ -1915,6 +1930,35 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
       if (item.name.includes('Mana')) return `Recupera ${item.value} MP`;
       return `Recupera ${item.value} HP`;
   };
+
+  useEffect(() => {
+      const current = player.classResource.value;
+      const previous = previousResourceRef.current;
+      const delta = current - previous;
+
+      if (delta !== 0) {
+          setResourceDelta(delta);
+          setResourcePulse(delta > 0 ? 'gain' : 'spend');
+
+          if (resourceDeltaTimeoutRef.current !== null) {
+              window.clearTimeout(resourceDeltaTimeoutRef.current);
+          }
+
+          resourceDeltaTimeoutRef.current = window.setTimeout(() => {
+              setResourceDelta(0);
+              setResourcePulse(null);
+              resourceDeltaTimeoutRef.current = null;
+          }, 800);
+      }
+
+      previousResourceRef.current = current;
+  }, [player.classResource.value]);
+
+  useEffect(() => () => {
+      if (resourceDeltaTimeoutRef.current !== null) {
+          window.clearTimeout(resourceDeltaTimeoutRef.current);
+      }
+  }, []);
 
   return (
     <div className="absolute inset-0 z-10 flex flex-col justify-between p-2 sm:p-4 pointer-events-none safe-bottom">
@@ -2041,7 +2085,9 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                           player.skills.length > 0 ? (
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                   {player.skills.map(skill => {
-                                      const canCast = player.stats.mp >= skill.manaCost;
+                                      const requiredResource = skill.resourceEffect?.cost ?? 0;
+                                      const hasResource = player.classResource.value >= requiredResource;
+                                      const canCast = player.stats.mp >= skill.manaCost && hasResource;
                                       return (
                                           <button
                                               key={skill.id}
@@ -2055,10 +2101,29 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                                                       <div className="font-black text-sm sm:text-base">{skill.name}</div>
                                                       <div className="mt-1 text-xs text-[#7f5b56] leading-relaxed">{skill.description}</div>
                                                   </div>
-                                                  <div className="rounded-md border border-[#8eb4c0] bg-[#dceff2] px-2 py-1 text-[10px] font-black text-[#346c7f] whitespace-nowrap">
-                                                      {skill.manaCost} MP
+                                                  <div className="flex flex-col items-end gap-1">
+                                                      <div className="rounded-md border border-[#8eb4c0] bg-[#dceff2] px-2 py-1 text-[10px] font-black text-[#346c7f] whitespace-nowrap">
+                                                          {skill.manaCost} MP
+                                                      </div>
+                                                      {requiredResource > 0 && (
+                                                          <div
+                                                              className={`rounded-md border px-2 py-0.5 text-[9px] font-black whitespace-nowrap ${hasResource ? '' : 'border-rose-300 bg-rose-100 text-rose-700'}`}
+                                                              style={hasResource ? {
+                                                                  borderColor: `${player.classResource.color}66`,
+                                                                  backgroundColor: `${player.classResource.color}20`,
+                                                                  color: player.classResource.color,
+                                                              } : undefined}
+                                                          >
+                                                              {requiredResource} {skill.resourceLabel || player.classResource.name}
+                                                          </div>
+                                                      )}
                                                   </div>
                                               </div>
+                                              {requiredResource > 0 && !hasResource && (
+                                                  <div className="mt-2 text-[10px] font-black uppercase tracking-[0.16em] text-rose-600">
+                                                      Recurso insuficiente
+                                                  </div>
+                                              )}
                                               <div className="mt-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#7c4c76]">{describeBattleSkill(skill)}</div>
                                           </button>
                                       );
@@ -2126,12 +2191,25 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                           <div className="h-2 bg-[#e9d7c2] rounded-full overflow-hidden"><div className="h-full rounded-full bg-[linear-gradient(90deg,#2b6878,#66b8d2)] transition-all duration-300" style={{width: `${(player.stats.mp/player.stats.maxMp)*100}%`}}></div></div>
                       </div>
                       {player.classResource.max > 0 && (
-                          <div>
+                          <div className={`relative rounded-md px-1 py-0.5 transition-all duration-300 ${resourcePulse === 'gain' ? 'bg-emerald-200/35 ring-1 ring-emerald-500/35' : resourcePulse === 'spend' ? 'bg-rose-200/35 ring-1 ring-rose-500/35' : ''}`}>
                               <div className="flex items-center justify-between mb-0.5">
                                   <span className="text-[9px] font-black uppercase tracking-[0.22em] text-[#7c4c76]">{player.classResource.name}</span>
                                   <span className="text-[10px] font-black text-[#6b3141]">{player.classResource.value}/{player.classResource.max}</span>
                               </div>
-                              <div className="h-1.5 bg-[#e9d7c2] rounded-full overflow-hidden"><div className="h-full rounded-full bg-[linear-gradient(90deg,#4c1d95,#c084fc)] transition-all duration-300" style={{width: `${player.classResource.max > 0 ? (player.classResource.value/player.classResource.max)*100 : 0}%`}}></div></div>
+                              <div className="h-1.5 bg-[#e9d7c2] rounded-full overflow-hidden">
+                                  <div
+                                      className={`h-full rounded-full transition-all duration-300 ${resourcePulse ? 'animate-pulse' : ''}`}
+                                      style={{
+                                          width: `${player.classResource.max > 0 ? (player.classResource.value / player.classResource.max) * 100 : 0}%`,
+                                          background: `linear-gradient(90deg, ${player.classResource.color}, #f5e6ff)`,
+                                      }}
+                                  />
+                              </div>
+                              {resourceDelta !== 0 && (
+                                  <div className={`pointer-events-none absolute -right-1 -top-2 rounded-full border px-1.5 py-0.5 text-[8px] font-black ${resourceDelta > 0 ? 'border-emerald-500/40 bg-emerald-500/20 text-emerald-700' : 'border-rose-500/40 bg-rose-500/20 text-rose-700'}`}>
+                                      {resourceDelta > 0 ? `+${resourceDelta}` : resourceDelta}
+                                  </div>
+                              )}
                           </div>
                       )}
                   </div>

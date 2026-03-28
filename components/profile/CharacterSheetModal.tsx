@@ -1,9 +1,10 @@
 import React, { useMemo, useState } from 'react';
-import { CircleHelp, Lock, Orbit, Shield, Sparkles, Star, Sword, WandSparkles, X, Zap } from 'lucide-react';
+import { CircleHelp, Coins, Crosshair, Heart, Lock, Orbit, Shield, Sparkles, Star, Sword, WandSparkles, X, Zap } from 'lucide-react';
 import { ALL_CARDS } from '../../game/data/cards';
 import { getConstellationByClassId } from '../../game/data/classTalents';
 import { getPlayerClassById } from '../../game/data/classes';
 import { canUnlockTalentNode } from '../../game/mechanics/classProgression';
+import { SKILLS } from '../../constants';
 import { ClassTalentTrail, Item, Player, PlayerClassId, ProgressionCard, TalentNode } from '../../types';
 import { DeveloperHeroScene } from '../Scene3D';
 import { GameAssetIcon } from '../ui/game-asset-icon';
@@ -146,6 +147,13 @@ const EquipmentCard = ({ label, item, type }: { label: string; item: Item | null
   </div>
 );
 
+const getCardCategoryBadge = (card: ProgressionCard) => {
+  if (card.category === 'economia') return { icon: <Coins size={14} />, label: 'Economia', color: 'text-amber-700 border-amber-300 bg-amber-100' };
+  if (card.category === 'atributo') return { icon: <Heart size={14} />, label: 'Atributos', color: 'text-emerald-700 border-emerald-300 bg-emerald-100' };
+  if (card.category === 'batalha') return { icon: <Crosshair size={14} />, label: 'Combate', color: 'text-rose-700 border-rose-300 bg-rose-100' };
+  return { icon: <Sparkles size={14} />, label: 'Especial', color: 'text-sky-700 border-sky-300 bg-sky-100' };
+};
+
 const ConstellationNodeCard = ({
   node,
   player,
@@ -158,6 +166,12 @@ const ConstellationNodeCard = ({
   const isUnlocked = player.unlockedTalentNodeIds.includes(node.id);
   const unlockState = canUnlockTalentNode(player, node.id);
   const isAvailable = unlockState.ok;
+  const unlockedSkillId = node.effects.find((effect) => Boolean(effect.unlockSkillId))?.unlockSkillId;
+  const unlockedSkill = unlockedSkillId ? SKILLS.find((skill) => skill.id === unlockedSkillId) : null;
+  const resourceCost = unlockedSkill?.resourceEffect?.cost ?? 0;
+  const consumeAllResource = Boolean(unlockedSkill?.resourceEffect?.consumeAll);
+  const hasResourceCost = consumeAllResource || resourceCost > 0;
+  const resourceLabel = unlockedSkill?.resourceLabel ?? player.classResource.name;
 
   return (
     <button
@@ -189,6 +203,11 @@ const ConstellationNodeCard = ({
         <div className="mt-3 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-[#9a7068]">
           <Lock size={12} />
           Segue a trilha
+        </div>
+      )}
+      {hasResourceCost && (
+        <div className={`mt-2 inline-flex items-center rounded-full border px-2 py-1 text-[10px] font-black uppercase tracking-[0.14em] ${isUnlocked ? 'text-white border-white/35 bg-white/10' : ''}`} style={isUnlocked ? undefined : { borderColor: `${player.classResource.color}66`, backgroundColor: `${player.classResource.color}1f`, color: player.classResource.color }}>
+          {resourceLabel} {consumeAllResource ? 'Total' : resourceCost}
         </div>
       )}
     </button>
@@ -415,12 +434,18 @@ export const CharacterSheetModal = ({ player, shopItems: _shopItems, onClose, on
 
               {selectedCards.length > 0 ? (
                 <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-                  {selectedCards.map(({ card, count }) => (
+                  {selectedCards.map(({ card, count }) => {
+                    const category = getCardCategoryBadge(card);
+                    return (
                     <article key={card.id} className="rounded-[20px] border border-[#cfab91] bg-[#f7ecdd] p-4 shadow-sm">
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <div className="flex items-center gap-2">
                             <span className="rounded-full border border-[#d6b9a3] bg-[#f8eddf] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.35em] text-[#9a7068]">{getRarityLabel(card.rarity)}</span>
+                            <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.2em] ${category.color}`}>
+                              {category.icon}
+                              {category.label}
+                            </span>
                             {count > 1 && <span className="rounded-md border border-amber-400/40 bg-amber-50 px-2 py-0.5 text-xs font-black text-amber-700">x{count}</span>}
                           </div>
                           <h3 className="mt-2 text-lg font-black text-[#6b3141]">{card.name}</h3>
@@ -431,7 +456,7 @@ export const CharacterSheetModal = ({ player, shopItems: _shopItems, onClose, on
                         {getCardEffectPreview(card)}
                       </div>
                     </article>
-                  ))}
+                  )})}
                 </div>
               ) : (
                 <div className="rounded-[24px] border border-dashed border-[#c59d82] bg-[#f4e7d5] px-6 py-12 text-center text-[#8f6c67]">

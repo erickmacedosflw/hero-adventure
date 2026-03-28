@@ -35,8 +35,23 @@ export const createClassResourceState = (classId: PlayerClassId): ClassResourceS
   const resource = getConstellationByClassId(classId).resource;
   return {
     ...resource,
+    max: 0,
     value: 0,
   };
+};
+
+export const hasUnlockedClassResource = (player: Pick<Player, 'skills'>): boolean => (
+  player.skills.some((skill) => Boolean(skill.resourceEffect))
+);
+
+export const getUnlockedResourceMax = (player: Player): number => {
+  if (!hasUnlockedClassResource(player)) {
+    return 0;
+  }
+
+  const bonuses = getTalentBonuses(player);
+  const baseMax = getConstellationByClassId(player.classId).resource.max;
+  return Math.max(0, baseMax + bonuses.resourceCap);
 };
 
 export const getConstellationNodes = (classId: PlayerClassId): TalentNode[] => (
@@ -130,10 +145,21 @@ const applyNodeStats = (stats: Stats, node: TalentNode): Stats => {
 export const syncPlayerConstellationSkills = (player: Player, skillCatalog: Skill[]): Player => {
   const constellationSkills = getUnlockedConstellationSkills(player, skillCatalog);
   const nonConstellationSkills = player.skills.filter((skill) => skill.source !== 'constellation');
+  const nextSkills = [...nonConstellationSkills, ...constellationSkills];
+  const hasResourceUnlocked = nextSkills.some((skill) => Boolean(skill.resourceEffect));
+  const bonuses = getTalentBonuses(player);
+  const resourceTemplate = getConstellationByClassId(player.classId).resource;
+  const unlockedResourceMax = hasResourceUnlocked ? Math.max(0, resourceTemplate.max + bonuses.resourceCap) : 0;
+  const startValue = hasResourceUnlocked ? Math.max(0, bonuses.resourceStart) : 0;
 
   return {
     ...player,
-    skills: [...nonConstellationSkills, ...constellationSkills],
+    skills: nextSkills,
+    classResource: {
+      ...resourceTemplate,
+      max: unlockedResourceMax,
+      value: Math.min(unlockedResourceMax, Math.max(player.classResource.value, startValue)),
+    },
   };
 };
 
@@ -145,12 +171,6 @@ export const unlockTalentNode = (player: Player, nodeId: string, skillCatalog: S
 
   const { node } = unlockCheck;
   const nextStats = applyNodeStats(player.stats, node);
-  const resourceBonuses = getTalentBonuses({
-    ...player,
-    unlockedTalentNodeIds: [...player.unlockedTalentNodeIds, node.id],
-  });
-  const resourceTemplate = getConstellationByClassId(player.classId).resource;
-  const nextResourceMax = resourceTemplate.max + resourceBonuses.resourceCap;
 
   const nextPlayer = syncPlayerConstellationSkills({
     ...player,
@@ -161,11 +181,7 @@ export const unlockTalentNode = (player: Player, nodeId: string, skillCatalog: S
       hp: Math.min(nextStats.maxHp, nextStats.hp),
       mp: Math.min(nextStats.maxMp, nextStats.mp),
     },
-    classResource: {
-      ...player.classResource,
-      max: nextResourceMax,
-      value: Math.min(nextResourceMax, player.classResource.value),
-    },
+    classResource: { ...player.classResource },
   }, skillCatalog);
 
   return { player: nextPlayer, node };
@@ -198,4 +214,3 @@ export const spendClassResource = (player: Player, amount: number): Player => {
     },
   };
 };
-

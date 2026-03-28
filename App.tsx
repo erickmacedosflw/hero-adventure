@@ -7,22 +7,23 @@ import { OpeningScreen } from './components/OpeningScreen';
 import { ClassSelectionScreen } from './components/ClassSelectionScreen';
 import { BattleHUD, MenuScreen, ShopScreen, TavernScreen, KillLootOverlay, CardChoiceScreen, AlchemistScreen, DungeonResultScreen, BossVictoryModal } from './components/GameUI';
 import { 
-    Player, Enemy, GameState, TurnState, BattleLog, Item, Skill, Stats, Particle, FloatingText, ProgressionCard, CardRewardOffer, AlchemistCardOffer, AlchemistItemOffer, DungeonRunState, DungeonResult, DungeonRewards, EnemyTemplate, DungeonEnemyTemplate, DungeonBossTemplate, PlayerAnimationAction, BossVictoryContext
+    Player, Enemy, GameState, TurnState, BattleLog, Item, Skill, Stats, Particle, FloatingText, ProgressionCard, CardRewardOffer, AlchemistCardOffer, AlchemistItemOffer, DungeonRunState, DungeonResult, DungeonRewards, EnemyTemplate, DungeonEnemyTemplate, DungeonBossTemplate, PlayerAnimationAction, BossVictoryContext, CardCategory
 } from './types';
 import { 
     INITIAL_PLAYER, SHOP_ITEMS, ALL_ITEMS, MATERIALS, SKILLS, ENEMY_DATA, ENEMY_COLORS, DUNGEON_ENEMY_DATA, DUNGEON_BOSS, ALCHEMIST_ITEM_OFFERS 
 } from './constants';
 import { PROGRESSION_CARDS, ALCHEMIST_CARDS } from './game/data/cards';
 import { applyPlayerClass, PLAYER_CLASSES } from './game/data/classes';
-import { getConstellationByClassId } from './game/data/classTalents';
 import { gameMusicManager, isNightTime, type MusicTrackId } from './game/audio/music';
 import { createEmptyBuffState } from './game/mechanics/combat';
-import { createClassResourceState, getTalentBonuses, syncPlayerConstellationSkills, unlockTalentNode } from './game/mechanics/classProgression';
+import { createClassResourceState, getTalentBonuses, getUnlockedResourceMax, syncPlayerConstellationSkills, unlockTalentNode } from './game/mechanics/classProgression';
 import { useBattleController } from './game/hooks/useBattleController';
 import { useBattleResolution } from './game/hooks/useBattleResolution';
 import { generateBattleDescription, generateVictorySpeech } from './services/geminiService';
 
 type BootWindow = Window & { __heroAdventureBootReady?: boolean };
+const MENU_CAMERA_TRANSITION_MS = 2500;
+type SceneRegion = 'forest' | 'dungeon';
 
 const getBootReadyMemory = () => {
     if (typeof window === 'undefined') {
@@ -114,11 +115,14 @@ export default function App() {
     const [dungeonRun, setDungeonRun] = useState<DungeonRunState | null>(null);
     const [dungeonResult, setDungeonResult] = useState<DungeonResult | null>(null);
     const [bossVictoryContext, setBossVictoryContext] = useState<BossVictoryContext | null>(null);
+    const postCardFlowRef = useRef<'tavern' | 'boss-victory' | 'resume-hunt' | null>(null);
+    const bossVictoryContextRef = useRef<BossVictoryContext | null>(null);
     const [pendingDungeonQueue, setPendingDungeonQueue] = useState<CardRewardOffer[]>([]);
     const [isBootReady, setIsBootReady] = useState(() => getBootReadyMemory());
     const [pathname, setPathname] = useState(() => window.location.pathname);
     const [selectedStartingClassId, setSelectedStartingClassId] = useState<Player['classId']>(INITIAL_PLAYER.classId);
     const [hasConfirmedStartingClass, setHasConfirmedStartingClass] = useState(false);
+    const [resourceUnlockModal, setResourceUnlockModal] = useState<{ name: string; color: string } | null>(null);
 
     const bootEnemies = useMemo(() => [...ENEMY_DATA, ...DUNGEON_ENEMY_DATA, DUNGEON_BOSS], []);
     const handleBootReady = useCallback(() => {
@@ -145,10 +149,17 @@ export default function App() {
   const [isPlayerCritHit, setIsPlayerCritHit] = useState(false);
   const [isEnemyHit, setIsEnemyHit] = useState(false);
   const [screenShake, setScreenShake] = useState(0);
-  const [isLevelingUp, setIsLevelingUp] = useState(false);
+    const [isLevelingUp, setIsLevelingUp] = useState(false);
+    const [levelUpCardCategory, setLevelUpCardCategory] = useState<CardCategory>('especial');
     const [playerAnimationAction, setPlayerAnimationAction] = useState<PlayerAnimationAction>('idle');
     const [enemyAnimationAction, setEnemyAnimationAction] = useState<PlayerAnimationAction>('battle-idle');
+    const [menuHeroAction, setMenuHeroAction] = useState<PlayerAnimationAction>('idle');
+    const [menuCameraFocusOverride, setMenuCameraFocusOverride] = useState<boolean | null>(null);
+    const [showTavernUi, setShowTavernUi] = useState(true);
+    const [sceneRegion, setSceneRegion] = useState<SceneRegion>('forest');
     const enemyAnimationResetTimerRef = useRef<number | null>(null);
+    const menuTransitionTimerRef = useRef<number | null>(null);
+    const wasResourceUnlockedRef = useRef(player.classResource.max > 0);
 
     const triggerEnemyAnimationAction = useCallback((action: PlayerAnimationAction, resetDelay?: number) => {
         if (enemyAnimationResetTimerRef.current !== null) {
@@ -172,31 +183,81 @@ export default function App() {
         if (enemyAnimationResetTimerRef.current !== null) {
             window.clearTimeout(enemyAnimationResetTimerRef.current);
         }
+        if (menuTransitionTimerRef.current !== null) {
+            window.clearTimeout(menuTransitionTimerRef.current);
+        }
     }, []);
+
+    useEffect(() => {
+        const isUnlockedNow = player.classResource.max > 0;
+        const wasUnlocked = wasResourceUnlockedRef.current;
+
+        if (!wasUnlocked && isUnlockedNow) {
+            setResourceUnlockModal({
+                name: player.classResource.name,
+                color: player.classResource.color,
+            });
+        }
+
+        wasResourceUnlockedRef.current = isUnlockedNow;
+    }, [player.classResource.color, player.classResource.max, player.classResource.name]);
+
+    useEffect(() => {
+        if (!resourceUnlockModal) {
+            return;
+        }
+
+        const timer = window.setTimeout(() => {
+            setResourceUnlockModal(null);
+        }, 2600);
+
+        return () => {
+            window.clearTimeout(timer);
+        };
+    }, [resourceUnlockModal]);
+
+    useEffect(() => {
+        postCardFlowRef.current = postCardFlow;
+    }, [postCardFlow]);
+
+    useEffect(() => {
+        bossVictoryContextRef.current = bossVictoryContext;
+    }, [bossVictoryContext]);
 
   // --- VFX SYSTEM ---
   const spawnParticles = (position: [number, number, number], count: number, color: string, type: 'explode' | 'heal' | 'spark') => {
+      const densityMultiplier = type === 'explode' ? 0.72 : type === 'spark' ? 0.68 : 0.78;
+      const finalCount = Math.max(6, Math.round(count * densityMultiplier));
+      const shardChance = type === 'explode' ? 0.22 : type === 'spark' ? 0.14 : 0.08;
       const newParticles: Particle[] = [];
-      for(let i=0; i<count; i++) {
+
+      for (let i = 0; i < finalCount; i++) {
+          const isShard = Math.random() < shardChance;
+          const spread = type === 'heal' ? 0.55 : isShard ? 1.45 : 1.1;
+          const lift = type === 'heal' ? 1.75 : isShard ? 0.5 : 0.85;
+
           newParticles.push({
-              id: Math.random().toString(36),
+              id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`,
               position: [position[0], position[1], position[2]],
-              color: color,
-              scale: type === 'heal' ? 0.2 : 0.3,
+              color,
+              scale: type === 'heal' ? 0.18 : isShard ? 0.13 : 0.24,
               life: 1.0,
+              ttl: type === 'heal' ? 0.8 : isShard ? 0.7 : 0.92,
+              renderMode: isShard ? 'shard3d' : 'sprite2d',
               velocity: [
-                  (Math.random() - 0.5) * (type === 'heal' ? 0.5 : 2), 
-                  (Math.random() - 0.5) * 2 + (type === 'heal' ? 2 : 0), // Upwards for heal
-                  (Math.random() - 0.5) * 2
-              ]
+                  (Math.random() - 0.5) * spread * 2,
+                  (Math.random() - 0.5) * 1.7 + lift,
+                  (Math.random() - 0.5) * spread * 2,
+              ],
           });
       }
-      setParticles(prev => [...prev, ...newParticles]);
-      
-      // Cleanup handled by Scene component mostly, but we can prune simply here if needed
+
+      const spawnedIds = new Set(newParticles.map((particle) => particle.id));
+      setParticles((prev) => [...prev, ...newParticles].slice(-180));
+
       setTimeout(() => {
-          setParticles(prev => prev.slice(count)); 
-      }, 1000);
+          setParticles((prev) => prev.filter((particle) => !spawnedIds.has(particle.id)));
+      }, 1100);
   };
 
   const spawnFloatingText = (value: string | number, target: 'player' | 'enemy', type: 'damage' | 'heal' | 'crit' | 'buff') => {
@@ -292,7 +353,8 @@ export default function App() {
         return { nextPlayer, levelsGained };
     };
 
-    const triggerLevelUpPulse = () => {
+    const triggerLevelUpPulse = (category: CardCategory = 'especial') => {
+        setLevelUpCardCategory(category);
         setIsLevelingUp(true);
         window.setTimeout(() => setIsLevelingUp(false), 1100);
     };
@@ -446,15 +508,25 @@ export default function App() {
         return true;
     };
 
-    const continueProgressionFlow = (currentPlayer: Player, queue: CardRewardOffer[]) => {
+    const continueProgressionFlow = (
+        currentPlayer: Player,
+        queue: CardRewardOffer[],
+        flowOverride?: 'tavern' | 'boss-victory' | 'resume-hunt' | null,
+    ) => {
         if (queue.length === 0) {
             setCurrentCardOffer(null);
             setCurrentCardChoices([]);
             setCardRewardQueue([]);
-            const nextFlow = postCardFlow;
+            const nextFlow = flowOverride ?? postCardFlowRef.current;
+            const nextBossContext = bossVictoryContextRef.current;
             setPostCardFlow(null);
 
-            if (nextFlow === 'boss-victory' && bossVictoryContext) {
+            if (nextFlow === 'boss-victory' && nextBossContext) {
+                setGameState(GameState.BOSS_VICTORY);
+                return;
+            }
+
+            if (nextBossContext) {
                 setGameState(GameState.BOSS_VICTORY);
                 return;
             }
@@ -566,10 +638,12 @@ export default function App() {
         setCurrentCardChoices([]);
     setPlayerAnimationAction('idle');
     setEnemyAnimationAction('battle-idle');
+    setSceneRegion('forest');
     setGameState(GameState.TAVERN);
   };
 
   const startDungeon = () => {
+            setSceneRegion('dungeon');
             const nextRun: DungeonRunState = {
                 entrySnapshot: clonePlayer(player),
                 rewards: createEmptyDungeonRewards(dungeonEvolution),
@@ -581,16 +655,16 @@ export default function App() {
             enterBattle(false, 'dungeon', 0);
   };
 
-  const enterBattle = (isBoss: boolean, mode: 'hunt' | 'dungeon' = dungeonRun ? 'dungeon' : 'hunt', dungeonClearedOverride?: number) => {
+  const enterBattleImmediate = (isBoss: boolean, mode: 'hunt' | 'dungeon' = dungeonRun ? 'dungeon' : 'hunt', dungeonClearedOverride?: number) => {
             const isDungeonBattle = mode === 'dungeon';
+            setSceneRegion(isDungeonBattle ? 'dungeon' : 'forest');
             const dungeonCleared = dungeonClearedOverride ?? dungeonRun?.rewards.clearedMonsters ?? 0;
             const activeDungeonEvolution = dungeonRun?.evolution ?? dungeonEvolution;
             const encounterStage = isDungeonBattle ? stage + Math.floor(dungeonCleared / 5) + Math.floor(activeDungeonEvolution / 2) : stage;
             setPlayer(prev => {
                 const nextBuffs = { ...prev.buffs };
                 const talentBonuses = getTalentBonuses(prev);
-                const resourceTemplate = getConstellationByClassId(prev.classId).resource;
-                const resourceMax = resourceTemplate.max + talentBonuses.resourceCap;
+                const resourceMax = getUnlockedResourceMax(prev);
                 if (prev.cardBonuses.openingAtkBuff > 0) {
                     nextBuffs.atkMod = Math.max(nextBuffs.atkMod, prev.cardBonuses.openingAtkBuff);
                     nextBuffs.atkTurns = Math.max(nextBuffs.atkTurns, 2);
@@ -607,7 +681,7 @@ export default function App() {
                     classResource: {
                         ...prev.classResource,
                         max: resourceMax,
-                        value: Math.min(resourceMax, talentBonuses.resourceStart),
+                        value: resourceMax > 0 ? Math.min(resourceMax, talentBonuses.resourceStart) : 0,
                     },
                 };
             });
@@ -617,15 +691,31 @@ export default function App() {
       setEnemy(null);
       setLogs([]);
       spawnEnemy(encounterStage, isBoss, mode, isDungeonBattle ? activeDungeonEvolution : undefined);
-  }
+  };
+
+  const enterBattle = (isBoss: boolean, mode: 'hunt' | 'dungeon' = dungeonRun ? 'dungeon' : 'hunt', dungeonClearedOverride?: number) => {
+      if (resolvedGameState !== GameState.TAVERN) {
+          enterBattleImmediate(isBoss, mode, dungeonClearedOverride);
+          return;
+      }
+
+      if (menuTransitionTimerRef.current !== null) {
+          return;
+      }
+
+      setShowTavernUi(false);
+      setMenuCameraFocusOverride(false);
+      menuTransitionTimerRef.current = window.setTimeout(() => {
+          menuTransitionTimerRef.current = null;
+          setMenuCameraFocusOverride(null);
+          enterBattleImmediate(isBoss, mode, dungeonClearedOverride);
+      }, MENU_CAMERA_TRANSITION_MS);
+  };
 
     const handleChangePlayerClass = (classId: Player['classId']) => {
         setPlayer(prev => syncPlayerConstellationSkills({
             ...applyPlayerClass(prev, classId),
-            classResource: {
-                ...getConstellationByClassId(classId).resource,
-                value: 0,
-            },
+            classResource: createClassResourceState(classId),
             statusEffects: [],
         }, SKILLS));
     };
@@ -881,7 +971,7 @@ export default function App() {
       if (!currentCardOffer) return;
 
       addLog(`Carta escolhida: ${card.name}`, 'buff');
-      triggerLevelUpPulse();
+      triggerLevelUpPulse(card.category);
       const afterCardPlayer = applyCardChoice(player, card);
       const { nextPlayer, levelsGained } = applyLevelProgression(afterCardPlayer);
       let nextQueue = [...cardRewardQueue];
@@ -891,7 +981,7 @@ export default function App() {
       }
 
       setPlayer(nextPlayer);
-      continueProgressionFlow(nextPlayer, nextQueue);
+      continueProgressionFlow(nextPlayer, nextQueue, postCardFlowRef.current);
   };
 
   const handleBossVictoryContinue = () => {
@@ -965,7 +1055,7 @@ export default function App() {
       });
 
       if (levelsGained > 0) {
-          triggerLevelUpPulse();
+          triggerLevelUpPulse(offer.card.category);
       }
   };
 
@@ -1090,6 +1180,59 @@ export default function App() {
 
         return gameState;
     })();
+    const shouldMenuCameraFocus = menuCameraFocusOverride ?? (resolvedGameState === GameState.TAVERN);
+    const previousResolvedGameStateRef = useRef<GameState>(resolvedGameState);
+
+    useEffect(() => {
+        const previousState = previousResolvedGameStateRef.current;
+
+        if (resolvedGameState === GameState.TAVERN && previousState === GameState.BATTLE) {
+            if (menuTransitionTimerRef.current !== null) {
+                window.clearTimeout(menuTransitionTimerRef.current);
+                menuTransitionTimerRef.current = null;
+            }
+
+            setShowTavernUi(false);
+            setMenuCameraFocusOverride(true);
+            menuTransitionTimerRef.current = window.setTimeout(() => {
+                menuTransitionTimerRef.current = null;
+                setMenuCameraFocusOverride(null);
+                setShowTavernUi(true);
+            }, MENU_CAMERA_TRANSITION_MS);
+        }
+        if (resolvedGameState === GameState.TAVERN && previousState !== GameState.TAVERN && previousState !== GameState.BATTLE) {
+            setMenuCameraFocusOverride(null);
+            setShowTavernUi(true);
+        }
+
+        if (resolvedGameState !== GameState.TAVERN) {
+            setShowTavernUi(false);
+        }
+
+        previousResolvedGameStateRef.current = resolvedGameState;
+    }, [resolvedGameState]);
+
+    useEffect(() => {
+        if (resolvedGameState !== GameState.TAVERN) {
+            setMenuHeroAction('idle');
+            return;
+        }
+
+        setMenuHeroAction('idle');
+        const first = window.setTimeout(() => {
+            setMenuHeroAction('item');
+            window.setTimeout(() => setMenuHeroAction('idle'), 720);
+        }, 1300);
+        const interval = window.setInterval(() => {
+            setMenuHeroAction('item');
+            window.setTimeout(() => setMenuHeroAction('idle'), 720);
+        }, 3600);
+
+        return () => {
+            window.clearTimeout(first);
+            window.clearInterval(interval);
+        };
+    }, [resolvedGameState]);
 
     const [hasUnlockedMusic, setHasUnlockedMusic] = useState(false);
     const targetMusicTrack = useMemo<MusicTrackId | null>(() => {
@@ -1109,8 +1252,8 @@ export default function App() {
             return isNightTime(gameTime) ? 'forestNight' : 'forestDay';
         }
 
-        return 'title';
-    }, [dungeonRun, gameTime, hasConfirmedStartingClass, isBootReady, pathname, resolvedGameState]);
+        return sceneRegion === 'dungeon' ? 'dungeon' : 'title';
+    }, [dungeonRun, gameTime, hasConfirmedStartingClass, isBootReady, pathname, resolvedGameState, sceneRegion]);
 
     useEffect(() => {
         if (typeof window === 'undefined' || hasUnlockedMusic) {
@@ -1183,7 +1326,13 @@ export default function App() {
                                         enemyName={enemy?.name}
                         turnState={turnState}
                         onGameTimeUpdate={setGameTime}
-                                playerAnimationAction={playerAnimationAction === 'idle' && resolvedGameState === GameState.BATTLE ? 'battle-idle' : playerAnimationAction === 'defend-hit' || playerAnimationAction === 'evade' ? playerAnimationAction : player.isDefending ? 'defend' : playerAnimationAction}
+                                playerAnimationAction={resolvedGameState === GameState.TAVERN
+                                    ? menuHeroAction
+                                    : playerAnimationAction === 'idle' && resolvedGameState === GameState.BATTLE
+                                        ? 'battle-idle'
+                                        : playerAnimationAction === 'defend-hit' || playerAnimationAction === 'evade'
+                                            ? playerAnimationAction
+                                            : player.isDefending ? 'defend' : playerAnimationAction}
                         isPlayerAttacking={isPlayerAttacking}
                         isEnemyAttacking={isEnemyAttacking}
                         particles={particles}
@@ -1207,17 +1356,21 @@ export default function App() {
                         hasDoubleAttackAura={player.buffs.doubleAttackTurns > 0}
                         screenShake={screenShake}
                         isLevelingUp={isLevelingUp}
+                        levelUpCardCategory={levelUpCardCategory}
                         stage={stage}
                         playerClassId={player.classId}
                         isDungeonRun={Boolean(dungeonRun)}
                         playerState={player}
                         enemyState={enemy}
+                        isMenuView={resolvedGameState === GameState.TAVERN}
+                        menuCameraFocus={shouldMenuCameraFocus}
+                        isDungeonScene={sceneRegion === 'dungeon'}
                     />
             </SceneErrorBoundary>
 
             {resolvedGameState === GameState.MENU && <MenuScreen onStart={startGame} />}
       
-            {resolvedGameState === GameState.TAVERN && (
+            {resolvedGameState === GameState.TAVERN && showTavernUi && (
           <TavernScreen 
             player={player}
             stage={stage}
@@ -1332,6 +1485,24 @@ export default function App() {
               <button onClick={startGame} className="px-10 py-4 bg-white text-red-900 font-black rounded hover:bg-gray-200 text-xl uppercase tracking-widest">
                   Renascer
               </button>
+          </div>
+      )}
+
+      {resourceUnlockModal && (
+          <div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/50 px-4">
+              <div className="w-full max-w-md rounded-[24px] border border-[#cfab91] bg-[#f7ecdd] p-6 text-center shadow-[0_30px_90px_rgba(40,20,25,0.4)]">
+                  <div className="text-[10px] font-black uppercase tracking-[0.28em] text-[#9a7068]">Novo Recurso</div>
+                  <h3 className="mt-2 text-2xl font-black text-[#6b3141]">Recurso da classe liberado</h3>
+                  <p className="mt-3 text-sm text-[#7f5b56]">
+                      Agora voce pode gerar e consumir <span className="font-black" style={{ color: resourceUnlockModal.color }}>{resourceUnlockModal.name}</span> em habilidades da classe.
+                  </p>
+                  <button
+                      onClick={() => setResourceUnlockModal(null)}
+                      className="mt-5 rounded-xl border border-[#cfab91] bg-[#f4e5d4] px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-[#6b3141] transition-colors hover:bg-[#e9d7c2]"
+                  >
+                      Entendi
+                  </button>
+              </div>
           </div>
       )}
 
