@@ -47,6 +47,8 @@ interface UseBattleResolutionParams {
   shouldForceFirstEnemyDrop: boolean;
   shouldTriggerInventoryUnlockTutorial: boolean;
   onTriggerInventoryUnlockTutorial: () => void;
+  shouldTriggerConstellationUnlockTutorial: boolean;
+  onTriggerConstellationUnlockTutorial: () => void;
   allowPotionDrops: boolean;
 }
 
@@ -84,6 +86,8 @@ export const useBattleResolution = ({
   shouldForceFirstEnemyDrop,
   shouldTriggerInventoryUnlockTutorial,
   onTriggerInventoryUnlockTutorial,
+  shouldTriggerConstellationUnlockTutorial,
+  onTriggerConstellationUnlockTutorial,
   allowPotionDrops,
 }: UseBattleResolutionParams) => {
   const handleVictory = useCallback(async (delayMs = 0) => {
@@ -100,6 +104,7 @@ export const useBattleResolution = ({
     const xpGain = Math.floor(enemy.xpReward * (1 + player.cardBonuses.xpGainMultiplier));
     const goldGain = Math.floor(enemy.goldReward * (1 + player.cardBonuses.goldGainMultiplier));
     const wasBoss = enemy.isBoss;
+    const shouldOpenConstellationTutorial = wasBoss && shouldTriggerConstellationUnlockTutorial;
 
     const drops: string[] = [];
     if (dungeonRun) {
@@ -203,6 +208,7 @@ export const useBattleResolution = ({
         const nextTotalMonsters = getDungeonMonsterTarget(nextEvolution);
         const updatedPlayer = {
           ...progressedDungeonPlayer,
+          talentPoints: progressedDungeonPlayer.talentPoints + 1,
           gold: progressedDungeonPlayer.gold + nextRewards.gold,
           diamonds: progressedDungeonPlayer.diamonds + nextRewards.diamonds,
           inventory: applyDropsToInventory(progressedDungeonPlayer.inventory, nextRewards.drops),
@@ -212,6 +218,9 @@ export const useBattleResolution = ({
         };
 
         setPlayer(updatedPlayer);
+        if (shouldOpenConstellationTutorial) {
+          onTriggerConstellationUnlockTutorial();
+        }
         setDungeonEvolution(nextEvolution);
         setBossVictoryContext({
           mode: 'dungeon',
@@ -219,6 +228,7 @@ export const useBattleResolution = ({
           nextEvolution,
           nextTotalMonsters,
           rewards: nextRewards,
+          constellationPointsAwarded: 1,
         });
         setNarration('Escolha: continuar para a proxima evolucao da dungeon ou sair sem custo.');
         setDungeonRun(null);
@@ -271,6 +281,7 @@ export const useBattleResolution = ({
         mode: 'hunt',
         bossName: enemy.name,
         nextStage: stage + 1,
+        constellationPointsAwarded: 1,
       });
     } else {
       setKillCount(prev => prev + 1);
@@ -278,11 +289,22 @@ export const useBattleResolution = ({
 
     ({ nextPlayer: updatedPlayer, levelsGained } = applyLevelProgression(updatedPlayer, 0.3));
 
+    if (wasBoss) {
+      updatedPlayer = {
+        ...updatedPlayer,
+        talentPoints: updatedPlayer.talentPoints + 1,
+      };
+      addLog('Chefe derrotado: +1 ponto de evolucao da constelacao.', 'buff');
+    }
+
     if (levelsGained > 0) {
       triggerLevelUpPulse();
     }
 
     setPlayer(updatedPlayer);
+    if (shouldOpenConstellationTutorial) {
+      onTriggerConstellationUnlockTutorial();
+    }
 
     const dropText = effectiveDrops.length > 0
       ? ` Drops: ${effectiveDrops.map(dropId => ALL_ITEMS.find(item => item.id === dropId)?.name).join(', ')}`
@@ -361,6 +383,8 @@ export const useBattleResolution = ({
     shouldForceFirstEnemyDrop,
     shouldTriggerInventoryUnlockTutorial,
     onTriggerInventoryUnlockTutorial,
+    shouldTriggerConstellationUnlockTutorial,
+    onTriggerConstellationUnlockTutorial,
     allowPotionDrops,
     stage,
     triggerLevelUpPulse,

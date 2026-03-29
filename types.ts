@@ -389,6 +389,7 @@ export interface BossVictoryContext {
   nextEvolution?: number;
   nextTotalMonsters?: number;
   rewards?: DungeonRewards;
+  constellationPointsAwarded?: number;
 }
 
 export interface DungeonRunState {

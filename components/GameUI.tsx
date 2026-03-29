@@ -1,7 +1,7 @@
 ﻿
 import React, { useState, useEffect, useRef } from 'react';
 import { Player, Enemy, BattleLog, TurnState, Item, Skill, GameState, FloatingText, Rarity, ProgressionCard, CardRewardOffer, AlchemistCardOffer, AlchemistItemOffer, DungeonResult, DungeonRewards, BossVictoryContext, ArSupportState } from '../types';
-import { Sword, Shield, Zap, Heart, Coins, ShoppingBag, Skull, Play, Plus, FlaskConical, User, X, Home, LogOut, DollarSign, AlertTriangle, MousePointerClick, Shirt, Footprints, Crown, LayoutGrid, Sparkles, Crosshair, ArrowLeft, Star, Clock, Camera } from 'lucide-react';
+import { Sword, Shield, Zap, Heart, Coins, ShoppingBag, Skull, Play, Plus, FlaskConical, User, X, Home, LogOut, DollarSign, AlertTriangle, MousePointerClick, Shirt, Footprints, Crown, LayoutGrid, Sparkles, Crosshair, ArrowLeft, Star, Clock, Camera, Orbit } from 'lucide-react';
 import { ItemPreviewThree } from './items/ItemPreviewThree';
 import { GameAssetIcon } from './ui/game-asset-icon';
 import { CharacterSheetModal } from './profile/CharacterSheetModal';
@@ -50,6 +50,8 @@ interface GameUIProps {
     onAcknowledgeCardsUnlock?: () => void;
     skillsUnlockPromptActive?: boolean;
     onAcknowledgeSkillsUnlock?: () => void;
+    constellationUnlockPromptActive?: boolean;
+    onAcknowledgeConstellationUnlock?: () => void;
     allowCardsInProfile?: boolean;
     fleeUnlocked?: boolean;
     showItemsAction?: boolean;
@@ -851,6 +853,7 @@ export const TavernScreen: React.FC<{
     onOpenAr: () => void,
     arSupport: ArSupportState,
   shopItems: Item[],
+    autoOpenConstellationToken?: number,
   onEquipItem: (item: Item) => void,
   onUseItem: (itemId: string) => void,
     onUnlockTalent: (nodeId: string) => void,
@@ -863,6 +866,8 @@ export const TavernScreen: React.FC<{
     onAcknowledgeCardsUnlock?: () => void,
     skillsUnlockPromptActive?: boolean,
     onAcknowledgeSkillsUnlock?: () => void,
+    constellationUnlockPromptActive?: boolean,
+    onAcknowledgeConstellationUnlock?: () => void,
     allowCardsInProfile?: boolean,
     fleeUnlocked?: boolean,
     merchantUnlockPromptActive?: boolean,
@@ -870,7 +875,7 @@ export const TavernScreen: React.FC<{
     merchantUnlocked?: boolean,
     dungeonUnlocked?: boolean,
     showSkillsAction?: boolean,
-}> = ({ player, killCount, onHunt, onBoss, onDungeon, onShop, onAlchemist, onOpenAr, arSupport, shopItems, onEquipItem, onUseItem, onUnlockTalent, campIntroOnly = false, restrictProfileToStatusOnly = false, inventoryUnlocked = false, inventoryUnlockPromptActive = false, onAcknowledgeInventoryUnlock, cardsUnlockPromptActive = false, onAcknowledgeCardsUnlock, skillsUnlockPromptActive = false, onAcknowledgeSkillsUnlock, allowCardsInProfile = false, fleeUnlocked = false, merchantUnlockPromptActive = false, onAcknowledgeMerchantUnlock, merchantUnlocked = false, dungeonUnlocked = false, showSkillsAction = false }) => {
+}> = ({ player, killCount, onHunt, onBoss, onDungeon, onShop, onAlchemist, onOpenAr, arSupport, shopItems, autoOpenConstellationToken = 0, onEquipItem, onUseItem, onUnlockTalent, campIntroOnly = false, restrictProfileToStatusOnly = false, inventoryUnlocked = false, inventoryUnlockPromptActive = false, onAcknowledgeInventoryUnlock, cardsUnlockPromptActive = false, onAcknowledgeCardsUnlock, skillsUnlockPromptActive = false, onAcknowledgeSkillsUnlock, constellationUnlockPromptActive = false, onAcknowledgeConstellationUnlock, allowCardsInProfile = false, fleeUnlocked = false, merchantUnlockPromptActive = false, onAcknowledgeMerchantUnlock, merchantUnlocked = false, dungeonUnlocked = false, showSkillsAction = false }) => {
   const [showProfile, setShowProfile] = useState(false);
   const [showInventory, setShowInventory] = useState(false);
     const [profileInitialTab, setProfileInitialTab] = useState<'overview' | 'cards' | 'skills' | 'constellation' | undefined>(undefined);
@@ -880,6 +885,7 @@ export const TavernScreen: React.FC<{
     const [showInventoryUnlockPrompt, setShowInventoryUnlockPrompt] = useState(false);
     const [showCardsUnlockPrompt, setShowCardsUnlockPrompt] = useState(false);
     const [showSkillsUnlockPrompt, setShowSkillsUnlockPrompt] = useState(false);
+    const [showConstellationUnlockPrompt, setShowConstellationUnlockPrompt] = useState(false);
     const [showMerchantUnlockPrompt, setShowMerchantUnlockPrompt] = useState(false);
         const showArOption = false;
     const showDiamondOnTopHud = false;
@@ -892,6 +898,8 @@ export const TavernScreen: React.FC<{
     const hpPercent = player.stats.maxHp > 0 ? Math.min(100, (player.stats.hp / player.stats.maxHp) * 100) : 0;
     const mpPercent = player.stats.maxMp > 0 ? Math.min(100, (player.stats.mp / player.stats.maxMp) * 100) : 0;
     const xpPercent = player.xpToNext > 0 ? Math.min(100, (player.xp / player.xpToNext) * 100) : 0;
+    const hasConstellationUnlocked = player.talentPoints > 0 || player.unlockedTalentNodeIds.length > 0;
+    const availableConstellationPoints = Math.max(0, player.talentPoints);
     const profileActions = [
         {
             id: 'profile',
@@ -903,6 +911,17 @@ export const TavernScreen: React.FC<{
                 setShowProfile(true);
             },
         },
+        ...(hasConstellationUnlocked ? [{
+            id: 'constellation',
+            label: 'Constelacao',
+            icon: <Orbit size={18} />,
+            accent: 'border-[#cfab91] bg-[#f4e5d4] text-[#6b3141] hover:bg-[#e9d7c2]',
+            badge: availableConstellationPoints > 0 ? availableConstellationPoints : undefined,
+            onClick: () => {
+                setProfileInitialTab('constellation');
+                setShowProfile(true);
+            },
+        }] : []),
         ...((!campIntroOnly || inventoryUnlocked) ? [{
             id: 'inventory',
             label: 'Mochila',
@@ -931,13 +950,19 @@ export const TavernScreen: React.FC<{
     }, [skillsUnlockPromptActive]);
 
     useEffect(() => {
+        if (constellationUnlockPromptActive) {
+            setShowConstellationUnlockPrompt(true);
+        }
+    }, [constellationUnlockPromptActive]);
+
+    useEffect(() => {
         if (merchantUnlockPromptActive) {
             setShowMerchantUnlockPrompt(true);
         }
     }, [merchantUnlockPromptActive]);
 
     useEffect(() => {
-        if (!showInventoryUnlockPrompt && !showCardsUnlockPrompt && !showSkillsUnlockPrompt && !showMerchantUnlockPrompt) {
+        if (!showInventoryUnlockPrompt && !showCardsUnlockPrompt && !showSkillsUnlockPrompt && !showConstellationUnlockPrompt && !showMerchantUnlockPrompt) {
             return;
         }
 
@@ -950,7 +975,16 @@ export const TavernScreen: React.FC<{
 
         window.addEventListener('keydown', handleBlockEscape, true);
         return () => window.removeEventListener('keydown', handleBlockEscape, true);
-    }, [showCardsUnlockPrompt, showInventoryUnlockPrompt, showSkillsUnlockPrompt, showMerchantUnlockPrompt]);
+    }, [showCardsUnlockPrompt, showConstellationUnlockPrompt, showInventoryUnlockPrompt, showSkillsUnlockPrompt, showMerchantUnlockPrompt]);
+
+    useEffect(() => {
+        if (autoOpenConstellationToken <= 0) {
+            return;
+        }
+
+        setProfileInitialTab('constellation');
+        setShowProfile(true);
+    }, [autoOpenConstellationToken]);
     const serviceActions = merchantUnlocked ? [
         {
             id: 'merchant',
@@ -1080,10 +1114,15 @@ export const TavernScreen: React.FC<{
                                 <button
                                     key={action.id}
                                     onClick={action.onClick}
-                                    className={`rounded-xl border px-2.5 sm:px-3 py-2 transition-all flex items-center justify-center gap-2 font-black uppercase tracking-[0.12em] text-[9px] sm:text-[10px] ${action.accent}`}
+                                    className={`relative rounded-xl border px-2.5 sm:px-3 py-2 transition-all flex items-center justify-center gap-2 font-black uppercase tracking-[0.12em] text-[9px] sm:text-[10px] ${action.accent}`}
                                 >
                                     {action.icon}
                                     <span>{action.label}</span>
+                                    {action.badge && (
+                                        <span className="absolute -top-1.5 -right-1.5 inline-flex min-w-[18px] h-[18px] items-center justify-center rounded-full border border-[#7d3d4d] bg-[#b83a4b] px-1 text-[10px] font-black text-white shadow-[0_4px_10px_rgba(125,61,77,0.35)]">
+                                            {action.badge}
+                                        </span>
+                                    )}
                                 </button>
                             ))}
                         </div>
@@ -1177,7 +1216,7 @@ export const TavernScreen: React.FC<{
                     </div>
                 </section>
             </div>
-    {showProfile && <CharacterSheetModal player={player} shopItems={shopItems} onClose={() => setShowProfile(false)} onOpenInventory={() => { setShowProfile(false); setShowInventory(true); }} onUnlockTalent={onUnlockTalent} restrictToStatusOnly={restrictProfileToStatusOnly} allowCardsTab={allowCardsInProfile} allowSkillsTab={showSkillsAction} initialTab={profileInitialTab} />}
+    {showProfile && <CharacterSheetModal player={player} shopItems={shopItems} onClose={() => setShowProfile(false)} onOpenInventory={() => { setShowProfile(false); setShowInventory(true); }} onUnlockTalent={onUnlockTalent} restrictToStatusOnly={restrictProfileToStatusOnly} allowCardsTab={allowCardsInProfile} allowSkillsTab={showSkillsAction} allowConstellationTab={hasConstellationUnlocked} initialTab={profileInitialTab} />}
     {showInventory && <InventoryModal player={player} shopItems={shopItems} onClose={() => setShowInventory(false)} onEquip={onEquipItem} onUse={onUseItem} />}
 
     {showInventoryUnlockPrompt && (
@@ -1257,6 +1296,34 @@ export const TavernScreen: React.FC<{
                         className="w-full rounded-xl bg-[#4d7a96] px-4 py-3 font-black text-white shadow-[0_8px_24px_rgba(77,122,150,0.28)] transition-all hover:bg-[#5a8aa6]"
                     >
                         Ver habilidades
+                    </button>
+                </div>
+            </div>
+        </div>
+    )}
+
+    {showConstellationUnlockPrompt && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-sm pointer-events-auto p-4">
+            <div className="w-full max-w-sm rounded-[28px] border border-[#cfab91] bg-[#f7ecdd] shadow-[0_30px_80px_rgba(107,49,65,0.22)] overflow-hidden" onClick={e => e.stopPropagation()}>
+                <div className="bg-[#6b3141] px-6 py-5 text-center">
+                    <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.3em] text-[#f6eadc]">
+                        <Orbit size={14} /> Constelacao
+                    </div>
+                    <h3 className="mt-3 text-2xl font-black text-white">Constelacao habilitada</h3>
+                    <p className="mt-1.5 text-sm text-[#dcc0aa]">Voce derrotou seu primeiro chefe e ganhou 1 ponto de evolucao. Agora voce pode abrir sua constelacao.</p>
+                </div>
+
+                <div className="px-6 py-5">
+                    <button
+                        onClick={() => {
+                            setShowConstellationUnlockPrompt(false);
+                            onAcknowledgeConstellationUnlock?.();
+                            setProfileInitialTab('constellation');
+                            setShowProfile(true);
+                        }}
+                        className="w-full rounded-xl bg-[#4d7a96] px-4 py-3 font-black text-white shadow-[0_8px_24px_rgba(77,122,150,0.28)] transition-all hover:bg-[#5a8aa6]"
+                    >
+                        Ver constelacao
                     </button>
                 </div>
             </div>
@@ -2034,7 +2101,8 @@ export const BossVictoryModal: React.FC<{
     narration?: string;
     onContinue: () => void;
     onExit: () => void;
-}> = ({ context, narration, onContinue, onExit }) => {
+    onOpenConstellation?: () => void;
+}> = ({ context, narration, onContinue, onExit, onOpenConstellation }) => {
     const rewardItems = Object.entries(context.rewards?.drops ?? {})
         .map(([itemId, quantity]) => ({ item: ALL_ITEMS.find(entry => entry.id === itemId), quantity }))
         .filter((entry): entry is { item: Item; quantity: number } => Boolean(entry.item));
@@ -2067,6 +2135,16 @@ export const BossVictoryModal: React.FC<{
                             <div className="text-[10px] font-black uppercase tracking-[0.26em] text-[#9a7068]">Proxima fase</div>
                             <div className="mt-1 text-4xl font-black text-[#6b3141]">{context.nextStage ?? '-'}</div>
                             <div className="mt-1 text-xs text-[#8f6c67]">Inimigos mais fortes aguardam</div>
+                        </div>
+                    </div>
+                )}
+
+                {!!context.constellationPointsAwarded && (
+                    <div className="px-6 pb-1 sm:px-8">
+                        <div className="rounded-2xl border border-[#8eb4c0] bg-[#dceff2] px-5 py-4 text-center">
+                            <div className="text-[10px] font-black uppercase tracking-[0.26em] text-[#346c7f]">Constelacao</div>
+                            <div className="mt-1 text-lg font-black text-[#214f5e]">+{context.constellationPointsAwarded} ponto de evolucao por chefe derrotado</div>
+                            <p className="mt-1 text-xs text-[#346c7f]">Abra a aba de constelacao para distribuir seus pontos nas trilhas da classe.</p>
                         </div>
                     </div>
                 )}
@@ -2130,7 +2208,7 @@ export const BossVictoryModal: React.FC<{
                     </div>
                 )}
 
-                <div className="grid grid-cols-2 gap-3 px-6 pb-6 sm:px-8 sm:pb-8">
+                <div className={`grid gap-3 px-6 pb-6 sm:px-8 sm:pb-8 ${onOpenConstellation ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-2'}`}>
                     <button
                         onClick={onExit}
                         className="flex items-center justify-center gap-2 rounded-xl border border-[#cfab91] bg-[#f4e5d4] px-4 py-3 font-black text-[#6b3141] transition-colors hover:bg-[#e9d7c2]"
@@ -2144,6 +2222,14 @@ export const BossVictoryModal: React.FC<{
                     >
                         <Sword size={15} /> Continuar
                     </button>
+                    {onOpenConstellation && (
+                        <button
+                            onClick={onOpenConstellation}
+                            className="flex items-center justify-center gap-2 rounded-xl bg-[#4d7a96] px-4 py-3 font-black text-white shadow-[0_8px_24px_rgba(77,122,150,0.3)] transition-all hover:bg-[#5a8aa6]"
+                        >
+                            <Orbit size={15} /> Evoluir constelacao
+                        </button>
+                    )}
                 </div>
             </div>
         </div>
@@ -2157,7 +2243,7 @@ export const ShopScreen: React.FC<{ player: Player, items: Item[], onBuy: (i: It
 };
 
 export const BattleHUD: React.FC<GameUIProps> = (props) => {
-    const { player, enemy, turnState, logs, onAttack, onDefend, onSkill, onUseItem, onUnlockTalent, currentNarration, gameState, shopItems, floatingTexts, onFlee, onOpenAr, arSupport, onStartBattle, stage, killCount, onEquipItem, isDungeonRun, dungeonRewards, dungeonCleared = 0, dungeonTotal = 30, gameTime, restrictProfileToStatusOnly = false, limitBattleActionsToBasics = false, inventoryUnlocked = false, inventoryUnlockPromptActive = false, onAcknowledgeInventoryUnlock, cardsUnlockPromptActive = false, onAcknowledgeCardsUnlock, skillsUnlockPromptActive = false, onAcknowledgeSkillsUnlock, allowCardsInProfile = false, fleeUnlocked = false, showItemsAction = false, showSkillsAction = false, itemsUnlockPromptActive = false, onAcknowledgeItemsUnlock, fleeUnlockPromptActive = false, onAcknowledgeFleeUnlock } = props;
+    const { player, enemy, turnState, logs, onAttack, onDefend, onSkill, onUseItem, onUnlockTalent, currentNarration, gameState, shopItems, floatingTexts, onFlee, onOpenAr, arSupport, onStartBattle, stage, killCount, onEquipItem, isDungeonRun, dungeonRewards, dungeonCleared = 0, dungeonTotal = 30, gameTime, restrictProfileToStatusOnly = false, limitBattleActionsToBasics = false, inventoryUnlocked = false, inventoryUnlockPromptActive = false, onAcknowledgeInventoryUnlock, cardsUnlockPromptActive = false, onAcknowledgeCardsUnlock, skillsUnlockPromptActive = false, onAcknowledgeSkillsUnlock, constellationUnlockPromptActive = false, onAcknowledgeConstellationUnlock, allowCardsInProfile = false, fleeUnlocked = false, showItemsAction = false, showSkillsAction = false, itemsUnlockPromptActive = false, onAcknowledgeItemsUnlock, fleeUnlockPromptActive = false, onAcknowledgeFleeUnlock } = props;
   const [activeBattleMenu, setActiveBattleMenu] = useState<'skills' | 'items' | null>(null);
   const [showProfile, setShowProfile] = useState(false);
     const [profileInitialTab, setProfileInitialTab] = useState<'overview' | 'cards' | 'skills' | 'constellation' | undefined>(undefined);
@@ -2165,6 +2251,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
     const [showInventoryUnlockPrompt, setShowInventoryUnlockPrompt] = useState(false);
         const [showCardsUnlockPrompt, setShowCardsUnlockPrompt] = useState(false);
                 const [showSkillsUnlockPrompt, setShowSkillsUnlockPrompt] = useState(false);
+            const [showConstellationUnlockPrompt, setShowConstellationUnlockPrompt] = useState(false);
         const [showItemsUnlockPrompt, setShowItemsUnlockPrompt] = useState(false);
         const [showFleeUnlockPrompt, setShowFleeUnlockPrompt] = useState(false);
     const [resumeBattleAfterInventoryPrompt, setResumeBattleAfterInventoryPrompt] = useState(false);
@@ -2178,6 +2265,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
     const resourceDeltaTimeoutRef = useRef<number | null>(null);
     const previousResourceRef = useRef(player.classResource.value);
     const showDiamondOnBattleHud = false;
+        const hasConstellationUnlocked = player.talentPoints > 0 || player.unlockedTalentNodeIds.length > 0;
   const isPlayerTurn = turnState === TurnState.PLAYER_INPUT;
         const showArOption = false;
         const arModeReady = arSupport.status === 'supported';
@@ -2218,7 +2306,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
           label: `Ataque duplo • ${player.buffs.doubleAttackTurns}t`,
           chipClass: 'border-[#e8bc89] bg-[#fcecd7] text-[#9a6127]',
       } : null,
-  ].filter((entry): entry is { key: string; icon: React.ReactNode; label: string; chipClass: string } => Boolean(entry));
+    ].filter(Boolean) as Array<{ key: string; icon: React.ReactElement; label: string; chipClass: string }>;
   const describeBattleSkill = (skill: Skill) => {
       const statusText = skill.statusEffect
         ? ` • aplica ${skill.statusEffect.kind}`
@@ -2313,6 +2401,12 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
   }, [skillsUnlockPromptActive]);
 
   useEffect(() => {
+      if (constellationUnlockPromptActive) {
+          setShowConstellationUnlockPrompt(true);
+      }
+  }, [constellationUnlockPromptActive]);
+
+  useEffect(() => {
       if (itemsUnlockPromptActive) {
           setShowItemsUnlockPrompt(true);
       }
@@ -2325,7 +2419,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
   }, [fleeUnlockPromptActive]);
 
   useEffect(() => {
-      if (!showInventoryUnlockPrompt && !showCardsUnlockPrompt && !showSkillsUnlockPrompt && !showItemsUnlockPrompt && !showFleeUnlockPrompt) {
+      if (!showInventoryUnlockPrompt && !showCardsUnlockPrompt && !showSkillsUnlockPrompt && !showConstellationUnlockPrompt && !showItemsUnlockPrompt && !showFleeUnlockPrompt) {
           return;
       }
 
@@ -2338,7 +2432,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
 
       window.addEventListener('keydown', handleBlockEscape, true);
       return () => window.removeEventListener('keydown', handleBlockEscape, true);
-    }, [showCardsUnlockPrompt, showInventoryUnlockPrompt, showSkillsUnlockPrompt, showItemsUnlockPrompt, showFleeUnlockPrompt]);
+    }, [showCardsUnlockPrompt, showConstellationUnlockPrompt, showInventoryUnlockPrompt, showSkillsUnlockPrompt, showItemsUnlockPrompt, showFleeUnlockPrompt]);
 
     return (
         <div className="battle-hud-root absolute inset-0 z-10 flex flex-col justify-between p-2 sm:p-4 pointer-events-none safe-bottom">
@@ -2531,6 +2625,33 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                           className="w-full rounded-xl bg-[#4d7a96] px-4 py-3 font-black text-white shadow-[0_8px_24px_rgba(77,122,150,0.28)] transition-all hover:bg-[#5a8aa6]"
                       >
                           Ver habilidades
+                      </button>
+                  </div>
+              </div>
+          </div>
+      )}
+
+      {showConstellationUnlockPrompt && (
+          <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/55 backdrop-blur-[2px] pointer-events-auto p-4">
+              <div className="w-full max-w-sm rounded-[24px] border border-[#cfab91] bg-[#f7ecdd] shadow-[0_24px_80px_rgba(107,49,65,0.22)] overflow-hidden animate-fade-in-down" onClick={event => event.stopPropagation()}>
+                  <div className="bg-[#6b3141] px-5 py-4 text-center">
+                      <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.28em] text-[#f6eadc]">
+                          <Orbit size={14} /> Constelacao
+                      </div>
+                      <h3 className="mt-2 text-2xl font-black text-white">Constelacao habilitada</h3>
+                      <p className="mt-2 text-sm text-[#dcc0aa]">Voce derrotou seu primeiro chefe e ganhou 1 ponto de evolucao. Agora voce pode abrir a aba de constelacao no perfil.</p>
+                  </div>
+                  <div className="p-4">
+                      <button
+                          onClick={() => {
+                              setShowConstellationUnlockPrompt(false);
+                              onAcknowledgeConstellationUnlock?.();
+                              setProfileInitialTab('constellation');
+                              setShowProfile(true);
+                          }}
+                          className="w-full rounded-xl bg-[#4d7a96] px-4 py-3 font-black text-white shadow-[0_8px_24px_rgba(77,122,150,0.28)] transition-all hover:bg-[#5a8aa6]"
+                      >
+                          Ver constelacao
                       </button>
                   </div>
               </div>
@@ -3005,6 +3126,16 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                                   <GameAssetIcon name="bag" size={22} />
                               </button>
                           )}
+                              {hasConstellationUnlocked && (
+                                  <button onClick={() => { setProfileInitialTab('constellation'); setShowProfile(true); }} className="relative flex h-10 w-10 items-center justify-center rounded-[12px] border border-[#dcc0aa] bg-[#f4e5d4] text-[#6b3141] transition-colors hover:bg-[#e9d7c2]" title="Constelacao">
+                                      <Orbit size={20} />
+                                      {player.talentPoints > 0 && (
+                                          <span className="absolute -top-1.5 -right-1.5 inline-flex min-w-[18px] h-[18px] items-center justify-center rounded-full border border-[#7d3d4d] bg-[#b83a4b] px-1 text-[10px] font-black text-white shadow-[0_4px_10px_rgba(125,61,77,0.35)]">
+                                              {player.talentPoints}
+                                          </span>
+                                      )}
+                                  </button>
+                              )}
                           <button onClick={() => { setProfileInitialTab(undefined); setShowProfile(true); }} className="flex h-10 w-10 items-center justify-center rounded-[12px] border border-[#dcc0aa] bg-[#f4e5d4] text-[#6b3141] transition-colors hover:bg-[#e9d7c2]" title="Perfil">
                               <GameAssetIcon name="book" size={22} />
                           </button>
@@ -3036,7 +3167,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
           </div>
       </div>
 
-        {showProfile && <CharacterSheetModal player={player} shopItems={shopItems} onClose={() => setShowProfile(false)} onOpenInventory={() => { setShowProfile(false); setShowInventory(true); }} onUnlockTalent={onUnlockTalent} restrictToStatusOnly={restrictProfileToStatusOnly} allowCardsTab={allowCardsInProfile} allowSkillsTab={showSkillsAction} initialTab={profileInitialTab} />}
+        {showProfile && <CharacterSheetModal player={player} shopItems={shopItems} onClose={() => setShowProfile(false)} onOpenInventory={() => { setShowProfile(false); setShowInventory(true); }} onUnlockTalent={onUnlockTalent} restrictToStatusOnly={restrictProfileToStatusOnly} allowCardsTab={allowCardsInProfile} allowSkillsTab={showSkillsAction} allowConstellationTab={hasConstellationUnlocked} initialTab={profileInitialTab} />}
     {showInventory && <InventoryModal player={player} shopItems={shopItems} onClose={() => {
         setShowInventory(false);
         if (resumeBattleAfterInventoryPrompt) {

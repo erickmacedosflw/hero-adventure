@@ -21,6 +21,7 @@ type CharacterSheetModalProps = {
   restrictToStatusOnly?: boolean;
   allowCardsTab?: boolean;
   allowSkillsTab?: boolean;
+  allowConstellationTab?: boolean;
   initialTab?: ProfileTab;
 };
 
@@ -203,6 +204,9 @@ const ConstellationNodeCard = ({
           {isUnlocked ? 'Ativo' : isAvailable ? 'Liberar' : `Nv ${node.requiredLevel}`}
         </div>
       </div>
+      <div className={`mt-2 inline-flex items-center rounded-full border px-2 py-1 text-[10px] font-black uppercase tracking-[0.14em] ${isUnlocked ? 'border-white/30 bg-white/10 text-white' : 'border-[#cfab91] bg-[#f4e5d4] text-[#8d5e29]'}`}>
+        Custo: {node.cost} PE
+      </div>
       {!isUnlocked && node.prerequisites.length > 0 && (
         <div className="mt-3 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-[#9a7068]">
           <Lock size={12} />
@@ -318,7 +322,7 @@ const ClassGuideModal = ({
   );
 };
 
-export const CharacterSheetModal = ({ player, shopItems: _shopItems, onClose, onOpenInventory, onUnlockTalent, restrictToStatusOnly = false, allowCardsTab = false, allowSkillsTab = false, initialTab = 'overview' }: CharacterSheetModalProps) => {
+export const CharacterSheetModal = ({ player, shopItems: _shopItems, onClose, onOpenInventory, onUnlockTalent, restrictToStatusOnly = false, allowCardsTab = false, allowSkillsTab = false, allowConstellationTab = false, initialTab = 'overview' }: CharacterSheetModalProps) => {
   const [activeTab, setActiveTab] = useState<ProfileTab>(initialTab);
   const [showClassGuide, setShowClassGuide] = useState(false);
   const isStatusOnlyMode = Boolean(restrictToStatusOnly);
@@ -330,10 +334,10 @@ export const CharacterSheetModal = ({ player, shopItems: _shopItems, onClose, on
   const classGuide = CLASS_GUIDES[player.classId];
 
   useEffect(() => {
-    if (isStatusOnlyMode && !allowCardsTab && !allowSkillsTab && activeTab !== 'overview') {
+    if (isStatusOnlyMode && !allowCardsTab && !allowSkillsTab && !(allowConstellationTab && activeTab === 'constellation') && activeTab !== 'overview') {
       setActiveTab('overview');
     }
-    if (isStatusOnlyMode && activeTab !== 'overview' && activeTab !== 'cards' && activeTab !== 'skills') {
+    if (isStatusOnlyMode && activeTab !== 'overview' && activeTab !== 'cards' && activeTab !== 'skills' && !(allowConstellationTab && activeTab === 'constellation')) {
       setActiveTab('overview');
     }
     if (isStatusOnlyMode && !allowCardsTab && activeTab === 'cards') {
@@ -342,7 +346,7 @@ export const CharacterSheetModal = ({ player, shopItems: _shopItems, onClose, on
     if (isStatusOnlyMode && !allowSkillsTab && activeTab === 'skills') {
       setActiveTab('overview');
     }
-  }, [activeTab, allowCardsTab, allowSkillsTab, isStatusOnlyMode]);
+  }, [activeTab, allowCardsTab, allowConstellationTab, allowSkillsTab, isStatusOnlyMode]);
 
   useEffect(() => {
     if (initialTab === 'cards' && canAccessCards) {
@@ -355,8 +359,13 @@ export const CharacterSheetModal = ({ player, shopItems: _shopItems, onClose, on
       return;
     }
 
+    if (initialTab === 'constellation' && (!isStatusOnlyMode || allowConstellationTab)) {
+      setActiveTab('constellation');
+      return;
+    }
+
     setActiveTab('overview');
-  }, [canAccessCards, canAccessSkills, initialTab]);
+  }, [allowConstellationTab, canAccessCards, canAccessSkills, initialTab, isStatusOnlyMode]);
 
   const equipmentSlots: Array<{ label: string; item: Item | null; type: Item['type'] }> = [
     { label: 'Arma', item: player.equippedWeapon, type: 'weapon' },
@@ -390,7 +399,7 @@ export const CharacterSheetModal = ({ player, shopItems: _shopItems, onClose, on
     if (tab.id === 'overview') return true;
     if (tab.id === 'cards') return canAccessCards;
     if (tab.id === 'skills') return canAccessSkills;
-    return !isStatusOnlyMode;
+    return !isStatusOnlyMode || allowConstellationTab;
   });
 
   const unlockedNodes = constellation.trails.flatMap((trail) => trail.nodes).filter((node) => player.unlockedTalentNodeIds.includes(node.id));
@@ -576,7 +585,7 @@ export const CharacterSheetModal = ({ player, shopItems: _shopItems, onClose, on
           </ScrollArea>
         )}
 
-        {!isStatusOnlyMode && activeTab === 'constellation' && (
+        {(!isStatusOnlyMode || allowConstellationTab) && activeTab === 'constellation' && (
           <ScrollArea className="h-full" viewportClassName="p-1 sm:p-6" style={panelMotionStyle}>
             <div className="flex flex-col gap-4">
               <section className="overflow-hidden rounded-[28px] border border-[#cfab91] bg-[#fff7ed] shadow-sm">
@@ -623,42 +632,9 @@ export const CharacterSheetModal = ({ player, shopItems: _shopItems, onClose, on
                 </div>
               </section>
 
-              <section className="rounded-[24px] border border-[#cfab91] bg-[#fff7ed] p-4 shadow-sm">
-                <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                  <div className="max-w-2xl">
-                    <div className="flex items-center gap-2 text-sm font-black text-[#6b3141]">
-                      <CircleHelp size={18} />
-                      {player.classId === 'ranger' ? 'Guia da classe Ranger' : `Habilidades unicas de ${currentClass.name}`}
-                    </div>
-                    <p className="mt-2 text-sm leading-relaxed text-[#7f5b56]">{classGuide.summary}</p>
-                  </div>
-                  <button
-                    onClick={() => setShowClassGuide(true)}
-                    className="rounded-[16px] border border-[#cfab91] bg-[#f4e5d4] px-4 py-2 text-xs font-black uppercase tracking-[0.14em] text-[#6b3141] transition-colors hover:bg-[#ead8c6]"
-                  >
-                    Abrir explicacao completa
-                  </button>
-                </div>
-
-                {player.classId !== 'ranger' && (
-                  <div className="mt-4 grid gap-3 lg:grid-cols-3">
-                    {classGuide.uniqueAbilities.map((ability) => (
-                      <article key={ability.name} className="rounded-[18px] border border-[#dcc0aa] bg-[#f8eddf] p-4">
-                        <div className="text-sm font-black text-[#6b3141]">{ability.name}</div>
-                        <p className="mt-2 text-sm leading-relaxed text-[#7f5b56]">{ability.detail}</p>
-                      </article>
-                    ))}
-                  </div>
-                )}
-              </section>
-
               <div className="rounded-[24px] border border-[#cfab91] bg-[#f4e5d4] p-4">
-                <div className="flex items-center gap-2 text-sm font-black text-[#6b3141]">
-                  <Orbit size={18} />
-                  Trilhas cromaticas da build
-                </div>
-                <p className="mt-2 text-xs leading-relaxed text-[#7f5b56]">
-                  Cada nivel rende pontos de constelacao. Misture nodos entre trilhas para criar sua assinatura de batalha sem perder cartas, equipamentos e habilidades que o jogo ja possui.
+                <p className="text-xs leading-relaxed text-[#7f5b56]">
+                  Voce recebe 1 ponto de evolucao por chefe derrotado. Cada trilha segue a ordem 1, depois 2 e depois 3, com custos de 1, 2 e 3 pontos.
                 </p>
               </div>
 

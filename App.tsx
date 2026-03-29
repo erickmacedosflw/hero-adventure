@@ -128,6 +128,7 @@ export default function App() {
     const [selectedStartingClassId, setSelectedStartingClassId] = useState<Player['classId']>(INITIAL_PLAYER.classId);
     const [hasConfirmedStartingClass, setHasConfirmedStartingClass] = useState(false);
     const [resourceUnlockModal, setResourceUnlockModal] = useState<{ name: string; color: string } | null>(null);
+    const [openConstellationToken, setOpenConstellationToken] = useState(0);
     const { arSupport, refreshArSupport } = useARCapabilities();
     const [isArOverlayOpen, setIsArOverlayOpen] = useState(false);
     const [arEntryPoint, setArEntryPoint] = useState<ArEntryPoint>('tavern');
@@ -216,6 +217,7 @@ export default function App() {
     const [onboardingPhase, setOnboardingPhase] = useState<OnboardingPhase>('intro_camp');
     const [hasPlayerDiedOnce, setHasPlayerDiedOnce] = useState(false);
     const [skillsUnlockPromptPending, setSkillsUnlockPromptPending] = useState(false);
+    const [constellationUnlockPromptPending, setConstellationUnlockPromptPending] = useState(false);
     const [skillsActionUnlocked, setSkillsActionUnlocked] = useState(false);
     const previousSkillCountRef = useRef(player.skills.length);
     const enemyAnimationResetTimerRef = useRef<number | null>(null);
@@ -423,7 +425,6 @@ export default function App() {
             nextPlayer.level += 1;
             nextPlayer.xp -= nextPlayer.xpToNext;
             nextPlayer.xpToNext = Math.floor(nextPlayer.xpToNext * 1.5);
-            nextPlayer.talentPoints += 1;
         }
 
         if (levelsGained > 0) {
@@ -730,6 +731,7 @@ export default function App() {
     setOnboardingPhase('intro_camp');
     setHasPlayerDiedOnce(false);
         setSkillsUnlockPromptPending(false);
+        setConstellationUnlockPromptPending(false);
         setSkillsActionUnlocked(false);
         previousSkillCountRef.current = startingPlayer.skills.length;
     setGameState(GameState.TAVERN);
@@ -1054,6 +1056,8 @@ export default function App() {
         shouldForceFirstEnemyDrop: onboardingPhase === 'intro_camp',
         shouldTriggerInventoryUnlockTutorial: onboardingPhase === 'intro_camp' || onboardingPhase === 'post_first_hunt',
         onTriggerInventoryUnlockTutorial: () => setOnboardingPhase('inventory_prompt'),
+        shouldTriggerConstellationUnlockTutorial: player.talentPoints === 0 && player.unlockedTalentNodeIds.length === 0,
+        onTriggerConstellationUnlockTutorial: () => setConstellationUnlockPromptPending(true),
           allowPotionDrops: hasPlayerDiedOnce,
   });
 
@@ -1164,6 +1168,15 @@ export default function App() {
       setDungeonResult(null);
       setPendingDungeonQueue([]);
       setGameState(GameState.TAVERN);
+  };
+
+  const handleOpenConstellationFromBossModal = () => {
+      setBossVictoryContext(null);
+      setPostCardFlow(null);
+      setDungeonResult(null);
+      setPendingDungeonQueue([]);
+      setGameState(GameState.TAVERN);
+      setOpenConstellationToken((prev) => prev + 1);
   };
 
   const buyItem = (item: Item) => {
@@ -1613,6 +1626,7 @@ export default function App() {
             onOpenAr={() => handleOpenAr('tavern')}
             arSupport={arSupport}
             shopItems={ALL_ITEMS}
+            autoOpenConstellationToken={openConstellationToken}
             onEquipItem={equipItem}
             onUseItem={handleUseItem}
             onUnlockTalent={handleUnlockTalent}
@@ -1626,6 +1640,10 @@ export default function App() {
                         skillsUnlockPromptActive={skillsUnlockPromptPending}
                         onAcknowledgeSkillsUnlock={() => {
                             setSkillsUnlockPromptPending(false);
+                        }}
+                        constellationUnlockPromptActive={constellationUnlockPromptPending}
+                        onAcknowledgeConstellationUnlock={() => {
+                            setConstellationUnlockPromptPending(false);
                         }}
                         allowCardsInProfile={isCardsUnlocked}
                         fleeUnlocked={isFleeUnlocked}
@@ -1711,6 +1729,10 @@ export default function App() {
                                                 onAcknowledgeSkillsUnlock={() => {
                                                     setSkillsUnlockPromptPending(false);
                                                 }}
+                                                constellationUnlockPromptActive={constellationUnlockPromptPending}
+                                                onAcknowledgeConstellationUnlock={() => {
+                                                    setConstellationUnlockPromptPending(false);
+                                                }}
                                                                                                 itemsUnlockPromptActive={onboardingPhase === 'items_prompt'}
                                                                                                 onAcknowledgeItemsUnlock={() => setOnboardingPhase('flee_prompt')}
                                                                                                 fleeUnlockPromptActive={onboardingPhase === 'flee_prompt'}
@@ -1750,6 +1772,7 @@ export default function App() {
               narration={bossVictoryContext.mode === 'hunt' ? narration : undefined}
               onContinue={handleBossVictoryContinue}
               onExit={handleBossVictoryExit}
+              onOpenConstellation={handleOpenConstellationFromBossModal}
           />
       )}
 

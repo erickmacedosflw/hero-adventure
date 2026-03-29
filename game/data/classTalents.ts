@@ -17,7 +17,7 @@ const createNode = ({
   icon,
   prerequisites = [],
   effects,
-}: Omit<TalentNode, 'cost' | 'requiredLevel'> & {
+}: Omit<TalentNode, 'cost' | 'requiredLevel' | 'prerequisites'> & {
   prerequisites?: string[];
 }) => ({
   id,
@@ -27,7 +27,7 @@ const createNode = ({
   title,
   description,
   tier,
-  cost: 1,
+  cost: Math.max(1, Math.min(3, tier)),
   requiredLevel: tier * 2 - 1,
   color,
   icon,

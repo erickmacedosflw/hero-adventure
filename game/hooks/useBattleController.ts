@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import { ALL_ITEMS } from '../../constants';
 import {
@@ -96,6 +96,12 @@ export const useBattleController = ({
   setScreenShake,
   onPlayerDefeat,
 }: UseBattleControllerParams) => {
+  const handleVictoryRef = useRef(handleVictory);
+
+  useEffect(() => {
+    handleVictoryRef.current = handleVictory;
+  }, [handleVictory]);
+
   const awardCombatBenefits = useCallback((damage: number, resourceGain: number, talentBonuses: ReturnType<typeof getTalentBonuses>) => {
     if (damage <= 0 && resourceGain <= 0 && talentBonuses.lifeSteal <= 0 && talentBonuses.manaOnHit <= 0) {
       return;
@@ -226,7 +232,7 @@ export const useBattleController = ({
 
       const firstStrike = resolveStrike(enemy.stats.hp, true);
       if (firstStrike.defeated) {
-        void handleVictory(900);
+        void handleVictoryRef.current(900);
         return;
       }
 
@@ -243,7 +249,7 @@ export const useBattleController = ({
       window.setTimeout(() => {
         const secondStrike = resolveStrike(firstStrike.remainingHp, false);
         if (secondStrike.defeated) {
-          void handleVictory(900);
+          void handleVictoryRef.current(900);
           return;
         }
         window.setTimeout(() => {
@@ -453,7 +459,7 @@ export const useBattleController = ({
 
       const firstStrike = resolveSkillStrike(enemy.stats.hp, true);
       if (firstStrike.defeated) {
-        void handleVictory(900);
+        void handleVictoryRef.current(900);
         return;
       }
 
@@ -469,7 +475,7 @@ export const useBattleController = ({
       window.setTimeout(() => {
         const secondStrike = resolveSkillStrike(firstStrike.remainingHp, false);
         if (secondStrike.defeated) {
-          void handleVictory(900);
+          void handleVictoryRef.current(900);
           return;
         }
         window.setTimeout(() => {
@@ -654,7 +660,7 @@ export const useBattleController = ({
 
       if (enemyRemainingHp <= 0) {
         triggerEnemyAnimationAction('death', 900);
-        void handleVictory(900);
+        void handleVictoryRef.current(900);
         return;
       }
     } else if ((enemy.statusEffects ?? []).length > 0) {
@@ -791,7 +797,7 @@ export const useBattleController = ({
             addLog(`Contra-ataque da constelacao causou ${counterDamage} dano!`, 'crit');
             if (enemy.stats.hp - counterDamage <= 0) {
               triggerEnemyAnimationAction('death', 900);
-              void handleVictory(900);
+              void handleVictoryRef.current(900);
               return;
             }
           }
