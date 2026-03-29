@@ -36,6 +36,13 @@ const SKYBOX_FACE_URLS = [
   '/skybox/noite/px.png', '/skybox/noite/nx.png', '/skybox/noite/py.png', '/skybox/noite/ny.png', '/skybox/noite/pz.png', '/skybox/noite/nz.png',
 ] as const;
 
+const MUSIC_TRACK_URLS = [
+  new URL('../game/assets/Sounds/Music/Triha_Sonora.mp3', import.meta.url).href,
+  new URL('../game/assets/Sounds/Music/Florest_Day.mp3', import.meta.url).href,
+  new URL('../game/assets/Sounds/Music/Florest_Night.mp3', import.meta.url).href,
+  new URL('../game/assets/Sounds/Music/Dungeon.mp3', import.meta.url).href,
+] as const;
+
 interface OpeningScreenProps {
   classes: PlayerClassDefinition[];
   enemies: Array<EnemyTemplate | DungeonEnemyTemplate | DungeonBossTemplate>;
@@ -46,6 +53,7 @@ interface PreloadManifest {
   modelUrls: string[];
   textureUrls: string[];
   animationUrls: string[];
+  audioUrls: string[];
   totalAssets: number;
   signature: string;
 }
@@ -57,6 +65,7 @@ const buildPreloadManifest = (
   const modelUrls = new Set<string>();
   const textureUrls = new Set<string>();
   const animationUrls = new Set<string>();
+  const audioUrls = new Set<string>(MUSIC_TRACK_URLS);
 
   classes.forEach((playerClass) => {
     const { assets } = playerClass;
@@ -102,11 +111,13 @@ const buildPreloadManifest = (
     modelUrls: [...modelUrls],
     textureUrls: [...textureUrls],
     animationUrls: [...animationUrls],
-    totalAssets: modelUrls.size + textureUrls.size + animationUrls.size,
+    audioUrls: [...audioUrls],
+    totalAssets: modelUrls.size + textureUrls.size + animationUrls.size + audioUrls.size,
     signature: JSON.stringify({
       models: [...modelUrls],
       textures: [...textureUrls],
       animations: [...animationUrls],
+      audio: [...audioUrls],
     }),
   };
 };
@@ -160,7 +171,7 @@ export const OpeningScreen: React.FC<OpeningScreenProps> = ({ classes, enemies, 
       return;
     }
 
-    const urls = [...manifest.modelUrls, ...manifest.textureUrls, ...manifest.animationUrls];
+    const urls = [...manifest.modelUrls, ...manifest.textureUrls, ...manifest.animationUrls, ...manifest.audioUrls];
     void caches.open(PRELOAD_CACHE_NAME)
       .then(async (cache) => {
         await Promise.all(urls.map(async (url) => {
@@ -175,7 +186,7 @@ export const OpeningScreen: React.FC<OpeningScreenProps> = ({ classes, enemies, 
         }));
       })
       .catch(() => undefined);
-  }, [manifest.animationUrls, manifest.modelUrls, manifest.signature, manifest.textureUrls, manifest.totalAssets]);
+  }, [manifest.animationUrls, manifest.audioUrls, manifest.modelUrls, manifest.signature, manifest.textureUrls, manifest.totalAssets]);
 
   const manifestPercentage = manifest.totalAssets > 0
     ? (loaded / manifest.totalAssets) * 100

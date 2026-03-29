@@ -20,6 +20,7 @@ import { applyPlayerClass, PLAYER_CLASSES } from './game/data/classes';
 import { gameMusicManager, isNightTime, type MusicTrackId } from './game/audio/music';
 import { createEmptyBuffState } from './game/mechanics/combat';
 import { createClassResourceState, getTalentBonuses, getUnlockedResourceMax, syncPlayerConstellationSkills, unlockTalentNode } from './game/mechanics/classProgression';
+import { SavePayload, SaveSlotId, SaveSlotSummary, getActiveSaveSlotId, listSaveSlots, loadSaveFromSlot, saveToActiveSlot, setActiveSaveSlotId, clearSlot } from './game/mechanics/saveSystem';
 import { useBattleController } from './game/hooks/useBattleController';
 import { useBattleResolution } from './game/hooks/useBattleResolution';
 import { useARCapabilities } from './game/hooks/useARCapabilities';
@@ -29,6 +30,43 @@ type BootWindow = Window & { __heroAdventureBootReady?: boolean };
 const MENU_CAMERA_TRANSITION_MS = 2500;
 type SceneRegion = 'forest' | 'dungeon';
 type OnboardingPhase = 'intro_camp' | 'post_first_hunt' | 'inventory_prompt' | 'inventory_unlocked' | 'cards_prompt' | 'cards_unlocked' | 'merchant_prompt' | 'merchant_unlocked' | 'items_prompt' | 'flee_prompt' | 'flee_unlocked';
+
+const ONBOARDING_PHASES: OnboardingPhase[] = [
+    'intro_camp',
+    'post_first_hunt',
+    'inventory_prompt',
+    'inventory_unlocked',
+    'cards_prompt',
+    'cards_unlocked',
+    'merchant_prompt',
+    'merchant_unlocked',
+    'items_prompt',
+    'flee_prompt',
+    'flee_unlocked',
+];
+const AUTOSAVE_DEBOUNCE_MS = 10000;
+
+const coerceOnboardingPhase = (value: string): OnboardingPhase => {
+    if (ONBOARDING_PHASES.includes(value as OnboardingPhase)) {
+        return value as OnboardingPhase;
+    }
+
+    return 'intro_camp';
+};
+
+const formatSaveDate = (timestamp: number | null) => {
+    if (!timestamp) {
+        return 'Vazio';
+    }
+
+    return new Date(timestamp).toLocaleString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+    });
+};
 
 const getBootReadyMemory = () => {
     if (typeof window === 'undefined') {
@@ -127,6 +165,10 @@ export default function App() {
     const [pathname, setPathname] = useState(() => window.location.pathname);
     const [selectedStartingClassId, setSelectedStartingClassId] = useState<Player['classId']>(INITIAL_PLAYER.classId);
     const [hasConfirmedStartingClass, setHasConfirmedStartingClass] = useState(false);
+    const [isSaveSlotCatalogReady, setIsSaveSlotCatalogReady] = useState(false);
+    const [saveSlots, setSaveSlots] = useState<SaveSlotSummary[]>([]);
+    const [selectedSaveSlotId, setSelectedSaveSlotId] = useState<SaveSlotId>(() => getActiveSaveSlotId());
+    const [hasSavePromptDecision, setHasSavePromptDecision] = useState(false);
     const [resourceUnlockModal, setResourceUnlockModal] = useState<{ name: string; color: string } | null>(null);
     const [openConstellationToken, setOpenConstellationToken] = useState(0);
     const { arSupport, refreshArSupport } = useARCapabilities();
@@ -222,6 +264,8 @@ export default function App() {
     const previousSkillCountRef = useRef(player.skills.length);
     const enemyAnimationResetTimerRef = useRef<number | null>(null);
     const menuTransitionTimerRef = useRef<number | null>(null);
+    const autosaveTimerRef = useRef<number | null>(null);
+    const lastSavedSignatureRef = useRef<string>('');
     const wasResourceUnlockedRef = useRef(player.classResource.max > 0);
     const particleBudgetRef = useRef({
         windowStart: (typeof performance !== 'undefined' ? performance.now() : Date.now()),
@@ -246,6 +290,118 @@ export default function App() {
         }, resetDelay ?? (action === 'critical-hit' ? 620 : 360));
     }, []);
 
+    const refreshSaveSlotCatalog = useCallback(() => {
+        const slots = listSaveSlots();
+        setSaveSlots(slots);
+        return slots;
+    }, []);
+
+    const buildSavePayload = useCallback((stateOverride?: Partial<SavePayload>): SavePayload => ({
+        player: clonePlayer(player),
+        stage,
+        killCount,
+        dungeonEvolution,
+        onboardingPhase,
+        hasPlayerDiedOnce,
+        skillsActionUnlocked,
+        gameState,
+        hasEnemy: Boolean(enemy),
+        hadDungeonRun: Boolean(dungeonRun),
+        sceneRegion,
+        ...stateOverride,
+    }), [dungeonEvolution, dungeonRun, enemy, gameState, hasPlayerDiedOnce, killCount, onboardingPhase, player, sceneRegion, skillsActionUnlocked, stage]);
+
+    const persistSaveNow = useCallback((stateOverride?: Partial<SavePayload>) => {
+        if (!hasConfirmedStartingClass) {
+            return false;
+        }
+
+        const payload = buildSavePayload(stateOverride);
+        const signature = JSON.stringify(payload);
+        if (signature === lastSavedSignatureRef.current) {
+            return false;
+        }
+
+        const saved = saveToActiveSlot(payload);
+        if (!saved) {
+            return false;
+        }
+
+        lastSavedSignatureRef.current = signature;
+        return true;
+    }, [buildSavePayload, hasConfirmedStartingClass]);
+
+    const applyLoadedSave = useCallback((slotId: SaveSlotId) => {
+        const loaded = loadSaveFromSlot(slotId);
+        if (!loaded) {
+            return false;
+        }
+
+        const { payload, interruptedBattle, interruptedDungeon } = loaded;
+        const wasInterrupted = interruptedBattle || interruptedDungeon;
+        const safePhase = coerceOnboardingPhase(payload.onboardingPhase);
+
+        setActiveSaveSlotId(slotId);
+        setSelectedSaveSlotId(slotId);
+        setSelectedStartingClassId(payload.player.classId);
+        setHasConfirmedStartingClass(true);
+
+        setPlayer(clonePlayer(payload.player));
+        setStage(payload.stage);
+        setKillCount(wasInterrupted ? 0 : payload.killCount);
+        setDungeonEvolution(payload.dungeonEvolution);
+        setOnboardingPhase(safePhase);
+        setHasPlayerDiedOnce(payload.hasPlayerDiedOnce || wasInterrupted);
+        setSkillsActionUnlocked(payload.skillsActionUnlocked);
+        previousSkillCountRef.current = payload.player.skills.length;
+
+        setEnemy(null);
+        setLogs(wasInterrupted
+            ? [{ message: interruptedDungeon ? 'Run da dungeon encerrada por fechamento inesperado. Voce voltou ao acampamento e perdeu o espolio pendente.' : 'Batalha interrompida por fechamento inesperado. Derrota aplicada e retorno ao acampamento.', type: 'info' }]
+            : []);
+        setNarration(wasInterrupted
+            ? interruptedDungeon
+                ? 'Voce retornou ao acampamento apos interrupcao da dungeon.'
+                : 'Voce retornou ao acampamento apos interrupcao de batalha.'
+            : 'Progresso carregado.');
+        setPostCardFlow(null);
+        setDungeonRun(null);
+        setDungeonResult(null);
+        setBossVictoryContext(null);
+        setPendingDungeonQueue([]);
+        setCardRewardQueue([]);
+        setCurrentCardOffer(null);
+        setCurrentCardChoices([]);
+        setTurnState(TurnState.PLAYER_INPUT);
+        setPlayerAnimationAction('idle');
+        setEnemyAnimationAction('battle-idle');
+        setSceneRegion('forest');
+        setMenuHeroAction('idle');
+        setHasSavePromptDecision(true);
+
+        if (wasInterrupted) {
+            setGameState(GameState.TAVERN);
+        } else {
+            const resumableState = payload.gameState === GameState.TAVERN
+                || payload.gameState === GameState.SHOP
+                || payload.gameState === GameState.ALCHEMIST
+                ? payload.gameState
+                : GameState.TAVERN;
+            setGameState(resumableState);
+            setSceneRegion(payload.sceneRegion);
+        }
+
+        lastSavedSignatureRef.current = JSON.stringify(buildSavePayload({
+            gameState: wasInterrupted ? GameState.TAVERN : payload.gameState,
+            hasEnemy: false,
+            hadDungeonRun: false,
+            sceneRegion: wasInterrupted ? 'forest' : payload.sceneRegion,
+            killCount: wasInterrupted ? 0 : payload.killCount,
+        }));
+
+        return true;
+    }, [buildSavePayload]);
+
     useEffect(() => () => {
         if (enemyAnimationResetTimerRef.current !== null) {
             window.clearTimeout(enemyAnimationResetTimerRef.current);
@@ -253,7 +409,89 @@ export default function App() {
         if (menuTransitionTimerRef.current !== null) {
             window.clearTimeout(menuTransitionTimerRef.current);
         }
+        if (autosaveTimerRef.current !== null) {
+            window.clearTimeout(autosaveTimerRef.current);
+        }
     }, []);
+
+    useEffect(() => {
+        if (!isBootReady || hasConfirmedStartingClass) {
+            return;
+        }
+
+        const slots = refreshSaveSlotCatalog();
+        setSelectedSaveSlotId(getActiveSaveSlotId());
+        setHasSavePromptDecision(!slots.some((slot) => slot.hasSave));
+        setIsSaveSlotCatalogReady(true);
+    }, [hasConfirmedStartingClass, isBootReady, refreshSaveSlotCatalog]);
+
+    useEffect(() => {
+        if (!hasConfirmedStartingClass) {
+            return;
+        }
+
+        if (autosaveTimerRef.current !== null) {
+            window.clearTimeout(autosaveTimerRef.current);
+            autosaveTimerRef.current = null;
+        }
+
+        autosaveTimerRef.current = window.setTimeout(() => {
+            autosaveTimerRef.current = null;
+            persistSaveNow();
+        }, AUTOSAVE_DEBOUNCE_MS);
+
+        return () => {
+            if (autosaveTimerRef.current !== null) {
+                window.clearTimeout(autosaveTimerRef.current);
+                autosaveTimerRef.current = null;
+            }
+        };
+    }, [
+        dungeonEvolution,
+        dungeonRun,
+        enemy,
+        gameState,
+        hasConfirmedStartingClass,
+        hasPlayerDiedOnce,
+        killCount,
+        onboardingPhase,
+        persistSaveNow,
+        player,
+        sceneRegion,
+        skillsActionUnlocked,
+        stage,
+        turnState,
+    ]);
+
+    useEffect(() => {
+        if (!hasConfirmedStartingClass) {
+            return;
+        }
+
+        const shouldFlushNow = (gameState === GameState.TAVERN || gameState === GameState.SHOP || gameState === GameState.ALCHEMIST || gameState === GameState.BOSS_VICTORY || gameState === GameState.DUNGEON_RESULT)
+            && turnState === TurnState.PLAYER_INPUT;
+
+        if (shouldFlushNow) {
+            persistSaveNow();
+        }
+    }, [gameState, hasConfirmedStartingClass, persistSaveNow, turnState]);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') {
+            return;
+        }
+
+        const flushBeforeUnload = () => {
+            if (!hasConfirmedStartingClass) {
+                return;
+            }
+
+            persistSaveNow();
+        };
+
+        window.addEventListener('beforeunload', flushBeforeUnload);
+        return () => window.removeEventListener('beforeunload', flushBeforeUnload);
+    }, [hasConfirmedStartingClass, persistSaveNow]);
 
     useEffect(() => {
         const isUnlockedNow = player.classResource.max > 0;
@@ -707,13 +945,31 @@ export default function App() {
     }
   };
 
+    const handleContinueFromSave = () => {
+        const restored = applyLoadedSave(selectedSaveSlotId);
+        if (!restored) {
+            const slots = refreshSaveSlotCatalog();
+            setHasSavePromptDecision(!slots.some((slot) => slot.hasSave));
+        }
+    };
+
+    const handleNewGameFromSlot = () => {
+        clearSlot(selectedSaveSlotId);
+        setActiveSaveSlotId(selectedSaveSlotId);
+        setHasSavePromptDecision(true);
+        refreshSaveSlotCatalog();
+        lastSavedSignatureRef.current = '';
+    };
+
     const startGame = (classId: Player['classId'] = selectedStartingClassId) => {
         const startingPlayer = createStartingPlayer(classId);
+    setActiveSaveSlotId(selectedSaveSlotId);
     setStage(1);
     setKillCount(0);
         setDungeonEvolution(0);
         setSelectedStartingClassId(classId);
         setHasConfirmedStartingClass(true);
+        setHasSavePromptDecision(true);
                 setPlayer(startingPlayer);
     setLogs([]);
         setNarration('');
@@ -735,6 +991,24 @@ export default function App() {
         setSkillsActionUnlocked(false);
         previousSkillCountRef.current = startingPlayer.skills.length;
     setGameState(GameState.TAVERN);
+
+        // Baseline save for the selected slot right after starting a fresh run.
+        window.setTimeout(() => {
+            saveToActiveSlot({
+                player: clonePlayer(startingPlayer),
+                stage: 1,
+                killCount: 0,
+                dungeonEvolution: 0,
+                onboardingPhase: 'intro_camp',
+                hasPlayerDiedOnce: false,
+                skillsActionUnlocked: false,
+                gameState: GameState.TAVERN,
+                hasEnemy: false,
+                hadDungeonRun: false,
+                sceneRegion: 'forest',
+            });
+            refreshSaveSlotCatalog();
+        }, 0);
   };
 
   const startDungeon = () => {
@@ -1491,6 +1765,10 @@ export default function App() {
         gameMusicManager.dispose();
     }, []);
 
+    const hasAnySaveSlot = saveSlots.some((slot) => slot.hasSave);
+    const selectedSlotSummary = saveSlots.find((slot) => slot.slotId === selectedSaveSlotId) ?? null;
+    const canContinueSelectedSlot = Boolean(selectedSlotSummary?.hasSave);
+
     if (pathname.startsWith('/developer')) {
         return <DeveloperConsole />;
     }
@@ -1504,6 +1782,71 @@ export default function App() {
     }
 
     if (!hasConfirmedStartingClass) {
+        if (!isSaveSlotCatalogReady) {
+            return (
+                <div className="w-full h-screen bg-[#ead6c2] overflow-hidden select-none flex items-center justify-center">
+                    <div className="rounded-[22px] border border-[#cfab91] bg-[#f7ecdd] px-6 py-5 text-center shadow-[0_18px_42px_rgba(54,26,33,0.2)]">
+                        <div className="text-[10px] font-black uppercase tracking-[0.24em] text-[#9a7068]">Sincronizando</div>
+                        <div className="mt-2 font-gamer text-2xl font-black text-[#6b3141]">Lendo slots locais</div>
+                    </div>
+                </div>
+            );
+        }
+
+        if (hasAnySaveSlot && !hasSavePromptDecision) {
+            return (
+                <div className="w-full h-screen bg-[#ead6c2] overflow-hidden select-none relative">
+                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(107,49,65,0.16),transparent_42%),linear-gradient(180deg,#f7ecdd_0%,#edd8c0_100%)]" />
+                    <div className="relative z-10 flex h-full items-center justify-center px-4">
+                        <div className="w-full max-w-3xl rounded-[30px] border border-[#cfab91] bg-[#fff8ef] p-5 shadow-[0_30px_80px_rgba(54,26,33,0.28)] sm:p-7">
+                            <div className="text-center">
+                                <div className="text-[10px] font-black uppercase tracking-[0.26em] text-[#9a7068]">Modo Offline</div>
+                                <h2 className="mt-2 font-gamer text-3xl font-black text-[#6b3141] sm:text-4xl">Selecionar save local</h2>
+                                <p className="mt-2 text-sm text-[#7f5b56]">Escolha um slot para continuar de onde parou ou iniciar uma nova jornada.</p>
+                            </div>
+
+                            <div className="mt-5 grid gap-3 sm:grid-cols-3">
+                                {saveSlots.map((slot) => {
+                                    const isSelected = selectedSaveSlotId === slot.slotId;
+                                    return (
+                                        <button
+                                            key={slot.slotId}
+                                            onClick={() => {
+                                                setSelectedSaveSlotId(slot.slotId);
+                                                setActiveSaveSlotId(slot.slotId);
+                                            }}
+                                            className={`rounded-[18px] border px-4 py-4 text-left transition-all ${isSelected ? 'border-[#6b3141] bg-[#f7ecdd] shadow-[0_10px_24px_rgba(107,49,65,0.22)]' : 'border-[#d9bda8] bg-[#fffdf9] hover:border-[#b88f7b]'}`}
+                                        >
+                                            <div className="text-[10px] font-black uppercase tracking-[0.22em] text-[#9a7068]">Slot {slot.slotId}</div>
+                                            <div className="mt-1 text-lg font-black text-[#6b3141]">{slot.hasSave ? `Lv ${slot.level ?? 1}` : 'Vazio'}</div>
+                                            <div className="mt-1 text-[11px] font-black uppercase tracking-[0.14em] text-[#8a5a57]">{slot.classId ?? 'sem classe'}</div>
+                                            <div className="mt-2 text-xs text-[#7f5b56]">{formatSaveDate(slot.savedAt)}</div>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+
+                            <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+                                <button
+                                    onClick={handleContinueFromSave}
+                                    disabled={!canContinueSelectedSlot}
+                                    className="flex-1 rounded-[16px] border-b-4 border-[#4f2430] bg-[#6b3141] px-5 py-3 text-sm font-black uppercase tracking-[0.16em] text-white transition-all hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-45"
+                                >
+                                    Continuar slot selecionado
+                                </button>
+                                <button
+                                    onClick={handleNewGameFromSlot}
+                                    className="flex-1 rounded-[16px] border-b-4 border-[#8d6a55] bg-[#b98562] px-5 py-3 text-sm font-black uppercase tracking-[0.16em] text-white transition-all hover:brightness-105"
+                                >
+                                    Novo jogo neste slot
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
         return (
             <div className="w-full h-screen bg-[#ead6c2] overflow-hidden select-none">
                 <ClassSelectionScreen
