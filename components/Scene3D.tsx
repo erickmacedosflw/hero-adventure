@@ -861,8 +861,39 @@ const HeroVoxel = ({ classId = 'knight', playerAnimationAction = 'idle', animati
   const twinAuraRef = useRef<THREE.Group>(null);
   const flashRef = useRef<number>(0);
   const wasHitRef = useRef(false);
+  const flashMaterialsRef = useRef<THREE.Material[]>([]);
   const damageLightRef = useRef<THREE.PointLight>(null);
   const healLightRef = useRef<THREE.PointLight>(null);
+
+  const refreshFlashMaterials = useCallback(() => {
+    if (!group.current) {
+      flashMaterialsRef.current = [];
+      return;
+    }
+
+    const materials: THREE.Material[] = [];
+    group.current.traverse((child: THREE.Object3D) => {
+      const mesh = child as THREE.Mesh;
+      if (!mesh.isMesh || !mesh.material) {
+        return;
+      }
+
+      if (Array.isArray(mesh.material)) {
+        mesh.material.forEach((material) => {
+          materials.push(material);
+        });
+      } else {
+        materials.push(mesh.material);
+      }
+    });
+
+    flashMaterialsRef.current = materials;
+  }, []);
+
+  useEffect(() => {
+    flashMaterialsRef.current = [];
+    refreshFlashMaterials();
+  }, [refreshFlashMaterials, runtimeHeroAssets]);
 
   useFrame((state) => {
     if (damageLightRef.current) {
@@ -905,15 +936,13 @@ const HeroVoxel = ({ classId = 'knight', playerAnimationAction = 'idle', animati
       }
       flashRef.current = THREE.MathUtils.lerp(flashRef.current, 0, 0.32);
       wasHitRef.current = Boolean(isHit);
-      if (flashRef.current > 0.01) {
-        group.current.traverse((child: any) => {
-          if (child.isMesh && child.material) {
-            if (Array.isArray(child.material)) {
-              child.material.forEach((material: THREE.Material) => applyHitFlashToMaterial(material, flashRef.current > 0.03, flashRef.current * 0.65, '#ffffff'));
-            } else {
-              applyHitFlashToMaterial(child.material, flashRef.current > 0.03, flashRef.current * 0.65, '#ffffff');
-            }
-          }
+      if (flashRef.current > 0.003) {
+        if (flashMaterialsRef.current.length === 0) {
+          refreshFlashMaterials();
+        }
+
+        flashMaterialsRef.current.forEach((material) => {
+          applyHitFlashToMaterial(material, flashRef.current > 0.03, flashRef.current * 0.65, '#ffffff');
         });
       }
     }
@@ -1194,6 +1223,19 @@ export const GameScene: React.FC<SceneProps> = (props) => {
   const dungeonDepthOfFieldHeight = adaptiveTier === 'desktop-like' ? 560 : 440;
   const isDungeonRun = Boolean(props.isDungeonScene ?? props.isDungeonRun);
   const isArCameraMode = Boolean(props.isArCameraMode);
+  const shouldRenderPostProcessing = !isArCameraMode;
+  const shouldUseDepthOfField = isDungeonRun ? shouldUseDungeonDepthOfField : shouldUseForestDepthOfField;
+  const activeDepthOfFieldRange = isDungeonRun ? DUNGEON_FOCUS_RANGE : FOREST_FOCUS_RANGE;
+  const activeDepthOfFieldBokeh = isDungeonRun
+    ? (adaptiveTier === 'desktop-like' ? 2.15 : 1.7)
+    : (adaptiveTier === 'desktop-like' ? 2.35 : 1.95);
+  const activeDepthOfFieldHeight = isDungeonRun ? dungeonDepthOfFieldHeight : forestDepthOfFieldHeight;
+  const activeBloomIntensity = isDungeonRun ? dungeonBloomIntensity : forestBloomIntensity;
+  const activeBloomThreshold = isDungeonRun ? 0.5 : (shouldUseDepthOfField ? 0.42 : 0.48);
+  const activeBloomSmoothing = isDungeonRun ? 0.85 : (shouldUseDepthOfField ? 0.8 : 0.82);
+  const activeVignetteOffset = isDungeonRun ? 0.1 : (shouldUseDepthOfField ? 0.06 : 0.08);
+  const activeVignetteDarkness = isDungeonRun ? 0.42 : (shouldUseDepthOfField ? 0.1 : 0.13);
+  const shouldEagerLoadAnimationBundles = !isMobileDevice && adaptiveTier === 'desktop-like';
   const battleContactShadowResolution = useMemo(
     () => quality.isLowQuality ? 48 : Math.min(quality.contactShadowResolution, 96),
     [quality.contactShadowResolution, quality.isLowQuality],
@@ -1308,6 +1350,7 @@ export const GameScene: React.FC<SceneProps> = (props) => {
           hasPerfectEvadeAura={props.hasPerfectEvadeAura}
           hasDoubleAttackAura={props.hasDoubleAttackAura}
           contactShadowResolution={quality.contactShadowResolution}
+          loadSecondaryAnimationBundles={shouldEagerLoadAnimationBundles}
         />
         
         {!props.isMenuView && (
@@ -1344,34 +1387,18 @@ export const GameScene: React.FC<SceneProps> = (props) => {
         {props.particles.map(p => <MeshParticle key={p.id} {...p} />)}
         <WorldFloatingTexts texts={props.floatingTexts} />
 
-        {isArCameraMode ? null : isDungeonRun ? (
+        {shouldRenderPostProcessing ? (
           <EffectComposer>
-            {shouldUseDungeonDepthOfField ? (
+            {shouldUseDepthOfField ? (
               <DepthOfField
                 target={CHARACTER_FOCUS_TARGET}
-                worldFocusRange={DUNGEON_FOCUS_RANGE}
-                bokehScale={adaptiveTier === 'desktop-like' ? 2.15 : 1.7}
-                height={dungeonDepthOfFieldHeight}
+                worldFocusRange={activeDepthOfFieldRange}
+                bokehScale={activeDepthOfFieldBokeh}
+                height={activeDepthOfFieldHeight}
               />
             ) : null}
-            <Bloom intensity={dungeonBloomIntensity} luminanceThreshold={0.5} luminanceSmoothing={0.85} mipmapBlur />
-            <Vignette eskil={false} offset={0.1} darkness={0.42} />
-          </EffectComposer>
-        ) : shouldUseForestDepthOfField ? (
-          <EffectComposer>
-            <DepthOfField
-              target={CHARACTER_FOCUS_TARGET}
-              worldFocusRange={FOREST_FOCUS_RANGE}
-              bokehScale={adaptiveTier === 'desktop-like' ? 2.35 : 1.95}
-              height={forestDepthOfFieldHeight}
-            />
-            <Bloom intensity={forestBloomIntensity} luminanceThreshold={0.42} luminanceSmoothing={0.8} mipmapBlur />
-            <Vignette eskil={false} offset={0.06} darkness={0.1} />
-          </EffectComposer>
-        ) : !isArCameraMode && !isDungeonRun ? (
-          <EffectComposer>
-            <Bloom intensity={forestBloomIntensity} luminanceThreshold={0.48} luminanceSmoothing={0.82} mipmapBlur />
-            <Vignette eskil={false} offset={0.08} darkness={0.13} />
+            <Bloom intensity={activeBloomIntensity} luminanceThreshold={activeBloomThreshold} luminanceSmoothing={activeBloomSmoothing} mipmapBlur />
+            <Vignette eskil={false} offset={activeVignetteOffset} darkness={activeVignetteDarkness} />
           </EffectComposer>
         ) : null}
       </Canvas>

@@ -436,7 +436,38 @@ export const EnemyCharacter = ({
   const enemyDamageLightRef = useRef<THREE.PointLight>(null);
   const flashRef = useRef<number>(0);
   const wasHitRef = useRef(false);
+  const flashMaterialsRef = useRef<THREE.Material[]>([]);
   const runtimeEnemyAssets = hasRuntimeFbxAssets(assets) ? assets : null;
+
+  const refreshFlashMaterials = React.useCallback(() => {
+    if (!group.current) {
+      flashMaterialsRef.current = [];
+      return;
+    }
+
+    const materials: THREE.Material[] = [];
+    group.current.traverse((child: THREE.Object3D) => {
+      const mesh = child as THREE.Mesh;
+      if (!mesh.isMesh || !mesh.material) {
+        return;
+      }
+
+      if (Array.isArray(mesh.material)) {
+        mesh.material.forEach((material) => {
+          materials.push(material);
+        });
+      } else {
+        materials.push(mesh.material);
+      }
+    });
+
+    flashMaterialsRef.current = materials;
+  }, []);
+
+  useEffect(() => {
+    flashMaterialsRef.current = [];
+    refreshFlashMaterials();
+  }, [refreshFlashMaterials, runtimeEnemyAssets]);
 
   useFrame((state) => {
     if (enemyDamageLightRef.current) {
@@ -472,16 +503,15 @@ export const EnemyCharacter = ({
       flashRef.current = THREE.MathUtils.lerp(flashRef.current, 0, 0.32);
       wasHitRef.current = Boolean(isHit);
 
-      group.current.traverse((child: THREE.Object3D) => {
-        const mesh = child as THREE.Mesh;
-        if (mesh.isMesh && mesh.material) {
-          if (Array.isArray(mesh.material)) {
-            mesh.material.forEach((material: THREE.Material) => applyHitFlashToMaterial(material, flashRef.current > 0.03, flashRef.current * 0.65, '#ffffff'));
-          } else {
-            applyHitFlashToMaterial(mesh.material, flashRef.current > 0.03, flashRef.current * 0.65, '#ffffff');
-          }
+      if (flashRef.current > 0.003) {
+        if (flashMaterialsRef.current.length === 0) {
+          refreshFlashMaterials();
         }
-      });
+
+        flashMaterialsRef.current.forEach((material) => {
+          applyHitFlashToMaterial(material, flashRef.current > 0.03, flashRef.current * 0.65, '#ffffff');
+        });
+      }
 
       const breathe = disableAmbientMotion ? 1 : 1 + Math.sin(t * 2.8) * 0.02;
       group.current.scale.setScalar(scale * breathe);

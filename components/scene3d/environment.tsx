@@ -190,6 +190,8 @@ export const SkyboxController: React.FC = () => {
   const { scene, gl } = useThree();
   const cubemaps = useRef<Record<string, THREE.CubeTexture>>({});
   const iblCache = useRef<Record<string, THREE.Texture>>({});
+  const fallbackCubeRef = useRef<THREE.CubeTexture | null>(null);
+  const skyboxUpdateAccumulatorRef = useRef(0);
   const pmrem = useRef<THREE.PMREMGenerator | null>(null);
   const loadedCount = useRef(0);
 
@@ -229,6 +231,9 @@ export const SkyboxController: React.FC = () => {
           tex.needsUpdate = true;
 
           cubemaps.current[key] = tex;
+          if (!fallbackCubeRef.current) {
+            fallbackCubeRef.current = tex;
+          }
           if (pmrem.current) {
             iblCache.current[key] = pmrem.current.fromCubemap(tex).texture;
           }
@@ -247,18 +252,24 @@ export const SkyboxController: React.FC = () => {
       pmrem.current?.dispose();
       Object.values(cubemaps.current).forEach((texture) => texture.dispose());
       Object.values(iblCache.current).forEach((texture) => texture.dispose());
+      fallbackCubeRef.current = null;
       skyMaterial.dispose();
       blackCube.dispose();
     };
   }, [blackCube, gl, skyMaterial]);
 
-  useFrame((state) => {
+  useFrame((state, delta) => {
     if (loadedCount.current === 0) return;
+
+    skyboxUpdateAccumulatorRef.current += delta;
+    if (skyboxUpdateAccumulatorRef.current < (1 / 24)) {
+      return;
+    }
+    skyboxUpdateAccumulatorRef.current = 0;
 
     const t = getGameT(state.clock.elapsedTime);
     const { from, to, blend } = getSkyboxBlend(t);
-    const anyLoaded = (): THREE.CubeTexture | null => Object.values(cubemaps.current)[0] ?? null;
-    const fromTex = cubemaps.current[from] ?? anyLoaded();
+    const fromTex = cubemaps.current[from] ?? fallbackCubeRef.current;
     const toTex = cubemaps.current[to] ?? fromTex;
 
     if (!fromTex) {
@@ -314,8 +325,16 @@ export const DayNightCycle = ({
   const sunColorRef = useRef(new THREE.Color());
   const hemiSkyRef = useRef(new THREE.Color());
   const hemiGroundRef = useRef(new THREE.Color());
+  const cycleUpdateAccumulatorRef = useRef(0);
 
   useFrame((state, delta) => {
+    cycleUpdateAccumulatorRef.current += delta;
+    if (cycleUpdateAccumulatorRef.current < (1 / 30)) {
+      return;
+    }
+    const sampledDelta = cycleUpdateAccumulatorRef.current;
+    cycleUpdateAccumulatorRef.current = 0;
+
     const cycleDuration = 1440;
     const gameTimeMultiplier = 2;
     const t = ((state.clock.elapsedTime * gameTimeMultiplier + 720) / cycleDuration) % 1;
@@ -434,7 +453,7 @@ export const DayNightCycle = ({
       }
       if (sunRaysMaterialRef.current) {
         sunRaysMaterialRef.current.opacity = 0.06 + glowStrength * 0.2;
-        sunRaysMaterialRef.current.rotation += delta * 0.05;
+        sunRaysMaterialRef.current.rotation += sampledDelta * 0.05;
       }
     }
     if (moonMeshRef.current) {
