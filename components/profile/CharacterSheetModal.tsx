@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { CircleHelp, Coins, Crosshair, Heart, Lock, Orbit, Shield, Sparkles, Star, Sword, WandSparkles, X, Zap } from 'lucide-react';
 import { ALL_CARDS } from '../../game/data/cards';
 import { getConstellationByClassId } from '../../game/data/classTalents';
@@ -18,6 +18,9 @@ type CharacterSheetModalProps = {
   onClose: () => void;
   onOpenInventory: () => void;
   onUnlockTalent: (nodeId: string) => void;
+  restrictToStatusOnly?: boolean;
+  allowCardsTab?: boolean;
+  initialTab?: ProfileTab;
 };
 
 type ProfileTab = 'overview' | 'cards' | 'skills' | 'constellation';
@@ -314,12 +317,29 @@ const ClassGuideModal = ({
   );
 };
 
-export const CharacterSheetModal = ({ player, shopItems: _shopItems, onClose, onOpenInventory, onUnlockTalent }: CharacterSheetModalProps) => {
-  const [activeTab, setActiveTab] = useState<ProfileTab>('overview');
+export const CharacterSheetModal = ({ player, shopItems: _shopItems, onClose, onOpenInventory, onUnlockTalent, restrictToStatusOnly = false, allowCardsTab = false, initialTab = 'overview' }: CharacterSheetModalProps) => {
+  const [activeTab, setActiveTab] = useState<ProfileTab>(initialTab);
   const [showClassGuide, setShowClassGuide] = useState(false);
+  const isStatusOnlyMode = Boolean(restrictToStatusOnly);
+  const canAccessCards = !isStatusOnlyMode || allowCardsTab;
+  const canOpenInventory = !isStatusOnlyMode;
   const currentClass = getPlayerClassById(player.classId);
   const constellation = getConstellationByClassId(player.classId);
   const classGuide = CLASS_GUIDES[player.classId];
+
+  useEffect(() => {
+    if (isStatusOnlyMode && !allowCardsTab && activeTab !== 'overview') {
+      setActiveTab('overview');
+    }
+    if (isStatusOnlyMode && allowCardsTab && activeTab !== 'overview' && activeTab !== 'cards') {
+      setActiveTab('overview');
+    }
+  }, [activeTab, allowCardsTab, isStatusOnlyMode]);
+
+  useEffect(() => {
+    const shouldOpenCards = initialTab === 'cards' && canAccessCards;
+    setActiveTab(shouldOpenCards ? 'cards' : 'overview');
+  }, [canAccessCards, initialTab]);
 
   const equipmentSlots: Array<{ label: string; item: Item | null; type: Item['type'] }> = [
     { label: 'Arma', item: player.equippedWeapon, type: 'weapon' },
@@ -349,6 +369,11 @@ export const CharacterSheetModal = ({ player, shopItems: _shopItems, onClose, on
     { id: 'skills', label: 'Skills', icon: <GameAssetIcon name="bookAlt" size={20} /> },
     { id: 'constellation', label: 'Constelacao', icon: <Orbit size={18} /> },
   ];
+  const visibleTabs = profileTabs.filter((tab) => {
+    if (tab.id === 'overview') return true;
+    if (tab.id === 'cards') return canAccessCards;
+    return !isStatusOnlyMode;
+  });
 
   const unlockedNodes = constellation.trails.flatMap((trail) => trail.nodes).filter((node) => player.unlockedTalentNodeIds.includes(node.id));
   const constellationSkills = player.skills.filter((skill) => skill.source === 'constellation');
@@ -361,19 +386,23 @@ export const CharacterSheetModal = ({ player, shopItems: _shopItems, onClose, on
       accent="wine"
       valueBadge={<><GameAssetIcon name="book" size={24} /> {player.name}</>}
       headerAction={
-        <button onClick={onOpenInventory} className="rpg-menu-tab rpg-menu-tab-active hidden items-center gap-2.5 md:inline-flex">
-          <GameAssetIcon name="bag" size={24} /> Mochila
-        </button>
+        canOpenInventory ? (
+          <button onClick={onOpenInventory} className="rpg-menu-tab rpg-menu-tab-active hidden items-center gap-2.5 md:inline-flex">
+            <GameAssetIcon name="bag" size={24} /> Mochila
+          </button>
+        ) : undefined
       }
     >
       <div className="flex flex-col gap-3 pb-14 md:pb-0">
-        <div className="hidden flex-wrap gap-2 px-1 md:flex">
-          {profileTabs.map((tab) => (
-            <RpgMenuTab key={tab.id} active={activeTab === tab.id} onClick={() => setActiveTab(tab.id)} className="inline-flex items-center gap-2">
-              {tab.icon} {tab.label}
-            </RpgMenuTab>
-          ))}
-        </div>
+        {visibleTabs.length > 1 && (
+          <div className="hidden flex-wrap gap-2 px-1 md:flex">
+            {visibleTabs.map((tab) => (
+              <RpgMenuTab key={tab.id} active={activeTab === tab.id} onClick={() => setActiveTab(tab.id)} className="inline-flex items-center gap-2">
+                {tab.icon} {tab.label}
+              </RpgMenuTab>
+            ))}
+          </div>
+        )}
 
         {activeTab === 'overview' && (
           <div className="grid gap-3 rounded-[24px] border border-[#c59d82] bg-[#f8eddf] p-4 lg:grid-cols-[15rem_minmax(0,1fr)_15rem]">
@@ -386,7 +415,9 @@ export const CharacterSheetModal = ({ player, shopItems: _shopItems, onClose, on
                   <ResourceBar label="XP" value={player.xp} max={player.xpToNext} track="bg-[linear-gradient(90deg,#7d3d4d,#c89a66)]" />
                   <ResourceBar label="HP" value={player.stats.hp} max={player.stats.maxHp} track="bg-[linear-gradient(90deg,#8d2f46,#d17482)]" />
                   <ResourceBar label="Mana" value={player.stats.mp} max={player.stats.maxMp} track="bg-[linear-gradient(90deg,#2b6878,#66b8d2)]" />
-                  <ResourceBar label={player.classResource.name} value={player.classResource.value} max={player.classResource.max} track="bg-[linear-gradient(90deg,#4c1d95,#c084fc)]" />
+                  {player.classResource.max > 0 && (
+                    <ResourceBar label={player.classResource.name} value={player.classResource.value} max={player.classResource.max} track="bg-[linear-gradient(90deg,#4c1d95,#c084fc)]" />
+                  )}
                 </div>
               </div>
 
@@ -423,7 +454,7 @@ export const CharacterSheetModal = ({ player, shopItems: _shopItems, onClose, on
           </div>
         )}
 
-        {activeTab === 'cards' && (
+        {canAccessCards && activeTab === 'cards' && (
           <ScrollArea className="h-full" viewportClassName="p-1 sm:p-6">
             <div className="flex flex-col gap-4">
               <div className="flex flex-wrap gap-2">
@@ -467,7 +498,7 @@ export const CharacterSheetModal = ({ player, shopItems: _shopItems, onClose, on
           </ScrollArea>
         )}
 
-        {activeTab === 'skills' && (
+        {!isStatusOnlyMode && activeTab === 'skills' && (
           <ScrollArea className="h-full" viewportClassName="p-1 sm:p-6">
             <div className="flex flex-col gap-4">
               <div className="flex flex-wrap gap-2">
@@ -508,7 +539,7 @@ export const CharacterSheetModal = ({ player, shopItems: _shopItems, onClose, on
           </ScrollArea>
         )}
 
-        {activeTab === 'constellation' && (
+        {!isStatusOnlyMode && activeTab === 'constellation' && (
           <ScrollArea className="h-full" viewportClassName="p-1 sm:p-6">
             <div className="flex flex-col gap-4">
               <section className="overflow-hidden rounded-[28px] border border-[#cfab91] bg-[#fff7ed] shadow-sm">
@@ -542,13 +573,15 @@ export const CharacterSheetModal = ({ player, shopItems: _shopItems, onClose, on
                       <span className="text-[#9a7068]">Skills</span>
                       <span>{constellationSkills.length}</span>
                     </div>
-                    <div
-                      className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em]"
-                      style={{ borderColor: `${player.classResource.color}66`, backgroundColor: `${player.classResource.color}1a`, color: player.classResource.color }}
-                    >
-                      <span className="text-[#9a7068]">{player.classResource.name}</span>
-                      <span>{player.classResource.value}/{player.classResource.max}</span>
-                    </div>
+                    {player.classResource.max > 0 && (
+                      <div
+                        className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em]"
+                        style={{ borderColor: `${player.classResource.color}66`, backgroundColor: `${player.classResource.color}1a`, color: player.classResource.color }}
+                      >
+                        <span className="text-[#9a7068]">{player.classResource.name}</span>
+                        <span>{player.classResource.value}/{player.classResource.max}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               </section>
@@ -601,9 +634,10 @@ export const CharacterSheetModal = ({ player, shopItems: _shopItems, onClose, on
           </ScrollArea>
         )}
 
+        {visibleTabs.length > 1 && (
         <div className="pointer-events-none fixed inset-x-0 bottom-4 z-[80] flex justify-center px-4 md:hidden">
           <div className="pointer-events-auto flex items-center gap-1.5 rounded-full border border-[#c59d82] bg-[#f7eddc]/92 px-3 py-1.5 shadow-[0_14px_28px_rgba(54,26,33,0.18)] backdrop-blur-md">
-            {profileTabs.map((tab) => {
+            {visibleTabs.map((tab) => {
               const isActive = activeTab === tab.id;
 
               return (
@@ -618,14 +652,19 @@ export const CharacterSheetModal = ({ player, shopItems: _shopItems, onClose, on
               );
             })}
 
-            <div className="mx-0.5 h-6 w-px bg-[#c59d82]/40" />
+            {canOpenInventory && (
+              <>
+                <div className="mx-0.5 h-6 w-px bg-[#c59d82]/40" />
 
-            <button onClick={onOpenInventory} className="flex flex-col items-center justify-center rounded-[14px] px-3 py-1.5 text-[#8f6c67] transition-all duration-200">
-              <GameAssetIcon name="bag" size={20} className="opacity-80" />
-              <span className="mt-0.5 text-[9px] font-black uppercase tracking-[0.12em] opacity-70">Mochila</span>
-            </button>
+                <button onClick={onOpenInventory} className="flex flex-col items-center justify-center rounded-[14px] px-3 py-1.5 text-[#8f6c67] transition-all duration-200">
+                  <GameAssetIcon name="bag" size={20} className="opacity-80" />
+                  <span className="mt-0.5 text-[9px] font-black uppercase tracking-[0.12em] opacity-70">Mochila</span>
+                </button>
+              </>
+            )}
           </div>
         </div>
+        )}
 
         {showClassGuide && <ClassGuideModal player={player} onClose={() => setShowClassGuide(false)} />}
       </div>

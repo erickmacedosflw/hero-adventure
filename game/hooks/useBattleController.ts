@@ -38,6 +38,7 @@ interface UseBattleControllerParams {
   setPlayer: Dispatch<SetStateAction<Player>>;
   setEnemy: Dispatch<SetStateAction<Enemy | null>>;
   setTurnState: Dispatch<SetStateAction<TurnState>>;
+  setKillCount: Dispatch<SetStateAction<number>>;
   setGameState: Dispatch<SetStateAction<GameState>>;
   setDungeonRun: Dispatch<SetStateAction<DungeonRunState | null>>;
   setDungeonResult: Dispatch<SetStateAction<DungeonResult | null>>;
@@ -49,6 +50,7 @@ interface UseBattleControllerParams {
   setIsPlayerCritHit: Dispatch<SetStateAction<boolean>>;
   setIsEnemyHit: Dispatch<SetStateAction<boolean>>;
   setScreenShake: Dispatch<SetStateAction<number>>;
+  onPlayerDefeat?: () => void;
 }
 
 const getMarkedBonus = (statuses: Enemy['statusEffects'] | undefined, value: number) => (
@@ -74,6 +76,7 @@ export const useBattleController = ({
   setPlayer,
   setEnemy,
   setTurnState,
+  setKillCount,
   setGameState,
   setDungeonRun,
   setDungeonResult,
@@ -85,6 +88,7 @@ export const useBattleController = ({
   setIsPlayerCritHit,
   setIsEnemyHit,
   setScreenShake,
+  onPlayerDefeat,
 }: UseBattleControllerParams) => {
   const awardCombatBenefits = useCallback((damage: number, resourceGain: number, talentBonuses: ReturnType<typeof getTalentBonuses>) => {
     if (damage <= 0 && resourceGain <= 0 && talentBonuses.lifeSteal <= 0 && talentBonuses.manaOnHit <= 0) {
@@ -723,8 +727,10 @@ export const useBattleController = ({
         setIsEnemyAttacking(false);
 
         if (remainingHpAfterHit <= 0) {
+          onPlayerDefeat?.();
           window.setTimeout(() => {
             if (dungeonRun) {
+              setKillCount(0);
               setPlayer((prev) => ({
                 ...clonePlayer(dungeonRun.entrySnapshot),
                 xp: prev.xp,
@@ -741,15 +747,8 @@ export const useBattleController = ({
               setEnemy(null);
               setGameState(GameState.DUNGEON_RESULT);
             } else if (enemy.isBoss) {
-              setGameState(GameState.TAVERN);
-              setPlayer((prev) => ({
-                ...prev,
-                stats: { ...prev.stats, hp: 1 },
-                buffs: createEmptyBuffState(),
-                isDefending: false,
-                statusEffects: [],
-              }));
-              addLog('Derrotado pelo Chefao. Recuou para Taverna.', 'info');
+              setKillCount(0);
+              setGameState(GameState.GAME_OVER);
             } else {
               setGameState(GameState.GAME_OVER);
             }

@@ -12,7 +12,7 @@ interface ARModeOverlayProps {
 }
 
 const getEntryLabel = (entryPoint: ArEntryPoint) => (
-  entryPoint === 'battle' ? 'durante a batalha' : 'na taverna'
+  entryPoint === 'battle' ? 'durante a batalha' : 'no acampamento'
 );
 
 const getPlatformLabel = (platform: ArSupportState['platform']) => {

@@ -44,6 +44,10 @@ interface UseBattleResolutionParams {
   setEnemyAnimationAction: Dispatch<SetStateAction<any>>;
   setPlayerAnimationAction: Dispatch<SetStateAction<any>>;
   generateVictorySpeech: (enemyName: string) => Promise<string>;
+  shouldForceFirstEnemyDrop: boolean;
+  shouldTriggerInventoryUnlockTutorial: boolean;
+  onTriggerInventoryUnlockTutorial: () => void;
+  allowPotionDrops: boolean;
 }
 
 export const useBattleResolution = ({
@@ -77,6 +81,10 @@ export const useBattleResolution = ({
   setEnemyAnimationAction,
   setPlayerAnimationAction,
   generateVictorySpeech,
+  shouldForceFirstEnemyDrop,
+  shouldTriggerInventoryUnlockTutorial,
+  onTriggerInventoryUnlockTutorial,
+  allowPotionDrops,
 }: UseBattleResolutionParams) => {
   const handleVictory = useCallback(async (delayMs = 0) => {
     if (!enemy) return;
@@ -109,7 +117,32 @@ export const useBattleResolution = ({
       } else if (Math.random() < 0.15) {
         drops.push('pot_1');
       }
+
+      // One-time onboarding rule: the very first enemy kill always grants at least one item.
+      if (!wasBoss && shouldForceFirstEnemyDrop && drops.length === 0) {
+        if (enemy.type === 'beast') {
+          drops.push(Math.random() < 0.5 ? 'mat_bone' : 'mat_slime');
+        } else if (enemy.type === 'humanoid') {
+          drops.push(Math.random() < 0.5 ? 'mat_cloth' : 'mat_wood');
+        } else {
+          drops.push(Math.random() < 0.5 ? 'mat_bone' : 'mat_cloth');
+        }
+      }
+
+      if (!wasBoss && shouldTriggerInventoryUnlockTutorial && drops.length === 0) {
+        if (enemy.type === 'beast') {
+          drops.push(Math.random() < 0.5 ? 'mat_bone' : 'mat_slime');
+        } else if (enemy.type === 'humanoid') {
+          drops.push(Math.random() < 0.5 ? 'mat_cloth' : 'mat_wood');
+        } else {
+          drops.push(Math.random() < 0.5 ? 'mat_bone' : 'mat_cloth');
+        }
+      }
     }
+
+    const effectiveDrops = allowPotionDrops
+      ? drops
+      : drops.filter((dropId) => ALL_ITEMS.find((item) => item.id === dropId)?.type !== 'potion');
 
     const dungeonEncounterNumber = dungeonRun ? dungeonRun.rewards.clearedMonsters + (wasBoss ? 0 : 1) : 0;
     const diamondGain = dungeonRun
@@ -118,7 +151,7 @@ export const useBattleResolution = ({
           : ((dungeonEncounterNumber % 10 === 0 ? 1 : 0) + (Math.random() < 0.08 ? 1 : 0)))
       : 0;
 
-    const dropItems = drops.map(dropId => ALL_ITEMS.find(item => item.id === dropId)).filter((item): item is Item => Boolean(item));
+    const dropItems = effectiveDrops.map(dropId => ALL_ITEMS.find(item => item.id === dropId)).filter((item): item is Item => Boolean(item));
 
     if (dungeonRun) {
       const playerAfterXpGain = {
@@ -133,7 +166,7 @@ export const useBattleResolution = ({
       ({ nextPlayer: progressedDungeonPlayer, levelsGained } = applyLevelProgression(playerAfterXpGain));
 
       const nextDrops = { ...dungeonRun.rewards.drops };
-      drops.forEach(dropId => {
+      effectiveDrops.forEach(dropId => {
         nextDrops[dropId] = (nextDrops[dropId] || 0) + 1;
       });
 
@@ -217,7 +250,7 @@ export const useBattleResolution = ({
     }
 
     const newInventory = { ...player.inventory };
-    drops.forEach(dropId => {
+    effectiveDrops.forEach(dropId => {
       newInventory[dropId] = (newInventory[dropId] || 0) + 1;
     });
 
@@ -252,8 +285,8 @@ export const useBattleResolution = ({
 
     setPlayer(updatedPlayer);
 
-    const dropText = drops.length > 0
-      ? ` Drops: ${drops.map(dropId => ALL_ITEMS.find(item => item.id === dropId)?.name).join(', ')}`
+    const dropText = effectiveDrops.length > 0
+      ? ` Drops: ${effectiveDrops.map(dropId => ALL_ITEMS.find(item => item.id === dropId)?.name).join(', ')}`
       : '';
     addLog(`Vitória! +${xpGain} XP, +${goldGain} Ouro.${dropText}`, 'crit');
 
@@ -270,12 +303,17 @@ export const useBattleResolution = ({
       queuedCardRewards.push(...createLevelUpOffers(levelsGained));
     }
 
+    const shouldOpenInventoryTutorial = !wasBoss && effectiveDrops.length > 0 && shouldTriggerInventoryUnlockTutorial;
+
     if (queuedCardRewards.length > 0) {
-      setPostCardFlow(wasBoss ? 'boss-victory' : 'resume-hunt');
+      setPostCardFlow(wasBoss ? 'boss-victory' : (shouldOpenInventoryTutorial ? 'tavern' : 'resume-hunt'));
       if (wasBoss) {
         generateVictorySpeech(enemy.name)
           .then(victoryText => setNarration(victoryText))
           .catch(() => undefined);
+      }
+      if (shouldOpenInventoryTutorial) {
+        onTriggerInventoryUnlockTutorial();
       }
       window.setTimeout(() => openCardRewardQueue(updatedPlayer, queuedCardRewards), 3200);
     } else if (wasBoss) {
@@ -284,6 +322,11 @@ export const useBattleResolution = ({
         const victoryText = await generateVictorySpeech(enemy.name);
         setNarration(victoryText);
       } catch {}
+    } else if (shouldOpenInventoryTutorial) {
+      setNarration('Voce encontrou itens novos. Volte ao acampamento para abrir a mochila.');
+      window.setTimeout(() => {
+        onTriggerInventoryUnlockTutorial();
+      }, 2900);
     } else {
       setNarration('Procurando próximo inimigo...');
       window.setTimeout(() => {
@@ -319,6 +362,10 @@ export const useBattleResolution = ({
     setPlayerAnimationAction,
     setPostCardFlow,
     setStage,
+    shouldForceFirstEnemyDrop,
+    shouldTriggerInventoryUnlockTutorial,
+    onTriggerInventoryUnlockTutorial,
+    allowPotionDrops,
     stage,
     triggerLevelUpPulse,
   ]);

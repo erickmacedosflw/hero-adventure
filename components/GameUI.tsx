@@ -41,6 +41,23 @@ interface GameUIProps {
     dungeonCleared?: number;
     dungeonTotal?: number;
     gameTime?: string;
+    restrictProfileToStatusOnly?: boolean;
+    limitBattleActionsToBasics?: boolean;
+    inventoryUnlocked?: boolean;
+    inventoryUnlockPromptActive?: boolean;
+    onAcknowledgeInventoryUnlock?: () => void;
+    cardsUnlockPromptActive?: boolean;
+    onAcknowledgeCardsUnlock?: () => void;
+    skillsUnlockPromptActive?: boolean;
+    onAcknowledgeSkillsUnlock?: () => void;
+    allowCardsInProfile?: boolean;
+    fleeUnlocked?: boolean;
+    showItemsAction?: boolean;
+    showSkillsAction?: boolean;
+    itemsUnlockPromptActive?: boolean;
+    onAcknowledgeItemsUnlock?: () => void;
+    fleeUnlockPromptActive?: boolean;
+    onAcknowledgeFleeUnlock?: () => void;
 }
 
 // --- HELPERS ---
@@ -836,14 +853,37 @@ export const TavernScreen: React.FC<{
   shopItems: Item[],
   onEquipItem: (item: Item) => void,
   onUseItem: (itemId: string) => void,
-  onUnlockTalent: (nodeId: string) => void
-}> = ({ player, killCount, onHunt, onBoss, onDungeon, onShop, onAlchemist, onOpenAr, arSupport, shopItems, onEquipItem, onUseItem, onUnlockTalent }) => {
+    onUnlockTalent: (nodeId: string) => void,
+    campIntroOnly?: boolean,
+    restrictProfileToStatusOnly?: boolean,
+    inventoryUnlocked?: boolean,
+    inventoryUnlockPromptActive?: boolean,
+    onAcknowledgeInventoryUnlock?: () => void,
+    cardsUnlockPromptActive?: boolean,
+    onAcknowledgeCardsUnlock?: () => void,
+    skillsUnlockPromptActive?: boolean,
+    onAcknowledgeSkillsUnlock?: () => void,
+    allowCardsInProfile?: boolean,
+    fleeUnlocked?: boolean,
+    merchantUnlockPromptActive?: boolean,
+    onAcknowledgeMerchantUnlock?: () => void,
+    merchantUnlocked?: boolean,
+    dungeonUnlocked?: boolean,
+}> = ({ player, killCount, onHunt, onBoss, onDungeon, onShop, onAlchemist, onOpenAr, arSupport, shopItems, onEquipItem, onUseItem, onUnlockTalent, campIntroOnly = false, restrictProfileToStatusOnly = false, inventoryUnlocked = false, inventoryUnlockPromptActive = false, onAcknowledgeInventoryUnlock, cardsUnlockPromptActive = false, onAcknowledgeCardsUnlock, skillsUnlockPromptActive = false, onAcknowledgeSkillsUnlock, allowCardsInProfile = false, fleeUnlocked = false, merchantUnlockPromptActive = false, onAcknowledgeMerchantUnlock, merchantUnlocked = false, dungeonUnlocked = false }) => {
   const [showProfile, setShowProfile] = useState(false);
   const [showInventory, setShowInventory] = useState(false);
+    const [profileInitialTab, setProfileInitialTab] = useState<'overview' | 'cards' | 'skills' | 'constellation' | undefined>(undefined);
     const [isClosing, setIsClosing] = useState(false);
     const [showDungeonConfirm, setShowDungeonConfirm] = useState(false);
+        const [showHuntIntroConfirm, setShowHuntIntroConfirm] = useState(false);
+    const [showInventoryUnlockPrompt, setShowInventoryUnlockPrompt] = useState(false);
+    const [showCardsUnlockPrompt, setShowCardsUnlockPrompt] = useState(false);
+    const [showSkillsUnlockPrompt, setShowSkillsUnlockPrompt] = useState(false);
+    const [showMerchantUnlockPrompt, setShowMerchantUnlockPrompt] = useState(false);
         const showArOption = false;
-  const bossUnlocked = killCount >= 10;
+    const showDiamondOnTopHud = false;
+    const bossUnlocked = killCount >= 10;
+    const canAccessDungeon = dungeonUnlocked;
         const arModeReady = arSupport.status === 'supported';
         const arModeChecking = arSupport.status === 'checking';
     const killsRemaining = Math.max(0, 10 - killCount);
@@ -857,44 +897,80 @@ export const TavernScreen: React.FC<{
             label: 'Perfil',
             icon: <GameAssetIcon name="book" size={20} />,
             accent: 'border-[#cfab91] bg-[#f4e5d4] text-[#6b3141] hover:bg-[#e9d7c2]',
-            onClick: () => setShowProfile(true),
+            onClick: () => {
+                setProfileInitialTab(undefined);
+                setShowProfile(true);
+            },
         },
-        {
+        ...((!campIntroOnly || inventoryUnlocked) ? [{
             id: 'inventory',
             label: 'Mochila',
             icon: <GameAssetIcon name="bag" size={20} />,
             accent: 'border-[#cfab91] bg-[#f4e5d4] text-[#6b3141] hover:bg-[#e9d7c2]',
             onClick: () => setShowInventory(true),
-        },
+        }] : []),
     ];
-    const serviceActions = [
+
+    useEffect(() => {
+        if (inventoryUnlockPromptActive) {
+            setShowInventoryUnlockPrompt(true);
+        }
+    }, [inventoryUnlockPromptActive]);
+
+    useEffect(() => {
+        if (cardsUnlockPromptActive) {
+            setShowCardsUnlockPrompt(true);
+        }
+    }, [cardsUnlockPromptActive]);
+
+    useEffect(() => {
+        if (skillsUnlockPromptActive) {
+            setShowSkillsUnlockPrompt(true);
+        }
+    }, [skillsUnlockPromptActive]);
+
+    useEffect(() => {
+        if (merchantUnlockPromptActive) {
+            setShowMerchantUnlockPrompt(true);
+        }
+    }, [merchantUnlockPromptActive]);
+
+    useEffect(() => {
+        if (!showInventoryUnlockPrompt && !showCardsUnlockPrompt && !showSkillsUnlockPrompt && !showMerchantUnlockPrompt) {
+            return;
+        }
+
+        const handleBlockEscape = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+        };
+
+        window.addEventListener('keydown', handleBlockEscape, true);
+        return () => window.removeEventListener('keydown', handleBlockEscape, true);
+    }, [showCardsUnlockPrompt, showInventoryUnlockPrompt, showSkillsUnlockPrompt, showMerchantUnlockPrompt]);
+    const serviceActions = merchantUnlocked ? [
         {
             id: 'merchant',
             label: 'Mercador',
             subtitle: 'Loja de equipamentos',
             icon: <GameAssetIcon name="chest" size={24} />,
-            resourceIcon: <GameAssetIcon name="coin" size={14} />,
-            resourceLabel: 'Ouro disponivel',
-            resourceValue: player.gold,
             accent: 'border-amber-400/40 bg-amber-50 text-[#8d5e29] hover:bg-amber-100',
             onClick: onShop,
         },
-        {
-            id: 'alchemist',
-            label: 'Alquimista',
-            subtitle: 'Cartas e cristais raros',
-            icon: <GameAssetIcon name="diamond" size={24} />,
-            resourceIcon: <GameAssetIcon name="diamond" size={14} />,
-            resourceLabel: 'Diamantes disponiveis',
-            resourceValue: player.diamonds,
-            accent: 'border-cyan-400/40 bg-cyan-50 text-[#346c7f] hover:bg-cyan-100',
-            onClick: onAlchemist,
-        },
-    ];
+    ] : [];
 
     const handleMenuTransition = (target: 'hunt' | 'dungeon') => {
         if (isClosing) return;
+        if (target === 'hunt' && campIntroOnly) {
+            setShowHuntIntroConfirm(true);
+            return;
+        }
         if (target === 'dungeon') {
+            if (!canAccessDungeon) {
+                return;
+            }
             setShowDungeonConfirm(true);
             return;
         }
@@ -906,6 +982,12 @@ export const TavernScreen: React.FC<{
         setShowDungeonConfirm(false);
         setIsClosing(true);
         setTimeout(() => { onDungeon(); }, 240);
+    };
+
+    const confirmEnterHunt = () => {
+        setShowHuntIntroConfirm(false);
+        setIsClosing(true);
+        setTimeout(() => { onHunt(); }, 240);
     };
     const handleServiceTransition = (action: () => void) => {
         if (isClosing) return;
@@ -973,9 +1055,26 @@ export const TavernScreen: React.FC<{
                 </section>
 
                 <section className="absolute top-[8.8rem] left-1/2 -translate-x-1/2 sm:translate-x-0 sm:top-5 sm:left-auto sm:right-5 w-[min(94vw,320px)] sm:w-[min(92vw,340px)] flex flex-col gap-2 pointer-events-auto">
+                    <div className={`rounded-2xl border border-[#cfab91] bg-[#fff7ed]/95 p-2.5 sm:p-3 shadow-[0_20px_40px_rgba(0,0,0,0.25)] ${showDiamondOnTopHud ? 'grid grid-cols-2 gap-2' : 'grid grid-cols-1'}`}>
+                        <div className="rounded-xl border border-[#cfab91] bg-[#f4e5d4] px-3 py-2">
+                            <div className="text-[9px] uppercase tracking-[0.2em] text-[#9a7068]">Ouro</div>
+                            <div className="mt-1 flex items-center gap-1.5 text-lg font-black text-[#8d5e29]">
+                                <GameAssetIcon name="coin" size={16} /> {player.gold}
+                            </div>
+                        </div>
+                        {showDiamondOnTopHud && (
+                            <div className="rounded-xl border border-[#cfab91] bg-[#f4e5d4] px-3 py-2">
+                                <div className="text-[9px] uppercase tracking-[0.2em] text-[#9a7068]">Diamante</div>
+                                <div className="mt-1 flex items-center gap-1.5 text-lg font-black text-[#346c7f]">
+                                    <GameAssetIcon name="diamond" size={16} /> {player.diamonds}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
                     <div className="rounded-2xl border border-[#cfab91] bg-[#fff7ed]/95 p-2.5 sm:p-3 shadow-[0_20px_40px_rgba(0,0,0,0.25)]">
                         <div className="text-[9px] font-black uppercase tracking-[0.22em] text-[#9a7068] mb-2">Perfil e mochila</div>
-                        <div className="grid grid-cols-2 gap-2">
+                        <div className={`grid gap-2 ${profileActions.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
                             {profileActions.map((action) => (
                                 <button
                                     key={action.id}
@@ -989,7 +1088,7 @@ export const TavernScreen: React.FC<{
                         </div>
                     </div>
 
-                    {serviceActions.map((action) => (
+                    {!campIntroOnly && serviceActions.map((action) => (
                         <button
                             key={action.id}
                             onClick={() => handleServiceTransition(action.onClick)}
@@ -1000,10 +1099,6 @@ export const TavernScreen: React.FC<{
                                 <div className="text-left">
                                     <div className="text-sm font-black uppercase tracking-[0.12em]">{action.label}</div>
                                     <div className="text-[11px] font-semibold opacity-80">{action.subtitle}</div>
-                                    <div className="mt-1 inline-flex items-center gap-1.5 rounded-full border border-current/30 bg-white/60 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.14em]">
-                                        {action.resourceIcon}
-                                        <span>{action.resourceValue}</span>
-                                    </div>
                                 </div>
                             </div>
                         </button>
@@ -1016,7 +1111,7 @@ export const TavernScreen: React.FC<{
                         {!bossUnlocked && <div className="mt-0.5 text-[9px] sm:text-xs font-bold uppercase tracking-[0.16em] text-[#f8d9c1]">Faltam {killsRemaining} para liberar o chefao</div>}
                     </div>
                     <div className="grid grid-cols-2 gap-2 pointer-events-auto mb-2 sm:hidden">
-                        {serviceActions.map((action) => (
+                        {!campIntroOnly && serviceActions.map((action) => (
                             <button
                                 key={`mobile_${action.id}`}
                                 onClick={() => handleServiceTransition(action.onClick)}
@@ -1032,9 +1127,11 @@ export const TavernScreen: React.FC<{
                             <div className="flex items-center justify-center gap-1.5 text-xs font-black text-white"><Sword size={17} /> Cacar</div>
                         </button>
 
-                        <button onClick={() => handleMenuTransition('dungeon')} className="rounded-xl border border-[#3b6580] bg-[#4d7a96]/95 px-2.5 py-2.5 text-center transition-all hover:-translate-y-0.5 hover:bg-[#5a8aa6]">
-                            <div className="flex items-center justify-center gap-1.5 text-xs font-black text-white"><Crosshair size={17} /> Dungeon</div>
-                        </button>
+                        {canAccessDungeon && (
+                            <button onClick={() => handleMenuTransition('dungeon')} className="rounded-xl border border-[#3b6580] bg-[#4d7a96]/95 px-2.5 py-2.5 text-center transition-all hover:-translate-y-0.5 hover:bg-[#5a8aa6]">
+                                <div className="flex items-center justify-center gap-1.5 text-xs font-black text-white"><Crosshair size={17} /> Dungeon</div>
+                            </button>
+                        )}
 
                         {showArOption && (
                             <button
@@ -1051,24 +1148,26 @@ export const TavernScreen: React.FC<{
                         )}
                     </div>
 
-                    {bossUnlocked && (
+                    {!campIntroOnly && bossUnlocked && (
                         <button onClick={() => handleServiceTransition(onBoss)} className="mb-2 rounded-xl border border-[#a83a42] bg-[#c44b54]/95 px-2.5 py-2.5 text-center transition-all hover:-translate-y-0.5 hover:bg-[#b5424a] pointer-events-auto sm:hidden">
                             <div className="flex items-center justify-center gap-1.5 text-xs font-black text-white"><Skull size={17} /> Chefao</div>
                         </button>
                     )}
 
-                    <div className={`hidden sm:grid gap-2.5 pointer-events-auto ${bossUnlocked ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`}>
+                    <div className={`hidden sm:grid gap-2.5 pointer-events-auto ${canAccessDungeon && bossUnlocked ? 'sm:grid-cols-3' : canAccessDungeon ? 'sm:grid-cols-2' : 'sm:grid-cols-1'}`}>
                         <button onClick={() => handleMenuTransition('hunt')} className="rounded-2xl border border-[#b26a2e] bg-[#b87a3a]/95 px-4 py-4 text-center transition-all hover:-translate-y-0.5 hover:bg-[#c88a4a]">
                             <div className="flex items-center justify-center gap-2 text-base sm:text-lg font-black text-white"><Sword size={20} /> Cacar</div>
                             <div className="mt-1 text-[10px] uppercase tracking-[0.2em] text-[#f8eddf]">Batalha rapida</div>
                         </button>
 
-                        <button onClick={() => handleMenuTransition('dungeon')} className="rounded-2xl border border-[#3b6580] bg-[#4d7a96]/95 px-4 py-4 text-center transition-all hover:-translate-y-0.5 hover:bg-[#5a8aa6]">
-                            <div className="flex items-center justify-center gap-2 text-base sm:text-lg font-black text-white"><Crosshair size={20} /> Dungeon</div>
-                            <div className="mt-1 text-[10px] uppercase tracking-[0.2em] text-sky-100">Modo progressivo</div>
-                        </button>
+                        {canAccessDungeon && (
+                            <button onClick={() => handleMenuTransition('dungeon')} className="rounded-2xl border border-[#3b6580] bg-[#4d7a96]/95 px-4 py-4 text-center transition-all hover:-translate-y-0.5 hover:bg-[#5a8aa6]">
+                                <div className="flex items-center justify-center gap-2 text-base sm:text-lg font-black text-white"><Crosshair size={20} /> Dungeon</div>
+                                <div className="mt-1 text-[10px] uppercase tracking-[0.2em] text-sky-100">Modo progressivo</div>
+                            </button>
+                        )}
 
-                        {bossUnlocked && (
+                        {canAccessDungeon && bossUnlocked && (
                         <button onClick={() => handleServiceTransition(onBoss)} className="rounded-2xl border px-4 py-4 text-center transition-all border-[#a83a42] bg-[#c44b54]/95 hover:-translate-y-0.5 hover:bg-[#b5424a]">
                             <div className="flex items-center justify-center gap-2 text-base sm:text-lg font-black text-white"><Skull size={20} /> Chefao</div>
                             <div className="mt-1 text-[10px] uppercase tracking-[0.2em] text-rose-100">Avanca fase</div>
@@ -1077,8 +1176,154 @@ export const TavernScreen: React.FC<{
                     </div>
                 </section>
             </div>
-    {showProfile && <CharacterSheetModal player={player} shopItems={shopItems} onClose={() => setShowProfile(false)} onOpenInventory={() => { setShowProfile(false); setShowInventory(true); }} onUnlockTalent={onUnlockTalent} />}
+    {showProfile && <CharacterSheetModal player={player} shopItems={shopItems} onClose={() => setShowProfile(false)} onOpenInventory={() => { setShowProfile(false); setShowInventory(true); }} onUnlockTalent={onUnlockTalent} restrictToStatusOnly={restrictProfileToStatusOnly} allowCardsTab={allowCardsInProfile} initialTab={profileInitialTab} />}
     {showInventory && <InventoryModal player={player} shopItems={shopItems} onClose={() => setShowInventory(false)} onEquip={onEquipItem} onUse={onUseItem} />}
+
+    {showInventoryUnlockPrompt && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-sm pointer-events-auto p-4">
+            <div className="w-full max-w-sm rounded-[28px] border border-[#cfab91] bg-[#f7ecdd] shadow-[0_30px_80px_rgba(107,49,65,0.22)] overflow-hidden" onClick={e => e.stopPropagation()}>
+                <div className="bg-[#6b3141] px-6 py-5 text-center">
+                    <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.3em] text-[#f6eadc]">
+                        <GameAssetIcon name="bag" size={14} /> Mochila
+                    </div>
+                    <h3 className="mt-3 text-2xl font-black text-white">Mochila liberada</h3>
+                    <p className="mt-1.5 text-sm text-[#dcc0aa]">Agora voce ja pode abrir a mochila para ver todos os itens conquistados nas batalhas.</p>
+                </div>
+
+                <div className="px-6 py-5">
+                    <button
+                        onClick={() => {
+                            setShowInventoryUnlockPrompt(false);
+                            onAcknowledgeInventoryUnlock?.();
+                            setShowInventory(true);
+                        }}
+                        className="w-full rounded-xl bg-[#4d7a96] px-4 py-3 font-black text-white shadow-[0_8px_24px_rgba(77,122,150,0.28)] transition-all hover:bg-[#5a8aa6]"
+                    >
+                        Ver mochila
+                    </button>
+                </div>
+            </div>
+        </div>
+    )}
+
+    {showCardsUnlockPrompt && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-sm pointer-events-auto p-4">
+            <div className="w-full max-w-sm rounded-[28px] border border-[#cfab91] bg-[#f7ecdd] shadow-[0_30px_80px_rgba(107,49,65,0.22)] overflow-hidden" onClick={e => e.stopPropagation()}>
+                <div className="bg-[#6b3141] px-6 py-5 text-center">
+                    <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.3em] text-[#f6eadc]">
+                        <GameAssetIcon name="scroll" size={14} /> Cartas
+                    </div>
+                    <h3 className="mt-3 text-2xl font-black text-white">Evolucao liberada</h3>
+                    <p className="mt-1.5 text-sm text-[#dcc0aa]">Voce ganhou sua primeira carta. Abra o perfil para ver suas cartas de evolucao.</p>
+                </div>
+
+                <div className="px-6 py-5">
+                    <button
+                        onClick={() => {
+                            setShowCardsUnlockPrompt(false);
+                            onAcknowledgeCardsUnlock?.();
+                            setProfileInitialTab('cards');
+                            setShowProfile(true);
+                        }}
+                        className="w-full rounded-xl bg-[#4d7a96] px-4 py-3 font-black text-white shadow-[0_8px_24px_rgba(77,122,150,0.28)] transition-all hover:bg-[#5a8aa6]"
+                    >
+                        Ver cartas
+                    </button>
+                </div>
+            </div>
+        </div>
+    )}
+
+    {showSkillsUnlockPrompt && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-sm pointer-events-auto p-4">
+            <div className="w-full max-w-sm rounded-[28px] border border-[#cfab91] bg-[#f7ecdd] shadow-[0_30px_80px_rgba(107,49,65,0.22)] overflow-hidden" onClick={e => e.stopPropagation()}>
+                <div className="bg-[#6b3141] px-6 py-5 text-center">
+                    <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.3em] text-[#f6eadc]">
+                        <Sparkles size={14} /> Habilidades
+                    </div>
+                    <h3 className="mt-3 text-2xl font-black text-white">Habilidades liberadas</h3>
+                    <p className="mt-1.5 text-sm text-[#dcc0aa]">Voce conquistou sua primeira habilidade. Abra o perfil para ver e gerenciar todas as habilidades da sua classe.</p>
+                </div>
+
+                <div className="px-6 py-5">
+                    <button
+                        onClick={() => {
+                            setShowSkillsUnlockPrompt(false);
+                            onAcknowledgeSkillsUnlock?.();
+                            setProfileInitialTab('skills');
+                            setShowProfile(true);
+                        }}
+                        className="w-full rounded-xl bg-[#4d7a96] px-4 py-3 font-black text-white shadow-[0_8px_24px_rgba(77,122,150,0.28)] transition-all hover:bg-[#5a8aa6]"
+                    >
+                        Ver habilidades
+                    </button>
+                </div>
+            </div>
+        </div>
+    )}
+
+    {showMerchantUnlockPrompt && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-sm pointer-events-auto p-4">
+            <div className="w-full max-w-sm rounded-[28px] border border-[#cfab91] bg-[#f7ecdd] shadow-[0_30px_80px_rgba(107,49,65,0.22)] overflow-hidden" onClick={e => e.stopPropagation()}>
+                <div className="bg-[#6b3141] px-6 py-5 text-center">
+                    <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.3em] text-[#f6eadc]">
+                        <GameAssetIcon name="chest" size={14} /> Mercador
+                    </div>
+                    <h3 className="mt-3 text-2xl font-black text-white">Mercador liberado</h3>
+                    <p className="mt-1.5 text-sm text-[#dcc0aa]">No mercador voce pode comprar itens de cura, armas e equipamentos para ficar mais forte. Tudo que comprar fica na mochila para usar nas batalhas.</p>
+                </div>
+
+                <div className="px-6 py-5">
+                    <button
+                        onClick={() => {
+                            setShowMerchantUnlockPrompt(false);
+                            onAcknowledgeMerchantUnlock?.();
+                            handleServiceTransition(onShop);
+                        }}
+                        className="w-full rounded-xl bg-[#b87a3a] px-4 py-3 font-black text-white shadow-[0_8px_24px_rgba(184,122,58,0.3)] transition-all hover:bg-[#c88a4a]"
+                    >
+                        Ver mercador
+                    </button>
+                </div>
+            </div>
+        </div>
+    )}
+
+    {showHuntIntroConfirm && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-sm pointer-events-auto p-4" onClick={() => setShowHuntIntroConfirm(false)}>
+            <div className="w-full max-w-sm rounded-[28px] border border-[#cfab91] bg-[#f7ecdd] shadow-[0_30px_80px_rgba(107,49,65,0.22)] overflow-hidden" onClick={e => e.stopPropagation()}>
+                <div className="bg-[#6b3141] px-6 py-5 text-center">
+                    <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.3em] text-[#f6eadc]">
+                        <Sword size={12} /> Caca
+                    </div>
+                    <h3 className="mt-3 text-2xl font-black text-white">Entrar na Caca?</h3>
+                    <p className="mt-1.5 text-sm text-[#dcc0aa]">Primeiro passo da sua jornada.</p>
+                </div>
+
+                <div className="flex flex-col gap-3 px-6 py-5">
+                    <div className="flex items-start gap-3 rounded-2xl border border-[#4d7a96]/25 bg-[#4d7a96]/8 px-4 py-3">
+                        <Crosshair size={16} className="text-[#4d7a96] mt-0.5 shrink-0" />
+                        <p className="text-sm text-[#6b3141] leading-snug"><span className="font-black">Caca e batalha curta.</span> Enfrente inimigos, ganhe experiencia, conquiste itens e evolua no seu proprio ritmo.</p>
+                    </div>
+                    {fleeUnlocked && (
+                        <div className="flex items-start gap-3 rounded-2xl border border-[#c44b54]/25 bg-[#c44b54]/8 px-4 py-3">
+                            <AlertTriangle size={16} className="text-[#c44b54] mt-0.5 shrink-0" />
+                            <p className="text-sm text-[#6b3141] leading-snug"><span className="font-black">Voce pode fugir.</span> Se quiser recuar durante a luta, use a opcao de retirada.</p>
+                        </div>
+                    )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 px-6 pb-6">
+                    <button onClick={() => setShowHuntIntroConfirm(false)} className="rounded-xl border border-[#cfab91] bg-[#f4e5d4] px-4 py-3 font-black text-[#6b3141] transition-colors hover:bg-[#e9d7c2]">
+                        Cancelar
+                    </button>
+                    <button onClick={confirmEnterHunt} className="rounded-xl bg-[#b87a3a] px-4 py-3 font-black text-white shadow-[0_8px_24px_rgba(184,122,58,0.3)] transition-all hover:bg-[#c88a4a]">
+                        Entrar
+                    </button>
+                </div>
+            </div>
+        </div>
+    )}
 
     {showDungeonConfirm && (
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-sm pointer-events-auto p-4" onClick={() => setShowDungeonConfirm(false)}>
@@ -1775,7 +2020,7 @@ export const DungeonResultScreen: React.FC<{ result: DungeonResult, onContinue: 
                     </div>
 
                     <button onClick={onContinue} className={`mt-6 w-full py-4 rounded-xl font-black text-lg text-white transition-all ${isPositiveOutcome ? 'bg-[#6b3141] hover:bg-[#7d3d4d] shadow-[0_12px_30px_rgba(107,49,65,0.3)]' : 'bg-[#5d1e1e] hover:bg-[#6b2626] shadow-[0_12px_30px_rgba(93,30,30,0.3)]'}`}>
-                        {result.outcome === 'victory' ? 'Receber espólio e continuar' : result.outcome === 'withdrawal' ? 'Receber espólio e voltar' : 'Voltar para a taverna'}
+                        {result.outcome === 'victory' ? 'Receber espólio e continuar' : result.outcome === 'withdrawal' ? 'Receber espólio e voltar' : 'Voltar para o acampamento'}
                     </button>
                 </div>
             </div>
@@ -1911,10 +2156,17 @@ export const ShopScreen: React.FC<{ player: Player, items: Item[], onBuy: (i: It
 };
 
 export const BattleHUD: React.FC<GameUIProps> = (props) => {
-    const { player, enemy, turnState, logs, onAttack, onDefend, onSkill, onUseItem, onUnlockTalent, currentNarration, gameState, shopItems, floatingTexts, onFlee, onOpenAr, arSupport, onStartBattle, stage, killCount, onEquipItem, isDungeonRun, dungeonRewards, dungeonCleared = 0, dungeonTotal = 30, gameTime } = props;
+    const { player, enemy, turnState, logs, onAttack, onDefend, onSkill, onUseItem, onUnlockTalent, currentNarration, gameState, shopItems, floatingTexts, onFlee, onOpenAr, arSupport, onStartBattle, stage, killCount, onEquipItem, isDungeonRun, dungeonRewards, dungeonCleared = 0, dungeonTotal = 30, gameTime, restrictProfileToStatusOnly = false, limitBattleActionsToBasics = false, inventoryUnlocked = false, inventoryUnlockPromptActive = false, onAcknowledgeInventoryUnlock, cardsUnlockPromptActive = false, onAcknowledgeCardsUnlock, skillsUnlockPromptActive = false, onAcknowledgeSkillsUnlock, allowCardsInProfile = false, fleeUnlocked = false, showItemsAction = false, showSkillsAction = false, itemsUnlockPromptActive = false, onAcknowledgeItemsUnlock, fleeUnlockPromptActive = false, onAcknowledgeFleeUnlock } = props;
   const [activeBattleMenu, setActiveBattleMenu] = useState<'skills' | 'items' | null>(null);
   const [showProfile, setShowProfile] = useState(false);
+    const [profileInitialTab, setProfileInitialTab] = useState<'overview' | 'cards' | 'skills' | 'constellation' | undefined>(undefined);
   const [showInventory, setShowInventory] = useState(false);
+    const [showInventoryUnlockPrompt, setShowInventoryUnlockPrompt] = useState(false);
+        const [showCardsUnlockPrompt, setShowCardsUnlockPrompt] = useState(false);
+                const [showSkillsUnlockPrompt, setShowSkillsUnlockPrompt] = useState(false);
+        const [showItemsUnlockPrompt, setShowItemsUnlockPrompt] = useState(false);
+        const [showFleeUnlockPrompt, setShowFleeUnlockPrompt] = useState(false);
+    const [resumeBattleAfterInventoryPrompt, setResumeBattleAfterInventoryPrompt] = useState(false);
     const [showFleeConfirm, setShowFleeConfirm] = useState(false);
     const [showDungeonExtractConfirm, setShowDungeonExtractConfirm] = useState(false);
     const [pendingDungeonExtractItem, setPendingDungeonExtractItem] = useState<Item | null>(null);
@@ -1924,6 +2176,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
     const [resourcePulse, setResourcePulse] = useState<'gain' | 'spend' | null>(null);
     const resourceDeltaTimeoutRef = useRef<number | null>(null);
     const previousResourceRef = useRef(player.classResource.value);
+    const showDiamondOnBattleHud = false;
   const isPlayerTurn = turnState === TurnState.PLAYER_INPUT;
         const showArOption = false;
         const arModeReady = arSupport.status === 'supported';
@@ -1986,6 +2239,70 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
           window.clearTimeout(resourceDeltaTimeoutRef.current);
       }
   }, []);
+
+  useEffect(() => {
+      if (!activeBattleMenu) {
+          return;
+      }
+
+      if (activeBattleMenu === 'skills' && !showSkillsAction) {
+          setActiveBattleMenu(null);
+      }
+
+      if (activeBattleMenu === 'items' && !showItemsAction) {
+          setActiveBattleMenu(null);
+      }
+
+      if (limitBattleActionsToBasics) {
+          setActiveBattleMenu(null);
+      }
+  }, [activeBattleMenu, limitBattleActionsToBasics, showItemsAction, showSkillsAction]);
+
+  useEffect(() => {
+      if (inventoryUnlockPromptActive) {
+          setShowInventoryUnlockPrompt(true);
+      }
+  }, [inventoryUnlockPromptActive]);
+
+  useEffect(() => {
+      if (cardsUnlockPromptActive) {
+          setShowCardsUnlockPrompt(true);
+      }
+  }, [cardsUnlockPromptActive]);
+
+  useEffect(() => {
+      if (skillsUnlockPromptActive) {
+          setShowSkillsUnlockPrompt(true);
+      }
+  }, [skillsUnlockPromptActive]);
+
+  useEffect(() => {
+      if (itemsUnlockPromptActive) {
+          setShowItemsUnlockPrompt(true);
+      }
+  }, [itemsUnlockPromptActive]);
+
+  useEffect(() => {
+      if (fleeUnlockPromptActive) {
+          setShowFleeUnlockPrompt(true);
+      }
+  }, [fleeUnlockPromptActive]);
+
+  useEffect(() => {
+      if (!showInventoryUnlockPrompt && !showCardsUnlockPrompt && !showSkillsUnlockPrompt && !showItemsUnlockPrompt && !showFleeUnlockPrompt) {
+          return;
+      }
+
+      const handleBlockEscape = (event: KeyboardEvent) => {
+          if (event.key === 'Escape') {
+              event.preventDefault();
+              event.stopPropagation();
+          }
+      };
+
+      window.addEventListener('keydown', handleBlockEscape, true);
+      return () => window.removeEventListener('keydown', handleBlockEscape, true);
+    }, [showCardsUnlockPrompt, showInventoryUnlockPrompt, showSkillsUnlockPrompt, showItemsUnlockPrompt, showFleeUnlockPrompt]);
 
   return (
     <div className="absolute inset-0 z-10 flex flex-col justify-between p-2 sm:p-4 pointer-events-none safe-bottom">
@@ -2089,6 +2406,137 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                               <div className="rounded-xl border border-dashed border-[#cfab91] bg-[#f7ecdd] px-4 py-5 text-center text-xs text-[#8f6c67]">Nenhum item acumulado ainda.</div>
                           )}
                       </div>
+                  </div>
+              </div>
+          </div>
+      )}
+
+      {showInventoryUnlockPrompt && (
+          <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/55 backdrop-blur-[2px] pointer-events-auto p-4">
+              <div className="w-full max-w-sm rounded-[24px] border border-[#cfab91] bg-[#f7ecdd] shadow-[0_24px_80px_rgba(107,49,65,0.22)] overflow-hidden animate-fade-in-down" onClick={event => event.stopPropagation()}>
+                  <div className="bg-[#6b3141] px-5 py-4 text-center">
+                      <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.28em] text-[#f6eadc]">
+                          <GameAssetIcon name="bag" size={14} /> Mochila
+                      </div>
+                      <h3 className="mt-2 text-2xl font-black text-white">Mochila liberada</h3>
+                      <p className="mt-2 text-sm text-[#dcc0aa]">Agora voce pode abrir a mochila para ver os itens que conquistou nas batalhas.</p>
+                  </div>
+                  <div className="p-4">
+                      <button
+                          onClick={() => {
+                              setShowInventoryUnlockPrompt(false);
+                              onAcknowledgeInventoryUnlock?.();
+                              setResumeBattleAfterInventoryPrompt(true);
+                              setShowInventory(true);
+                          }}
+                          className="w-full rounded-xl bg-[#4d7a96] px-4 py-3 font-black text-white shadow-[0_8px_24px_rgba(77,122,150,0.28)] transition-all hover:bg-[#5a8aa6]"
+                      >
+                          Ver mochila
+                      </button>
+                  </div>
+              </div>
+          </div>
+      )}
+
+      {showCardsUnlockPrompt && (
+          <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/55 backdrop-blur-[2px] pointer-events-auto p-4">
+              <div className="w-full max-w-sm rounded-[24px] border border-[#cfab91] bg-[#f7ecdd] shadow-[0_24px_80px_rgba(107,49,65,0.22)] overflow-hidden animate-fade-in-down" onClick={event => event.stopPropagation()}>
+                  <div className="bg-[#6b3141] px-5 py-4 text-center">
+                      <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.28em] text-[#f6eadc]">
+                          <GameAssetIcon name="scroll" size={14} /> Cartas
+                      </div>
+                      <h3 className="mt-2 text-2xl font-black text-white">Evolucao liberada</h3>
+                      <p className="mt-2 text-sm text-[#dcc0aa]">Sua primeira carta foi registrada. Abra o perfil para acompanhar suas cartas de evolucao.</p>
+                  </div>
+                  <div className="p-4">
+                      <button
+                          onClick={() => {
+                              setShowCardsUnlockPrompt(false);
+                              onAcknowledgeCardsUnlock?.();
+                              setProfileInitialTab('cards');
+                              setShowProfile(true);
+                          }}
+                          className="w-full rounded-xl bg-[#4d7a96] px-4 py-3 font-black text-white shadow-[0_8px_24px_rgba(77,122,150,0.28)] transition-all hover:bg-[#5a8aa6]"
+                      >
+                          Ver cartas
+                      </button>
+                  </div>
+              </div>
+          </div>
+      )}
+
+      {showSkillsUnlockPrompt && (
+          <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/55 backdrop-blur-[2px] pointer-events-auto p-4">
+              <div className="w-full max-w-sm rounded-[24px] border border-[#cfab91] bg-[#f7ecdd] shadow-[0_24px_80px_rgba(107,49,65,0.22)] overflow-hidden animate-fade-in-down" onClick={event => event.stopPropagation()}>
+                  <div className="bg-[#6b3141] px-5 py-4 text-center">
+                      <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.28em] text-[#f6eadc]">
+                          <Sparkles size={14} /> Habilidades
+                      </div>
+                      <h3 className="mt-2 text-2xl font-black text-white">Habilidades liberadas</h3>
+                      <p className="mt-2 text-sm text-[#dcc0aa]">Voce conquistou sua primeira habilidade. Abra o perfil para ver e usar todas as habilidades disponiveis.</p>
+                  </div>
+                  <div className="p-4">
+                      <button
+                          onClick={() => {
+                              setShowSkillsUnlockPrompt(false);
+                              onAcknowledgeSkillsUnlock?.();
+                              setProfileInitialTab('skills');
+                              setShowProfile(true);
+                          }}
+                          className="w-full rounded-xl bg-[#4d7a96] px-4 py-3 font-black text-white shadow-[0_8px_24px_rgba(77,122,150,0.28)] transition-all hover:bg-[#5a8aa6]"
+                      >
+                          Ver habilidades
+                      </button>
+                  </div>
+              </div>
+          </div>
+      )}
+
+      {showItemsUnlockPrompt && (
+          <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/55 backdrop-blur-[2px] pointer-events-auto p-4">
+              <div className="w-full max-w-sm rounded-[24px] border border-[#cfab91] bg-[#f7ecdd] shadow-[0_24px_80px_rgba(107,49,65,0.22)] overflow-hidden animate-fade-in-down" onClick={event => event.stopPropagation()}>
+                  <div className="bg-[#6b3141] px-5 py-4 text-center">
+                      <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.28em] text-[#f6eadc]">
+                          <FlaskConical size={14} /> Itens
+                      </div>
+                      <h3 className="mt-2 text-2xl font-black text-white">Itens liberados</h3>
+                      <p className="mt-2 text-sm text-[#dcc0aa]">Agora voce pode usar itens comprados no mercador e itens conquistados dos inimigos durante a batalha.</p>
+                  </div>
+                  <div className="p-4">
+                      <button
+                          onClick={() => {
+                              setShowItemsUnlockPrompt(false);
+                              onAcknowledgeItemsUnlock?.();
+                          }}
+                          className="w-full rounded-xl bg-[#4d7a96] px-4 py-3 font-black text-white shadow-[0_8px_24px_rgba(77,122,150,0.28)] transition-all hover:bg-[#5a8aa6]"
+                      >
+                          Entendi
+                      </button>
+                  </div>
+              </div>
+          </div>
+      )}
+
+      {showFleeUnlockPrompt && (
+          <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/55 backdrop-blur-[2px] pointer-events-auto p-4">
+              <div className="w-full max-w-sm rounded-[24px] border border-[#cfab91] bg-[#f7ecdd] shadow-[0_24px_80px_rgba(107,49,65,0.22)] overflow-hidden animate-fade-in-down" onClick={event => event.stopPropagation()}>
+                  <div className="bg-[#6b3141] px-5 py-4 text-center">
+                      <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.28em] text-[#f6eadc]">
+                          <LogOut size={14} /> Fuga
+                      </div>
+                      <h3 className="mt-2 text-2xl font-black text-white">Fuga liberada</h3>
+                      <p className="mt-2 text-sm text-[#dcc0aa]">Agora voce pode fugir da caca e voltar ao acampamento a qualquer momento, com custo de 50 de ouro.</p>
+                  </div>
+                  <div className="p-4">
+                      <button
+                          onClick={() => {
+                              setShowFleeUnlockPrompt(false);
+                              onAcknowledgeFleeUnlock?.();
+                          }}
+                          className="w-full rounded-xl bg-[#4d7a96] px-4 py-3 font-black text-white shadow-[0_8px_24px_rgba(77,122,150,0.28)] transition-all hover:bg-[#5a8aa6]"
+                      >
+                          Entendi
+                      </button>
                   </div>
               </div>
           </div>
@@ -2200,15 +2648,15 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
       {/* ═══ TOP: Player vitals (left) + Stage (center) + Enemy HP (right) ═══ */}
       <div className="absolute top-0 left-0 w-full z-20 pointer-events-none pt-1.5 sm:pt-2.5 px-2 sm:px-4">
           <div className="sm:hidden space-y-2">
-              <div className="grid grid-cols-[1.55fr_0.85fr] gap-2">
+              <div className={`grid gap-2 ${showDiamondOnBattleHud ? 'grid-cols-[1.6fr_0.85fr_0.85fr_0.85fr]' : 'grid-cols-[1.6fr_0.85fr_0.85fr]'}`}>
                   <div className="bg-[#f7ecdd]/92 backdrop-blur-md border border-[#cfab91] px-2.5 py-1.5 rounded-[12px] shadow-xl animate-fade-in-down">
                       <div className="flex items-center gap-2">
-                          <span className="shrink-0 text-[9px] font-black uppercase tracking-[0.14em] text-[#6b3141]">{isDungeonRun ? 'DUNGEON' : `FASE ${stage}`}</span>
+                          <span className="shrink-0 text-[11px] font-black uppercase tracking-[0.14em] text-[#6b3141]">{isDungeonRun ? 'DUNGEON' : `FASE ${stage}`}</span>
                           <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                              <div className="h-1.5 flex-1 bg-[#e9d7c2] rounded-full overflow-hidden border border-[#dcc0aa]">
+                              <div className="h-2 flex-1 bg-[#e9d7c2] rounded-full overflow-hidden border border-[#dcc0aa]">
                                   <div className="h-full rounded-full bg-[linear-gradient(90deg,#7d3d4d,#c89a66)] transition-all duration-500" style={{ width: `${isDungeonRun ? Math.min(100, (dungeonCleared / dungeonTotal) * 100) : Math.min(100, (killCount / 10) * 100)}%` }} />
                               </div>
-                              <span className="shrink-0 text-[9px] font-black text-[#6b3141]">
+                              <span className="shrink-0 text-[11px] font-black text-[#6b3141]">
                                   {isDungeonRun ? (dungeonCleared >= dungeonTotal ? <span className="text-rose-500 animate-pulse">BOSS</span> : `${dungeonCleared}/${dungeonTotal}`) : (killCount >= 10 ? <span className="text-rose-500 animate-pulse">BOSS</span> : `${killCount}/10`)}
                               </span>
                           </div>
@@ -2218,11 +2666,27 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                       <div className="bg-[#f7ecdd]/92 backdrop-blur-md border border-[#cfab91] px-2.5 py-1.5 rounded-[12px] shadow-xl animate-fade-in-down">
                           <div className="flex h-full items-center justify-center gap-2">
                               <Clock size={14} className="text-[#6b3141]" />
-                              <span className="text-[10px] font-black uppercase tracking-[0.12em] text-[#6b3141]">{gameTime}</span>
+                              <span className="text-[12px] font-black uppercase tracking-[0.12em] text-[#6b3141]">{gameTime}</span>
                           </div>
                       </div>
                   ) : (
                       <div className="rounded-[14px] border border-[#cfab91] bg-[#f7ecdd]/70" />
+                  )}
+
+                  <div className="bg-[#f7ecdd]/92 backdrop-blur-md border border-[#cfab91] px-2.5 py-1.5 rounded-[12px] shadow-xl animate-fade-in-down">
+                      <div className="flex items-center justify-center gap-2">
+                          <GameAssetIcon name="coin" size={20} />
+                          <span className="text-sm font-black text-[#8d5e29]">{player.gold}</span>
+                      </div>
+                  </div>
+
+                  {showDiamondOnBattleHud && (
+                      <div className="bg-[#f7ecdd]/92 backdrop-blur-md border border-[#cfab91] px-2.5 py-1.5 rounded-[12px] shadow-xl animate-fade-in-down">
+                          <div className="flex items-center justify-center gap-2">
+                              <GameAssetIcon name="diamond" size={20} />
+                              <span className="text-sm font-black text-[#346c7f]">{player.diamonds}</span>
+                          </div>
+                      </div>
                   )}
               </div>
 
@@ -2303,23 +2767,23 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                   <div className="space-y-1.5">
                       <div>
                           <div className="flex items-center justify-between mb-0.5">
-                              <span className="text-[9px] font-black uppercase tracking-[0.22em] text-[#9a4151]">HP</span>
-                              <span className="text-[10px] font-black text-[#6b3141]">{player.stats.hp}/{player.stats.maxHp}</span>
+                              <span className="text-[11px] font-black uppercase tracking-[0.2em] text-[#9a4151]">HP</span>
+                              <span className="text-sm font-black text-[#6b3141]">{player.stats.hp}/{player.stats.maxHp}</span>
                           </div>
                           <div className="h-2.5 bg-[#e9d7c2] rounded-full overflow-hidden"><div className="h-full rounded-full bg-[linear-gradient(90deg,#8d2f46,#d17482)] transition-all duration-300" style={{width: `${(player.stats.hp/player.stats.maxHp)*100}%`}}></div></div>
                       </div>
                       <div>
                           <div className="flex items-center justify-between mb-0.5">
-                              <span className="text-[9px] font-black uppercase tracking-[0.22em] text-[#346c7f]">Mana</span>
-                              <span className="text-[10px] font-black text-[#6b3141]">{player.stats.mp}/{player.stats.maxMp}</span>
+                              <span className="text-[11px] font-black uppercase tracking-[0.2em] text-[#346c7f]">Mana</span>
+                              <span className="text-sm font-black text-[#6b3141]">{player.stats.mp}/{player.stats.maxMp}</span>
                           </div>
                           <div className="h-2 bg-[#e9d7c2] rounded-full overflow-hidden"><div className="h-full rounded-full bg-[linear-gradient(90deg,#2b6878,#66b8d2)] transition-all duration-300" style={{width: `${(player.stats.mp/player.stats.maxMp)*100}%`}}></div></div>
                       </div>
                       {player.classResource.max > 0 && (
                           <div className={`relative rounded-md px-1 py-0.5 transition-all duration-300 ${resourcePulse === 'gain' ? 'bg-emerald-200/35 ring-1 ring-emerald-500/35' : resourcePulse === 'spend' ? 'bg-rose-200/35 ring-1 ring-rose-500/35' : ''}`}>
                               <div className="flex items-center justify-between mb-0.5">
-                                  <span className="text-[9px] font-black uppercase tracking-[0.22em] text-[#7c4c76]">{player.classResource.name}</span>
-                                  <span className="text-[10px] font-black text-[#6b3141]">{player.classResource.value}/{player.classResource.max}</span>
+                                  <span className="text-[11px] font-black uppercase tracking-[0.18em] text-[#7c4c76]">{player.classResource.name}</span>
+                                  <span className="text-sm font-black text-[#6b3141]">{player.classResource.value}/{player.classResource.max}</span>
                               </div>
                               <div className="h-1.5 bg-[#e9d7c2] rounded-full overflow-hidden">
                                   <div
@@ -2341,9 +2805,9 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                   {/* XP compact */}
                   <div className="mt-1.5 pt-1 border-t border-[#dcc0aa]">
                       <div className="flex items-center gap-1.5">
-                          <span className="text-[8px] font-black uppercase tracking-[0.2em] text-[#9a7068]">XP</span>
-                          <div className="flex-1 h-1 bg-[#e9d7c2] rounded-full overflow-hidden"><div className="h-full rounded-full bg-[linear-gradient(90deg,#7d3d4d,#c89a66)] transition-all duration-500" style={{width: `${(player.xp/player.xpToNext)*100}%`}}></div></div>
-                          <span className="text-[8px] font-black text-[#6b3141]">{player.xp}/{player.xpToNext}</span>
+                          <span className="text-[12px] font-black uppercase tracking-[0.14em] text-[#9a7068]">XP</span>
+                          <div className="flex-1 h-2 bg-[#e9d7c2] rounded-full overflow-hidden"><div className="h-full rounded-full bg-[linear-gradient(90deg,#7d3d4d,#c89a66)] transition-all duration-500" style={{width: `${(player.xp/player.xpToNext)*100}%`}}></div></div>
+                          <span className="text-sm font-black text-[#6b3141]">{player.xp}/{player.xpToNext}</span>
                       </div>
                   </div>
                   {/* Buffs */}
@@ -2361,12 +2825,12 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
               <div className="flex flex-col items-center gap-1.5 shrink-0 self-start mt-0.5">
                   <div className="bg-[#f7ecdd]/92 backdrop-blur-md border border-[#cfab91] px-2 sm:px-3 py-1 rounded-[12px] shadow-xl animate-fade-in-down">
                       <div className="flex flex-col items-center gap-0.5">
-                          <span className="text-[9px] font-black uppercase tracking-[0.14em] text-[#6b3141]">{isDungeonRun ? 'DUNGEON' : `FASE ${stage}`}</span>
+                          <span className="text-[11px] font-black uppercase tracking-[0.14em] text-[#6b3141]">{isDungeonRun ? 'DUNGEON' : `FASE ${stage}`}</span>
                           <div className="flex items-center gap-1.5">
-                              <div className="w-10 sm:w-14 h-1.5 bg-[#e9d7c2] rounded-full overflow-hidden border border-[#dcc0aa]">
+                              <div className="w-14 sm:w-20 h-2 bg-[#e9d7c2] rounded-full overflow-hidden border border-[#dcc0aa]">
                                   <div className="h-full rounded-full bg-[linear-gradient(90deg,#7d3d4d,#c89a66)] transition-all duration-500" style={{ width: `${isDungeonRun ? Math.min(100, (dungeonCleared / dungeonTotal) * 100) : Math.min(100, (killCount / 10) * 100)}%` }} />
                               </div>
-                              <span className="text-[9px] font-black text-[#6b3141]">
+                              <span className="text-[11px] font-black text-[#6b3141]">
                                   {isDungeonRun ? (dungeonCleared >= dungeonTotal ? <span className="text-rose-500 animate-pulse">BOSS</span> : `${dungeonCleared}/${dungeonTotal}`) : (killCount >= 10 ? <span className="text-rose-500 animate-pulse">BOSS</span> : `${killCount}/10`)}
                               </span>
                           </div>
@@ -2377,10 +2841,26 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                       <div className="bg-[#f7ecdd]/92 backdrop-blur-md border border-[#cfab91] px-3 sm:px-4 py-1.5 rounded-[12px] shadow-xl animate-fade-in-down">
                           <div className="flex items-center gap-2">
                               <Clock size={16} className="text-[#6b3141]" />
-                              <span className="text-[11px] sm:text-xs font-black uppercase tracking-[0.14em] text-[#6b3141]">{gameTime}</span>
+                              <span className="text-xs sm:text-sm font-black uppercase tracking-[0.14em] text-[#6b3141]">{gameTime}</span>
                           </div>
                       </div>
                   )}
+                  <div className={`grid gap-2 w-full min-w-[170px] ${showDiamondOnBattleHud ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                      <div className="bg-[#f7ecdd]/92 backdrop-blur-md border border-[#cfab91] px-3 py-1.5 rounded-[12px] shadow-xl animate-fade-in-down">
+                          <div className="flex items-center justify-center gap-2">
+                              <GameAssetIcon name="coin" size={20} />
+                              <span className="text-sm sm:text-base font-black text-[#8d5e29]">{player.gold}</span>
+                          </div>
+                      </div>
+                      {showDiamondOnBattleHud && (
+                          <div className="bg-[#f7ecdd]/92 backdrop-blur-md border border-[#cfab91] px-3 py-1.5 rounded-[12px] shadow-xl animate-fade-in-down">
+                              <div className="flex items-center justify-center gap-2">
+                                  <GameAssetIcon name="diamond" size={20} />
+                                  <span className="text-sm sm:text-base font-black text-[#346c7f]">{player.diamonds}</span>
+                              </div>
+                          </div>
+                      )}
+                  </div>
               </div>
 
               {/* Enemy HP — right */}
@@ -2388,17 +2868,17 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                   <div className="rounded-[16px] border border-[#cfab91] bg-[#f7ecdd]/94 px-2.5 py-2 shadow-xl backdrop-blur-md flex-1 max-w-[48%] sm:max-w-[250px] animate-fade-in-down">
                       <div className="flex items-center justify-between gap-1.5 mb-1">
                           <div className="min-w-0">
-                              <div className="truncate text-xs font-black text-[#6b3141]">{enemy.name}</div>
-                              <span className="text-[9px] font-bold uppercase tracking-[0.14em] text-[#8a5a57]">Nv. {enemy.level}</span>
+                              <div className="truncate text-base font-black text-[#6b3141]">{enemy.name}</div>
+                              <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#8a5a57]">Nv. {enemy.level}</span>
                           </div>
                           {enemy.isBoss && (
-                              <span className="shrink-0 rounded-full border border-rose-300 bg-rose-100 px-1.5 py-0.5 text-[8px] font-black uppercase text-rose-600">Chefão</span>
+                              <span className="shrink-0 rounded-full border border-rose-300 bg-rose-100 px-1.5 py-0.5 text-[10px] font-black uppercase text-rose-600">Chefão</span>
                           )}
                       </div>
                       <div>
                           <div className="flex items-center justify-between mb-0.5">
-                              <span className="text-[9px] font-black uppercase tracking-[0.22em] text-[#9a4151]">HP</span>
-                              <span className="text-[10px] font-black text-[#6b3141]">{enemy.stats.hp}/{enemy.stats.maxHp}</span>
+                              <span className="text-[11px] font-black uppercase tracking-[0.2em] text-[#9a4151]">HP</span>
+                              <span className="text-sm font-black text-[#6b3141]">{enemy.stats.hp}/{enemy.stats.maxHp}</span>
                           </div>
                           <div className="h-2.5 bg-[#e9d7c2] rounded-full overflow-hidden">
                               <div className="h-full rounded-full bg-[linear-gradient(90deg,#8d2f46,#d17482)] transition-all duration-300" style={{width: `${Math.max(0, (enemy.stats.hp/enemy.stats.maxHp)*100)}%`}}></div>
@@ -2407,7 +2887,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                       {(enemy.statusEffects?.length ?? 0) > 0 && (
                           <div className="mt-1 flex flex-wrap gap-1">
                               {enemy.statusEffects?.slice(0, 3).map((status) => (
-                                  <span key={status.id} className="rounded-full border px-1 py-0.5 text-[7px] font-black uppercase" style={{ borderColor: `${status.color}55`, backgroundColor: `${status.color}18`, color: status.color }}>
+                                  <span key={status.id} className="rounded-full border px-1.5 py-0.5 text-[8px] font-black uppercase" style={{ borderColor: `${status.color}55`, backgroundColor: `${status.color}18`, color: status.color }}>
                                       {status.name} {status.duration}t
                                   </span>
                               ))}
@@ -2430,7 +2910,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                           <Skull size={14} /> ENFRENTAR CHEFÃO
                       </button>
                   )}
-                  {!isDungeonRun && !enemy?.isBoss && killCount < 10 && (
+                  {fleeUnlocked && !isDungeonRun && !enemy?.isBoss && killCount < 10 && (
                       <button onClick={() => setShowFleeConfirm(true)} disabled={!isPlayerTurn} className={`self-start rounded-[10px] border px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.15em] transition-colors ${!isPlayerTurn ? 'border-[#dcc0aa] bg-[#e9d7c2] text-[#8f6c67] cursor-not-allowed' : 'border-[#cfab91] bg-[#f4e5d4] text-[#6b3141] hover:bg-[#e9d7c2]'}`}>
                           {canLeaveFreely ? 'Sair' : 'Fugir'}
                       </button>
@@ -2454,23 +2934,19 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                                   <span className="rounded-full border border-[#d6b9a3] bg-[#f4e5d4] px-2 py-0.5 text-[11px] sm:text-sm font-black text-[#8d5e29]">Nv.{player.level}</span>
                               </div>
                           </div>
-                          <div className="flex flex-col gap-1 text-xs sm:text-sm font-black text-[#8f6c67] shrink-0">
-                              <div className="flex items-center gap-1.5 rounded-full border border-[#d6b9a3] bg-[#f4e5d4] px-2.5 py-1">
-                                  <GameAssetIcon name="coin" size={16} /><span>{player.gold}</span>
-                              </div>
-                              <div className="flex items-center gap-1.5 rounded-full border border-[#d6b9a3] bg-[#f4e5d4] px-2.5 py-1">
-                                  <GameAssetIcon name="diamond" size={16} /><span>{player.diamonds}</span>
-                              </div>
-                          </div>
                       </div>
                       <div className="mt-2.5 flex items-center gap-2">
-                          <button onClick={() => setShowBattleStats(s => !s)} className={`flex h-10 w-10 items-center justify-center rounded-[12px] border transition-colors ${showBattleStats ? 'bg-[#c59d82] border-[#c59d82] text-white' : 'bg-[#f4e5d4] border-[#dcc0aa] text-[#6b3141] hover:bg-[#e9d7c2]'}`} title="Atributos">
-                              <LayoutGrid size={20} />
-                          </button>
-                          <button onClick={() => setShowInventory(true)} className="flex h-10 w-10 items-center justify-center rounded-[12px] border border-[#dcc0aa] bg-[#f4e5d4] text-[#6b3141] transition-colors hover:bg-[#e9d7c2]" title="Mochila">
-                              <GameAssetIcon name="bag" size={22} />
-                          </button>
-                          <button onClick={() => setShowProfile(true)} className="flex h-10 w-10 items-center justify-center rounded-[12px] border border-[#dcc0aa] bg-[#f4e5d4] text-[#6b3141] transition-colors hover:bg-[#e9d7c2]" title="Perfil">
+                          {!restrictProfileToStatusOnly && (
+                              <button onClick={() => setShowBattleStats(s => !s)} className={`flex h-10 w-10 items-center justify-center rounded-[12px] border transition-colors ${showBattleStats ? 'bg-[#c59d82] border-[#c59d82] text-white' : 'bg-[#f4e5d4] border-[#dcc0aa] text-[#6b3141] hover:bg-[#e9d7c2]'}`} title="Atributos">
+                                  <LayoutGrid size={20} />
+                              </button>
+                          )}
+                          {(!restrictProfileToStatusOnly || inventoryUnlocked) && (
+                              <button onClick={() => setShowInventory(true)} className="flex h-10 w-10 items-center justify-center rounded-[12px] border border-[#dcc0aa] bg-[#f4e5d4] text-[#6b3141] transition-colors hover:bg-[#e9d7c2]" title="Mochila">
+                                  <GameAssetIcon name="bag" size={22} />
+                              </button>
+                          )}
+                          <button onClick={() => { setProfileInitialTab(undefined); setShowProfile(true); }} className="flex h-10 w-10 items-center justify-center rounded-[12px] border border-[#dcc0aa] bg-[#f4e5d4] text-[#6b3141] transition-colors hover:bg-[#e9d7c2]" title="Perfil">
                               <GameAssetIcon name="book" size={22} />
                           </button>
                       </div>
@@ -2491,18 +2967,24 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
 
               {/* Right: 2x2 action grid */}
               <div className="flex flex-col items-end gap-2 shrink-0">
-                  <div className="grid grid-cols-2 gap-1.5 w-[130px] sm:gap-2 sm:w-[210px]">
+                                    <div className="grid grid-cols-2 gap-1.5 w-[130px] sm:gap-2 sm:w-[210px]">
                       <ActionTile icon={<Sword size={18} />} label="ATACAR" onClick={() => { setActiveBattleMenu(null); onAttack(); }} disabled={!isPlayerTurn} variant="attack" />
                       <ActionTile icon={<Shield size={18} />} label="DEFENDER" onClick={() => { setActiveBattleMenu(null); onDefend(); }} disabled={!isPlayerTurn} variant="defense" />
-                      <ActionTile icon={<Sparkles size={18} />} label="SKILLS" onClick={() => setActiveBattleMenu(prev => prev === 'skills' ? null : 'skills')} disabled={!isPlayerTurn || player.skills.length === 0} variant="skill" />
-                      <ActionTile icon={<FlaskConical size={18} />} label="ITENS" onClick={() => setActiveBattleMenu(prev => prev === 'items' ? null : 'items')} disabled={!isPlayerTurn || usableItems.length === 0} variant="item" />
+                                            {showSkillsAction && <ActionTile icon={<Sparkles size={18} />} label="HABILIDADES" onClick={() => setActiveBattleMenu(prev => prev === 'skills' ? null : 'skills')} disabled={!isPlayerTurn || player.skills.length === 0} variant="skill" />}
+                                            {showItemsAction && <ActionTile icon={<FlaskConical size={18} />} label="ITENS" onClick={() => setActiveBattleMenu(prev => prev === 'items' ? null : 'items')} disabled={!isPlayerTurn || usableItems.length === 0} variant="item" />}
                   </div>
               </div>
           </div>
       </div>
 
-    {showProfile && <CharacterSheetModal player={player} shopItems={shopItems} onClose={() => setShowProfile(false)} onOpenInventory={() => { setShowProfile(false); setShowInventory(true); }} onUnlockTalent={onUnlockTalent} />}
-    {showInventory && <InventoryModal player={player} shopItems={shopItems} onClose={() => setShowInventory(false)} onEquip={onEquipItem} onUse={onUseItem} />}
+        {showProfile && <CharacterSheetModal player={player} shopItems={shopItems} onClose={() => setShowProfile(false)} onOpenInventory={() => { setShowProfile(false); setShowInventory(true); }} onUnlockTalent={onUnlockTalent} restrictToStatusOnly={restrictProfileToStatusOnly} allowCardsTab={allowCardsInProfile} initialTab={profileInitialTab} />}
+    {showInventory && <InventoryModal player={player} shopItems={shopItems} onClose={() => {
+        setShowInventory(false);
+        if (resumeBattleAfterInventoryPrompt) {
+            setResumeBattleAfterInventoryPrompt(false);
+            onStartBattle(false);
+        }
+    }} onEquip={onEquipItem} onUse={onUseItem} />}
     </div>
   );
 };

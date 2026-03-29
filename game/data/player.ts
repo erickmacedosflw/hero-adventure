@@ -11,9 +11,7 @@ export const INITIAL_PLAYER: Player = {
   gold: 150,
   diamonds: 0,
   stats: createClassBaseStats(DEFAULT_PLAYER_CLASS_ID),
-  inventory: {
-    pot_1: 2,
-  },
+  inventory: {},
   equippedWeapon: null,
   equippedArmor: null,
   equippedHelmet: null,

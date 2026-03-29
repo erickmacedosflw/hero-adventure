@@ -9,7 +9,7 @@ interface ARFallback3DOverlayProps {
 }
 
 const getContextLabel = (entryPoint: ArEntryPoint) => (
-  entryPoint === 'battle' ? 'batalha' : 'taverna'
+  entryPoint === 'battle' ? 'batalha' : 'acampamento'
 );
 
 export const ARFallback3DOverlay: React.FC<ARFallback3DOverlayProps> = ({ isOpen, entryPoint, onClose }) => {

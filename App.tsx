@@ -28,6 +28,7 @@ import { generateBattleDescription, generateVictorySpeech } from './services/gem
 type BootWindow = Window & { __heroAdventureBootReady?: boolean };
 const MENU_CAMERA_TRANSITION_MS = 2500;
 type SceneRegion = 'forest' | 'dungeon';
+type OnboardingPhase = 'intro_camp' | 'post_first_hunt' | 'inventory_prompt' | 'inventory_unlocked' | 'cards_prompt' | 'cards_unlocked' | 'merchant_prompt' | 'merchant_unlocked' | 'items_prompt' | 'flee_prompt' | 'flee_unlocked';
 
 const getBootReadyMemory = () => {
     if (typeof window === 'undefined') {
@@ -212,6 +213,11 @@ export default function App() {
     const [menuCameraFocusOverride, setMenuCameraFocusOverride] = useState<boolean | null>(null);
     const [showTavernUi, setShowTavernUi] = useState(true);
     const [sceneRegion, setSceneRegion] = useState<SceneRegion>('forest');
+    const [onboardingPhase, setOnboardingPhase] = useState<OnboardingPhase>('intro_camp');
+    const [hasPlayerDiedOnce, setHasPlayerDiedOnce] = useState(false);
+    const [skillsUnlockPromptPending, setSkillsUnlockPromptPending] = useState(false);
+    const [skillsActionUnlocked, setSkillsActionUnlocked] = useState(false);
+    const previousSkillCountRef = useRef(player.skills.length);
     const enemyAnimationResetTimerRef = useRef<number | null>(null);
     const menuTransitionTimerRef = useRef<number | null>(null);
     const wasResourceUnlockedRef = useRef(player.classResource.max > 0);
@@ -574,6 +580,14 @@ export default function App() {
             setCardRewardQueue([]);
             const nextFlow = flowOverride ?? postCardFlowRef.current;
             const nextBossContext = bossVictoryContextRef.current;
+
+            if (nextFlow === 'resume-hunt') {
+                setNarration('Procurando próximo inimigo...');
+                enterBattle(false);
+                setPostCardFlow(null);
+                return;
+            }
+
             setPostCardFlow(null);
 
             if (nextFlow === 'boss-victory' && nextBossContext) {
@@ -583,14 +597,6 @@ export default function App() {
 
             if (nextBossContext) {
                 setGameState(GameState.BOSS_VICTORY);
-                return;
-            }
-
-            if (nextFlow === 'resume-hunt') {
-                setNarration('Procurando próximo inimigo...');
-                window.setTimeout(() => {
-                    enterBattle(false);
-                }, 200);
                 return;
             }
 
@@ -674,13 +680,14 @@ export default function App() {
     }
   };
 
-  const startGame = (classId: Player['classId'] = selectedStartingClassId) => {
+    const startGame = (classId: Player['classId'] = selectedStartingClassId) => {
+        const startingPlayer = createStartingPlayer(classId);
     setStage(1);
     setKillCount(0);
         setDungeonEvolution(0);
         setSelectedStartingClassId(classId);
         setHasConfirmedStartingClass(true);
-        setPlayer(createStartingPlayer(classId));
+                setPlayer(startingPlayer);
     setLogs([]);
         setNarration('');
         setPostCardFlow(null);
@@ -694,6 +701,11 @@ export default function App() {
     setPlayerAnimationAction('idle');
     setEnemyAnimationAction('battle-idle');
     setSceneRegion('forest');
+    setOnboardingPhase('intro_camp');
+    setHasPlayerDiedOnce(false);
+        setSkillsUnlockPromptPending(false);
+        setSkillsActionUnlocked(false);
+        previousSkillCountRef.current = startingPlayer.skills.length;
     setGameState(GameState.TAVERN);
   };
 
@@ -712,6 +724,9 @@ export default function App() {
 
   const enterBattleImmediate = (isBoss: boolean, mode: 'hunt' | 'dungeon' = dungeonRun ? 'dungeon' : 'hunt', dungeonClearedOverride?: number) => {
             const isDungeonBattle = mode === 'dungeon';
+            if (mode === 'hunt' && onboardingPhase === 'merchant_unlocked') {
+                setOnboardingPhase('items_prompt');
+            }
             setSceneRegion(isDungeonBattle ? 'dungeon' : 'forest');
             const dungeonCleared = dungeonClearedOverride ?? dungeonRun?.rewards.clearedMonsters ?? 0;
             const activeDungeonEvolution = dungeonRun?.evolution ?? dungeonEvolution;
@@ -741,6 +756,7 @@ export default function App() {
                 };
             });
     setGameState(GameState.BATTLE);
+            setPlayerAnimationAction('battle-idle');
       setTurnState(TurnState.PLAYER_INPUT);
     setEnemyAnimationAction('battle-idle');
       setEnemy(null);
@@ -842,6 +858,33 @@ export default function App() {
       setGameState(GameState.TAVERN);
       setEnemy(null);
   }
+
+  const respawnAtCamp = () => {
+      setOnboardingPhase((prev) => {
+          if (prev === 'merchant_prompt' || prev === 'merchant_unlocked' || prev === 'items_prompt' || prev === 'flee_prompt' || prev === 'flee_unlocked') {
+              return prev;
+          }
+
+          return 'merchant_prompt';
+      });
+      setPlayer((prev) => ({
+          ...prev,
+          stats: {
+              ...prev.stats,
+              hp: prev.stats.maxHp,
+              mp: prev.stats.maxMp,
+          },
+          isDefending: false,
+          buffs: createEmptyBuffState(),
+          statusEffects: [],
+      }));
+      setEnemy(null);
+      setKillCount(0);
+      setLogs([]);
+      setTurnState(TurnState.PLAYER_INPUT);
+      setNarration('Voce se recuperou no acampamento.');
+      setGameState(GameState.TAVERN);
+  };
 
     const getBossDamageMultiplier = () => {
         if (!enemy?.isBoss) return 1;
@@ -982,6 +1025,10 @@ export default function App() {
     setEnemyAnimationAction,
     setPlayerAnimationAction,
     generateVictorySpeech,
+        shouldForceFirstEnemyDrop: onboardingPhase === 'intro_camp',
+        shouldTriggerInventoryUnlockTutorial: onboardingPhase === 'intro_camp' || onboardingPhase === 'post_first_hunt',
+        onTriggerInventoryUnlockTutorial: () => setOnboardingPhase('inventory_prompt'),
+          allowPotionDrops: hasPlayerDiedOnce,
   });
 
   const { handlePlayerAttack, handlePlayerDefense, handleSkill, handleUseItem, handleEnemyTurn } = useBattleController({
@@ -1003,6 +1050,7 @@ export default function App() {
     setPlayer,
     setEnemy,
     setTurnState,
+    setKillCount,
     setGameState,
     setDungeonRun,
     setDungeonResult,
@@ -1014,6 +1062,7 @@ export default function App() {
     setIsPlayerCritHit,
     setIsEnemyHit,
     setScreenShake,
+        onPlayerDefeat: () => setHasPlayerDiedOnce(true),
   });
 
   useEffect(() => {
@@ -1030,13 +1079,18 @@ export default function App() {
       const afterCardPlayer = applyCardChoice(player, card);
       const { nextPlayer, levelsGained } = applyLevelProgression(afterCardPlayer);
       let nextQueue = [...cardRewardQueue];
+            const shouldTriggerCardsUnlockTutorial = currentCardOffer.source === 'level-up' && onboardingPhase === 'inventory_unlocked';
 
       if (levelsGained > 0) {
         nextQueue = [...createLevelUpOffers(levelsGained), ...nextQueue];
       }
 
+            if (shouldTriggerCardsUnlockTutorial) {
+                setOnboardingPhase('cards_prompt');
+            }
+
       setPlayer(nextPlayer);
-      continueProgressionFlow(nextPlayer, nextQueue, postCardFlowRef.current);
+              continueProgressionFlow(nextPlayer, nextQueue, postCardFlowRef.current);
   };
 
   const handleBossVictoryContinue = () => {
@@ -1222,6 +1276,11 @@ export default function App() {
             if (postCardFlow === 'boss-victory' && bossVictoryContext) {
                 return GameState.BOSS_VICTORY;
             }
+
+            if (postCardFlow === 'resume-hunt') {
+                return GameState.BATTLE;
+            }
+
             return GameState.TAVERN;
         }
 
@@ -1235,8 +1294,45 @@ export default function App() {
 
         return gameState;
     })();
+    const isCampIntroRestricted = onboardingPhase === 'intro_camp'
+        || onboardingPhase === 'post_first_hunt'
+        || onboardingPhase === 'inventory_prompt'
+        || onboardingPhase === 'inventory_unlocked'
+        || onboardingPhase === 'cards_prompt'
+        || onboardingPhase === 'cards_unlocked'
+        || onboardingPhase === 'merchant_prompt';
+    const isProfileStatusOnly = true;
+    const isFirstBattleActionRestricted = false;
+    const isInventoryUnlocked = onboardingPhase === 'inventory_unlocked' || onboardingPhase === 'cards_prompt' || onboardingPhase === 'cards_unlocked' || onboardingPhase === 'merchant_prompt' || onboardingPhase === 'merchant_unlocked' || onboardingPhase === 'items_prompt' || onboardingPhase === 'flee_prompt' || onboardingPhase === 'flee_unlocked';
+    const isCardsUnlocked = onboardingPhase === 'cards_prompt' || onboardingPhase === 'cards_unlocked' || onboardingPhase === 'merchant_prompt' || onboardingPhase === 'merchant_unlocked' || onboardingPhase === 'items_prompt' || onboardingPhase === 'flee_prompt' || onboardingPhase === 'flee_unlocked';
+    const isItemsActionUnlocked = onboardingPhase === 'items_prompt' || onboardingPhase === 'flee_prompt' || onboardingPhase === 'flee_unlocked';
+    const isFleeUnlocked = onboardingPhase === 'flee_unlocked';
+    const isSkillsActionUnlocked = skillsActionUnlocked;
+    const isMerchantUnlocked = onboardingPhase === 'merchant_unlocked' || onboardingPhase === 'items_prompt' || onboardingPhase === 'flee_prompt' || onboardingPhase === 'flee_unlocked';
+    const isDungeonUnlocked = false;
     const shouldMenuCameraFocus = menuCameraFocusOverride ?? (resolvedGameState === GameState.TAVERN);
     const previousResolvedGameStateRef = useRef<GameState>(resolvedGameState);
+
+    useEffect(() => {
+        if (onboardingPhase !== 'intro_camp') {
+            return;
+        }
+
+        if (killCount > 0) {
+            setOnboardingPhase('post_first_hunt');
+        }
+    }, [killCount, onboardingPhase]);
+
+    useEffect(() => {
+        const previousSkillCount = previousSkillCountRef.current;
+        const currentSkillCount = player.skills.length;
+
+        if (previousSkillCount === 0 && currentSkillCount > 0 && !skillsActionUnlocked && !skillsUnlockPromptPending) {
+            setSkillsUnlockPromptPending(true);
+        }
+
+        previousSkillCountRef.current = currentSkillCount;
+    }, [player.skills.length, skillsActionUnlocked, skillsUnlockPromptPending]);
 
     useEffect(() => {
         const previousState = previousResolvedGameStateRef.current;
@@ -1485,6 +1581,24 @@ export default function App() {
             onEquipItem={equipItem}
             onUseItem={handleUseItem}
             onUnlockTalent={handleUnlockTalent}
+                        campIntroOnly={isCampIntroRestricted}
+                        restrictProfileToStatusOnly={isProfileStatusOnly}
+                        inventoryUnlocked={isInventoryUnlocked}
+                        inventoryUnlockPromptActive={onboardingPhase === 'inventory_prompt'}
+                        onAcknowledgeInventoryUnlock={() => setOnboardingPhase('inventory_unlocked')}
+                        cardsUnlockPromptActive={false}
+                        onAcknowledgeCardsUnlock={() => setOnboardingPhase('cards_unlocked')}
+                        skillsUnlockPromptActive={skillsUnlockPromptPending}
+                        onAcknowledgeSkillsUnlock={() => {
+                            setSkillsUnlockPromptPending(false);
+                            setSkillsActionUnlocked(true);
+                        }}
+                        allowCardsInProfile={isCardsUnlocked}
+                        fleeUnlocked={isFleeUnlocked}
+                        merchantUnlockPromptActive={onboardingPhase === 'merchant_prompt'}
+                        onAcknowledgeMerchantUnlock={() => setOnboardingPhase('merchant_unlocked')}
+                        merchantUnlocked={isMerchantUnlocked}
+                        dungeonUnlocked={isDungeonUnlocked}
           />
       )}
 
@@ -1549,6 +1663,26 @@ export default function App() {
             dungeonCleared={dungeonRun?.rewards.clearedMonsters ?? 0}
             dungeonTotal={dungeonRun?.rewards.totalMonsters ?? 30}
             gameTime={gameTime}
+                        restrictProfileToStatusOnly={isProfileStatusOnly}
+                        limitBattleActionsToBasics={isFirstBattleActionRestricted}
+                                                showItemsAction={isItemsActionUnlocked}
+                                                showSkillsAction={isSkillsActionUnlocked}
+                        inventoryUnlocked={isInventoryUnlocked}
+                        inventoryUnlockPromptActive={onboardingPhase === 'inventory_prompt'}
+                        onAcknowledgeInventoryUnlock={() => setOnboardingPhase('inventory_unlocked')}
+                                                cardsUnlockPromptActive={onboardingPhase === 'cards_prompt'}
+                                                onAcknowledgeCardsUnlock={() => setOnboardingPhase('cards_unlocked')}
+                                                skillsUnlockPromptActive={skillsUnlockPromptPending}
+                                                onAcknowledgeSkillsUnlock={() => {
+                                                    setSkillsUnlockPromptPending(false);
+                                                    setSkillsActionUnlocked(true);
+                                                }}
+                                                                                                itemsUnlockPromptActive={onboardingPhase === 'items_prompt'}
+                                                                                                onAcknowledgeItemsUnlock={() => setOnboardingPhase('flee_prompt')}
+                                                                                                fleeUnlockPromptActive={onboardingPhase === 'flee_prompt'}
+                                                                                                onAcknowledgeFleeUnlock={() => setOnboardingPhase('flee_unlocked')}
+                                                allowCardsInProfile={isCardsUnlocked}
+                                                                                                fleeUnlocked={isFleeUnlocked}
         />
       )}
 
@@ -1560,6 +1694,11 @@ export default function App() {
                                 const shouldOpenCards = queue.length > 0;
                 setDungeonResult(null);
                 setPendingDungeonQueue([]);
+
+                if (dungeonResult.outcome === 'defeat') {
+                    respawnAtCamp();
+                    return;
+                }
 
                 if (shouldOpenCards) {
                     setPostCardFlow('tavern');
@@ -1581,12 +1720,31 @@ export default function App() {
       )}
 
       {resolvedGameState === GameState.GAME_OVER && (
-          <div className="absolute inset-0 z-50 bg-red-950/90 flex flex-col items-center justify-center text-white">
-              <h1 className="text-6xl font-black mb-4 text-red-500 tracking-widest">GAME OVER</h1>
-              <p className="text-2xl mb-8 opacity-70">Sua jornada terminou na Fase {stage}</p>
-              <button onClick={() => startGame()} className="px-10 py-4 bg-white text-red-900 font-black rounded hover:bg-gray-200 text-xl uppercase tracking-widest">
-                  Renascer
-              </button>
+          <div className="absolute inset-0 z-50 flex items-center justify-center bg-[radial-gradient(circle_at_top,rgba(160,38,38,0.35),rgba(20,8,8,0.92)_45%,rgba(8,4,4,0.98)_100%)] p-4 pointer-events-auto">
+              <div className="w-full max-w-xl overflow-hidden rounded-[28px] border border-[#b46d6d] bg-[#2a1414]/90 text-[#fce8e8] shadow-[0_30px_120px_rgba(80,20,20,0.55)] backdrop-blur-sm">
+                  <div className="border-b border-[#8d4d4d] bg-[linear-gradient(135deg,#6b1f1f,#8f2d2d)] px-6 py-6 text-center sm:px-8">
+                      <div className="inline-flex items-center rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.28em] text-[#f9dada]">
+                          Derrota
+                      </div>
+                      <h1 className="mt-4 text-4xl font-black uppercase tracking-[0.08em] text-[#ffe2e2] sm:text-5xl">Voce perdeu</h1>
+                      <p className="mt-2 text-sm font-semibold text-[#f3c3c3] sm:text-base">A batalha terminou, mas sua jornada continua.</p>
+                  </div>
+
+                  <div className="px-6 py-6 sm:px-8 sm:py-7">
+                      <div className="rounded-2xl border border-[#8d4d4d] bg-[#3a1b1b]/70 px-5 py-4 text-center">
+                          <div className="text-[10px] font-black uppercase tracking-[0.24em] text-[#d8a3a3]">Resumo</div>
+                          <div className="mt-1 text-lg font-black text-[#ffe2e2]">Fase {stage}</div>
+                          <p className="mt-2 text-sm text-[#e7b7b7]">HP e mana serao restaurados ao renascer no acampamento.</p>
+                      </div>
+
+                      <button
+                          onClick={respawnAtCamp}
+                          className="mt-5 w-full rounded-xl border border-[#d8a3a3] bg-[#f6dada] px-5 py-3 text-base font-black uppercase tracking-[0.14em] text-[#6b1f1f] transition-all hover:bg-[#ffe7e7]"
+                      >
+                          Renascer no acampamento
+                      </button>
+                  </div>
+              </div>
           </div>
       )}
 

@@ -10,7 +10,7 @@ interface ARCameraFallbackOverlayProps {
 }
 
 const getEntryLabel = (entryPoint: ArEntryPoint) => (
-  entryPoint === 'battle' ? 'batalha' : 'taverna'
+  entryPoint === 'battle' ? 'batalha' : 'acampamento'
 );
 
 export const ARCameraFallbackOverlay: React.FC<ARCameraFallbackOverlayProps> = ({
