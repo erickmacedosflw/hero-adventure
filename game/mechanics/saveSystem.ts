@@ -1,4 +1,4 @@
-import { GameState, Player } from '../../types';
+import { BattleLog, BossVictoryContext, CardRewardOffer, DungeonResult, DungeonRunState, GameState, Player, ProgressionCard, TurnState } from '../../types';
 
 const SAVE_STORAGE_KEY = 'hero-adventure-save-v1';
 const SAVE_SCHEMA_VERSION = 1;
@@ -15,9 +15,22 @@ export interface SavePayload {
   onboardingPhase: string;
   hasPlayerDiedOnce: boolean;
   skillsActionUnlocked: boolean;
+  skillsUnlockPromptPending?: boolean;
+  constellationUnlockPromptPending?: boolean;
   gameState: GameState;
+  turnState?: TurnState;
   hasEnemy: boolean;
   hadDungeonRun: boolean;
+  cardRewardQueue?: CardRewardOffer[];
+  currentCardOffer?: CardRewardOffer | null;
+  currentCardChoices?: ProgressionCard[];
+  postCardFlow?: 'tavern' | 'boss-victory' | 'resume-hunt' | null;
+  dungeonRun?: DungeonRunState | null;
+  dungeonResult?: DungeonResult | null;
+  bossVictoryContext?: BossVictoryContext | null;
+  pendingDungeonQueue?: CardRewardOffer[];
+  logs?: BattleLog[];
+  narration?: string;
   sceneRegion: 'forest' | 'dungeon';
 }
 
@@ -125,11 +138,63 @@ const isSavePayloadLike = (value: unknown): value is SavePayload => {
     return false;
   }
 
+  if (payload.skillsUnlockPromptPending !== undefined && typeof payload.skillsUnlockPromptPending !== 'boolean') {
+    return false;
+  }
+
+  if (payload.constellationUnlockPromptPending !== undefined && typeof payload.constellationUnlockPromptPending !== 'boolean') {
+    return false;
+  }
+
   if (!isFiniteNumber(payload.gameState)) {
     return false;
   }
 
+  if (payload.turnState !== undefined && !isFiniteNumber(payload.turnState)) {
+    return false;
+  }
+
   if (typeof payload.hasEnemy !== 'boolean' || typeof payload.hadDungeonRun !== 'boolean') {
+    return false;
+  }
+
+  if (payload.cardRewardQueue !== undefined && !Array.isArray(payload.cardRewardQueue)) {
+    return false;
+  }
+
+  if (payload.currentCardOffer !== undefined && payload.currentCardOffer !== null && typeof payload.currentCardOffer !== 'object') {
+    return false;
+  }
+
+  if (payload.currentCardChoices !== undefined && !Array.isArray(payload.currentCardChoices)) {
+    return false;
+  }
+
+  if (payload.postCardFlow !== undefined && payload.postCardFlow !== null && payload.postCardFlow !== 'tavern' && payload.postCardFlow !== 'boss-victory' && payload.postCardFlow !== 'resume-hunt') {
+    return false;
+  }
+
+  if (payload.dungeonRun !== undefined && payload.dungeonRun !== null && typeof payload.dungeonRun !== 'object') {
+    return false;
+  }
+
+  if (payload.dungeonResult !== undefined && payload.dungeonResult !== null && typeof payload.dungeonResult !== 'object') {
+    return false;
+  }
+
+  if (payload.bossVictoryContext !== undefined && payload.bossVictoryContext !== null && typeof payload.bossVictoryContext !== 'object') {
+    return false;
+  }
+
+  if (payload.pendingDungeonQueue !== undefined && !Array.isArray(payload.pendingDungeonQueue)) {
+    return false;
+  }
+
+  if (payload.logs !== undefined && !Array.isArray(payload.logs)) {
+    return false;
+  }
+
+  if (payload.narration !== undefined && typeof payload.narration !== 'string') {
     return false;
   }
 

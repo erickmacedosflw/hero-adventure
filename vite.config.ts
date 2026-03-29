@@ -18,9 +18,9 @@ export default defineConfig(({ mode }) => {
           registerType: 'autoUpdate',
           includeAssets: ['pwa-icon.svg', 'pwa-icon-maskable.svg', 'apple-touch-icon.svg'],
           manifest: {
-            name: 'Lendas do Abismo RPG',
-            short_name: 'Abismo RPG',
-            description: 'RPG tatico 3D com combate por turnos e progresso offline.',
+            name: 'Hero Adventure',
+            short_name: 'Hero Adventure',
+            description: 'Hero Adventure: RPG tatico 3D com combate por turnos e progresso offline.',
             theme_color: '#6b3141',
             background_color: '#ead6c2',
             display: 'standalone',

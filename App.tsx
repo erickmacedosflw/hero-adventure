@@ -44,7 +44,7 @@ const ONBOARDING_PHASES: OnboardingPhase[] = [
     'flee_prompt',
     'flee_unlocked',
 ];
-const AUTOSAVE_DEBOUNCE_MS = 10000;
+const AUTOSAVE_DEBOUNCE_MS = 2500;
 
 const coerceOnboardingPhase = (value: string): OnboardingPhase => {
     if (ONBOARDING_PHASES.includes(value as OnboardingPhase)) {
@@ -121,6 +121,48 @@ export default function App() {
         cardBonuses: { ...source.cardBonuses },
         buffs: { ...source.buffs },
     });
+
+    const cloneBattleLogs = (source: BattleLog[]): BattleLog[] => source.map((entry) => ({ ...entry }));
+    const cloneCardRewardOffers = (source: CardRewardOffer[]): CardRewardOffer[] => source.map((offer) => ({ ...offer }));
+    const cloneProgressionCards = (source: ProgressionCard[]): ProgressionCard[] => source.map((card) => ({
+        ...card,
+        effects: card.effects.map((effect) => ({ ...effect })),
+    }));
+    const cloneDungeonRewards = (source: DungeonRewards): DungeonRewards => ({
+        ...source,
+        drops: { ...source.drops },
+    });
+    const cloneDungeonRunState = (source: DungeonRunState | null): DungeonRunState | null => {
+        if (!source) {
+            return null;
+        }
+
+        return {
+            entrySnapshot: clonePlayer(source.entrySnapshot),
+            rewards: cloneDungeonRewards(source.rewards),
+            evolution: source.evolution,
+        };
+    };
+    const cloneDungeonResultState = (source: DungeonResult | null): DungeonResult | null => {
+        if (!source) {
+            return null;
+        }
+
+        return {
+            ...source,
+            rewards: cloneDungeonRewards(source.rewards),
+        };
+    };
+    const cloneBossVictoryContextState = (source: BossVictoryContext | null): BossVictoryContext | null => {
+        if (!source) {
+            return null;
+        }
+
+        return {
+            ...source,
+            rewards: source.rewards ? cloneDungeonRewards(source.rewards) : undefined,
+        };
+    };
 
     const getDungeonMonsterTarget = (evolution: number) => 10 + Math.floor(evolution / 3) * 10;
     const getDungeonPowerMultiplier = (evolution: number) => 1 + (evolution * 0.12);
@@ -304,12 +346,49 @@ export default function App() {
         onboardingPhase,
         hasPlayerDiedOnce,
         skillsActionUnlocked,
+        skillsUnlockPromptPending,
+        constellationUnlockPromptPending,
         gameState,
+        turnState,
         hasEnemy: Boolean(enemy),
         hadDungeonRun: Boolean(dungeonRun),
+        cardRewardQueue: cloneCardRewardOffers(cardRewardQueue),
+        currentCardOffer: currentCardOffer ? { ...currentCardOffer } : null,
+        currentCardChoices: cloneProgressionCards(currentCardChoices),
+        postCardFlow,
+        dungeonRun: cloneDungeonRunState(dungeonRun),
+        dungeonResult: cloneDungeonResultState(dungeonResult),
+        bossVictoryContext: cloneBossVictoryContextState(bossVictoryContext),
+        pendingDungeonQueue: cloneCardRewardOffers(pendingDungeonQueue),
+        logs: cloneBattleLogs(logs),
+        narration,
         sceneRegion,
         ...stateOverride,
-    }), [dungeonEvolution, dungeonRun, enemy, gameState, hasPlayerDiedOnce, killCount, onboardingPhase, player, sceneRegion, skillsActionUnlocked, stage]);
+    }), [
+        bossVictoryContext,
+        cardRewardQueue,
+        constellationUnlockPromptPending,
+        currentCardChoices,
+        currentCardOffer,
+        dungeonEvolution,
+        dungeonResult,
+        dungeonRun,
+        enemy,
+        gameState,
+        hasPlayerDiedOnce,
+        killCount,
+        logs,
+        narration,
+        onboardingPhase,
+        pendingDungeonQueue,
+        player,
+        postCardFlow,
+        sceneRegion,
+        skillsActionUnlocked,
+        skillsUnlockPromptPending,
+        stage,
+        turnState,
+    ]);
 
     const persistSaveNow = useCallback((stateOverride?: Partial<SavePayload>) => {
         if (!hasConfirmedStartingClass) {
@@ -340,6 +419,19 @@ export default function App() {
         const { payload, interruptedBattle, interruptedDungeon } = loaded;
         const wasInterrupted = interruptedBattle || interruptedDungeon;
         const safePhase = coerceOnboardingPhase(payload.onboardingPhase);
+        const restoredTurnState = payload.turnState ?? TurnState.PLAYER_INPUT;
+        const restoredSkillsPromptPending = payload.skillsUnlockPromptPending ?? false;
+        const restoredConstellationPromptPending = payload.constellationUnlockPromptPending ?? false;
+        const restoredCardRewardQueue = payload.cardRewardQueue ? cloneCardRewardOffers(payload.cardRewardQueue) : [];
+        const restoredCurrentCardOffer = payload.currentCardOffer ? { ...payload.currentCardOffer } : null;
+        const restoredCurrentCardChoices = payload.currentCardChoices ? cloneProgressionCards(payload.currentCardChoices) : [];
+        const restoredPostCardFlow = payload.postCardFlow ?? null;
+        const restoredDungeonRun = payload.dungeonRun ? cloneDungeonRunState(payload.dungeonRun) : null;
+        const restoredDungeonResult = payload.dungeonResult ? cloneDungeonResultState(payload.dungeonResult) : null;
+        const restoredBossVictoryContext = payload.bossVictoryContext ? cloneBossVictoryContextState(payload.bossVictoryContext) : null;
+        const restoredPendingDungeonQueue = payload.pendingDungeonQueue ? cloneCardRewardOffers(payload.pendingDungeonQueue) : [];
+        const restoredLogs = payload.logs ? cloneBattleLogs(payload.logs) : [];
+        const restoredNarration = payload.narration ?? 'Progresso carregado.';
 
         setActiveSaveSlotId(slotId);
         setSelectedSaveSlotId(slotId);
@@ -353,26 +445,28 @@ export default function App() {
         setOnboardingPhase(safePhase);
         setHasPlayerDiedOnce(payload.hasPlayerDiedOnce || wasInterrupted);
         setSkillsActionUnlocked(payload.skillsActionUnlocked);
+        setSkillsUnlockPromptPending(wasInterrupted ? false : restoredSkillsPromptPending);
+        setConstellationUnlockPromptPending(wasInterrupted ? false : restoredConstellationPromptPending);
         previousSkillCountRef.current = payload.player.skills.length;
 
         setEnemy(null);
         setLogs(wasInterrupted
             ? [{ message: interruptedDungeon ? 'Run da dungeon encerrada por fechamento inesperado. Voce voltou ao acampamento e perdeu o espolio pendente.' : 'Batalha interrompida por fechamento inesperado. Derrota aplicada e retorno ao acampamento.', type: 'info' }]
-            : []);
+            : restoredLogs);
         setNarration(wasInterrupted
             ? interruptedDungeon
                 ? 'Voce retornou ao acampamento apos interrupcao da dungeon.'
                 : 'Voce retornou ao acampamento apos interrupcao de batalha.'
-            : 'Progresso carregado.');
-        setPostCardFlow(null);
-        setDungeonRun(null);
-        setDungeonResult(null);
-        setBossVictoryContext(null);
-        setPendingDungeonQueue([]);
-        setCardRewardQueue([]);
-        setCurrentCardOffer(null);
-        setCurrentCardChoices([]);
-        setTurnState(TurnState.PLAYER_INPUT);
+            : restoredNarration);
+        setPostCardFlow(wasInterrupted ? null : restoredPostCardFlow);
+        setDungeonRun(wasInterrupted ? null : restoredDungeonRun);
+        setDungeonResult(wasInterrupted ? null : restoredDungeonResult);
+        setBossVictoryContext(wasInterrupted ? null : restoredBossVictoryContext);
+        setPendingDungeonQueue(wasInterrupted ? [] : restoredPendingDungeonQueue);
+        setCardRewardQueue(wasInterrupted ? [] : restoredCardRewardQueue);
+        setCurrentCardOffer(wasInterrupted ? null : restoredCurrentCardOffer);
+        setCurrentCardChoices(wasInterrupted ? [] : restoredCurrentCardChoices);
+        setTurnState(wasInterrupted ? TurnState.PLAYER_INPUT : restoredTurnState);
         setPlayerAnimationAction('idle');
         setEnemyAnimationAction('battle-idle');
         setSceneRegion('forest');
@@ -385,22 +479,48 @@ export default function App() {
             const resumableState = payload.gameState === GameState.TAVERN
                 || payload.gameState === GameState.SHOP
                 || payload.gameState === GameState.ALCHEMIST
+                || payload.gameState === GameState.CARD_REWARD
+                || payload.gameState === GameState.BOSS_VICTORY
+                || payload.gameState === GameState.DUNGEON_RESULT
                 ? payload.gameState
                 : GameState.TAVERN;
             setGameState(resumableState);
             setSceneRegion(payload.sceneRegion);
         }
 
-        lastSavedSignatureRef.current = JSON.stringify(buildSavePayload({
+        const signaturePayload: SavePayload = {
+            ...payload,
+            onboardingPhase: safePhase,
+            hasPlayerDiedOnce: payload.hasPlayerDiedOnce || wasInterrupted,
+            skillsUnlockPromptPending: wasInterrupted ? false : restoredSkillsPromptPending,
+            constellationUnlockPromptPending: wasInterrupted ? false : restoredConstellationPromptPending,
+            turnState: wasInterrupted ? TurnState.PLAYER_INPUT : restoredTurnState,
+            cardRewardQueue: wasInterrupted ? [] : restoredCardRewardQueue,
+            currentCardOffer: wasInterrupted ? null : restoredCurrentCardOffer,
+            currentCardChoices: wasInterrupted ? [] : restoredCurrentCardChoices,
+            postCardFlow: wasInterrupted ? null : restoredPostCardFlow,
+            dungeonRun: wasInterrupted ? null : restoredDungeonRun,
+            dungeonResult: wasInterrupted ? null : restoredDungeonResult,
+            bossVictoryContext: wasInterrupted ? null : restoredBossVictoryContext,
+            pendingDungeonQueue: wasInterrupted ? [] : restoredPendingDungeonQueue,
+            logs: wasInterrupted
+                ? [{ message: interruptedDungeon ? 'Run da dungeon encerrada por fechamento inesperado. Voce voltou ao acampamento e perdeu o espolio pendente.' : 'Batalha interrompida por fechamento inesperado. Derrota aplicada e retorno ao acampamento.', type: 'info' }]
+                : restoredLogs,
+            narration: wasInterrupted
+                ? (interruptedDungeon
+                    ? 'Voce retornou ao acampamento apos interrupcao da dungeon.'
+                    : 'Voce retornou ao acampamento apos interrupcao de batalha.')
+                : restoredNarration,
             gameState: wasInterrupted ? GameState.TAVERN : payload.gameState,
             hasEnemy: false,
             hadDungeonRun: false,
             sceneRegion: wasInterrupted ? 'forest' : payload.sceneRegion,
             killCount: wasInterrupted ? 0 : payload.killCount,
-        }));
+        };
+        lastSavedSignatureRef.current = JSON.stringify(signaturePayload);
 
         return true;
-    }, [buildSavePayload]);
+    }, []);
 
     useEffect(() => () => {
         if (enemyAnimationResetTimerRef.current !== null) {
@@ -448,17 +568,28 @@ export default function App() {
         };
     }, [
         dungeonEvolution,
+        dungeonResult,
         dungeonRun,
         enemy,
         gameState,
         hasConfirmedStartingClass,
         hasPlayerDiedOnce,
         killCount,
+        bossVictoryContext,
+        cardRewardQueue,
+        constellationUnlockPromptPending,
+        currentCardChoices,
+        currentCardOffer,
+        logs,
+        narration,
         onboardingPhase,
+        pendingDungeonQueue,
         persistSaveNow,
         player,
+        postCardFlow,
         sceneRegion,
         skillsActionUnlocked,
+        skillsUnlockPromptPending,
         stage,
         turnState,
     ]);
@@ -477,11 +608,11 @@ export default function App() {
     }, [gameState, hasConfirmedStartingClass, persistSaveNow, turnState]);
 
     useEffect(() => {
-        if (typeof window === 'undefined') {
+        if (typeof window === 'undefined' || typeof document === 'undefined') {
             return;
         }
 
-        const flushBeforeUnload = () => {
+        const flushLifecycleSave = () => {
             if (!hasConfirmedStartingClass) {
                 return;
             }
@@ -489,8 +620,21 @@ export default function App() {
             persistSaveNow();
         };
 
-        window.addEventListener('beforeunload', flushBeforeUnload);
-        return () => window.removeEventListener('beforeunload', flushBeforeUnload);
+        const flushWhenHidden = () => {
+            if (document.visibilityState === 'hidden') {
+                flushLifecycleSave();
+            }
+        };
+
+        window.addEventListener('beforeunload', flushLifecycleSave);
+        window.addEventListener('pagehide', flushLifecycleSave);
+        document.addEventListener('visibilitychange', flushWhenHidden);
+
+        return () => {
+            window.removeEventListener('beforeunload', flushLifecycleSave);
+            window.removeEventListener('pagehide', flushLifecycleSave);
+            document.removeEventListener('visibilitychange', flushWhenHidden);
+        };
     }, [hasConfirmedStartingClass, persistSaveNow]);
 
     useEffect(() => {
@@ -1002,9 +1146,22 @@ export default function App() {
                 onboardingPhase: 'intro_camp',
                 hasPlayerDiedOnce: false,
                 skillsActionUnlocked: false,
+                skillsUnlockPromptPending: false,
+                constellationUnlockPromptPending: false,
                 gameState: GameState.TAVERN,
+                turnState: TurnState.PLAYER_INPUT,
                 hasEnemy: false,
                 hadDungeonRun: false,
+                cardRewardQueue: [],
+                currentCardOffer: null,
+                currentCardChoices: [],
+                postCardFlow: null,
+                dungeonRun: null,
+                dungeonResult: null,
+                bossVictoryContext: null,
+                pendingDungeonQueue: [],
+                logs: [],
+                narration: '',
                 sceneRegion: 'forest',
             });
             refreshSaveSlotCatalog();

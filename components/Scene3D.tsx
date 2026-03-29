@@ -66,6 +66,7 @@ import type {
   DeveloperKitbashSlotFitDiagnostic,
   DeveloperKitbashTransform,
   DeveloperMeshPartDescriptor,
+  RenderQualityProfile,
   DeveloperWeaponTransformControlMode,
   DeveloperWeaponTransformOverride,
 } from './scene3d/types';
@@ -125,6 +126,147 @@ interface SceneProps {
   playerState?: Player;
   enemyState?: Enemy | null;
 }
+
+type AdaptiveQualityTier = 'desktop-like' | 'balanced' | 'performance';
+
+const detectLikelyMobileDevice = () => {
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') {
+    return false;
+  }
+
+  const touchPoints = navigator.maxTouchPoints ?? 0;
+  const ua = navigator.userAgent.toLowerCase();
+  const mobileUa = /android|iphone|ipad|ipod|mobile/.test(ua);
+  const compactViewport = window.innerWidth < 1024;
+  return mobileUa || (touchPoints > 1 && compactViewport);
+};
+
+const getInitialAdaptiveTier = (isMobileDevice: boolean, baseQuality: RenderQualityProfile): AdaptiveQualityTier => {
+  if (!isMobileDevice) {
+    return 'desktop-like';
+  }
+
+  if (baseQuality.isLowQuality) {
+    return 'balanced';
+  }
+
+  return 'desktop-like';
+};
+
+const buildAdaptiveQualityProfile = (
+  baseQuality: RenderQualityProfile,
+  tier: AdaptiveQualityTier,
+  isMobileDevice: boolean,
+): RenderQualityProfile => {
+  if (!isMobileDevice) {
+    return baseQuality;
+  }
+
+  if (tier === 'desktop-like') {
+    return {
+      ...baseQuality,
+      isLowQuality: false,
+      dpr: [Math.max(0.9, baseQuality.dpr[0]), Math.min(1.35, baseQuality.dpr[1])] as [number, number],
+      shadowMapSize: Math.min(baseQuality.shadowMapSize, 1024),
+      starsCount: Math.min(baseQuality.starsCount, 900),
+      contactShadowResolution: Math.min(baseQuality.contactShadowResolution, 128),
+    };
+  }
+
+  if (tier === 'balanced') {
+    return {
+      ...baseQuality,
+      isLowQuality: false,
+      dpr: [0.85, Math.min(1.1, baseQuality.dpr[1])] as [number, number],
+      shadowMapSize: Math.min(baseQuality.shadowMapSize, 768),
+      starsCount: Math.min(baseQuality.starsCount, 520),
+      contactShadowResolution: Math.min(baseQuality.contactShadowResolution, 80),
+    };
+  }
+
+  return {
+    ...baseQuality,
+    isLowQuality: true,
+    dpr: [0.75, 0.95] as [number, number],
+    shadowMapSize: Math.min(baseQuality.shadowMapSize, 512),
+    starsCount: Math.min(baseQuality.starsCount, 260),
+    contactShadowResolution: Math.min(baseQuality.contactShadowResolution, 56),
+  };
+};
+
+const AdaptiveQualityController = ({
+  enabled,
+  tier,
+  onTierChange,
+}: {
+  enabled: boolean;
+  tier: AdaptiveQualityTier;
+  onTierChange: (next: AdaptiveQualityTier) => void;
+}) => {
+  const sampleElapsedRef = useRef(0);
+  const sampleFramesRef = useRef(0);
+  const lowFpsStreakRef = useRef(0);
+  const highFpsStreakRef = useRef(0);
+
+  useEffect(() => {
+    sampleElapsedRef.current = 0;
+    sampleFramesRef.current = 0;
+    lowFpsStreakRef.current = 0;
+    highFpsStreakRef.current = 0;
+  }, [tier]);
+
+  useFrame((_, delta) => {
+    if (!enabled) {
+      return;
+    }
+
+    sampleElapsedRef.current += delta;
+    sampleFramesRef.current += 1;
+
+    if (sampleElapsedRef.current < 1.6) {
+      return;
+    }
+
+    const fps = sampleFramesRef.current / sampleElapsedRef.current;
+    sampleElapsedRef.current = 0;
+    sampleFramesRef.current = 0;
+
+    const lowThreshold = tier === 'desktop-like' ? 44 : tier === 'balanced' ? 38 : 32;
+    const highThreshold = tier === 'performance' ? 56 : tier === 'balanced' ? 58 : 62;
+
+    if (fps < lowThreshold) {
+      lowFpsStreakRef.current += 1;
+      highFpsStreakRef.current = 0;
+    } else if (fps > highThreshold) {
+      highFpsStreakRef.current += 1;
+      lowFpsStreakRef.current = 0;
+    } else {
+      lowFpsStreakRef.current = 0;
+      highFpsStreakRef.current = 0;
+    }
+
+    if (tier === 'desktop-like' && lowFpsStreakRef.current >= 2) {
+      onTierChange('balanced');
+      return;
+    }
+
+    if (tier === 'balanced' && lowFpsStreakRef.current >= 2) {
+      onTierChange('performance');
+      return;
+    }
+
+    if (tier === 'performance' && highFpsStreakRef.current >= 6) {
+      onTierChange('balanced');
+      return;
+    }
+
+    if (tier === 'balanced' && highFpsStreakRef.current >= 8) {
+      onTierChange('desktop-like');
+    }
+  });
+
+  return null;
+};
 
 // --- MAIN COMPONENTS ---
 
@@ -1037,7 +1179,19 @@ export const GameScene: React.FC<SceneProps> = (props) => {
     setGameTime(time);
     props.onGameTimeUpdate?.(time);
   }, [props.onGameTimeUpdate]);
-  const quality = useMemo(() => getRenderQualityProfile(), []);
+  const baseQuality = useMemo(() => getRenderQualityProfile(), []);
+  const isMobileDevice = useMemo(() => detectLikelyMobileDevice(), []);
+  const [adaptiveTier, setAdaptiveTier] = useState<AdaptiveQualityTier>(() => getInitialAdaptiveTier(isMobileDevice, baseQuality));
+  const quality = useMemo(
+    () => buildAdaptiveQualityProfile(baseQuality, adaptiveTier, isMobileDevice),
+    [adaptiveTier, baseQuality, isMobileDevice],
+  );
+  const shouldUseForestDepthOfField = !quality.isLowQuality && adaptiveTier !== 'performance';
+  const shouldUseDungeonDepthOfField = adaptiveTier === 'desktop-like';
+  const forestBloomIntensity = adaptiveTier === 'desktop-like' ? 0.55 : adaptiveTier === 'balanced' ? 0.44 : 0.32;
+  const dungeonBloomIntensity = adaptiveTier === 'desktop-like' ? 0.32 : adaptiveTier === 'balanced' ? 0.28 : 0.22;
+  const forestDepthOfFieldHeight = adaptiveTier === 'desktop-like' ? 560 : 440;
+  const dungeonDepthOfFieldHeight = adaptiveTier === 'desktop-like' ? 560 : 440;
   const isDungeonRun = Boolean(props.isDungeonScene ?? props.isDungeonRun);
   const isArCameraMode = Boolean(props.isArCameraMode);
   const battleContactShadowResolution = useMemo(
@@ -1086,6 +1240,11 @@ export const GameScene: React.FC<SceneProps> = (props) => {
         performance={{ min: 0.5 }}
         frameloop="always"
       >
+        <AdaptiveQualityController
+          enabled={isMobileDevice}
+          tier={adaptiveTier}
+          onTierChange={setAdaptiveTier}
+        />
         <CameraController screenShake={props.screenShake} menuFocus={props.menuCameraFocus ?? Boolean(props.isMenuView)} />
         {isArCameraMode ? (
           <>
@@ -1187,27 +1346,32 @@ export const GameScene: React.FC<SceneProps> = (props) => {
 
         {isArCameraMode ? null : isDungeonRun ? (
           <EffectComposer>
-            {!quality.isLowQuality ? (
+            {shouldUseDungeonDepthOfField ? (
               <DepthOfField
                 target={CHARACTER_FOCUS_TARGET}
                 worldFocusRange={DUNGEON_FOCUS_RANGE}
-                bokehScale={2.15}
-                height={560}
+                bokehScale={adaptiveTier === 'desktop-like' ? 2.15 : 1.7}
+                height={dungeonDepthOfFieldHeight}
               />
             ) : null}
-            <Bloom intensity={0.32} luminanceThreshold={0.5} luminanceSmoothing={0.85} mipmapBlur />
+            <Bloom intensity={dungeonBloomIntensity} luminanceThreshold={0.5} luminanceSmoothing={0.85} mipmapBlur />
             <Vignette eskil={false} offset={0.1} darkness={0.42} />
           </EffectComposer>
-        ) : !quality.isLowQuality ? (
+        ) : shouldUseForestDepthOfField ? (
           <EffectComposer>
             <DepthOfField
               target={CHARACTER_FOCUS_TARGET}
               worldFocusRange={FOREST_FOCUS_RANGE}
-              bokehScale={2.35}
-              height={560}
+              bokehScale={adaptiveTier === 'desktop-like' ? 2.35 : 1.95}
+              height={forestDepthOfFieldHeight}
             />
-            <Bloom intensity={0.55} luminanceThreshold={0.42} luminanceSmoothing={0.8} mipmapBlur />
+            <Bloom intensity={forestBloomIntensity} luminanceThreshold={0.42} luminanceSmoothing={0.8} mipmapBlur />
             <Vignette eskil={false} offset={0.06} darkness={0.1} />
+          </EffectComposer>
+        ) : !isArCameraMode && !isDungeonRun ? (
+          <EffectComposer>
+            <Bloom intensity={forestBloomIntensity} luminanceThreshold={0.48} luminanceSmoothing={0.82} mipmapBlur />
+            <Vignette eskil={false} offset={0.08} darkness={0.13} />
           </EffectComposer>
         ) : null}
       </Canvas>
