@@ -176,6 +176,9 @@ export const ShopMenuScreen: React.FC<ShopMenuScreenProps> = ({ player, items, o
               ) : (
                 filteredItems.map((item) => {
                   const isSelected = selectedItemId === item.id;
+                  const canAfford = player.gold >= item.cost;
+                  const hasLevel = player.level >= item.minLevel;
+                  const canBuy = canAfford && hasLevel;
                   return (
                     <button
                       key={item.id}
@@ -183,7 +186,7 @@ export const ShopMenuScreen: React.FC<ShopMenuScreenProps> = ({ player, items, o
                         setSelectedItemId(item.id);
                         setMobileDetailItemId(item.id);
                       }}
-                      className={`flex items-center gap-3 rounded-[22px] border p-3 text-left transition-all ${isSelected ? 'bg-[#f3e3d2] shadow-[0_14px_30px_rgba(107,49,65,0.15)] scale-[1.01]' : 'bg-[#f8eddf] hover:bg-[#f3e3d2]'} ${getRarityColor(item.rarity)}`}
+                      className={`flex items-center gap-3 rounded-[22px] border p-3 text-left transition-all ${isSelected ? 'bg-[#f3e3d2] shadow-[0_14px_30px_rgba(107,49,65,0.15)] scale-[1.01]' : 'bg-[#f8eddf] hover:bg-[#f3e3d2]'} ${getRarityColor(item.rarity)} ${canBuy ? '' : 'opacity-75'} ${!canBuy ? 'ring-1 ring-[#c59d82]/55' : ''}`}
                     >
                       <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl border border-[#d6b9a3] bg-[#f3e5d5] shrink-0">
                         <span className="text-2xl leading-none">{item.icon}</span>
@@ -194,6 +197,16 @@ export const ShopMenuScreen: React.FC<ShopMenuScreenProps> = ({ player, items, o
                         <div className="mt-1 flex items-center justify-between gap-2">
                           <span className="inline-flex rounded-full border border-[#d6b9a3] bg-[#f3e5d5] px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.12em] text-[#8a5a57]"><ItemTypeLabel type={item.type} /></span>
                           <span className="inline-flex items-center gap-1 rounded-full border border-[#d6b9a3] bg-[#f3e5d5] px-2 py-0.5 text-[9px] font-black text-[#8d5e29]"><GameAssetIcon name="coinCopper" size={14} /> {item.cost}</span>
+                        </div>
+                        <div className="mt-1.5 flex flex-wrap items-center gap-1">
+                          {canBuy ? (
+                            <span className="rounded-full border border-emerald-300 bg-emerald-100 px-2 py-0.5 text-[8px] font-black uppercase tracking-[0.14em] text-emerald-700">Disponivel</span>
+                          ) : (
+                            <>
+                              {!canAfford && <span className="rounded-full border border-rose-300 bg-rose-100 px-2 py-0.5 text-[8px] font-black uppercase tracking-[0.14em] text-rose-700">Sem ouro</span>}
+                              {!hasLevel && <span className="rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 text-[8px] font-black uppercase tracking-[0.14em] text-amber-700">Nivel {item.minLevel}</span>}
+                            </>
+                          )}
                         </div>
                       </div>
                       {isSelected && <MousePointerClick size={18} className="text-[#7d3d4d]" />}

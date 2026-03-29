@@ -6,15 +6,21 @@ export { INITIAL_PLAYER } from './game/data/player';
 
 export const SHOP_ITEMS: Item[] = [
   // --- POTIONS & CONSUMABLES ---
-  { id: 'pot_1', name: 'Poção Menor', description: 'Cura ferimentos leves. +50 HP', cost: 30, type: 'potion', value: 50, icon: '🧪', rarity: 'bronze', minLevel: 1 },
-  { id: 'pot_2', name: 'Poção de Mana', description: 'Restaura energia mágica. +30 MP', cost: 40, type: 'potion', value: 30, icon: '⚗️', rarity: 'bronze', minLevel: 1 },
+  { id: 'pot_1', name: 'Poção Menor', description: 'Cura ferimentos leves. +25 HP', cost: 40, type: 'potion', value: 25, icon: '🧪', rarity: 'bronze', minLevel: 1 },
+  { id: 'pot_3', name: 'Poção de Vida', description: 'Recuperação moderada. +50 HP', cost: 70, type: 'potion', value: 50, icon: '❤️', rarity: 'bronze', minLevel: 2 },
+  { id: 'pot_5', name: 'Elixir Rubro', description: 'Cura poderosa. +100 HP', cost: 120, type: 'potion', value: 100, icon: '💖', rarity: 'silver', minLevel: 3 },
+  { id: 'pot_4', name: 'Ambrosia Dourada', description: 'Restauração superior. +220 HP', cost: 300, type: 'potion', value: 220, icon: '🌟', rarity: 'gold', minLevel: 7 },
+
+  { id: 'pot_2', name: 'Essência de Mana Menor', description: 'Recupera energia arcana. +20 MP', cost: 40, type: 'potion', value: 20, icon: '⚗️', rarity: 'bronze', minLevel: 1 },
+  { id: 'pot_mana_2', name: 'Tônico Arcano', description: 'Recuperação de mana intermediária. +45 MP', cost: 75, type: 'potion', value: 45, icon: '🔵', rarity: 'silver', minLevel: 3 },
+  { id: 'pot_mana_3', name: 'Néctar Astral', description: 'Recuperação de mana avançada. +90 MP', cost: 140, type: 'potion', value: 90, icon: '🔷', rarity: 'gold', minLevel: 6 },
+
+  { id: 'pot_mix_1', name: 'Tônico Balanceado', description: 'Recupera 35 HP e 20 MP.', cost: 95, type: 'potion', value: 35, icon: '🧬', rarity: 'silver', minLevel: 3 },
+  { id: 'pot_mix_2', name: 'Elixir Dual', description: 'Recupera 80 HP e 50 MP.', cost: 190, type: 'potion', value: 80, icon: '💠', rarity: 'gold', minLevel: 6 },
   
   // Buff Items
-  { id: 'pot_atk', name: 'Poção da Fúria', description: '+50% de Ataque por 3 turnos.', cost: 120, type: 'potion', value: 0.5, icon: '🔥', rarity: 'silver', minLevel: 3, duration: 3 },
-  { id: 'pot_def', name: 'Tônico de Ferro', description: '+50% de Defesa por 3 turnos.', cost: 120, type: 'potion', value: 0.5, icon: '🛡️', rarity: 'silver', minLevel: 3, duration: 3 },
-
-  { id: 'pot_3', name: 'Elixir Prateado', description: 'Cura potente. +150 HP', cost: 150, type: 'potion', value: 150, icon: '💖', rarity: 'silver', minLevel: 3 },
-  { id: 'pot_4', name: 'Ambrosia Dourada', description: 'Restauração total. +500 HP', cost: 600, type: 'potion', value: 500, icon: '🌟', rarity: 'gold', minLevel: 8 },
+  { id: 'pot_atk', name: 'Poção da Fúria', description: '+50% de Ataque por 3 turnos.', cost: 150, type: 'potion', value: 0.5, icon: '🔥', rarity: 'silver', minLevel: 3, duration: 3 },
+  { id: 'pot_def', name: 'Tônico de Ferro', description: '+50% de Defesa por 3 turnos.', cost: 150, type: 'potion', value: 0.5, icon: '🛡️', rarity: 'silver', minLevel: 3, duration: 3 },
 
   // --- ARMOR (CHEST) ---
   { id: 'arm_b1', name: 'Túnica de Couro', description: 'Proteção básica. +4 DEF', cost: 80, type: 'armor', value: 4, icon: '👕', rarity: 'bronze', minLevel: 1 },

@@ -869,7 +869,8 @@ export const TavernScreen: React.FC<{
     onAcknowledgeMerchantUnlock?: () => void,
     merchantUnlocked?: boolean,
     dungeonUnlocked?: boolean,
-}> = ({ player, killCount, onHunt, onBoss, onDungeon, onShop, onAlchemist, onOpenAr, arSupport, shopItems, onEquipItem, onUseItem, onUnlockTalent, campIntroOnly = false, restrictProfileToStatusOnly = false, inventoryUnlocked = false, inventoryUnlockPromptActive = false, onAcknowledgeInventoryUnlock, cardsUnlockPromptActive = false, onAcknowledgeCardsUnlock, skillsUnlockPromptActive = false, onAcknowledgeSkillsUnlock, allowCardsInProfile = false, fleeUnlocked = false, merchantUnlockPromptActive = false, onAcknowledgeMerchantUnlock, merchantUnlocked = false, dungeonUnlocked = false }) => {
+    showSkillsAction?: boolean,
+}> = ({ player, killCount, onHunt, onBoss, onDungeon, onShop, onAlchemist, onOpenAr, arSupport, shopItems, onEquipItem, onUseItem, onUnlockTalent, campIntroOnly = false, restrictProfileToStatusOnly = false, inventoryUnlocked = false, inventoryUnlockPromptActive = false, onAcknowledgeInventoryUnlock, cardsUnlockPromptActive = false, onAcknowledgeCardsUnlock, skillsUnlockPromptActive = false, onAcknowledgeSkillsUnlock, allowCardsInProfile = false, fleeUnlocked = false, merchantUnlockPromptActive = false, onAcknowledgeMerchantUnlock, merchantUnlocked = false, dungeonUnlocked = false, showSkillsAction = false }) => {
   const [showProfile, setShowProfile] = useState(false);
   const [showInventory, setShowInventory] = useState(false);
     const [profileInitialTab, setProfileInitialTab] = useState<'overview' | 'cards' | 'skills' | 'constellation' | undefined>(undefined);
@@ -1176,7 +1177,7 @@ export const TavernScreen: React.FC<{
                     </div>
                 </section>
             </div>
-    {showProfile && <CharacterSheetModal player={player} shopItems={shopItems} onClose={() => setShowProfile(false)} onOpenInventory={() => { setShowProfile(false); setShowInventory(true); }} onUnlockTalent={onUnlockTalent} restrictToStatusOnly={restrictProfileToStatusOnly} allowCardsTab={allowCardsInProfile} initialTab={profileInitialTab} />}
+    {showProfile && <CharacterSheetModal player={player} shopItems={shopItems} onClose={() => setShowProfile(false)} onOpenInventory={() => { setShowProfile(false); setShowInventory(true); }} onUnlockTalent={onUnlockTalent} restrictToStatusOnly={restrictProfileToStatusOnly} allowCardsTab={allowCardsInProfile} allowSkillsTab={showSkillsAction} initialTab={profileInitialTab} />}
     {showInventory && <InventoryModal player={player} shopItems={shopItems} onClose={() => setShowInventory(false)} onEquip={onEquipItem} onUse={onUseItem} />}
 
     {showInventoryUnlockPrompt && (
@@ -2187,6 +2188,37 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
 
   // Filter inventory for usable items (potions)
   const usableItems = shopItems.filter(i => i.type === 'potion' && (player.inventory[i.id] || 0) > 0);
+    const manaPotionIds = new Set(['pot_2', 'pot_mana_2', 'pot_mana_3', 'pot_dg_mana']);
+    const mixedPotionRecovery: Record<string, { hp: number; mp: number }> = {
+            pot_mix_1: { hp: 35, mp: 20 },
+            pot_mix_2: { hp: 80, mp: 50 },
+    };
+  const heroBuffEntries = [
+      player.buffs.atkTurns > 0 ? {
+          key: 'atk',
+          icon: <Sword size={12} className="text-[#b83a4b]" />,
+          label: `ATK +${(player.buffs.atkMod * 100).toFixed(0)}% • ${player.buffs.atkTurns}t`,
+          chipClass: 'border-[#e79aa7] bg-[#fbe3e8] text-[#8f253c]',
+      } : null,
+      player.buffs.defTurns > 0 ? {
+          key: 'def',
+          icon: <Shield size={12} className="text-[#4d6780]" />,
+          label: `DEF +${(player.buffs.defMod * 100).toFixed(0)}% • ${player.buffs.defTurns}t`,
+          chipClass: 'border-[#9ec2cf] bg-[#e6f3f8] text-[#2f6274]',
+      } : null,
+      player.buffs.perfectEvadeTurns > 0 ? {
+          key: 'evd',
+          icon: <Sparkles size={12} className="text-[#7c4c76]" />,
+          label: `Evasao perfeita • ${player.buffs.perfectEvadeTurns}t`,
+          chipClass: 'border-[#ccb0dd] bg-[#f1e8f7] text-[#6a3f82]',
+      } : null,
+      player.buffs.doubleAttackTurns > 0 ? {
+          key: 'x2',
+          icon: <Sword size={12} className="text-[#b83a4b]" />,
+          label: `Ataque duplo • ${player.buffs.doubleAttackTurns}t`,
+          chipClass: 'border-[#e8bc89] bg-[#fcecd7] text-[#9a6127]',
+      } : null,
+  ].filter((entry): entry is { key: string; icon: React.ReactNode; label: string; chipClass: string } => Boolean(entry));
   const describeBattleSkill = (skill: Skill) => {
       const statusText = skill.statusEffect
         ? ` • aplica ${skill.statusEffect.kind}`
@@ -2207,7 +2239,11 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
     if (item.id === 'pot_alc_twin_fang') return 'Duplica ataques basicos e habilidades fisicas por 6 turnos';
       if (item.id === 'pot_atk') return `Aumenta ataque em ${Math.round(item.value * 100)}% por ${item.duration || 3} turnos`;
       if (item.id === 'pot_def') return `Aumenta defesa em ${Math.round(item.value * 100)}% por ${item.duration || 3} turnos`;
-      if (item.name.includes('Mana')) return `Recupera ${item.value} MP`;
+
+            const mixed = mixedPotionRecovery[item.id];
+            if (mixed) return `Recupera ${mixed.hp} HP e ${mixed.mp} MP`;
+
+            if (manaPotionIds.has(item.id)) return `Recupera ${item.value} MP`;
       return `Recupera ${item.value} HP`;
   };
 
@@ -2304,8 +2340,17 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
       return () => window.removeEventListener('keydown', handleBlockEscape, true);
     }, [showCardsUnlockPrompt, showInventoryUnlockPrompt, showSkillsUnlockPrompt, showItemsUnlockPrompt, showFleeUnlockPrompt]);
 
-  return (
-    <div className="absolute inset-0 z-10 flex flex-col justify-between p-2 sm:p-4 pointer-events-none safe-bottom">
+    return (
+        <div className="battle-hud-root absolute inset-0 z-10 flex flex-col justify-between p-2 sm:p-4 pointer-events-none safe-bottom">
+            <style>{`
+                .battle-hud-root .backdrop-blur-sm,
+                .battle-hud-root .backdrop-blur-md,
+                .battle-hud-root .backdrop-blur,
+                .battle-hud-root .backdrop-blur-\[2px\] {
+                    -webkit-backdrop-filter: none !important;
+                    backdrop-filter: none !important;
+                }
+            `}</style>
       {showFleeConfirm && (
           <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/55 backdrop-blur-[2px] pointer-events-auto p-4" onClick={() => setShowFleeConfirm(false)}>
               <div className="w-full max-w-sm rounded-[24px] border border-[#cfab91] bg-[#f7ecdd] shadow-[0_24px_80px_rgba(107,49,65,0.15)] overflow-hidden animate-fade-in-down" onClick={event => event.stopPropagation()}>
@@ -2690,7 +2735,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                   )}
               </div>
 
-              <div className={`grid gap-2 ${enemy ? 'grid-cols-2' : 'grid-cols-1'}`}>
+              <div className={`grid items-start gap-2 ${enemy ? 'grid-cols-2' : 'grid-cols-1'}`}>
                   <div className="rounded-[18px] border border-[#cfab91] bg-[#f7ecdd]/94 px-3 py-2.5 shadow-xl backdrop-blur-md animate-fade-in-down">
                       <div className="space-y-2">
                           <div>
@@ -2733,6 +2778,18 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                                   <span className="text-[9px] font-black text-[#6b3141]">{player.xp}/{player.xpToNext}</span>
                               </div>
                           </div>
+                          {heroBuffEntries.length > 0 && (
+                              <div className="pt-1 border-t border-[#dcc0aa]">
+                                  <div className="flex flex-wrap gap-1.5">
+                                      {heroBuffEntries.map((buff) => (
+                                          <div key={buff.key} className={`inline-flex items-center gap-1 rounded-[8px] border px-2 py-1 text-[11px] font-black leading-none shadow-sm ${buff.chipClass}`}>
+                                              {buff.icon}
+                                              <span>{buff.label}</span>
+                                          </div>
+                                      ))}
+                                  </div>
+                              </div>
+                          )}
                       </div>
                   </div>
 
@@ -2811,12 +2868,14 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                       </div>
                   </div>
                   {/* Buffs */}
-                  {(player.buffs.atkTurns > 0 || player.buffs.defTurns > 0 || player.buffs.perfectEvadeTurns > 0 || player.buffs.doubleAttackTurns > 0) && (
-                      <div className="mt-1 flex flex-wrap gap-1 max-h-[36px] overflow-hidden">
-                          {player.buffs.atkTurns > 0 && <div className="flex items-center gap-0.5 bg-[#f4e5d4] px-1 py-0.5 rounded-[6px] text-[7px] font-black border border-[#cfab91] text-[#6b3141]"><Sword size={8} className="text-[#b83a4b]" /><span>+{(player.buffs.atkMod*100).toFixed(0)}% ({player.buffs.atkTurns}t)</span></div>}
-                          {player.buffs.defTurns > 0 && <div className="flex items-center gap-0.5 bg-[#f4e5d4] px-1 py-0.5 rounded-[6px] text-[7px] font-black border border-[#cfab91] text-[#6b3141]"><Shield size={8} className="text-[#4d6780]" /><span>+{(player.buffs.defMod*100).toFixed(0)}% ({player.buffs.defTurns}t)</span></div>}
-                          {player.buffs.perfectEvadeTurns > 0 && <div className="flex items-center gap-0.5 bg-[#f4e5d4] px-1 py-0.5 rounded-[6px] text-[7px] font-black border border-[#cfab91] text-[#6b3141]"><Sparkles size={8} className="text-[#7c4c76]" /><span>EVD ({player.buffs.perfectEvadeTurns}t)</span></div>}
-                          {player.buffs.doubleAttackTurns > 0 && <div className="flex items-center gap-0.5 bg-[#f4e5d4] px-1 py-0.5 rounded-[6px] text-[7px] font-black border border-[#cfab91] text-[#6b3141]"><Sword size={8} className="text-[#b83a4b]" /><span>x2 ({player.buffs.doubleAttackTurns}t)</span></div>}
+                  {heroBuffEntries.length > 0 && (
+                      <div className="mt-1.5 flex flex-wrap gap-1.5 max-h-[66px] overflow-hidden">
+                          {heroBuffEntries.map((buff) => (
+                              <div key={buff.key} className={`inline-flex items-center gap-1 rounded-[8px] border px-2 py-1 text-[11px] font-black leading-none shadow-sm ${buff.chipClass}`}>
+                                  {buff.icon}
+                                  <span>{buff.label}</span>
+                              </div>
+                          ))}
                       </div>
                   )}
               </div>
@@ -2977,7 +3036,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
           </div>
       </div>
 
-        {showProfile && <CharacterSheetModal player={player} shopItems={shopItems} onClose={() => setShowProfile(false)} onOpenInventory={() => { setShowProfile(false); setShowInventory(true); }} onUnlockTalent={onUnlockTalent} restrictToStatusOnly={restrictProfileToStatusOnly} allowCardsTab={allowCardsInProfile} initialTab={profileInitialTab} />}
+        {showProfile && <CharacterSheetModal player={player} shopItems={shopItems} onClose={() => setShowProfile(false)} onOpenInventory={() => { setShowProfile(false); setShowInventory(true); }} onUnlockTalent={onUnlockTalent} restrictToStatusOnly={restrictProfileToStatusOnly} allowCardsTab={allowCardsInProfile} allowSkillsTab={showSkillsAction} initialTab={profileInitialTab} />}
     {showInventory && <InventoryModal player={player} shopItems={shopItems} onClose={() => {
         setShowInventory(false);
         if (resumeBattleAfterInventoryPrompt) {

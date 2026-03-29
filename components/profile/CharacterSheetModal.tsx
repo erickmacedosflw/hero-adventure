@@ -20,6 +20,7 @@ type CharacterSheetModalProps = {
   onUnlockTalent: (nodeId: string) => void;
   restrictToStatusOnly?: boolean;
   allowCardsTab?: boolean;
+  allowSkillsTab?: boolean;
   initialTab?: ProfileTab;
 };
 
@@ -280,7 +281,7 @@ const ClassGuideModal = ({
           <div className="grid gap-3 sm:grid-cols-3">
             <SummaryCard label="Classe" value={currentClass.name} tone="text-[#6b3141]" />
             <SummaryCard label="Recurso unico" value={constellation.resource.name} tone="text-[#346c7f]" />
-            <SummaryCard label="Skills da constelacao" value={constellationSkills.length} tone="text-[#7c4c76]" />
+            <SummaryCard label="Habilidades da constelacao" value={constellationSkills.length} tone="text-[#7c4c76]" />
           </div>
 
           <section className="mt-4 rounded-[24px] border border-[#cfab91] bg-[#fff7ed] p-4">
@@ -317,29 +318,45 @@ const ClassGuideModal = ({
   );
 };
 
-export const CharacterSheetModal = ({ player, shopItems: _shopItems, onClose, onOpenInventory, onUnlockTalent, restrictToStatusOnly = false, allowCardsTab = false, initialTab = 'overview' }: CharacterSheetModalProps) => {
+export const CharacterSheetModal = ({ player, shopItems: _shopItems, onClose, onOpenInventory, onUnlockTalent, restrictToStatusOnly = false, allowCardsTab = false, allowSkillsTab = false, initialTab = 'overview' }: CharacterSheetModalProps) => {
   const [activeTab, setActiveTab] = useState<ProfileTab>(initialTab);
   const [showClassGuide, setShowClassGuide] = useState(false);
   const isStatusOnlyMode = Boolean(restrictToStatusOnly);
   const canAccessCards = !isStatusOnlyMode || allowCardsTab;
+  const canAccessSkills = !isStatusOnlyMode || allowSkillsTab;
   const canOpenInventory = !isStatusOnlyMode;
   const currentClass = getPlayerClassById(player.classId);
   const constellation = getConstellationByClassId(player.classId);
   const classGuide = CLASS_GUIDES[player.classId];
 
   useEffect(() => {
-    if (isStatusOnlyMode && !allowCardsTab && activeTab !== 'overview') {
+    if (isStatusOnlyMode && !allowCardsTab && !allowSkillsTab && activeTab !== 'overview') {
       setActiveTab('overview');
     }
-    if (isStatusOnlyMode && allowCardsTab && activeTab !== 'overview' && activeTab !== 'cards') {
+    if (isStatusOnlyMode && activeTab !== 'overview' && activeTab !== 'cards' && activeTab !== 'skills') {
       setActiveTab('overview');
     }
-  }, [activeTab, allowCardsTab, isStatusOnlyMode]);
+    if (isStatusOnlyMode && !allowCardsTab && activeTab === 'cards') {
+      setActiveTab('overview');
+    }
+    if (isStatusOnlyMode && !allowSkillsTab && activeTab === 'skills') {
+      setActiveTab('overview');
+    }
+  }, [activeTab, allowCardsTab, allowSkillsTab, isStatusOnlyMode]);
 
   useEffect(() => {
-    const shouldOpenCards = initialTab === 'cards' && canAccessCards;
-    setActiveTab(shouldOpenCards ? 'cards' : 'overview');
-  }, [canAccessCards, initialTab]);
+    if (initialTab === 'cards' && canAccessCards) {
+      setActiveTab('cards');
+      return;
+    }
+
+    if (initialTab === 'skills' && canAccessSkills) {
+      setActiveTab('skills');
+      return;
+    }
+
+    setActiveTab('overview');
+  }, [canAccessCards, canAccessSkills, initialTab]);
 
   const equipmentSlots: Array<{ label: string; item: Item | null; type: Item['type'] }> = [
     { label: 'Arma', item: player.equippedWeapon, type: 'weapon' },
@@ -366,17 +383,22 @@ export const CharacterSheetModal = ({ player, shopItems: _shopItems, onClose, on
   const profileTabs: Array<{ id: ProfileTab; label: string; icon: React.ReactNode }> = [
     { id: 'overview', label: 'Status', icon: <GameAssetIcon name="heart" size={20} /> },
     { id: 'cards', label: 'Cartas', icon: <GameAssetIcon name="scroll" size={20} /> },
-    { id: 'skills', label: 'Skills', icon: <GameAssetIcon name="bookAlt" size={20} /> },
+    { id: 'skills', label: 'Habilidades', icon: <GameAssetIcon name="bookAlt" size={20} /> },
     { id: 'constellation', label: 'Constelacao', icon: <Orbit size={18} /> },
   ];
   const visibleTabs = profileTabs.filter((tab) => {
     if (tab.id === 'overview') return true;
     if (tab.id === 'cards') return canAccessCards;
+    if (tab.id === 'skills') return canAccessSkills;
     return !isStatusOnlyMode;
   });
 
   const unlockedNodes = constellation.trails.flatMap((trail) => trail.nodes).filter((node) => player.unlockedTalentNodeIds.includes(node.id));
   const constellationSkills = player.skills.filter((skill) => skill.source === 'constellation');
+  const panelMotionStyle: React.CSSProperties = {
+    animation: 'profileTabPanelIn 340ms cubic-bezier(0.22, 1, 0.36, 1)',
+    willChange: 'transform, opacity',
+  };
 
   return (
     <RpgMenuShell
@@ -394,6 +416,21 @@ export const CharacterSheetModal = ({ player, shopItems: _shopItems, onClose, on
       }
     >
       <div className="flex flex-col gap-3 pb-14 md:pb-0">
+        <style>{`
+          @keyframes profileTabPanelIn {
+            0% {
+              opacity: 0;
+              transform: translateY(14px) scale(0.982);
+              filter: blur(1.2px);
+            }
+            100% {
+              opacity: 1;
+              transform: translateY(0) scale(1);
+              filter: blur(0);
+            }
+          }
+        `}</style>
+
         {visibleTabs.length > 1 && (
           <div className="hidden flex-wrap gap-2 px-1 md:flex">
             {visibleTabs.map((tab) => (
@@ -405,7 +442,7 @@ export const CharacterSheetModal = ({ player, shopItems: _shopItems, onClose, on
         )}
 
         {activeTab === 'overview' && (
-          <div className="grid gap-3 rounded-[24px] border border-[#c59d82] bg-[#f8eddf] p-4 lg:grid-cols-[15rem_minmax(0,1fr)_15rem]">
+          <div className="grid gap-3 rounded-[24px] border border-[#c59d82] bg-[#f8eddf] p-4 lg:grid-cols-[15rem_minmax(0,1fr)_15rem]" style={panelMotionStyle}>
             <div className="grid content-start gap-3">
               <div className="rounded-[20px] border border-[#cfab91] bg-[#fff7ed] p-4">
                 <div className="text-[10px] font-black uppercase tracking-[0.24em] text-[#9a7068]">Heroi</div>
@@ -455,12 +492,12 @@ export const CharacterSheetModal = ({ player, shopItems: _shopItems, onClose, on
         )}
 
         {canAccessCards && activeTab === 'cards' && (
-          <ScrollArea className="h-full" viewportClassName="p-1 sm:p-6">
+          <ScrollArea className="h-full" viewportClassName="p-1 sm:p-6" style={panelMotionStyle}>
             <div className="flex flex-col gap-4">
               <div className="flex flex-wrap gap-2">
                 <SummaryCard label="Escolhas" value={player.chosenCards.length} tone="text-[#6b3141]" />
                 <SummaryCard label="Unicas" value={selectedCards.length} tone="text-[#346c7f]" />
-                <SummaryCard label="Skills" value={player.skills.length} tone="text-[#7c4c76]" />
+                <SummaryCard label="Habilidades" value={player.skills.length} tone="text-[#7c4c76]" />
               </div>
 
               {selectedCards.length > 0 ? (
@@ -498,8 +535,8 @@ export const CharacterSheetModal = ({ player, shopItems: _shopItems, onClose, on
           </ScrollArea>
         )}
 
-        {!isStatusOnlyMode && activeTab === 'skills' && (
-          <ScrollArea className="h-full" viewportClassName="p-1 sm:p-6">
+        {canAccessSkills && activeTab === 'skills' && (
+          <ScrollArea className="h-full" viewportClassName="p-1 sm:p-6" style={panelMotionStyle}>
             <div className="flex flex-col gap-4">
               <div className="flex flex-wrap gap-2">
                 <SummaryCard label="Total" value={player.skills.length} tone="text-[#7c4c76]" />
@@ -540,7 +577,7 @@ export const CharacterSheetModal = ({ player, shopItems: _shopItems, onClose, on
         )}
 
         {!isStatusOnlyMode && activeTab === 'constellation' && (
-          <ScrollArea className="h-full" viewportClassName="p-1 sm:p-6">
+          <ScrollArea className="h-full" viewportClassName="p-1 sm:p-6" style={panelMotionStyle}>
             <div className="flex flex-col gap-4">
               <section className="overflow-hidden rounded-[28px] border border-[#cfab91] bg-[#fff7ed] shadow-sm">
                 <div className="px-5 py-5 text-white" style={{ background: `linear-gradient(135deg, ${constellation.trails[0]?.color ?? '#6b3141'}, ${player.classResource.color}, #6b3141)` }}>
@@ -570,7 +607,7 @@ export const CharacterSheetModal = ({ player, shopItems: _shopItems, onClose, on
                       <span>{unlockedNodes.length}</span>
                     </div>
                     <div className="inline-flex items-center gap-1.5 rounded-full border border-[#d6b9a3] bg-[#f8eddf] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[#7c4c76]">
-                      <span className="text-[#9a7068]">Skills</span>
+                        <span className="text-[#9a7068]">Habilidades</span>
                       <span>{constellationSkills.length}</span>
                     </div>
                     {player.classResource.max > 0 && (
@@ -644,9 +681,9 @@ export const CharacterSheetModal = ({ player, shopItems: _shopItems, onClose, on
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex flex-col items-center justify-center rounded-[14px] px-3 py-1.5 transition-all duration-200 ${isActive ? 'bg-[#fff4e7] text-[#6b3141] shadow-sm' : 'text-[#8f6c67]'}`}
+                  className={`flex min-w-[68px] flex-col items-center justify-center rounded-[14px] px-3 py-1.5 transition-all duration-250 ${isActive ? 'bg-[#fff4e7] text-[#6b3141] shadow-sm' : 'text-[#8f6c67]'}`}
                 >
-                  <span className={`transition-all duration-200 ${isActive ? 'scale-105' : 'opacity-80'}`}>{tab.icon}</span>
+                  <span className={`transition-all duration-250 ${isActive ? 'scale-[1.32] -translate-y-0.5 drop-shadow-[0_6px_12px_rgba(107,49,65,0.26)]' : 'scale-100 opacity-80'}`}>{tab.icon}</span>
                   {!isActive && <span className="mt-0.5 text-[9px] font-black uppercase tracking-[0.12em] opacity-70">{tab.label}</span>}
                 </button>
               );

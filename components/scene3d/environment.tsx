@@ -94,6 +94,33 @@ const SKYBOX_PATHS: Record<string, string> = {
 
 const getGameT = (elapsed: number) => ((elapsed * 2 + 720) / 1440) % 1;
 
+const DAY_NIGHT_TIMES = {
+  manha: 5 / 24,
+  dia: 8 / 24,
+  sol: 11 / 24,
+  solEnd: 13 / 24,
+  tarde: 16 / 24,
+  noite: 19 / 24,
+} as const;
+
+const DAY_NIGHT_COLORS = {
+  sunManha: new THREE.Color('#ffb347'),
+  sunDia: new THREE.Color('#fff8e7'),
+  sunSol: new THREE.Color('#ffffff'),
+  sunTarde: new THREE.Color('#ff7e30'),
+  sunNoite: new THREE.Color('#1e3a8a'),
+  hemiManhaS: new THREE.Color('#ffe1a0'),
+  hemiDiaS: new THREE.Color('#87ceeb'),
+  hemiSolS: new THREE.Color('#b0d8f0'),
+  hemiTardeS: new THREE.Color('#ffc87a'),
+  hemiNoiteS: new THREE.Color('#0b1432'),
+  hemiManhaG: new THREE.Color('#5a4400'),
+  hemiDiaG: new THREE.Color('#2d5a1b'),
+  hemiSolG: new THREE.Color('#3a6b20'),
+  hemiTardeG: new THREE.Color('#5c2a00'),
+  hemiNoiteG: new THREE.Color('#060c1f'),
+} as const;
+
 const BLEND_WIN = 30 / 1440;
 const getSkyboxBlend = (t: number): { from: string; to: string; blend: number } => {
   const B = {
@@ -282,6 +309,11 @@ export const DayNightCycle = ({
   const sunRaysMaterialRef = useRef<THREE.SpriteMaterial>(null);
   const lastMinuteRef = useRef(-1);
   const lastBgRef = useRef('');
+  const sunPosRef = useRef(new THREE.Vector3());
+  const moonPosRef = useRef(new THREE.Vector3());
+  const sunColorRef = useRef(new THREE.Color());
+  const hemiSkyRef = useRef(new THREE.Color());
+  const hemiGroundRef = useRef(new THREE.Color());
 
   useFrame((state, delta) => {
     const cycleDuration = 1440;
@@ -296,80 +328,62 @@ export const DayNightCycle = ({
       onTimeUpdate(timeString);
     }
 
-    const T_MANHA = 5 / 24;
-    const T_DIA = 8 / 24;
-    const T_SOL = 11 / 24;
-    const T_SOLEND = 13 / 24;
-    const T_TARDE = 16 / 24;
-    const T_NOITE = 19 / 24;
+    const T_MANHA = DAY_NIGHT_TIMES.manha;
+    const T_DIA = DAY_NIGHT_TIMES.dia;
+    const T_SOL = DAY_NIGHT_TIMES.sol;
+    const T_SOLEND = DAY_NIGHT_TIMES.solEnd;
+    const T_TARDE = DAY_NIGHT_TIMES.tarde;
+    const T_NOITE = DAY_NIGHT_TIMES.noite;
     const frac = (start: number, end: number) => THREE.MathUtils.clamp((t - start) / (end - start), 0, 1);
     const angle = t * Math.PI * 2 - Math.PI / 2;
-    const sunPos = new THREE.Vector3(Math.cos(angle) * 25, Math.sin(angle) * 15, -15);
-    const moonPos = new THREE.Vector3(Math.cos(angle + Math.PI) * 25, Math.sin(angle + Math.PI) * 15, -15);
+    sunPosRef.current.set(Math.cos(angle) * 25, Math.sin(angle) * 15, -15);
+    moonPosRef.current.set(Math.cos(angle + Math.PI) * 25, Math.sin(angle + Math.PI) * 15, -15);
 
     let ambientIntensity: number;
     let sunIntensity: number;
-    let sunColor = new THREE.Color();
-    let hemiSky = new THREE.Color();
-    let hemiGround = new THREE.Color();
+    const sunColor = sunColorRef.current;
+    const hemiSky = hemiSkyRef.current;
+    const hemiGround = hemiGroundRef.current;
     let moonIntensity: number;
-
-    const COL = {
-      sunManha: new THREE.Color('#ffb347'),
-      sunDia: new THREE.Color('#fff8e7'),
-      sunSol: new THREE.Color('#ffffff'),
-      sunTarde: new THREE.Color('#ff7e30'),
-      sunNoite: new THREE.Color('#1e3a8a'),
-      hemiManhaS: new THREE.Color('#ffe1a0'),
-      hemiDiaS: new THREE.Color('#87ceeb'),
-      hemiSolS: new THREE.Color('#b0d8f0'),
-      hemiTardeS: new THREE.Color('#ffc87a'),
-      hemiNoiteS: new THREE.Color('#0b1432'),
-      hemiManhaG: new THREE.Color('#5a4400'),
-      hemiDiaG: new THREE.Color('#2d5a1b'),
-      hemiSolG: new THREE.Color('#3a6b20'),
-      hemiTardeG: new THREE.Color('#5c2a00'),
-      hemiNoiteG: new THREE.Color('#060c1f'),
-    };
 
     if (t >= T_MANHA && t < T_DIA) {
       const p = frac(T_MANHA, T_DIA);
       ambientIntensity = THREE.MathUtils.lerp(0.28, 0.56, p);
       sunIntensity = THREE.MathUtils.lerp(0.45, 1.25, p);
-      sunColor.lerpColors(COL.sunNoite, COL.sunManha, p);
-      hemiSky.lerpColors(COL.hemiNoiteS, COL.hemiManhaS, p);
-      hemiGround.lerpColors(COL.hemiNoiteG, COL.hemiManhaG, p);
+      sunColor.lerpColors(DAY_NIGHT_COLORS.sunNoite, DAY_NIGHT_COLORS.sunManha, p);
+      hemiSky.lerpColors(DAY_NIGHT_COLORS.hemiNoiteS, DAY_NIGHT_COLORS.hemiManhaS, p);
+      hemiGround.lerpColors(DAY_NIGHT_COLORS.hemiNoiteG, DAY_NIGHT_COLORS.hemiManhaG, p);
       moonIntensity = THREE.MathUtils.lerp(0.45, 0, p);
     } else if (t >= T_DIA && t < T_SOL) {
       const p = frac(T_DIA, T_SOL);
       ambientIntensity = THREE.MathUtils.lerp(0.56, 0.62, p);
       sunIntensity = THREE.MathUtils.lerp(1.25, 1.55, p);
-      sunColor.lerpColors(COL.sunManha, COL.sunDia, p);
-      hemiSky.lerpColors(COL.hemiManhaS, COL.hemiDiaS, p);
-      hemiGround.lerpColors(COL.hemiManhaG, COL.hemiDiaG, p);
+      sunColor.lerpColors(DAY_NIGHT_COLORS.sunManha, DAY_NIGHT_COLORS.sunDia, p);
+      hemiSky.lerpColors(DAY_NIGHT_COLORS.hemiManhaS, DAY_NIGHT_COLORS.hemiDiaS, p);
+      hemiGround.lerpColors(DAY_NIGHT_COLORS.hemiManhaG, DAY_NIGHT_COLORS.hemiDiaG, p);
       moonIntensity = 0;
     } else if (t >= T_SOL && t < T_SOLEND) {
       ambientIntensity = 0.64;
       sunIntensity = 1.72;
-      sunColor.copy(COL.sunSol);
-      hemiSky.copy(COL.hemiSolS);
-      hemiGround.copy(COL.hemiSolG);
+      sunColor.copy(DAY_NIGHT_COLORS.sunSol);
+      hemiSky.copy(DAY_NIGHT_COLORS.hemiSolS);
+      hemiGround.copy(DAY_NIGHT_COLORS.hemiSolG);
       moonIntensity = 0;
     } else if (t >= T_SOLEND && t < T_TARDE) {
       const p = frac(T_SOLEND, T_TARDE);
       ambientIntensity = THREE.MathUtils.lerp(0.6, 0.52, p);
       sunIntensity = THREE.MathUtils.lerp(1.55, 1.38, p);
-      sunColor.lerpColors(COL.sunDia, COL.sunManha, p);
-      hemiSky.lerpColors(COL.hemiDiaS, COL.hemiManhaS, p);
-      hemiGround.lerpColors(COL.hemiDiaG, COL.hemiManhaG, p);
+      sunColor.lerpColors(DAY_NIGHT_COLORS.sunDia, DAY_NIGHT_COLORS.sunManha, p);
+      hemiSky.lerpColors(DAY_NIGHT_COLORS.hemiDiaS, DAY_NIGHT_COLORS.hemiManhaS, p);
+      hemiGround.lerpColors(DAY_NIGHT_COLORS.hemiDiaG, DAY_NIGHT_COLORS.hemiManhaG, p);
       moonIntensity = 0;
     } else if (t >= T_TARDE && t < T_NOITE) {
       const p = frac(T_TARDE, T_NOITE);
       ambientIntensity = THREE.MathUtils.lerp(0.52, 0.3, p);
       sunIntensity = THREE.MathUtils.lerp(1.38, 0.3, p);
-      sunColor.lerpColors(COL.sunDia, COL.sunTarde, p);
-      hemiSky.lerpColors(COL.hemiManhaS, COL.hemiTardeS, p);
-      hemiGround.lerpColors(COL.hemiManhaG, COL.hemiTardeG, p);
+      sunColor.lerpColors(DAY_NIGHT_COLORS.sunDia, DAY_NIGHT_COLORS.sunTarde, p);
+      hemiSky.lerpColors(DAY_NIGHT_COLORS.hemiManhaS, DAY_NIGHT_COLORS.hemiTardeS, p);
+      hemiGround.lerpColors(DAY_NIGHT_COLORS.hemiManhaG, DAY_NIGHT_COLORS.hemiTardeG, p);
       moonIntensity = THREE.MathUtils.lerp(0, 0.35, p);
     } else {
       const p = t >= T_NOITE
@@ -377,9 +391,9 @@ export const DayNightCycle = ({
         : (t + 1 - T_NOITE) / (1 - T_NOITE + T_MANHA);
       ambientIntensity = 0.28;
       sunIntensity = 0;
-      sunColor.set(COL.sunNoite);
-      hemiSky.set(COL.hemiNoiteS);
-      hemiGround.set(COL.hemiNoiteG);
+      sunColor.copy(DAY_NIGHT_COLORS.sunNoite);
+      hemiSky.copy(DAY_NIGHT_COLORS.hemiNoiteS);
+      hemiGround.copy(DAY_NIGHT_COLORS.hemiNoiteG);
       moonIntensity = 0.72 * Math.max(0, Math.sin(p * Math.PI));
     }
 
@@ -392,26 +406,26 @@ export const DayNightCycle = ({
     if (sunLightRef.current) {
       sunLightRef.current.intensity = sunIntensity * 1.65;
       sunLightRef.current.color.copy(sunColor);
-      sunLightRef.current.position.copy(sunPos);
+      sunLightRef.current.position.copy(sunPosRef.current);
       sunLightRef.current.target.position.set(0, 0.5, 0);
       sunLightRef.current.target.updateMatrixWorld();
     }
     if (moonLightRef.current) {
       moonLightRef.current.intensity = moonIntensity * 1.08;
-      moonLightRef.current.position.copy(moonPos);
+      moonLightRef.current.position.copy(moonPosRef.current);
     }
     if (sunMeshRef.current) {
-      sunMeshRef.current.position.copy(sunPos);
-      sunMeshRef.current.scale.setScalar(sunPos.y > -1 ? 1 : 0);
+      sunMeshRef.current.position.copy(sunPosRef.current);
+      sunMeshRef.current.scale.setScalar(sunPosRef.current.y > -1 ? 1 : 0);
     }
     if (sunGlowRef.current && sunRaysRef.current) {
-      const visible = sunPos.y > -1 && sunIntensity > 0.05;
+      const visible = sunPosRef.current.y > -1 && sunIntensity > 0.05;
       const glowStrength = THREE.MathUtils.clamp(sunIntensity / 1.75, 0, 1.2);
 
       sunGlowRef.current.visible = visible;
       sunRaysRef.current.visible = visible;
-      sunGlowRef.current.position.copy(sunPos);
-      sunRaysRef.current.position.copy(sunPos);
+      sunGlowRef.current.position.copy(sunPosRef.current);
+      sunRaysRef.current.position.copy(sunPosRef.current);
       sunGlowRef.current.scale.setScalar(4.8 + glowStrength * 2.6);
       sunRaysRef.current.scale.setScalar(9.8 + glowStrength * 4.2);
 
@@ -424,8 +438,8 @@ export const DayNightCycle = ({
       }
     }
     if (moonMeshRef.current) {
-      moonMeshRef.current.position.copy(moonPos);
-      moonMeshRef.current.scale.setScalar(moonPos.y > -1 ? 1 : 0);
+      moonMeshRef.current.position.copy(moonPosRef.current);
+      moonMeshRef.current.scale.setScalar(moonPosRef.current.y > -1 ? 1 : 0);
     }
 
     const bgColor = t >= T_MANHA && t < T_DIA

@@ -221,6 +221,10 @@ export default function App() {
     const enemyAnimationResetTimerRef = useRef<number | null>(null);
     const menuTransitionTimerRef = useRef<number | null>(null);
     const wasResourceUnlockedRef = useRef(player.classResource.max > 0);
+    const particleBudgetRef = useRef({
+        windowStart: (typeof performance !== 'undefined' ? performance.now() : Date.now()),
+        spawnedInWindow: 0,
+    });
 
     const triggerEnemyAnimationAction = useCallback((action: PlayerAnimationAction, resetDelay?: number) => {
         if (enemyAnimationResetTimerRef.current !== null) {
@@ -288,7 +292,23 @@ export default function App() {
   // --- VFX SYSTEM ---
   const spawnParticles = (position: [number, number, number], count: number, color: string, type: 'explode' | 'heal' | 'spark') => {
       const densityMultiplier = type === 'explode' ? 0.72 : type === 'spark' ? 0.68 : 0.78;
-      const finalCount = Math.max(6, Math.round(count * densityMultiplier));
+      const targetCount = Math.max(6, Math.round(count * densityMultiplier));
+      const now = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+      const windowDurationMs = 240;
+      const hardBudgetPerWindow = 70;
+
+      if (now - particleBudgetRef.current.windowStart > windowDurationMs) {
+          particleBudgetRef.current.windowStart = now;
+          particleBudgetRef.current.spawnedInWindow = 0;
+      }
+
+      const remainingBudget = Math.max(0, hardBudgetPerWindow - particleBudgetRef.current.spawnedInWindow);
+      const finalCount = Math.max(4, Math.min(targetCount, remainingBudget));
+      if (finalCount <= 0) {
+          return;
+      }
+
+      particleBudgetRef.current.spawnedInWindow += finalCount;
       const shardChance = type === 'explode' ? 0.22 : type === 'spark' ? 0.14 : 0.08;
       const newParticles: Particle[] = [];
 
@@ -314,7 +334,7 @@ export default function App() {
       }
 
       const spawnedIds = new Set(newParticles.map((particle) => particle.id));
-      setParticles((prev) => [...prev, ...newParticles].slice(-180));
+    setParticles((prev) => [...prev, ...newParticles].slice(-120));
 
       setTimeout(() => {
           setParticles((prev) => prev.filter((particle) => !spawnedIds.has(particle.id)));
@@ -330,7 +350,7 @@ export default function App() {
           target,
           xOffset: (Math.random() * 40) - 20, // Random spread
           yOffset: (Math.random() * 20) - 10
-      }]);
+      }].slice(-8));
 
       // Auto remove after animation
       setTimeout(() => {
@@ -386,7 +406,7 @@ export default function App() {
             .slice(0, Math.min(3, pool.length));
     };
 
-    const applyLevelProgression = (basePlayer: Player) => {
+    const applyLevelProgression = (basePlayer: Player, levelUpRecoveryRatio = 1) => {
         let nextPlayer: Player = {
             ...basePlayer,
             stats: { ...basePlayer.stats },
@@ -407,8 +427,14 @@ export default function App() {
         }
 
         if (levelsGained > 0) {
-            nextPlayer.stats.hp = nextPlayer.stats.maxHp;
-            nextPlayer.stats.mp = nextPlayer.stats.maxMp;
+            const safeRatio = Math.max(0, Math.min(1, levelUpRecoveryRatio));
+            const hpRecovery = Math.max(1, Math.floor(nextPlayer.stats.maxHp * safeRatio));
+            const mpRecovery = nextPlayer.stats.maxMp > 0
+                ? Math.max(1, Math.floor(nextPlayer.stats.maxMp * safeRatio))
+                : 0;
+
+            nextPlayer.stats.hp = Math.min(nextPlayer.stats.maxHp, nextPlayer.stats.hp + hpRecovery);
+            nextPlayer.stats.mp = Math.min(nextPlayer.stats.maxMp, nextPlayer.stats.mp + mpRecovery);
         }
 
         return { nextPlayer, levelsGained };
@@ -1071,6 +1097,14 @@ export default function App() {
     }
   }, [enemy, gameState, handleEnemyTurn, turnState]);
 
+    useEffect(() => {
+            const hasPendingCardChoice = Boolean(currentCardOffer) || currentCardChoices.length > 0 || cardRewardQueue.length > 0;
+
+          if (gameState === GameState.BATTLE && !enemy && bossVictoryContext && !hasPendingCardChoice && postCardFlow !== 'boss-victory') {
+                    setGameState(GameState.BOSS_VICTORY);
+            }
+      }, [bossVictoryContext, cardRewardQueue.length, currentCardChoices.length, currentCardOffer, enemy, gameState, postCardFlow]);
+
   const handleCardSelection = (card: ProgressionCard) => {
       if (!currentCardOffer) return;
 
@@ -1329,6 +1363,7 @@ export default function App() {
 
         if (previousSkillCount === 0 && currentSkillCount > 0 && !skillsActionUnlocked && !skillsUnlockPromptPending) {
             setSkillsUnlockPromptPending(true);
+            setSkillsActionUnlocked(true);
         }
 
         previousSkillCountRef.current = currentSkillCount;
@@ -1591,7 +1626,6 @@ export default function App() {
                         skillsUnlockPromptActive={skillsUnlockPromptPending}
                         onAcknowledgeSkillsUnlock={() => {
                             setSkillsUnlockPromptPending(false);
-                            setSkillsActionUnlocked(true);
                         }}
                         allowCardsInProfile={isCardsUnlocked}
                         fleeUnlocked={isFleeUnlocked}
@@ -1599,6 +1633,7 @@ export default function App() {
                         onAcknowledgeMerchantUnlock={() => setOnboardingPhase('merchant_unlocked')}
                         merchantUnlocked={isMerchantUnlocked}
                         dungeonUnlocked={isDungeonUnlocked}
+                        showSkillsAction={isSkillsActionUnlocked}
           />
       )}
 
@@ -1675,7 +1710,6 @@ export default function App() {
                                                 skillsUnlockPromptActive={skillsUnlockPromptPending}
                                                 onAcknowledgeSkillsUnlock={() => {
                                                     setSkillsUnlockPromptPending(false);
-                                                    setSkillsActionUnlocked(true);
                                                 }}
                                                                                                 itemsUnlockPromptActive={onboardingPhase === 'items_prompt'}
                                                                                                 onAcknowledgeItemsUnlock={() => setOnboardingPhase('flee_prompt')}

@@ -19,7 +19,7 @@ interface UseBattleResolutionParams {
   stage: number;
   dungeonRun: DungeonRunState | null;
   pendingDungeonQueue: CardRewardOffer[];
-  applyLevelProgression: (basePlayer: Player) => { nextPlayer: Player; levelsGained: number };
+  applyLevelProgression: (basePlayer: Player, levelUpRecoveryRatio?: number) => { nextPlayer: Player; levelsGained: number };
   createLevelUpOffers: (count: number) => CardRewardOffer[];
   triggerLevelUpPulse: () => void;
   generateDungeonDrops: (targetEnemy: Enemy, evolution: number, wasBoss: boolean) => string[];
@@ -163,7 +163,7 @@ export const useBattleResolution = ({
       };
       let levelsGained = 0;
       let progressedDungeonPlayer = playerAfterXpGain;
-      ({ nextPlayer: progressedDungeonPlayer, levelsGained } = applyLevelProgression(playerAfterXpGain));
+      ({ nextPlayer: progressedDungeonPlayer, levelsGained } = applyLevelProgression(playerAfterXpGain, 0.3));
 
       const nextDrops = { ...dungeonRun.rewards.drops };
       effectiveDrops.forEach(dropId => {
@@ -225,7 +225,6 @@ export const useBattleResolution = ({
         setDungeonResult(null);
 
         const bossQueue: CardRewardOffer[] = [
-          { source: 'boss', reason: `Recompensa da dungeon: ${enemy.name}` },
           ...pendingDungeonQueue,
           ...levelUpOffers,
         ];
@@ -277,7 +276,7 @@ export const useBattleResolution = ({
       setKillCount(prev => prev + 1);
     }
 
-    ({ nextPlayer: updatedPlayer, levelsGained } = applyLevelProgression(updatedPlayer));
+    ({ nextPlayer: updatedPlayer, levelsGained } = applyLevelProgression(updatedPlayer, 0.3));
 
     if (levelsGained > 0) {
       triggerLevelUpPulse();
@@ -296,9 +295,6 @@ export const useBattleResolution = ({
     setEnemy(null);
     setEnemyAnimationAction('battle-idle');
     const queuedCardRewards: CardRewardOffer[] = [];
-    if (wasBoss) {
-      queuedCardRewards.push({ source: 'boss', reason: `Recompensa do chefao ${enemy.name}` });
-    }
     if (levelsGained > 0) {
       queuedCardRewards.push(...createLevelUpOffers(levelsGained));
     }

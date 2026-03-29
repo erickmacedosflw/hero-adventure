@@ -57,6 +57,12 @@ const getMarkedBonus = (statuses: Enemy['statusEffects'] | undefined, value: num
   statuses?.some((status) => status.kind === 'marked') ? value : 0
 );
 
+const MANA_ONLY_POTION_IDS = new Set(['pot_2', 'pot_mana_2', 'pot_mana_3', 'pot_dg_mana']);
+const MIXED_POTION_RECOVERY: Record<string, { hp: number; mp: number }> = {
+  pot_mix_1: { hp: 35, mp: 20 },
+  pot_mix_2: { hp: 80, mp: 50 },
+};
+
 export const useBattleController = ({
   player,
   enemy,
@@ -521,15 +527,32 @@ export const useBattleController = ({
       setPlayerAnimationAction('item');
     }
 
-    if (item.name.includes('Vida') || item.name.includes('Elixir') || item.name.includes('Ambrosia') || item.name.includes('Menor')) {
-      const healVal = getHealingValue(item.value);
+    const mixedRecovery = MIXED_POTION_RECOVERY[item.id];
+    const recoveredHp = mixedRecovery
+      ? getHealingValue(mixedRecovery.hp)
+      : MANA_ONLY_POTION_IDS.has(item.id)
+        ? 0
+        : getHealingValue(item.value);
+    const recoveredMp = mixedRecovery
+      ? mixedRecovery.mp
+      : MANA_ONLY_POTION_IDS.has(item.id)
+        ? item.value
+        : 0;
+
+    if (recoveredHp > 0 && recoveredMp > 0) {
+      spawnParticles([-2, -1, 0], 26, '#4ade80', 'heal');
+      spawnParticles([-2, -1, 0], 20, '#3b82f6', 'heal');
+      spawnFloatingText(`+${recoveredHp} HP`, 'player', 'heal');
+      spawnFloatingText(`+${recoveredMp} MP`, 'player', 'heal');
+      addLog(`Usou ${item.name}, recuperou ${recoveredHp} HP e ${recoveredMp} MP`, 'heal');
+    } else if (recoveredHp > 0) {
       spawnParticles([-2, -1, 0], 24, '#4ade80', 'heal');
-      spawnFloatingText(`+${healVal}`, 'player', 'heal');
-      addLog(`Usou ${item.name}, recuperou ${healVal} HP`, 'heal');
-    } else if (item.name.includes('Mana')) {
+      spawnFloatingText(`+${recoveredHp}`, 'player', 'heal');
+      addLog(`Usou ${item.name}, recuperou ${recoveredHp} HP`, 'heal');
+    } else if (recoveredMp > 0) {
       spawnParticles([-2, -1, 0], 24, '#3b82f6', 'heal');
-      spawnFloatingText(`+${item.value} MP`, 'player', 'heal');
-      addLog(`Usou ${item.name}, recuperou ${item.value} MP`, 'heal');
+      spawnFloatingText(`+${recoveredMp} MP`, 'player', 'heal');
+      addLog(`Usou ${item.name}, recuperou ${recoveredMp} MP`, 'heal');
     } else if (item.id === 'pot_atk') {
       spawnParticles([-2, -1, 0], 15, '#f97316', 'spark');
       spawnFloatingText('ATAQUE UP!', 'player', 'buff');
@@ -558,10 +581,12 @@ export const useBattleController = ({
       let newMp = prev.stats.mp;
       const newBuffs = { ...prev.buffs };
 
-      if (item.name.includes('Vida') || item.name.includes('Elixir') || item.name.includes('Ambrosia') || item.name.includes('Menor')) {
-        newHp = Math.min(prev.stats.maxHp, prev.stats.hp + getHealingValue(item.value));
-      } else if (item.name.includes('Mana')) {
-        newMp = Math.min(prev.stats.maxMp, prev.stats.mp + item.value);
+      if (recoveredHp > 0) {
+        newHp = Math.min(prev.stats.maxHp, prev.stats.hp + recoveredHp);
+      }
+
+      if (recoveredMp > 0) {
+        newMp = Math.min(prev.stats.maxMp, prev.stats.mp + recoveredMp);
       } else if (item.id === 'pot_atk') {
         newBuffs.atkMod = item.value;
         newBuffs.atkTurns = item.duration || 3;

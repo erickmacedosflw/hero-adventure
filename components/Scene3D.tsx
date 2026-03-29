@@ -313,6 +313,7 @@ const CombatCinematicFX = ({
   isEnemyHit,
   isPlayerHit,
   latestEnemyImpactColor,
+  particleLoad,
 }: {
   playerAnimationAction?: PlayerAnimationAction;
   enemyAnimationAction?: PlayerAnimationAction;
@@ -321,6 +322,7 @@ const CombatCinematicFX = ({
   isEnemyHit?: boolean;
   isPlayerHit?: boolean;
   latestEnemyImpactColor?: string;
+  particleLoad: number;
 }) => {
   const playerRefs = useRef<(THREE.Sprite | null)[]>([]);
   const enemyRefs = useRef<(THREE.Sprite | null)[]>([]);
@@ -335,49 +337,72 @@ const CombatCinematicFX = ({
   const hitPlayerPulseRef = useRef(0);
   const wasEnemyHitRef = useRef(false);
   const wasPlayerHitRef = useRef(false);
+  const hadSkillFxRef = useRef(false);
 
   useFrame((state, delta) => {
     const t = state.clock.elapsedTime;
     const playerSkillActive = playerAnimationAction === 'skill';
     const enemySkillActive = enemyAnimationAction === 'skill';
+    const hasSkillFx = playerSkillActive || enemySkillActive || Boolean(isPlayerAttacking) || Boolean(isEnemyAttacking);
+    const loadScale = particleLoad > 84 ? 0.65 : particleLoad > 64 ? 0.82 : 1;
+    const activeTrailCount = Math.max(8, Math.floor(COMBAT_TRAIL_SEEDS.length * loadScale));
 
-    COMBAT_TRAIL_SEEDS.forEach((seed, i) => {
-      const playerSprite = playerRefs.current[i];
-      if (playerSprite) {
-        if (playerSkillActive) {
-          const travel = (seed.phase + t * (0.65 + seed.speed * 0.2)) % 1;
-          const x = THREE.MathUtils.lerp(-1.82, 1.9, travel);
-          const arc = Math.sin(travel * Math.PI) * 0.38;
-          playerSprite.position.set(
-            x,
-            0.64 + arc + seed.yOffset,
-            seed.zOffset,
-          );
-          playerSprite.scale.set(seed.size * 2.3, seed.size, 1);
-          (playerSprite.material as THREE.SpriteMaterial).opacity = 0.2 + (Math.sin((travel * Math.PI * 2) + t * 2.4) * 0.16 + 0.18);
-        } else {
-          (playerSprite.material as THREE.SpriteMaterial).opacity = THREE.MathUtils.lerp((playerSprite.material as THREE.SpriteMaterial).opacity, 0, 0.16);
+    if (hasSkillFx) {
+      COMBAT_TRAIL_SEEDS.forEach((seed, i) => {
+        const playerSprite = playerRefs.current[i];
+        if (playerSprite) {
+          if (i >= activeTrailCount) {
+            (playerSprite.material as THREE.SpriteMaterial).opacity = THREE.MathUtils.lerp((playerSprite.material as THREE.SpriteMaterial).opacity, 0, 0.3);
+          } else if (playerSkillActive) {
+            const travel = (seed.phase + t * (0.65 + seed.speed * 0.2)) % 1;
+            const x = THREE.MathUtils.lerp(-1.82, 1.9, travel);
+            const arc = Math.sin(travel * Math.PI) * 0.38;
+            playerSprite.position.set(
+              x,
+              0.64 + arc + seed.yOffset,
+              seed.zOffset,
+            );
+            playerSprite.scale.set(seed.size * 2.3, seed.size, 1);
+            (playerSprite.material as THREE.SpriteMaterial).opacity = 0.2 + (Math.sin((travel * Math.PI * 2) + t * 2.4) * 0.16 + 0.18);
+          } else {
+            (playerSprite.material as THREE.SpriteMaterial).opacity = THREE.MathUtils.lerp((playerSprite.material as THREE.SpriteMaterial).opacity, 0, 0.16);
+          }
+        }
+
+        const enemySprite = enemyRefs.current[i];
+        if (enemySprite) {
+          if (i >= activeTrailCount) {
+            (enemySprite.material as THREE.SpriteMaterial).opacity = THREE.MathUtils.lerp((enemySprite.material as THREE.SpriteMaterial).opacity, 0, 0.3);
+          } else if (enemySkillActive) {
+            const travel = (seed.phase + t * (0.62 + seed.speed * 0.18)) % 1;
+            const x = THREE.MathUtils.lerp(1.82, -1.9, travel);
+            const arc = Math.sin(travel * Math.PI) * 0.28;
+            enemySprite.position.set(
+              x,
+              0.55 + arc + seed.yOffset * 0.75,
+              seed.zOffset,
+            );
+            enemySprite.scale.set(seed.size * 2.1, seed.size * 0.9, 1);
+            (enemySprite.material as THREE.SpriteMaterial).opacity = 0.14 + (Math.sin((travel * Math.PI * 2) + t * 2.1) * 0.12 + 0.14);
+          } else {
+            (enemySprite.material as THREE.SpriteMaterial).opacity = THREE.MathUtils.lerp((enemySprite.material as THREE.SpriteMaterial).opacity, 0, 0.16);
+          }
+        }
+      });
+      hadSkillFxRef.current = true;
+    } else if (hadSkillFxRef.current) {
+      for (let i = 0; i < COMBAT_TRAIL_SEEDS.length; i += 1) {
+        const playerSprite = playerRefs.current[i];
+        if (playerSprite) {
+          (playerSprite.material as THREE.SpriteMaterial).opacity = 0;
+        }
+        const enemySprite = enemyRefs.current[i];
+        if (enemySprite) {
+          (enemySprite.material as THREE.SpriteMaterial).opacity = 0;
         }
       }
-
-      const enemySprite = enemyRefs.current[i];
-      if (enemySprite) {
-        if (enemySkillActive) {
-          const travel = (seed.phase + t * (0.62 + seed.speed * 0.18)) % 1;
-          const x = THREE.MathUtils.lerp(1.82, -1.9, travel);
-          const arc = Math.sin(travel * Math.PI) * 0.28;
-          enemySprite.position.set(
-            x,
-            0.55 + arc + seed.yOffset * 0.75,
-            seed.zOffset,
-          );
-          enemySprite.scale.set(seed.size * 2.1, seed.size * 0.9, 1);
-          (enemySprite.material as THREE.SpriteMaterial).opacity = 0.14 + (Math.sin((travel * Math.PI * 2) + t * 2.1) * 0.12 + 0.14);
-        } else {
-          (enemySprite.material as THREE.SpriteMaterial).opacity = THREE.MathUtils.lerp((enemySprite.material as THREE.SpriteMaterial).opacity, 0, 0.16);
-        }
-      }
-    });
+      hadSkillFxRef.current = false;
+    }
 
     if (playerCastAuraRef.current && playerCastCoreRef.current) {
       if (playerSkillActive) {
@@ -649,7 +674,7 @@ const BattleActorStatusHud = ({
 }) => (
   <Html center sprite distanceFactor={7.2} zIndexRange={[110, 0]} position={[0, 2.7, 0]}>
     <div className="pointer-events-none w-[210px] select-none sm:w-[260px]">
-      <div className="overflow-hidden rounded-[22px] border border-[#cfab91] bg-[#f7ecdd]/95 px-4 py-3 shadow-[0_18px_40px_rgba(107,49,65,0.18)] backdrop-blur-md">
+      <div className="overflow-hidden rounded-[22px] border border-[#cfab91] bg-[#f7ecdd]/95 px-4 py-3 shadow-[0_18px_40px_rgba(107,49,65,0.18)]">
         <div className="mb-2 flex items-start justify-between gap-2">
           <div className="min-w-0">
             <div className="truncate text-xs font-black uppercase tracking-[0.18em] text-[#6b3141]">{name}</div>
@@ -738,15 +763,17 @@ const HeroVoxel = ({ classId = 'knight', playerAnimationAction = 'idle', animati
       }
       flashRef.current = THREE.MathUtils.lerp(flashRef.current, 0, 0.32);
       wasHitRef.current = Boolean(isHit);
-      group.current.traverse((child: any) => {
-        if (child.isMesh && child.material) {
-          if (Array.isArray(child.material)) {
-            child.material.forEach((material: THREE.Material) => applyHitFlashToMaterial(material, flashRef.current > 0.03, flashRef.current * 0.65, '#ffffff'));
-          } else {
-            applyHitFlashToMaterial(child.material, flashRef.current > 0.03, flashRef.current * 0.65, '#ffffff');
+      if (flashRef.current > 0.01) {
+        group.current.traverse((child: any) => {
+          if (child.isMesh && child.material) {
+            if (Array.isArray(child.material)) {
+              child.material.forEach((material: THREE.Material) => applyHitFlashToMaterial(material, flashRef.current > 0.03, flashRef.current * 0.65, '#ffffff'));
+            } else {
+              applyHitFlashToMaterial(child.material, flashRef.current > 0.03, flashRef.current * 0.65, '#ffffff');
+            }
           }
-        }
-      });
+        });
+      }
     }
 
     if (shieldRef.current) {
@@ -922,19 +949,21 @@ const CombinedHeroVoxel = ({
     group.current.rotation.y = THREE.MathUtils.lerp(group.current.rotation.y, 0.35, 0.16);
     flashRef.current = THREE.MathUtils.lerp(flashRef.current, 0, 0.1);
 
-    group.current.traverse((child: THREE.Object3D) => {
-      const mesh = child as THREE.Mesh;
+    if (flashRef.current > 0.01) {
+      group.current.traverse((child: THREE.Object3D) => {
+        const mesh = child as THREE.Mesh;
 
-      if (!mesh.isMesh || !mesh.material) {
-        return;
-      }
+        if (!mesh.isMesh || !mesh.material) {
+          return;
+        }
 
-      if (Array.isArray(mesh.material)) {
-        mesh.material.forEach((material: THREE.Material) => applyHitFlashToMaterial(material, false, flashRef.current * 2));
-      } else {
-        applyHitFlashToMaterial(mesh.material, false, flashRef.current * 2);
-      }
-    });
+        if (Array.isArray(mesh.material)) {
+          mesh.material.forEach((material: THREE.Material) => applyHitFlashToMaterial(material, false, flashRef.current * 2));
+        } else {
+          applyHitFlashToMaterial(mesh.material, false, flashRef.current * 2);
+        }
+      });
+    }
 
     const breathe = 1 + Math.sin(state.clock.elapsedTime * 1.8) * 0.005;
     group.current.scale.setScalar(breathe);
@@ -1039,7 +1068,7 @@ export const GameScene: React.FC<SceneProps> = (props) => {
     <div ref={containerRef} className="absolute inset-0 z-0 transition-colors duration-1000" style={{ backgroundColor: isArCameraMode ? 'transparent' : bgColor }}>
       {/* Time Display Overlay - Desktop only */}
       {!isDungeonRun && !isArCameraMode && (
-        <div className="absolute top-6 left-6 z-10 bg-black/40 backdrop-blur-md border border-white/10 px-4 py-1 rounded-full hidden sm:flex items-center gap-3 pointer-events-none">
+        <div className="absolute top-6 left-6 z-10 bg-black/40 border border-white/10 px-4 py-1 rounded-full hidden sm:flex items-center gap-3 pointer-events-none">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-400 shrink-0"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
           <span className="font-mono text-white text-sm tracking-widest">{gameTime}</span>
         </div>
@@ -1148,6 +1177,7 @@ export const GameScene: React.FC<SceneProps> = (props) => {
           isEnemyHit={props.isEnemyHit}
           isPlayerHit={props.isPlayerHit}
           latestEnemyImpactColor={latestEnemyImpactColor}
+          particleLoad={props.particles.length}
         />
         )}
         <AmbientDriftParticles isLowQuality={quality.isLowQuality} isDungeonRun={isDungeonRun} />
