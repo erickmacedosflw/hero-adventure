@@ -2934,6 +2934,24 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                                   <div className="h-full rounded-full bg-[linear-gradient(90deg,#8d2f46,#d17482)] transition-all duration-300" style={{width: `${Math.max(0, (enemy.stats.hp/enemy.stats.maxHp)*100)}%`}}></div>
                               </div>
                           </div>
+                          {enemy.stats.maxMp > 0 && (
+                              <div>
+                                  <div className="flex items-center justify-between mb-1">
+                                      <span className="text-[10px] font-black uppercase tracking-[0.24em] text-[#346c7f]">Mana</span>
+                                      <span className="text-[12px] font-black text-[#6b3141]">{enemy.stats.mp}/{enemy.stats.maxMp}</span>
+                                  </div>
+                                  <div className="h-2.5 bg-[#e9d7c2] rounded-full overflow-hidden">
+                                      <div className="h-full rounded-full bg-[linear-gradient(90deg,#2b6878,#66b8d2)] transition-all duration-300" style={{width: `${Math.max(0, (enemy.stats.mp/enemy.stats.maxMp)*100)}%`}}></div>
+                                  </div>
+                              </div>
+                          )}
+                          {enemy.combatBuffs.turns > 0 && (
+                              <div className="pt-1 border-t border-[#dcc0aa]">
+                                  <span className="inline-flex items-center rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.12em] text-amber-700">
+                                      Impulso inicial ({enemy.combatBuffs.turns}t)
+                                  </span>
+                              </div>
+                          )}
                       </div>
                   )}
               </div>
@@ -3064,6 +3082,24 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                               <div className="h-full rounded-full bg-[linear-gradient(90deg,#8d2f46,#d17482)] transition-all duration-300" style={{width: `${Math.max(0, (enemy.stats.hp/enemy.stats.maxHp)*100)}%`}}></div>
                           </div>
                       </div>
+                      {enemy.stats.maxMp > 0 && (
+                          <div className="mt-1">
+                              <div className="flex items-center justify-between mb-0.5">
+                                  <span className="text-[11px] font-black uppercase tracking-[0.2em] text-[#346c7f]">Mana</span>
+                                  <span className="text-sm font-black text-[#6b3141]">{enemy.stats.mp}/{enemy.stats.maxMp}</span>
+                              </div>
+                              <div className="h-2 bg-[#e9d7c2] rounded-full overflow-hidden">
+                                  <div className="h-full rounded-full bg-[linear-gradient(90deg,#2b6878,#66b8d2)] transition-all duration-300" style={{width: `${Math.max(0, (enemy.stats.mp/enemy.stats.maxMp)*100)}%`}}></div>
+                              </div>
+                          </div>
+                      )}
+                      {enemy.combatBuffs.turns > 0 && (
+                          <div className="mt-1">
+                              <span className="inline-flex items-center rounded-full border border-amber-300 bg-amber-100 px-1.5 py-0.5 text-[8px] font-black uppercase text-amber-700">
+                                  Impulso ({enemy.combatBuffs.turns}t)
+                              </span>
+                          </div>
+                      )}
                       {(enemy.statusEffects?.length ?? 0) > 0 && (
                           <div className="mt-1 flex flex-wrap gap-1">
                               {enemy.statusEffects?.slice(0, 3).map((status) => (

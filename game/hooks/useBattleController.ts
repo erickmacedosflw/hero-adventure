@@ -63,6 +63,40 @@ const MIXED_POTION_RECOVERY: Record<string, { hp: number; mp: number }> = {
   pot_mix_2: { hp: 80, mp: 50 },
 };
 
+const getEnemyAtkWithBuff = (target: Enemy) => (
+  Math.floor(target.stats.atk * (1 + (target.combatBuffs?.atkMod ?? 0)))
+);
+
+const getEnemyDefWithBuff = (target: Enemy) => (
+  Math.floor(target.stats.def * (1 + (target.combatBuffs?.defMod ?? 0)))
+);
+
+const tickEnemyBuffs = (target: Enemy): Enemy => {
+  if (!target.combatBuffs || target.combatBuffs.turns <= 0) {
+    return target;
+  }
+
+  const nextTurns = target.combatBuffs.turns - 1;
+  if (nextTurns <= 0) {
+    return {
+      ...target,
+      combatBuffs: {
+        atkMod: 0,
+        defMod: 0,
+        turns: 0,
+      },
+    };
+  }
+
+  return {
+    ...target,
+    combatBuffs: {
+      ...target.combatBuffs,
+      turns: nextTurns,
+    },
+  };
+};
+
 export const useBattleController = ({
   player,
   enemy,
@@ -97,6 +131,7 @@ export const useBattleController = ({
   onPlayerDefeat,
 }: UseBattleControllerParams) => {
   const handleVictoryRef = useRef(handleVictory);
+  const lastPlayerActionRef = useRef<'attack' | 'defend' | 'skill' | 'item' | null>(null);
 
   useEffect(() => {
     handleVictoryRef.current = handleVictory;
@@ -167,6 +202,7 @@ export const useBattleController = ({
 
   const handlePlayerAttack = useCallback(() => {
     if (!enemy || turnState !== TurnState.PLAYER_INPUT) return;
+    lastPlayerActionRef.current = 'attack';
 
     const talentBonuses = getTalentBonuses(player);
     const doubleAttackActive = player.buffs.doubleAttackTurns > 0;
@@ -181,7 +217,7 @@ export const useBattleController = ({
     const resolveStrike = (remainingHp: number, isFirstStrike: boolean) => {
       const attackResult = calculateDamage({
         attackerAtk: player.stats.atk,
-        defenderDef: enemy.stats.def,
+        defenderDef: getEnemyDefWithBuff(enemy),
         attackerSpeed: player.stats.speed,
         defenderSpeed: enemy.stats.speed,
         multiplier: getBossDamageMultiplier() * (1 + talentBonuses.physicalDamage + getMarkedBonus(enemy.statusEffects, talentBonuses.markedDamage)),
@@ -280,6 +316,7 @@ export const useBattleController = ({
 
   const handlePlayerDefense = useCallback(() => {
     if (!enemy || turnState !== TurnState.PLAYER_INPUT) return;
+    lastPlayerActionRef.current = 'defend';
 
     const talentBonuses = getTalentBonuses(player);
     const manaRecovered = Math.max(1, Math.floor(player.stats.maxMp * (0.05 + player.cardBonuses.defendManaRestore)) + Math.floor(talentBonuses.manaOnDefend));
@@ -322,6 +359,7 @@ export const useBattleController = ({
   const handleSkill = useCallback((skill: Skill) => {
     const requiredResource = skill.resourceEffect?.cost ?? 0;
     if (!enemy || turnState !== TurnState.PLAYER_INPUT || player.stats.mp < skill.manaCost || player.classResource.value < requiredResource) return;
+    lastPlayerActionRef.current = 'skill';
 
     const talentBonuses = getTalentBonuses(player);
     const visual = getSkillVisualConfig(skill);
@@ -406,7 +444,7 @@ export const useBattleController = ({
         const resourceBurst = resourceSpent * (skill.resourceEffect?.bonusDamagePerPoint ?? 0);
         const attackResult = calculateDamage({
           attackerAtk: player.stats.atk,
-          defenderDef: enemy.stats.def,
+          defenderDef: getEnemyDefWithBuff(enemy),
           attackerSpeed: player.stats.speed,
           defenderSpeed: enemy.stats.speed,
           multiplier: (skill.damageMult + resourceBurst) * getBossDamageMultiplier() * (1 + schoolBonus + statusBonus),
@@ -510,6 +548,7 @@ export const useBattleController = ({
 
   const handleUseItem = useCallback((itemId: string) => {
     if (turnState !== TurnState.PLAYER_INPUT) return;
+    lastPlayerActionRef.current = 'item';
 
     const item = ALL_ITEMS.find((entry) => entry.id === itemId);
     const qty = player.inventory[itemId] || 0;
@@ -632,52 +671,224 @@ export const useBattleController = ({
   const handleEnemyTurn = useCallback(() => {
     if (!enemy || gameState !== GameState.BATTLE) return;
 
-    // Prevent the App-level enemy-turn effect from re-entering this handler
-    // when player/enemy state changes during the same enemy action.
     setTurnState(TurnState.PROCESSING);
-
     const talentBonuses = getTalentBonuses(player);
+
     const enemyStatusTick = tickStatusEffects(enemy.statusEffects ?? [], enemy.stats.maxHp, {
       burnBonus: talentBonuses.burnDamage,
       bleedBonus: talentBonuses.bleedDamage,
     });
 
+    let simulatedEnemy: Enemy = {
+      ...enemy,
+      statusEffects: enemyStatusTick.nextStatuses,
+      stats: {
+        ...enemy.stats,
+        hp: Math.max(0, enemy.stats.hp - enemyStatusTick.damage),
+      },
+      isDefending: false,
+      skillSet: enemy.skillSet.map((skill) => ({
+        ...skill,
+        currentCooldown: Math.max(0, skill.currentCooldown - 1),
+      })),
+    };
+
     if (enemyStatusTick.damage > 0) {
       spawnParticles([2, -0.5, 0], 18, '#fb7185', 'spark');
       spawnFloatingText(enemyStatusTick.damage, 'enemy', 'damage');
       enemyStatusTick.logs.forEach((message) => addLog(`${enemy.name}: ${message}`, 'damage'));
-
-      const enemyRemainingHp = Math.max(0, enemy.stats.hp - enemyStatusTick.damage);
-      setEnemy((prev) => (
-        prev
-          ? {
-              ...prev,
-              stats: { ...prev.stats, hp: enemyRemainingHp },
-              statusEffects: enemyStatusTick.nextStatuses,
-            }
-          : null
-      ));
-
-      if (enemyRemainingHp <= 0) {
-        triggerEnemyAnimationAction('death', 900);
-        void handleVictoryRef.current(900);
-        return;
-      }
-    } else if ((enemy.statusEffects ?? []).length > 0) {
-      setEnemy((prev) => prev ? ({ ...prev, statusEffects: enemyStatusTick.nextStatuses }) : null);
     }
 
-    const shouldDefend = Math.random() < 0.2;
-    setEnemy((prev) => prev ? ({ ...prev, isDefending: false }) : null);
+    if (simulatedEnemy.stats.hp <= 0) {
+      setEnemy(simulatedEnemy);
+      triggerEnemyAnimationAction('death', 900);
+      void handleVictoryRef.current(900);
+      return;
+    }
 
-    if (shouldDefend) {
-      setEnemy((prev) => prev ? ({ ...prev, isDefending: true }) : null);
-      addLog(`${enemy.name} esta se defendendo e ficou mais dificil de acertar!`, 'buff');
-      spawnFloatingText('DEFESA!', 'enemy', 'buff');
-      spawnParticles([2, -0.5, 0], 10, '#3b82f6', 'spark');
+    const hpRatio = simulatedEnemy.stats.hp / Math.max(1, simulatedEnemy.stats.maxHp);
+    const mpRatio = simulatedEnemy.stats.maxMp > 0 ? simulatedEnemy.stats.mp / simulatedEnemy.stats.maxMp : 1;
+    const hasPotion = simulatedEnemy.potionCharges > 0;
+    const lowHp = hpRatio <= simulatedEnemy.aiProfile.lowHpThreshold;
+    const criticalHp = hpRatio <= simulatedEnemy.aiProfile.criticalHpThreshold;
+    const lowMana = simulatedEnemy.stats.maxMp > 0 && mpRatio <= simulatedEnemy.aiProfile.lowManaThreshold;
+    const playerAggressive = lastPlayerActionRef.current === 'attack' || lastPlayerActionRef.current === 'skill';
+    const playerDefensive = lastPlayerActionRef.current === 'defend';
+
+    const finishEnemyActionToPlayerTurn = (nextEnemy: Enemy) => {
+      const enemyAfterBuffTick = tickEnemyBuffs(nextEnemy);
+      setEnemy(enemyAfterBuffTick);
       setPlayer((prev) => ({ ...prev, buffs: consumeTurnBuffs(prev.buffs), isDefending: false }));
       setPlayerAnimationAction('idle');
       setTurnState(TurnState.PLAYER_INPUT);
+    };
+
+    const useDefendAction = (reasonLabel: string) => {
+      const nextEnemy = {
+        ...simulatedEnemy,
+        isDefending: true,
+        stats: {
+          ...simulatedEnemy.stats,
+          mp: Math.min(simulatedEnemy.stats.maxMp, simulatedEnemy.stats.mp + simulatedEnemy.manaRegenOnDefend),
+        },
+      };
+      addLog(`${simulatedEnemy.name} defendeu para ${reasonLabel} e recuperou mana.`, 'buff');
+      spawnFloatingText('DEFESA + MANA', 'enemy', 'buff');
+      spawnParticles([2, -0.5, 0], 12, '#3b82f6', 'spark');
+      finishEnemyActionToPlayerTurn(nextEnemy);
+    };
+
+    if (lowHp && hasPotion) {
+      const healAmount = Math.max(1, Math.floor(simulatedEnemy.stats.maxHp * simulatedEnemy.potionHealRatio));
+      const nextEnemy = {
+        ...simulatedEnemy,
+        potionCharges: simulatedEnemy.potionCharges - 1,
+        stats: {
+          ...simulatedEnemy.stats,
+          hp: Math.min(simulatedEnemy.stats.maxHp, simulatedEnemy.stats.hp + healAmount),
+        },
+      };
+      addLog(`${simulatedEnemy.name} usou pocao e curou ${healAmount} HP.`, 'heal');
+      spawnFloatingText(`+${healAmount}`, 'enemy', 'heal');
+      spawnParticles([2, -0.5, 0], 20, '#22c55e', 'heal');
+      finishEnemyActionToPlayerTurn(nextEnemy);
+      return;
+    }
+
+    if (criticalHp && !hasPotion) {
+      useDefendAction('sobreviver');
+      return;
+    }
+
+    if (lowMana) {
+      useDefendAction('recuperar mana');
+      return;
+    }
+
+    const usableSkills = simulatedEnemy.skillSet.filter((skill) => (
+      skill.currentCooldown <= 0 && simulatedEnemy.stats.mp >= skill.manaCost
+    ));
+
+    const extraSkillBias = playerDefensive ? 0.15 : 0;
+    const skillChance = Math.min(0.85, 0.28 + (simulatedEnemy.aiProfile.tier * 0.05) + extraSkillBias);
+    const shouldUseSkill = usableSkills.length > 0 && Math.random() < skillChance;
+
+    if (shouldUseSkill) {
+      const chosenSkill = usableSkills[Math.floor(Math.random() * usableSkills.length)];
+      const nextSkillSet = simulatedEnemy.skillSet.map((skill) => (
+        skill.id === chosenSkill.id
+          ? { ...skill, currentCooldown: skill.cooldown }
+          : skill
+      ));
+      simulatedEnemy = {
+        ...simulatedEnemy,
+        skillSet: nextSkillSet,
+        stats: {
+          ...simulatedEnemy.stats,
+          mp: simulatedEnemy.stats.mp - chosenSkill.manaCost,
+        },
+      };
+
+      setIsEnemyAttacking(true);
+      triggerEnemyAnimationAction('skill', 760);
+      window.setTimeout(() => {
+        const skillAttackResult = calculateDamage({
+          attackerAtk: getEnemyAtkWithBuff(simulatedEnemy),
+          defenderDef: player.stats.def,
+          attackerSpeed: simulatedEnemy.stats.speed,
+          defenderSpeed: player.stats.speed,
+          defenderHasPerfectEvade: player.buffs.perfectEvadeTurns > 0,
+          multiplier: chosenSkill.damageMultiplier,
+          luck: simulatedEnemy.stats.luck,
+          attackKind: chosenSkill.attackKind,
+          defenderIsDefending: player.isDefending,
+          defenderBuffs: player.buffs,
+          applyDefenseBuff: true,
+          critChanceBonus: simulatedEnemy.aiProfile.critChanceBonus,
+          critDamageBonus: simulatedEnemy.aiProfile.critDamageBonus,
+          damageReduction: talentBonuses.damageReduction,
+          defendMitigationBonus: talentBonuses.defendMitigation,
+        });
+
+        if (skillAttackResult.evaded) {
+          addLog(`Voce desviou de ${chosenSkill.name}!`, 'evade');
+          spawnFloatingText('DESVIO!', 'player', 'buff');
+          finishEnemyActionToPlayerTurn(simulatedEnemy);
+          setIsEnemyAttacking(false);
+          return;
+        }
+
+        const finalDamage = player.isDefending ? Math.floor(skillAttackResult.damage * 0.5) : skillAttackResult.damage;
+        const remainingHpAfterHit = Math.max(0, player.stats.hp - finalDamage);
+        const hitAnimationAction: PlayerAnimationAction = remainingHpAfterHit <= 0
+          ? 'death'
+          : player.isDefending
+            ? 'defend-hit'
+            : skillAttackResult.isCrit
+              ? 'critical-hit'
+              : 'hit';
+
+        spawnParticles([-2, -1, 0], 9, '#dc2626', 'spark');
+        spawnFloatingText(skillAttackResult.isCrit ? `CRIT ${finalDamage}` : finalDamage, 'player', skillAttackResult.isCrit ? 'crit' : 'damage');
+        setScreenShake(skillAttackResult.isCrit ? 0.34 : 0.22);
+        setIsPlayerHit(true);
+        setIsPlayerCritHit(skillAttackResult.isCrit);
+        window.setTimeout(() => {
+          setScreenShake(0);
+          setIsPlayerHit(false);
+          setIsPlayerCritHit(false);
+        }, 220);
+
+        setPlayer((prev) => ({
+          ...prev,
+          buffs: consumeTurnBuffs(prev.buffs),
+          isDefending: false,
+          stats: { ...prev.stats, hp: Math.max(0, prev.stats.hp - finalDamage) },
+        }));
+        setPlayerAnimationAction(hitAnimationAction);
+        addLog(`${simulatedEnemy.name} usou ${chosenSkill.name}: ${finalDamage} dano!${skillAttackResult.isCrit ? ' CRITICO!' : ''}`, skillAttackResult.isCrit ? 'crit' : 'damage');
+
+        window.setTimeout(() => {
+          setIsEnemyAttacking(false);
+          if (remainingHpAfterHit <= 0) {
+            onPlayerDefeat?.();
+            window.setTimeout(() => {
+              if (dungeonRun) {
+                setKillCount(0);
+                setPlayer((prev) => ({
+                  ...clonePlayer(dungeonRun.entrySnapshot),
+                  xp: prev.xp,
+                  level: prev.level,
+                  xpToNext: prev.xpToNext,
+                  talentPoints: prev.talentPoints,
+                }));
+                setDungeonResult({
+                  outcome: 'defeat',
+                  rewards: dungeonRun.rewards,
+                  reason: enemy.isBoss ? 'O chefao final da dungeon venceu voce. O espolio acumulado foi perdido, mas o XP obtido nas vitorias foi mantido.' : 'Voce caiu antes de terminar a dungeon. O espolio acumulado foi perdido, mas o XP obtido nas vitorias foi mantido.',
+                });
+                setDungeonRun(null);
+                setEnemy(null);
+                setGameState(GameState.DUNGEON_RESULT);
+              } else if (enemy.isBoss) {
+                setKillCount(0);
+                setGameState(GameState.GAME_OVER);
+              } else {
+                setGameState(GameState.GAME_OVER);
+              }
+            }, 900);
+          } else {
+            finishEnemyActionToPlayerTurn(simulatedEnemy);
+          }
+        }, 420);
+      }, 420);
+      return;
+    }
+
+    const defensiveReactionBoost = playerAggressive ? 0.16 : 0;
+    const shouldDefend = Math.random() < Math.min(0.8, simulatedEnemy.aiProfile.defendBaseChance + defensiveReactionBoost);
+    if (shouldDefend) {
+      useDefendAction('segurar a ofensiva');
       return;
     }
 
@@ -686,30 +897,31 @@ export const useBattleController = ({
 
     window.setTimeout(() => {
       const attackResult = calculateDamage({
-        attackerAtk: enemy.stats.atk,
+        attackerAtk: getEnemyAtkWithBuff(simulatedEnemy),
         defenderDef: player.stats.def,
-        attackerSpeed: enemy.stats.speed,
+        attackerSpeed: simulatedEnemy.stats.speed,
         defenderSpeed: player.stats.speed,
         defenderHasPerfectEvade: player.buffs.perfectEvadeTurns > 0,
         multiplier: 1,
-        luck: 0,
+        luck: simulatedEnemy.stats.luck,
         attackKind: 'physical',
         defenderIsDefending: player.isDefending,
         defenderBuffs: player.buffs,
         applyDefenseBuff: true,
+        critChanceBonus: simulatedEnemy.aiProfile.critChanceBonus,
+        critDamageBonus: simulatedEnemy.aiProfile.critDamageBonus,
         damageReduction: talentBonuses.damageReduction,
         defendMitigationBonus: talentBonuses.defendMitigation,
       });
 
       if (attackResult.evaded) {
         spawnFloatingText('DESVIO!', 'player', 'buff');
-        addLog(`Voce desviou do ataque de ${enemy.name}!`, 'evade');
+        addLog(`Voce desviou do ataque de ${simulatedEnemy.name}!`, 'evade');
         setPlayer((prev) => ({ ...prev, buffs: consumeTurnBuffs(prev.buffs), isDefending: false }));
         setPlayerAnimationAction('evade');
         window.setTimeout(() => {
           setIsEnemyAttacking(false);
-          setPlayerAnimationAction('idle');
-          setTurnState(TurnState.PLAYER_INPUT);
+          finishEnemyActionToPlayerTurn(simulatedEnemy);
         }, 600);
         return;
       }
@@ -725,8 +937,8 @@ export const useBattleController = ({
             : 'hit';
 
       spawnParticles([-2, -1, 0], 5, '#dc2626', 'spark');
-      spawnFloatingText(finalDamage, 'player', 'damage');
-      setScreenShake(0.2);
+      spawnFloatingText(finalDamage, 'player', attackResult.isCrit ? 'crit' : 'damage');
+      setScreenShake(0.22);
       setIsPlayerHit(true);
       setIsPlayerCritHit(attackResult.isCrit);
       window.setTimeout(() => {
@@ -745,18 +957,11 @@ export const useBattleController = ({
         };
       });
 
-      addLog(`${enemy.name} atacou: ${finalDamage} dano!${player.isDefending ? ' (Defendido)' : ''}${attackResult.isCrit ? ' CRITICO!' : ''}`, attackResult.isCrit ? 'crit' : 'damage');
+      addLog(`${simulatedEnemy.name} atacou: ${finalDamage} dano!${player.isDefending ? ' (Defendido)' : ''}${attackResult.isCrit ? ' CRITICO!' : ''}`, attackResult.isCrit ? 'crit' : 'damage');
       setPlayerAnimationAction(hitAnimationAction);
-      if (hitAnimationAction !== 'death') {
-        window.setTimeout(() => setPlayerAnimationAction('idle'), hitAnimationAction === 'defend-hit' ? 520 : hitAnimationAction === 'critical-hit' ? 620 : 360);
-      }
-
-      const hpRegen = remainingHpAfterHit > 0 ? Math.min(player.cardBonuses.hpRegenPerTurn, player.stats.maxHp - remainingHpAfterHit) : 0;
-      const mpRegen = remainingHpAfterHit > 0 ? Math.min(player.cardBonuses.mpRegenPerTurn, player.stats.maxMp - player.stats.mp) : 0;
 
       window.setTimeout(() => {
         setIsEnemyAttacking(false);
-
         if (remainingHpAfterHit <= 0) {
           onPlayerDefeat?.();
           window.setTimeout(() => {
@@ -785,38 +990,7 @@ export const useBattleController = ({
             }
           }, 900);
         } else {
-          const shouldCounter = player.isDefending && talentBonuses.counterOnDefendChance > 0 && Math.random() < talentBonuses.counterOnDefendChance;
-          if (shouldCounter) {
-            const counterDamage = Math.max(1, Math.floor(player.stats.atk * (0.7 + talentBonuses.physicalDamage)));
-            spawnFloatingText(`CONTRA ${counterDamage}`, 'enemy', 'crit');
-            spawnParticles([2, -0.5, 0], 16, '#f59e0b', 'explode');
-            setEnemy((prev) => prev ? ({
-              ...prev,
-              stats: { ...prev.stats, hp: Math.max(0, prev.stats.hp - counterDamage) },
-            }) : null);
-            addLog(`Contra-ataque da constelacao causou ${counterDamage} dano!`, 'crit');
-            if (enemy.stats.hp - counterDamage <= 0) {
-              triggerEnemyAnimationAction('death', 900);
-              void handleVictoryRef.current(900);
-              return;
-            }
-          }
-
-          if (hpRegen > 0) spawnFloatingText(`+${hpRegen} HP`, 'player', 'heal');
-          if (mpRegen > 0) spawnFloatingText(`+${mpRegen} MP`, 'player', 'heal');
-          if (hpRegen > 0 || mpRegen > 0) {
-            addLog(`Regeneracao: +${hpRegen} HP ${mpRegen > 0 ? `/ +${mpRegen} MP` : ''}`.trim(), 'heal');
-          }
-          setPlayer((prev) => ({
-            ...prev,
-            stats: {
-              ...prev.stats,
-              hp: Math.min(prev.stats.maxHp, prev.stats.hp + hpRegen),
-              mp: Math.min(prev.stats.maxMp, prev.stats.mp + mpRegen),
-            },
-          }));
-          setPlayer((prev) => ({ ...prev, isDefending: false }));
-          setTurnState(TurnState.PLAYER_INPUT);
+          finishEnemyActionToPlayerTurn(simulatedEnemy);
         }
       }, 350);
     }, 400);

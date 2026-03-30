@@ -469,6 +469,34 @@ export interface Enemy {
   attackStyle?: 'armed' | 'unarmed';
   guaranteedDrops?: string[];
   rareDrops?: LootChance[];
+  manaRegenOnDefend: number;
+  potionCharges: number;
+  potionHealRatio: number;
+  aiProfile: {
+    tier: number;
+    lowHpThreshold: number;
+    criticalHpThreshold: number;
+    lowManaThreshold: number;
+    defendBaseChance: number;
+    reactToPlayerAction: boolean;
+    critChanceBonus: number;
+    critDamageBonus: number;
+  };
+  skillSet: Array<{
+    id: string;
+    name: string;
+    type: 'magic' | 'special';
+    attackKind: 'physical' | 'magic';
+    damageMultiplier: number;
+    manaCost: number;
+    cooldown: number;
+    currentCooldown: number;
+  }>;
+  combatBuffs: {
+    atkMod: number;
+    defMod: number;
+    turns: number;
+  };
 }
 
 export interface BattleLog {

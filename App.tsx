@@ -167,6 +167,74 @@ export default function App() {
     const getDungeonMonsterTarget = (evolution: number) => 10 + Math.floor(evolution / 3) * 10;
     const getDungeonPowerMultiplier = (evolution: number) => 1 + (evolution * 0.12);
     const pickRandom = <T,>(entries: T[]) => entries[Math.floor(Math.random() * entries.length)];
+    const getStagePowerMultiplier = (currentStage: number) => {
+        const safeStage = Math.max(1, currentStage);
+        return 1 + ((safeStage - 1) * 0.16) + (Math.floor((safeStage - 1) / 2) * 0.06);
+    };
+
+    const createEnemySkillSet = (tier: number, cycleStrength: number): Enemy['skillSet'] => {
+        const skills: Enemy['skillSet'] = [];
+        const hasMagic = tier >= 2;
+        const hasSpecial = tier >= 3;
+
+        if (hasMagic) {
+            skills.push({
+                id: 'enemy_arcane_blast',
+                name: 'Explosao Arcana',
+                type: 'magic',
+                attackKind: 'magic',
+                damageMultiplier: 1.22 + (cycleStrength * 0.15),
+                manaCost: 10 + (cycleStrength * 2),
+                cooldown: 2,
+                currentCooldown: 0,
+            });
+        }
+
+        if (hasSpecial) {
+            skills.push({
+                id: 'enemy_rupture_strike',
+                name: 'Golpe de Ruptura',
+                type: 'special',
+                attackKind: 'physical',
+                damageMultiplier: 1.4 + (cycleStrength * 0.12),
+                manaCost: 14 + (cycleStrength * 3),
+                cooldown: 3,
+                currentCooldown: 0,
+            });
+        }
+
+        return skills;
+    };
+
+    const createEnemyCombatProfile = (currentStage: number, isBoss: boolean, isDungeonEncounter: boolean, evolution: number) => {
+        const tierBase = Math.max(0, Math.floor((Math.max(1, currentStage) - 1) / 2));
+        const tierWithMode = tierBase + (isDungeonEncounter ? Math.floor(evolution / 2) : 0) + (isBoss ? 1 : 0);
+        const tier = Math.max(0, tierWithMode);
+        const cycleStrength = tier <= 0 ? 0 : Math.floor((tier - 1) / 3);
+        const cycleStep = tier <= 0 ? 0 : ((tier - 1) % 3);
+        const potionCharges = tier === 0 ? 0 : (isBoss ? 2 : 1);
+        const potionHealRatio = cycleStep === 2
+            ? Math.min(0.42, 0.22 + (cycleStrength * 0.05))
+            : Math.min(0.34, 0.12 + (cycleStrength * 0.04));
+        const maxMp = 18 + (tier * 4) + (isBoss ? 12 : 0);
+        const manaRegenOnDefend = 6 + (tier * 2) + (isBoss ? 2 : 0);
+
+        return {
+            tier,
+            cycleStrength,
+            potionCharges,
+            potionHealRatio,
+            maxMp,
+            manaRegenOnDefend,
+            critChanceBonus: Math.min(0.24, (tier * 0.015) + (isBoss ? 0.035 : 0)),
+            critDamageBonus: Math.min(0.5, (tier * 0.03) + (isBoss ? 0.08 : 0)),
+            skillSet: createEnemySkillSet(tier, cycleStrength),
+            lowHpThreshold: 0.5,
+            criticalHpThreshold: 0.25,
+            lowManaThreshold: 0.25,
+            defendBaseChance: 0.16 + (cycleStep === 2 ? 0.08 : 0),
+        };
+    };
 
     const createEmptyDungeonRewards = (evolution: number): DungeonRewards => ({
         gold: 0,
@@ -898,6 +966,26 @@ export default function App() {
         });
     };
 
+    const PERCENT_CARD_EFFECT_TYPES = new Set([
+        'gold_gain_multiplier',
+        'xp_gain_multiplier',
+        'boss_damage_multiplier',
+        'heal_multiplier',
+        'opening_atk_buff',
+        'opening_def_buff',
+        'defend_mana_restore',
+    ]);
+
+    const CARD_PERCENT_BY_RARITY: Record<ProgressionCard['rarity'], number> = {
+        bronze: 0.04,
+        silver: 0.05,
+        gold: 0.07,
+    };
+
+    const getScaledCardEffectValue = (card: ProgressionCard, effectType: ProgressionCard['effects'][number]['type'], rawValue: number) => (
+        PERCENT_CARD_EFFECT_TYPES.has(effectType) ? CARD_PERCENT_BY_RARITY[card.rarity] : rawValue
+    );
+
     const applyCardChoice = (basePlayer: Player, card: ProgressionCard) => {
         const nextPlayer: Player = {
             ...basePlayer,
@@ -912,59 +1000,60 @@ export default function App() {
         nextPlayer.chosenCards.push(card.id);
 
         card.effects.forEach(effect => {
+            const effectValue = getScaledCardEffectValue(card, effect.type, effect.value);
             switch (effect.type) {
                 case 'gold_instant':
-                    nextPlayer.gold += Math.floor(effect.value);
+                    nextPlayer.gold += Math.floor(effectValue);
                     break;
                 case 'xp_instant':
-                    nextPlayer.xp += Math.floor(effect.value);
+                    nextPlayer.xp += Math.floor(effectValue);
                     break;
                 case 'max_hp':
-                    nextPlayer.stats.maxHp += Math.floor(effect.value);
-                    nextPlayer.stats.hp = Math.min(nextPlayer.stats.maxHp, nextPlayer.stats.hp + Math.floor(effect.value));
+                    nextPlayer.stats.maxHp += Math.floor(effectValue);
+                    nextPlayer.stats.hp = Math.min(nextPlayer.stats.maxHp, nextPlayer.stats.hp + Math.floor(effectValue));
                     break;
                 case 'max_mp':
-                    nextPlayer.stats.maxMp += Math.floor(effect.value);
-                    nextPlayer.stats.mp = Math.min(nextPlayer.stats.maxMp, nextPlayer.stats.mp + Math.floor(effect.value));
+                    nextPlayer.stats.maxMp += Math.floor(effectValue);
+                    nextPlayer.stats.mp = Math.min(nextPlayer.stats.maxMp, nextPlayer.stats.mp + Math.floor(effectValue));
                     break;
                 case 'atk':
-                    nextPlayer.stats.atk += Math.floor(effect.value);
+                    nextPlayer.stats.atk += Math.floor(effectValue);
                     break;
                 case 'def':
-                    nextPlayer.stats.def += Math.floor(effect.value);
+                    nextPlayer.stats.def += Math.floor(effectValue);
                     break;
                 case 'speed':
-                    nextPlayer.stats.speed += Math.floor(effect.value);
+                    nextPlayer.stats.speed += Math.floor(effectValue);
                     break;
                 case 'luck':
-                    nextPlayer.stats.luck += Math.floor(effect.value);
+                    nextPlayer.stats.luck += Math.floor(effectValue);
                     break;
                 case 'gold_gain_multiplier':
-                    nextPlayer.cardBonuses.goldGainMultiplier = Math.min(1.5, nextPlayer.cardBonuses.goldGainMultiplier + effect.value);
+                    nextPlayer.cardBonuses.goldGainMultiplier = Math.min(0.6, nextPlayer.cardBonuses.goldGainMultiplier + effectValue);
                     break;
                 case 'xp_gain_multiplier':
-                    nextPlayer.cardBonuses.xpGainMultiplier = Math.min(1.5, nextPlayer.cardBonuses.xpGainMultiplier + effect.value);
+                    nextPlayer.cardBonuses.xpGainMultiplier = Math.min(0.6, nextPlayer.cardBonuses.xpGainMultiplier + effectValue);
                     break;
                 case 'boss_damage_multiplier':
-                    nextPlayer.cardBonuses.bossDamageMultiplier = Math.min(1, nextPlayer.cardBonuses.bossDamageMultiplier + effect.value);
+                    nextPlayer.cardBonuses.bossDamageMultiplier = Math.min(0.35, nextPlayer.cardBonuses.bossDamageMultiplier + effectValue);
                     break;
                 case 'heal_multiplier':
-                    nextPlayer.cardBonuses.healingMultiplier = Math.min(1, nextPlayer.cardBonuses.healingMultiplier + effect.value);
+                    nextPlayer.cardBonuses.healingMultiplier = Math.min(0.35, nextPlayer.cardBonuses.healingMultiplier + effectValue);
                     break;
                 case 'opening_atk_buff':
-                    nextPlayer.cardBonuses.openingAtkBuff = Math.min(0.75, nextPlayer.cardBonuses.openingAtkBuff + effect.value);
+                    nextPlayer.cardBonuses.openingAtkBuff = Math.min(0.35, nextPlayer.cardBonuses.openingAtkBuff + effectValue);
                     break;
                 case 'opening_def_buff':
-                    nextPlayer.cardBonuses.openingDefBuff = Math.min(0.75, nextPlayer.cardBonuses.openingDefBuff + effect.value);
+                    nextPlayer.cardBonuses.openingDefBuff = Math.min(0.35, nextPlayer.cardBonuses.openingDefBuff + effectValue);
                     break;
                 case 'defend_mana_restore':
-                    nextPlayer.cardBonuses.defendManaRestore = Math.min(0.4, nextPlayer.cardBonuses.defendManaRestore + effect.value);
+                    nextPlayer.cardBonuses.defendManaRestore = Math.min(0.18, nextPlayer.cardBonuses.defendManaRestore + effectValue);
                     break;
                 case 'hp_regen_per_turn':
-                    nextPlayer.cardBonuses.hpRegenPerTurn = Math.min(60, nextPlayer.cardBonuses.hpRegenPerTurn + Math.floor(effect.value));
+                    nextPlayer.cardBonuses.hpRegenPerTurn = Math.min(60, nextPlayer.cardBonuses.hpRegenPerTurn + Math.floor(effectValue));
                     break;
                 case 'mp_regen_per_turn':
-                    nextPlayer.cardBonuses.mpRegenPerTurn = Math.min(40, nextPlayer.cardBonuses.mpRegenPerTurn + Math.floor(effect.value));
+                    nextPlayer.cardBonuses.mpRegenPerTurn = Math.min(40, nextPlayer.cardBonuses.mpRegenPerTurn + Math.floor(effectValue));
                     break;
                 case 'unlock_skill': {
                     const unlockedPlayer = unlockSkillOnPlayer(nextPlayer, effect.skillId);
@@ -1041,13 +1130,13 @@ export default function App() {
 
     const spawnEnemy = async (currentStage: number, isBoss: boolean, mode: 'hunt' | 'dungeon' = dungeonRun ? 'dungeon' : 'hunt', dungeonEvolutionOverride?: number) => {
     // Scale stats based on stage
-    let levelMult = 1 + (currentStage * 0.15);
+    let levelMult = getStagePowerMultiplier(currentStage);
     const isDungeonEncounter = mode === 'dungeon';
     const activeDungeonEvolution = dungeonEvolutionOverride ?? dungeonRun?.evolution ?? dungeonEvolution;
     if (isDungeonEncounter) {
     levelMult *= getDungeonPowerMultiplier(activeDungeonEvolution);
     }
-    if (isBoss) levelMult *= 2.0; // Boss is significantly stronger
+    if (isBoss) levelMult *= (isDungeonEncounter ? 2.1 : 1.9); // Boss scaling tuned by mode
 
     const availableDungeonEnemies = DUNGEON_ENEMY_DATA.filter(template => template.minEvolution <= activeDungeonEvolution);
     const dungeonEnemyPool = availableDungeonEnemies.length > 0 ? availableDungeonEnemies : DUNGEON_ENEMY_DATA;
@@ -1059,6 +1148,8 @@ export default function App() {
     const atkMultiplier = templateCombatProfile.atkMultiplier ?? 1;
     const defMultiplier = templateCombatProfile.defMultiplier ?? 1;
     const speedBonus = templateCombatProfile.speedBonus ?? 0;
+    const combatProfile = createEnemyCombatProfile(currentStage, isBoss, isDungeonEncounter, activeDungeonEvolution);
+    const hasStrongCycleBoost = combatProfile.tier >= 2;
     const color = isBoss && isDungeonEncounter
         ? DUNGEON_BOSS.color
         : ENEMY_COLORS[Math.floor(Math.random() * ENEMY_COLORS.length)];
@@ -1072,13 +1163,14 @@ export default function App() {
       name: name,
       level: currentStage,
       stats: {
-                hp: Math.floor(60 * levelMult * hpMultiplier),
-                maxHp: Math.floor(60 * levelMult * hpMultiplier),
-        mp: 0, maxMp: 0,
-                atk: Math.floor(8 * levelMult * atkMultiplier),
-                def: Math.floor(2 * levelMult * defMultiplier),
+                hp: Math.floor(68 * levelMult * hpMultiplier),
+                maxHp: Math.floor(68 * levelMult * hpMultiplier),
+        mp: combatProfile.maxMp,
+        maxMp: combatProfile.maxMp,
+                atk: Math.floor(9 * levelMult * atkMultiplier),
+                def: Math.floor(3 * levelMult * defMultiplier),
                 speed: 10 + speedBonus + (isDungeonEncounter ? Math.floor(activeDungeonEvolution / 3) : 0),
-        luck: 0
+        luck: Math.max(1, Math.floor((currentStage * 0.55) + (isBoss ? 3 : 0) + (isDungeonEncounter ? activeDungeonEvolution * 0.35 : 0)))
       },
             xpReward: Math.floor(40 * levelMult * (isBoss ? (isDungeonEncounter ? 3.6 : 3) : 1)),
             goldReward: Math.floor(25 * levelMult * (isBoss ? (isDungeonEncounter ? 3.2 : 3) : 1)),
@@ -1089,13 +1181,35 @@ export default function App() {
             isDefending: false,
             statusEffects: [],
                 assets: enemyTemplate.assets,
-                attackStyle: enemyTemplate.attackStyle,
+      attackStyle: enemyTemplate.attackStyle,
             guaranteedDrops: templateCombatProfile.guaranteedDrops,
             rareDrops: templateCombatProfile.rareDrops,
+            manaRegenOnDefend: combatProfile.manaRegenOnDefend,
+            potionCharges: combatProfile.potionCharges,
+            potionHealRatio: combatProfile.potionHealRatio,
+            aiProfile: {
+                tier: combatProfile.tier,
+                lowHpThreshold: combatProfile.lowHpThreshold,
+                criticalHpThreshold: combatProfile.criticalHpThreshold,
+                lowManaThreshold: combatProfile.lowManaThreshold,
+                defendBaseChance: combatProfile.defendBaseChance,
+                reactToPlayerAction: true,
+                critChanceBonus: combatProfile.critChanceBonus,
+                critDamageBonus: combatProfile.critDamageBonus,
+            },
+            skillSet: combatProfile.skillSet,
+            combatBuffs: {
+                atkMod: hasStrongCycleBoost ? Math.min(0.36, 0.18 + (combatProfile.cycleStrength * 0.05)) : 0,
+                defMod: hasStrongCycleBoost ? Math.min(0.34, 0.16 + (combatProfile.cycleStrength * 0.05)) : 0,
+                turns: hasStrongCycleBoost ? 2 : 0,
+            },
     };
 
     setEnemy(newEnemy);
         setEnemyAnimationAction('battle-idle');
+        if (newEnemy.combatBuffs.turns > 0) {
+            addLog(`${newEnemy.name} iniciou a luta com impulso inicial (+ATK/+DEF).`, 'buff');
+        }
         setNarration(isBoss ? (isDungeonEncounter ? 'O soberano da dungeon despertou.' : `O CHEFÃO DA FASE ${currentStage} RUGIU!`) : (isDungeonEncounter ? 'Uma presença da dungeon bloqueia seu caminho.' : 'Um inimigo se aproxima...'));
     
     try {

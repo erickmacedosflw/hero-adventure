@@ -129,9 +129,9 @@ export const calculateDamage = ({
 
   const base = Math.max(1, finalAtk - (finalDef * 0.3));
   const variance = Math.random() * 0.2 + 0.9;
-  const critChance = Math.max(0, 0.05 + (luck * 0.02) + critChanceBonus);
+  const critChance = Math.max(0.02, Math.min(0.45, 0.04 + (luck * 0.012) + critChanceBonus));
   const isCrit = Math.random() < critChance;
-  const critMult = isCrit ? (1.5 + critDamageBonus) : 1;
+  const critMult = isCrit ? Math.min(2.6, 1.5 + critDamageBonus) : 1;
   const defenseMitigation = defenderIsDefending ? defendMitigationBonus : 0;
   const totalDamageReduction = Math.max(0, Math.min(0.8, damageReduction + defenseMitigation));
 
