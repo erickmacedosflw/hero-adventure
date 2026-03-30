@@ -375,7 +375,14 @@ export default function App() {
             rogue: 22,
         };
         const maxMp = classMpBase[enemyClassId] + (tier * 4) + (isBoss ? 12 : 0);
-        const manaRegenOnDefend = (enemyClassId === 'knight' ? 8 : 6) + (tier * 2) + (isBoss ? 2 : 0);
+        const manaRegenBaseByClass: Record<Player['classId'], number> = {
+            knight: 3,
+            mage: 5,
+            rogue: 4,
+            ranger: 4,
+            barbarian: 2,
+        };
+        const manaRegenOnDefend = manaRegenBaseByClass[enemyClassId] + Math.floor(tier * 1.2) + (isBoss ? 1 : 0);
         const classDefendBonus: Record<Player['classId'], number> = {
             knight: 0.08,
             barbarian: -0.02,
@@ -975,7 +982,7 @@ export default function App() {
       }, 1100);
   };
 
-  const spawnFloatingText = (value: string | number, target: 'player' | 'enemy', type: 'damage' | 'heal' | 'crit' | 'buff' | 'skill') => {
+  const spawnFloatingText = (value: string | number, target: 'player' | 'enemy', type: 'damage' | 'heal' | 'crit' | 'buff' | 'skill' | 'item') => {
       const id = Math.random().toString(36);
       setFloatingTexts(prev => [...prev, {
           id,

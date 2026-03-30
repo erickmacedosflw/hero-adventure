@@ -328,7 +328,8 @@ const FloatingTextOverlay = ({ texts }: { texts: FloatingText[] }) => {
                 const isCrit = t.type === 'crit';
                 const isBuff = t.type === 'buff';
                 const isSkill = t.type === 'skill';
-                const verticalStackOffset = stackIndex * 34;
+                const isItem = t.type === 'item';
+                const verticalStackOffset = stackIndex * 44;
                 
                 let colorClass = "text-white";
                 if (t.type === 'damage') colorClass = "text-red-500";
@@ -336,11 +337,13 @@ const FloatingTextOverlay = ({ texts }: { texts: FloatingText[] }) => {
                 if (isCrit) colorClass = "text-amber-400";
                 if (isBuff) colorClass = "text-blue-400";
                 if (isSkill) colorClass = "text-violet-400";
+                if (isItem) colorClass = "text-yellow-300";
+                const colorStyle = isSkill ? { color: '#c084fc' } : isItem ? { color: '#facc15' } : undefined;
 
                 return (
                     <div 
                         key={t.id}
-                        className={`absolute font-black ${colorClass} drop-shadow-[0_2px_2px_rgba(0,0,0,1)] flex items-center justify-center rounded-xl border border-white/10 bg-black/35 px-3 py-1.5 backdrop-blur-[2px]`}
+                        className={`absolute whitespace-nowrap font-black ${colorClass} drop-shadow-[0_2px_2px_rgba(0,0,0,1)] flex items-center justify-center rounded-xl border border-white/10 bg-black/35 px-3 py-1.5 backdrop-blur-[2px]`}
                         style={{
                             left: `calc(${leftPos} + ${Math.round(t.xOffset * 0.22)}px)`,
                             top: `calc(${topPos} + ${Math.round(t.yOffset * 0.12) + verticalStackOffset}px)`,
@@ -350,10 +353,13 @@ const FloatingTextOverlay = ({ texts }: { texts: FloatingText[] }) => {
                                   ? 'clamp(1.35rem, 5.8vw, 1.7rem)'
                                   : isSkill
                                     ? 'clamp(1.35rem, 5.8vw, 1.7rem)'
+                                    : isItem
+                                      ? 'clamp(1.25rem, 5.2vw, 1.55rem)'
                                   : 'clamp(1.85rem, 7.2vw, 2.15rem)',
                             minWidth: isCrit ? '8.1rem' : '6.2rem',
                             animation: `floatUp 1s forwards ease-out`,
-                            zIndex: 100
+                            zIndex: 100,
+                            ...colorStyle
                         }}
                     >
                         <style>{`

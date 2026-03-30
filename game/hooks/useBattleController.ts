@@ -34,7 +34,7 @@ interface UseBattleControllerParams {
   handleVictory: (delayMs?: number) => Promise<void> | void;
   triggerEnemyAnimationAction: (action: PlayerAnimationAction, resetDelay?: number) => void;
   spawnParticles: (position: [number, number, number], count: number, color: string, type: 'explode' | 'heal' | 'spark') => void;
-  spawnFloatingText: (value: string | number, target: 'player' | 'enemy', type: 'damage' | 'heal' | 'crit' | 'buff' | 'skill') => void;
+  spawnFloatingText: (value: string | number, target: 'player' | 'enemy', type: 'damage' | 'heal' | 'crit' | 'buff' | 'skill' | 'item') => void;
   setPlayer: Dispatch<SetStateAction<Player>>;
   setEnemy: Dispatch<SetStateAction<Enemy | null>>;
   setTurnState: Dispatch<SetStateAction<TurnState>>;
@@ -116,6 +116,13 @@ const getSkillCastColor = (skill: Enemy['skillSet'][number]) => {
   if (skill.effect === 'buff_atk') return '#f97316';
   if (skill.effect === 'buff_def') return '#60a5fa';
   return skill.attackKind === 'magic' ? '#60a5fa' : '#f97316';
+};
+
+const getEnemyItemUseLabel = (healAmount: number) => {
+  if (healAmount >= 220) return '🌟 Ambrosia Dourada';
+  if (healAmount >= 100) return '💖 Elixir Rubro';
+  if (healAmount >= 50) return '❤ Pocao de Vida';
+  return '🧪 Pocao Menor';
 };
 
 export const useBattleController = ({
@@ -592,6 +599,7 @@ export const useBattleController = ({
     if (gameState === GameState.BATTLE) {
       setTurnState(TurnState.PLAYER_ANIMATION);
       setPlayerAnimationAction('item');
+      spawnFloatingText(`${item.icon} ${item.name}`, 'player', 'item');
     }
 
     const mixedRecovery = MIXED_POTION_RECOVERY[item.id];
@@ -745,6 +753,7 @@ export const useBattleController = ({
     const playerAggressive = lastPlayerActionRef.current === 'attack' || lastPlayerActionRef.current === 'skill';
     const playerDefensive = lastPlayerActionRef.current === 'defend';
     const canDefend = simulatedEnemy.lastAction !== 'defend';
+    const enemyUsesManaSkills = simulatedEnemy.skillSet.some((skill) => skill.manaCost > 0);
 
     const finishEnemyActionToPlayerTurn = (nextEnemy: Enemy) => {
       const enemyAfterBuffTick = tickEnemyBuffs(nextEnemy);
@@ -755,17 +764,25 @@ export const useBattleController = ({
     };
 
     const useDefendAction = (reasonLabel: string) => {
+      const recoveredMp = enemyUsesManaSkills
+        ? Math.max(1, Math.min(simulatedEnemy.manaRegenOnDefend, simulatedEnemy.stats.maxMp - simulatedEnemy.stats.mp))
+        : 0;
       const nextEnemy = {
         ...simulatedEnemy,
         lastAction: 'defend' as const,
         isDefending: true,
         stats: {
           ...simulatedEnemy.stats,
-          mp: Math.min(simulatedEnemy.stats.maxMp, simulatedEnemy.stats.mp + simulatedEnemy.manaRegenOnDefend),
+          mp: Math.min(simulatedEnemy.stats.maxMp, simulatedEnemy.stats.mp + recoveredMp),
         },
       };
-      addLog(`${simulatedEnemy.name} defendeu para ${reasonLabel} e recuperou mana.`, 'buff');
-      spawnFloatingText('DEFESA + MANA', 'enemy', 'buff');
+      if (recoveredMp > 0) {
+        addLog(`${simulatedEnemy.name} defendeu para ${reasonLabel} e recuperou ${recoveredMp} MP.`, 'buff');
+        spawnFloatingText('DEFESA + MANA', 'enemy', 'buff');
+      } else {
+        addLog(`${simulatedEnemy.name} defendeu para ${reasonLabel}.`, 'buff');
+        spawnFloatingText('DEFESA', 'enemy', 'buff');
+      }
       spawnParticles([2, -0.5, 0], 12, '#3b82f6', 'spark');
       finishEnemyActionToPlayerTurn(nextEnemy);
     };
@@ -785,6 +802,7 @@ export const useBattleController = ({
       triggerEnemyAnimationAction('item', 900);
       window.setTimeout(() => {
         addLog(`${simulatedEnemy.name} usou pocao e curou ${healAmount} HP.`, 'heal');
+        spawnFloatingText(getEnemyItemUseLabel(healAmount), 'enemy', 'item');
         spawnFloatingText(`+${healAmount}`, 'enemy', 'heal');
         spawnParticles([2, -0.5, 0], 20, '#22c55e', 'heal');
         window.setTimeout(() => {
@@ -864,7 +882,7 @@ export const useBattleController = ({
             window.setTimeout(() => {
               setIsEnemyAttacking(false);
               finishEnemyActionToPlayerTurn(nextEnemy);
-            }, 420);
+            }, 1000);
             return;
           }
         }
@@ -886,7 +904,7 @@ export const useBattleController = ({
           window.setTimeout(() => {
             setIsEnemyAttacking(false);
             finishEnemyActionToPlayerTurn(nextEnemy);
-          }, 420);
+          }, 1000);
           return;
         }
 

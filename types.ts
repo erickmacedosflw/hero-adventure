@@ -532,7 +532,7 @@ export interface Particle {
 export interface FloatingText {
   id: string;
   text: string;
-  type: 'damage' | 'heal' | 'crit' | 'buff' | 'skill';
+  type: 'damage' | 'heal' | 'crit' | 'buff' | 'skill' | 'item';
   target: 'player' | 'enemy'; // Determines screen position
   xOffset: number; // Random slight offset
   yOffset: number;
