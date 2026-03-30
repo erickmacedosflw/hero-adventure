@@ -166,27 +166,28 @@ const createSkeletonAssets = (modelFile: 'Skeleton_Minion.fbx' | 'Skeleton_Rogue
 });
 
 export const ENEMY_DATA: EnemyTemplate[] = [
-  { name: 'Skeleton Minion', type: 'undead', color: '#d6d3d1', scale: 1.02, assets: createSkeletonAssets('Skeleton_Minion.fbx', 2.02), attackStyle: 'unarmed' },
-  { name: 'Skeleton Rogue', type: 'undead', color: '#cbd5e1', scale: 1.04, assets: createSkeletonAssets('Skeleton_Rogue.fbx', 2.06), attackStyle: 'unarmed' },
-  { name: 'Skeleton Warrior', type: 'undead', color: '#e2e8f0', scale: 1.08, assets: createSkeletonAssets('Skeleton_Warrior.fbx', 2.14), attackStyle: 'unarmed' },
-  { name: 'Skeleton Mage', type: 'undead', color: '#c4b5fd', scale: 1.06, assets: createSkeletonAssets('Skeleton_Mage.fbx', 2.1), attackStyle: 'unarmed' },
+  { name: 'Skeleton Minion', type: 'undead', enemyClassId: 'ranger', color: '#d6d3d1', scale: 1.02, assets: createSkeletonAssets('Skeleton_Minion.fbx', 2.02), attackStyle: 'unarmed' },
+  { name: 'Skeleton Rogue', type: 'undead', enemyClassId: 'rogue', color: '#cbd5e1', scale: 1.04, assets: createSkeletonAssets('Skeleton_Rogue.fbx', 2.06), attackStyle: 'unarmed' },
+  { name: 'Skeleton Warrior', type: 'undead', enemyClassId: 'knight', color: '#e2e8f0', scale: 1.08, assets: createSkeletonAssets('Skeleton_Warrior.fbx', 2.14), attackStyle: 'unarmed' },
+  { name: 'Skeleton Mage', type: 'undead', enemyClassId: 'mage', color: '#c4b5fd', scale: 1.06, assets: createSkeletonAssets('Skeleton_Mage.fbx', 2.1), attackStyle: 'unarmed' },
 ];
 
 export const DUNGEON_ENEMY_DATA: DungeonEnemyTemplate[] = [
-  { name: 'Bone Minion', type: 'undead', minEvolution: 0, scale: 1.02, assets: createSkeletonAssets('Skeleton_Minion.fbx', 2.02), attackStyle: 'unarmed', hpMultiplier: 0.96, atkMultiplier: 1.05, guaranteedDrops: ['mat_ether_shard'], rareDrops: [{ itemId: 'pot_dg_mana', chance: 0.08 }] },
-  { name: 'Bone Rogue', type: 'undead', minEvolution: 0, scale: 1.04, assets: createSkeletonAssets('Skeleton_Rogue.fbx', 2.06), attackStyle: 'unarmed', hpMultiplier: 1.02, atkMultiplier: 1.14, speedBonus: 1, guaranteedDrops: ['mat_obsidian_heart'] },
-  { name: 'Bone Warrior', type: 'undead', minEvolution: 1, scale: 1.08, assets: createSkeletonAssets('Skeleton_Warrior.fbx', 2.14), attackStyle: 'unarmed', hpMultiplier: 1.14, defMultiplier: 1.16, guaranteedDrops: ['mat_ether_shard'] },
-  { name: 'Bone Mage', type: 'undead', minEvolution: 1, scale: 1.06, assets: createSkeletonAssets('Skeleton_Mage.fbx', 2.1), attackStyle: 'unarmed', atkMultiplier: 1.22, speedBonus: 2, rareDrops: [{ itemId: 'mat_void_bloom', chance: 0.14 }] },
-  { name: 'Crypt Warrior', type: 'undead', minEvolution: 2, scale: 1.14, assets: createSkeletonAssets('Skeleton_Warrior.fbx', 2.2), attackStyle: 'unarmed', hpMultiplier: 1.2, atkMultiplier: 1.16, rareDrops: [{ itemId: 'pot_dg_elixir', chance: 0.12 }] },
-  { name: 'Crypt Rogue', type: 'undead', minEvolution: 3, scale: 1.06, assets: createSkeletonAssets('Skeleton_Rogue.fbx', 2.08), attackStyle: 'unarmed', atkMultiplier: 1.24, speedBonus: 2, rareDrops: [{ itemId: 'wep_3d_sword_d', chance: 0.08 }] },
-  { name: 'Crypt Mage', type: 'undead', minEvolution: 4, scale: 1.08, assets: createSkeletonAssets('Skeleton_Mage.fbx', 2.14), attackStyle: 'unarmed', hpMultiplier: 1.08, atkMultiplier: 1.28, speedBonus: 3, rareDrops: [{ itemId: 'shd_dg_eclipse', chance: 0.08 }] },
-  { name: 'Bone Champion', type: 'undead', minEvolution: 5, scale: 1.18, assets: createSkeletonAssets('Skeleton_Warrior.fbx', 2.26), attackStyle: 'unarmed', hpMultiplier: 1.26, defMultiplier: 1.2, guaranteedDrops: ['mat_void_bloom'], rareDrops: [{ itemId: 'arm_dg_abyss', chance: 0.1 }] },
-  { name: 'Catacomb Archmage', type: 'undead', minEvolution: 6, scale: 1.12, assets: createSkeletonAssets('Skeleton_Mage.fbx', 2.18), attackStyle: 'unarmed', hpMultiplier: 1.18, atkMultiplier: 1.32, speedBonus: 4, rareDrops: [{ itemId: 'pot_dg_ambrosia', chance: 0.14 }] },
+  { name: 'Bone Minion', type: 'undead', enemyClassId: 'ranger', minEvolution: 0, scale: 1.02, assets: createSkeletonAssets('Skeleton_Minion.fbx', 2.02), attackStyle: 'unarmed', hpMultiplier: 0.96, atkMultiplier: 1.05, guaranteedDrops: ['mat_ether_shard'], rareDrops: [{ itemId: 'pot_dg_mana', chance: 0.08 }] },
+  { name: 'Bone Rogue', type: 'undead', enemyClassId: 'rogue', minEvolution: 0, scale: 1.04, assets: createSkeletonAssets('Skeleton_Rogue.fbx', 2.06), attackStyle: 'unarmed', hpMultiplier: 1.02, atkMultiplier: 1.14, speedBonus: 1, guaranteedDrops: ['mat_obsidian_heart'] },
+  { name: 'Bone Warrior', type: 'undead', enemyClassId: 'knight', minEvolution: 1, scale: 1.08, assets: createSkeletonAssets('Skeleton_Warrior.fbx', 2.14), attackStyle: 'unarmed', hpMultiplier: 1.14, defMultiplier: 1.16, guaranteedDrops: ['mat_ether_shard'] },
+  { name: 'Bone Mage', type: 'undead', enemyClassId: 'mage', minEvolution: 1, scale: 1.06, assets: createSkeletonAssets('Skeleton_Mage.fbx', 2.1), attackStyle: 'unarmed', atkMultiplier: 1.22, speedBonus: 2, rareDrops: [{ itemId: 'mat_void_bloom', chance: 0.14 }] },
+  { name: 'Crypt Warrior', type: 'undead', enemyClassId: 'barbarian', minEvolution: 2, scale: 1.14, assets: createSkeletonAssets('Skeleton_Warrior.fbx', 2.2), attackStyle: 'unarmed', hpMultiplier: 1.2, atkMultiplier: 1.16, rareDrops: [{ itemId: 'pot_dg_elixir', chance: 0.12 }] },
+  { name: 'Crypt Rogue', type: 'undead', enemyClassId: 'rogue', minEvolution: 3, scale: 1.06, assets: createSkeletonAssets('Skeleton_Rogue.fbx', 2.08), attackStyle: 'unarmed', atkMultiplier: 1.24, speedBonus: 2, rareDrops: [{ itemId: 'wep_3d_sword_d', chance: 0.08 }] },
+  { name: 'Crypt Mage', type: 'undead', enemyClassId: 'mage', minEvolution: 4, scale: 1.08, assets: createSkeletonAssets('Skeleton_Mage.fbx', 2.14), attackStyle: 'unarmed', hpMultiplier: 1.08, atkMultiplier: 1.28, speedBonus: 3, rareDrops: [{ itemId: 'shd_dg_eclipse', chance: 0.08 }] },
+  { name: 'Bone Champion', type: 'undead', enemyClassId: 'knight', minEvolution: 5, scale: 1.18, assets: createSkeletonAssets('Skeleton_Warrior.fbx', 2.26), attackStyle: 'unarmed', hpMultiplier: 1.26, defMultiplier: 1.2, guaranteedDrops: ['mat_void_bloom'], rareDrops: [{ itemId: 'arm_dg_abyss', chance: 0.1 }] },
+  { name: 'Catacomb Archmage', type: 'undead', enemyClassId: 'mage', minEvolution: 6, scale: 1.12, assets: createSkeletonAssets('Skeleton_Mage.fbx', 2.18), attackStyle: 'unarmed', hpMultiplier: 1.18, atkMultiplier: 1.32, speedBonus: 4, rareDrops: [{ itemId: 'pot_dg_ambrosia', chance: 0.14 }] },
 ];
 
 export const DUNGEON_BOSS: DungeonBossTemplate = {
   name: 'Skeleton Overlord',
   type: 'undead' as const,
+  enemyClassId: 'knight',
   color: '#67e8f9',
   scale: 1.26,
   assets: createSkeletonAssets('Skeleton_Warrior.fbx', 2.42),

@@ -152,6 +152,7 @@ export interface LootChance {
 export interface EnemyTemplate {
   name: string;
   type: 'beast' | 'humanoid' | 'undead';
+  enemyClassId?: PlayerClassId;
   color?: string;
   scale?: number;
   assets?: PlayerClassAssets;
@@ -462,6 +463,7 @@ export interface Enemy {
   color: string; 
   scale: number;
   type: 'beast' | 'humanoid' | 'undead';
+  enemyClassId: PlayerClassId;
   isBoss: boolean;
   isDefending: boolean;
   statusEffects?: StatusEffect[];
@@ -471,7 +473,15 @@ export interface Enemy {
   rareDrops?: LootChance[];
   manaRegenOnDefend: number;
   potionCharges: number;
-  potionHealRatio: number;
+  potionHealValue: number;
+  lastAction?: 'attack' | 'skill' | 'defend' | 'item' | 'steal' | 'none';
+  aiTurnCounter: number;
+  stealAttemptsUsed: number;
+  maxStealAttempts: number;
+  lastStealTurn: number;
+  stolenGoldTotal: number;
+  maxGoldStealPerBattle: number;
+  stolenItems: string[];
   aiProfile: {
     tier: number;
     lowHpThreshold: number;
@@ -485,9 +495,13 @@ export interface Enemy {
   skillSet: Array<{
     id: string;
     name: string;
-    type: 'magic' | 'special';
+    type: 'magic' | 'special' | 'heal' | 'buff' | 'debuff';
+    effect: 'damage' | 'heal' | 'buff_atk' | 'buff_def';
     attackKind: 'physical' | 'magic';
     damageMultiplier: number;
+    healMultiplier?: number;
+    buffModifier?: number;
+    buffDuration?: number;
     manaCost: number;
     cooldown: number;
     currentCooldown: number;

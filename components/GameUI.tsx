@@ -2259,7 +2259,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
     const [showDungeonExtractConfirm, setShowDungeonExtractConfirm] = useState(false);
     const [pendingDungeonExtractItem, setPendingDungeonExtractItem] = useState<Item | null>(null);
     const [showDungeonLootPreview, setShowDungeonLootPreview] = useState(false);
-    const [showBattleStats, setShowBattleStats] = useState(false);
+  const [showBattleStats, setShowBattleStats] = useState(false);
     const [resourceDelta, setResourceDelta] = useState<number>(0);
     const [resourcePulse, setResourcePulse] = useState<'gain' | 'spend' | null>(null);
     const resourceDeltaTimeoutRef = useRef<number | null>(null);
@@ -2267,6 +2267,24 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
     const showDiamondOnBattleHud = false;
         const hasConstellationUnlocked = player.talentPoints > 0 || player.unlockedTalentNodeIds.length > 0;
   const isPlayerTurn = turnState === TurnState.PLAYER_INPUT;
+    const enemyClassLabelMap: Record<Player['classId'], string> = {
+        knight: 'Knight',
+        mage: 'Mage',
+        rogue: 'Rogue',
+        barbarian: 'Barbarian',
+        ranger: 'Ranger',
+    };
+    const enemyClassToneMap: Record<Player['classId'], string> = {
+        knight: 'border-slate-300 bg-slate-100 text-slate-700',
+        mage: 'border-cyan-300 bg-cyan-100 text-cyan-700',
+        rogue: 'border-amber-300 bg-amber-100 text-amber-700',
+        barbarian: 'border-rose-300 bg-rose-100 text-rose-700',
+        ranger: 'border-emerald-300 bg-emerald-100 text-emerald-700',
+    };
+    const enemyClassId = enemy?.enemyClassId ?? 'knight';
+    const enemyClassLabel = enemyClassLabelMap[enemyClassId];
+    const enemyClassTone = enemyClassToneMap[enemyClassId];
+    const enemyUsesManaSkills = Boolean(enemy?.skillSet.some((skill) => skill.manaCost > 0));
         const showArOption = false;
         const arModeReady = arSupport.status === 'supported';
     const canLeaveFreely = !isDungeonRun && killCount >= 10;
@@ -2916,14 +2934,19 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
 
                   {enemy && (
                       <div className="rounded-[18px] border border-[#cfab91] bg-[#f7ecdd]/94 px-3 py-2.5 shadow-xl backdrop-blur-md animate-fade-in-down">
-                          <div className="flex items-center justify-between gap-2 mb-1.5">
-                              <div className="min-w-0">
-                                  <div className="truncate text-[13px] font-black text-[#6b3141]">{enemy.name}</div>
-                                  <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#8a5a57]">Nv. {enemy.level}</span>
+                          <div className="mb-1.5">
+                              <div className="flex items-start justify-between gap-2">
+                                  <div className="min-w-0">
+                                      <div className="truncate text-[13px] font-black text-[#6b3141]">{enemy.name}</div>
+                                  </div>
+                                  <span className="shrink-0 rounded-full border border-[#d69f69] bg-[#fff1dc] px-2.5 py-0.5 text-[11px] font-black uppercase tracking-[0.14em] text-[#8d5e29]">NV {enemy.level}</span>
                               </div>
-                              {enemy.isBoss && (
-                                  <span className="shrink-0 rounded-full border border-rose-300 bg-rose-100 px-2 py-0.5 text-[9px] font-black uppercase text-rose-600">Chefão</span>
-                              )}
+                              <div className="mt-1 flex items-center gap-1.5">
+                                  <span className={`rounded-full border px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.14em] ${enemyClassTone}`}>{enemyClassLabel}</span>
+                                  {enemy.isBoss && (
+                                      <span className="rounded-full border border-rose-300 bg-rose-100 px-2 py-0.5 text-[9px] font-black uppercase text-rose-600">Chefão</span>
+                                  )}
+                              </div>
                           </div>
                           <div>
                               <div className="flex items-center justify-between mb-1">
@@ -2934,7 +2957,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                                   <div className="h-full rounded-full bg-[linear-gradient(90deg,#8d2f46,#d17482)] transition-all duration-300" style={{width: `${Math.max(0, (enemy.stats.hp/enemy.stats.maxHp)*100)}%`}}></div>
                               </div>
                           </div>
-                          {enemy.stats.maxMp > 0 && (
+                          {enemyUsesManaSkills && (
                               <div>
                                   <div className="flex items-center justify-between mb-1">
                                       <span className="text-[10px] font-black uppercase tracking-[0.24em] text-[#346c7f]">Mana</span>
@@ -3064,14 +3087,19 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
               {/* Enemy HP — right */}
               {enemy && (
                   <div className="rounded-[16px] border border-[#cfab91] bg-[#f7ecdd]/94 px-2.5 py-2 shadow-xl backdrop-blur-md flex-1 max-w-[48%] sm:max-w-[250px] animate-fade-in-down">
-                      <div className="flex items-center justify-between gap-1.5 mb-1">
-                          <div className="min-w-0">
-                              <div className="truncate text-base font-black text-[#6b3141]">{enemy.name}</div>
-                              <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-[#8a5a57]">Nv. {enemy.level}</span>
+                      <div className="mb-1">
+                          <div className="flex items-start justify-between gap-1.5">
+                              <div className="min-w-0">
+                                  <div className="truncate text-base font-black text-[#6b3141]">{enemy.name}</div>
+                              </div>
+                              <span className="shrink-0 rounded-full border border-[#d69f69] bg-[#fff1dc] px-2 py-0.5 text-[12px] font-black uppercase tracking-[0.14em] text-[#8d5e29]">NV {enemy.level}</span>
                           </div>
-                          {enemy.isBoss && (
-                              <span className="shrink-0 rounded-full border border-rose-300 bg-rose-100 px-1.5 py-0.5 text-[10px] font-black uppercase text-rose-600">Chefão</span>
-                          )}
+                          <div className="mt-1 flex items-center gap-1.5">
+                              <span className={`rounded-full border px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.14em] ${enemyClassTone}`}>{enemyClassLabel}</span>
+                              {enemy.isBoss && (
+                                  <span className="rounded-full border border-rose-300 bg-rose-100 px-1.5 py-0.5 text-[10px] font-black uppercase text-rose-600">Chefão</span>
+                              )}
+                          </div>
                       </div>
                       <div>
                           <div className="flex items-center justify-between mb-0.5">
@@ -3082,7 +3110,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                               <div className="h-full rounded-full bg-[linear-gradient(90deg,#8d2f46,#d17482)] transition-all duration-300" style={{width: `${Math.max(0, (enemy.stats.hp/enemy.stats.maxHp)*100)}%`}}></div>
                           </div>
                       </div>
-                      {enemy.stats.maxMp > 0 && (
+                      {enemyUsesManaSkills && (
                           <div className="mt-1">
                               <div className="flex items-center justify-between mb-0.5">
                                   <span className="text-[11px] font-black uppercase tracking-[0.2em] text-[#346c7f]">Mana</span>

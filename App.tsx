@@ -172,67 +172,232 @@ export default function App() {
         return 1 + ((safeStage - 1) * 0.16) + (Math.floor((safeStage - 1) / 2) * 0.06);
     };
 
-    const createEnemySkillSet = (tier: number, cycleStrength: number): Enemy['skillSet'] => {
-        const skills: Enemy['skillSet'] = [];
-        const hasMagic = tier >= 2;
-        const hasSpecial = tier >= 3;
+    const resolveEnemyClassIdFromName = (name: string): Player['classId'] | null => {
+        const normalizedName = name.toLowerCase();
+        if (normalizedName.includes('mage') || normalizedName.includes('archmage')) return 'mage';
+        if (normalizedName.includes('rogue') || normalizedName.includes('thief') || normalizedName.includes('assassin')) return 'rogue';
+        if (normalizedName.includes('warrior') || normalizedName.includes('champion') || normalizedName.includes('guardian') || normalizedName.includes('overlord')) return 'knight';
+        if (normalizedName.includes('ranger') || normalizedName.includes('archer') || normalizedName.includes('hunter')) return 'ranger';
+        if (normalizedName.includes('barbar')) return 'barbarian';
+        return null;
+    };
 
-        if (hasMagic) {
+    const pickEnemyClassId = (template: EnemyTemplate | DungeonEnemyTemplate | DungeonBossTemplate): Player['classId'] => {
+        if (template.enemyClassId) {
+            return template.enemyClassId;
+        }
+
+        const inferredClass = resolveEnemyClassIdFromName(template.name);
+        if (inferredClass) {
+            return inferredClass;
+        }
+
+        const weightedPool: Array<Player['classId']> = ['knight', 'mage', 'rogue', 'ranger', 'barbarian', 'knight', 'rogue'];
+        return pickRandom(weightedPool);
+    };
+
+    const createEnemySkillSet = (enemyClassId: Player['classId'], tier: number, cycleStrength: number): Enemy['skillSet'] => {
+        const skills: Enemy['skillSet'] = [];
+        const hasTier1Skill = tier >= 1;
+        const hasTier2Skill = tier >= 3;
+
+        if (enemyClassId === 'mage') {
+            if (hasTier1Skill) {
+                skills.push({
+                    id: 'enemy_mage_arcane_blast',
+                    name: 'Explosao Arcana',
+                    type: 'magic',
+                    effect: 'damage',
+                    attackKind: 'magic',
+                    damageMultiplier: 1.26 + (cycleStrength * 0.14),
+                    manaCost: 10 + (cycleStrength * 2),
+                    cooldown: 2,
+                    currentCooldown: 0,
+                });
+            }
+            if (hasTier2Skill) {
+                skills.push({
+                    id: 'enemy_mage_dark_mend',
+                    name: 'Mend Arcano',
+                    type: 'heal',
+                    effect: 'heal',
+                    attackKind: 'magic',
+                    damageMultiplier: 0,
+                    healMultiplier: 0.2 + (cycleStrength * 0.03),
+                    manaCost: 16 + (cycleStrength * 2),
+                    cooldown: 3,
+                    currentCooldown: 0,
+                });
+            }
+            return skills;
+        }
+
+        if (enemyClassId === 'knight') {
+            if (hasTier1Skill) {
+                skills.push({
+                    id: 'enemy_knight_shield_bash',
+                    name: 'Golpe de Escudo',
+                    type: 'special',
+                    effect: 'damage',
+                    attackKind: 'physical',
+                    damageMultiplier: 1.2 + (cycleStrength * 0.1),
+                    manaCost: 10 + (cycleStrength * 2),
+                    cooldown: 2,
+                    currentCooldown: 0,
+                });
+            }
+            if (hasTier2Skill) {
+                skills.push({
+                    id: 'enemy_knight_fortress_stance',
+                    name: 'Postura de Fortaleza',
+                    type: 'buff',
+                    effect: 'buff_def',
+                    attackKind: 'physical',
+                    damageMultiplier: 0,
+                    buffModifier: 0.22 + (cycleStrength * 0.04),
+                    buffDuration: 2,
+                    manaCost: 14 + (cycleStrength * 2),
+                    cooldown: 3,
+                    currentCooldown: 0,
+                });
+            }
+            return skills;
+        }
+
+        if (enemyClassId === 'rogue') {
+            if (hasTier1Skill) {
+                skills.push({
+                    id: 'enemy_rogue_rupture',
+                    name: 'Golpe de Ruptura',
+                    type: 'special',
+                    effect: 'damage',
+                    attackKind: 'physical',
+                    damageMultiplier: 1.34 + (cycleStrength * 0.12),
+                    manaCost: 12 + (cycleStrength * 3),
+                    cooldown: 2,
+                    currentCooldown: 0,
+                });
+            }
+            if (hasTier2Skill) {
+                skills.push({
+                    id: 'enemy_rogue_smoke_focus',
+                    name: 'Foco da Sombra',
+                    type: 'buff',
+                    effect: 'buff_atk',
+                    attackKind: 'physical',
+                    damageMultiplier: 0,
+                    buffModifier: 0.2 + (cycleStrength * 0.04),
+                    buffDuration: 2,
+                    manaCost: 14 + (cycleStrength * 2),
+                    cooldown: 3,
+                    currentCooldown: 0,
+                });
+            }
+            return skills;
+        }
+
+        if (enemyClassId === 'barbarian') {
+            if (hasTier1Skill) {
+                skills.push({
+                    id: 'enemy_barbarian_war_cry',
+                    name: 'Grito de Guerra',
+                    type: 'buff',
+                    effect: 'buff_atk',
+                    attackKind: 'physical',
+                    damageMultiplier: 0,
+                    buffModifier: 0.24 + (cycleStrength * 0.05),
+                    buffDuration: 2,
+                    manaCost: 10 + (cycleStrength * 2),
+                    cooldown: 3,
+                    currentCooldown: 0,
+                });
+            }
+            if (hasTier2Skill) {
+                skills.push({
+                    id: 'enemy_barbarian_cleave',
+                    name: 'Cutilada Furiosa',
+                    type: 'special',
+                    effect: 'damage',
+                    attackKind: 'physical',
+                    damageMultiplier: 1.5 + (cycleStrength * 0.13),
+                    manaCost: 16 + (cycleStrength * 3),
+                    cooldown: 3,
+                    currentCooldown: 0,
+                });
+            }
+            return skills;
+        }
+
+        if (hasTier1Skill) {
             skills.push({
-                id: 'enemy_arcane_blast',
-                name: 'Explosao Arcana',
-                type: 'magic',
-                attackKind: 'magic',
-                damageMultiplier: 1.22 + (cycleStrength * 0.15),
+                id: 'enemy_ranger_piercing_arrow',
+                name: 'Flecha Perfurante',
+                type: 'special',
+                effect: 'damage',
+                attackKind: 'physical',
+                damageMultiplier: 1.24 + (cycleStrength * 0.11),
                 manaCost: 10 + (cycleStrength * 2),
                 cooldown: 2,
                 currentCooldown: 0,
             });
         }
-
-        if (hasSpecial) {
+        if (hasTier2Skill) {
             skills.push({
-                id: 'enemy_rupture_strike',
-                name: 'Golpe de Ruptura',
-                type: 'special',
+                id: 'enemy_ranger_hawkeye_focus',
+                name: 'Foco de Falcao',
+                type: 'buff',
+                effect: 'buff_atk',
                 attackKind: 'physical',
-                damageMultiplier: 1.4 + (cycleStrength * 0.12),
-                manaCost: 14 + (cycleStrength * 3),
+                damageMultiplier: 0,
+                buffModifier: 0.18 + (cycleStrength * 0.04),
+                buffDuration: 2,
+                manaCost: 12 + (cycleStrength * 2),
                 cooldown: 3,
                 currentCooldown: 0,
             });
         }
-
         return skills;
     };
 
-    const createEnemyCombatProfile = (currentStage: number, isBoss: boolean, isDungeonEncounter: boolean, evolution: number) => {
+    const createEnemyCombatProfile = (enemyClassId: Player['classId'], currentStage: number, isBoss: boolean, isDungeonEncounter: boolean, evolution: number) => {
         const tierBase = Math.max(0, Math.floor((Math.max(1, currentStage) - 1) / 2));
         const tierWithMode = tierBase + (isDungeonEncounter ? Math.floor(evolution / 2) : 0) + (isBoss ? 1 : 0);
         const tier = Math.max(0, tierWithMode);
         const cycleStrength = tier <= 0 ? 0 : Math.floor((tier - 1) / 3);
         const cycleStep = tier <= 0 ? 0 : ((tier - 1) % 3);
         const potionCharges = tier === 0 ? 0 : (isBoss ? 2 : 1);
-        const potionHealRatio = cycleStep === 2
-            ? Math.min(0.42, 0.22 + (cycleStrength * 0.05))
-            : Math.min(0.34, 0.12 + (cycleStrength * 0.04));
-        const maxMp = 18 + (tier * 4) + (isBoss ? 12 : 0);
-        const manaRegenOnDefend = 6 + (tier * 2) + (isBoss ? 2 : 0);
+        const potionHealValue = currentStage >= 9 ? 220 : currentStage >= 6 ? 100 : currentStage >= 3 ? 50 : 25;
+        const classMpBase: Record<Player['classId'], number> = {
+            knight: 18,
+            barbarian: 16,
+            mage: 28,
+            ranger: 20,
+            rogue: 22,
+        };
+        const maxMp = classMpBase[enemyClassId] + (tier * 4) + (isBoss ? 12 : 0);
+        const manaRegenOnDefend = (enemyClassId === 'knight' ? 8 : 6) + (tier * 2) + (isBoss ? 2 : 0);
+        const classDefendBonus: Record<Player['classId'], number> = {
+            knight: 0.08,
+            barbarian: -0.02,
+            mage: 0,
+            ranger: -0.01,
+            rogue: -0.03,
+        };
 
         return {
             tier,
             cycleStrength,
             potionCharges,
-            potionHealRatio,
+            potionHealValue,
             maxMp,
             manaRegenOnDefend,
             critChanceBonus: Math.min(0.24, (tier * 0.015) + (isBoss ? 0.035 : 0)),
             critDamageBonus: Math.min(0.5, (tier * 0.03) + (isBoss ? 0.08 : 0)),
-            skillSet: createEnemySkillSet(tier, cycleStrength),
-            lowHpThreshold: 0.5,
+            skillSet: createEnemySkillSet(enemyClassId, tier, cycleStrength),
+            lowHpThreshold: enemyClassId === 'mage' ? 0.58 : enemyClassId === 'knight' ? 0.52 : 0.48,
             criticalHpThreshold: 0.25,
-            lowManaThreshold: 0.25,
-            defendBaseChance: 0.16 + (cycleStep === 2 ? 0.08 : 0),
+            lowManaThreshold: enemyClassId === 'mage' ? 0.35 : 0.25,
+            defendBaseChance: Math.max(0.02, 0.08 + (cycleStep === 2 ? 0.04 : 0) + classDefendBonus[enemyClassId]),
         };
     };
 
@@ -1143,16 +1308,19 @@ export default function App() {
     const enemyTemplate: EnemyTemplate | DungeonEnemyTemplate | DungeonBossTemplate = isBoss
         ? (isDungeonEncounter ? DUNGEON_BOSS : pickRandom(ENEMY_DATA))
         : (isDungeonEncounter ? pickRandom(dungeonEnemyPool) : pickRandom(ENEMY_DATA));
+    const enemyClassId = pickEnemyClassId(enemyTemplate);
     const templateCombatProfile = enemyTemplate as Partial<DungeonEnemyTemplate & DungeonBossTemplate>;
     const hpMultiplier = templateCombatProfile.hpMultiplier ?? 1;
     const atkMultiplier = templateCombatProfile.atkMultiplier ?? 1;
     const defMultiplier = templateCombatProfile.defMultiplier ?? 1;
     const speedBonus = templateCombatProfile.speedBonus ?? 0;
-    const combatProfile = createEnemyCombatProfile(currentStage, isBoss, isDungeonEncounter, activeDungeonEvolution);
+    const combatProfile = createEnemyCombatProfile(enemyClassId, currentStage, isBoss, isDungeonEncounter, activeDungeonEvolution);
     const hasStrongCycleBoost = combatProfile.tier >= 2;
     const color = isBoss && isDungeonEncounter
         ? DUNGEON_BOSS.color
         : ENEMY_COLORS[Math.floor(Math.random() * ENEMY_COLORS.length)];
+    const xpReward = Math.floor(40 * levelMult * (isBoss ? (isDungeonEncounter ? 3.6 : 3) : 1));
+    const goldReward = Math.floor(25 * levelMult * (isBoss ? (isDungeonEncounter ? 3.2 : 3) : 1));
     
         const name = isBoss
                 ? (isDungeonEncounter ? DUNGEON_BOSS.name : `General ${enemyTemplate.name}`)
@@ -1172,11 +1340,12 @@ export default function App() {
                 speed: 10 + speedBonus + (isDungeonEncounter ? Math.floor(activeDungeonEvolution / 3) : 0),
         luck: Math.max(1, Math.floor((currentStage * 0.55) + (isBoss ? 3 : 0) + (isDungeonEncounter ? activeDungeonEvolution * 0.35 : 0)))
       },
-            xpReward: Math.floor(40 * levelMult * (isBoss ? (isDungeonEncounter ? 3.6 : 3) : 1)),
-            goldReward: Math.floor(25 * levelMult * (isBoss ? (isDungeonEncounter ? 3.2 : 3) : 1)),
+            xpReward,
+            goldReward,
                         color: isBoss ? (isDungeonEncounter ? DUNGEON_BOSS.color : '#ef4444') : (enemyTemplate.color ?? color),
                         scale: isBoss ? (isDungeonEncounter ? DUNGEON_BOSS.scale : (0.8 + (Math.random() * 0.4)) * 2.0) : (enemyTemplate.scale ?? (0.8 + (Math.random() * 0.4))),
       type: enemyTemplate.type as 'beast' | 'humanoid' | 'undead',
+      enemyClassId,
       isBoss,
             isDefending: false,
             statusEffects: [],
@@ -1186,7 +1355,15 @@ export default function App() {
             rareDrops: templateCombatProfile.rareDrops,
             manaRegenOnDefend: combatProfile.manaRegenOnDefend,
             potionCharges: combatProfile.potionCharges,
-            potionHealRatio: combatProfile.potionHealRatio,
+            potionHealValue: combatProfile.potionHealValue,
+            lastAction: 'none',
+            aiTurnCounter: 0,
+            stealAttemptsUsed: 0,
+            maxStealAttempts: 3,
+            lastStealTurn: -99,
+            stolenGoldTotal: 0,
+            maxGoldStealPerBattle: Math.max(1, Math.floor(goldReward * 0.5)),
+            stolenItems: [],
             aiProfile: {
                 tier: combatProfile.tier,
                 lowHpThreshold: combatProfile.lowHpThreshold,

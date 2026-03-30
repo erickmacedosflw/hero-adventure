@@ -97,6 +97,27 @@ const tickEnemyBuffs = (target: Enemy): Enemy => {
   };
 };
 
+const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+
+const ENEMY_CLASS_SKILL_BIAS: Record<Player['classId'], number> = {
+  knight: 0.06,
+  barbarian: 0.04,
+  mage: 0.16,
+  ranger: 0.08,
+  rogue: 0.1,
+};
+
+const ENEMY_STEAL_BASE_CHANCE = 0.28;
+const ENEMY_STEAL_SPEED_WEIGHT = 0.006;
+const ENEMY_STEAL_LUCK_WEIGHT = 0.004;
+
+const getSkillCastColor = (skill: Enemy['skillSet'][number]) => {
+  if (skill.effect === 'heal') return '#34d399';
+  if (skill.effect === 'buff_atk') return '#f97316';
+  if (skill.effect === 'buff_def') return '#60a5fa';
+  return skill.attackKind === 'magic' ? '#60a5fa' : '#f97316';
+};
+
 export const useBattleController = ({
   player,
   enemy,
@@ -681,6 +702,14 @@ export const useBattleController = ({
 
     let simulatedEnemy: Enemy = {
       ...enemy,
+      enemyClassId: enemy.enemyClassId ?? 'knight',
+      aiTurnCounter: (enemy.aiTurnCounter ?? 0) + 1,
+      stealAttemptsUsed: enemy.stealAttemptsUsed ?? 0,
+      maxStealAttempts: enemy.maxStealAttempts ?? 3,
+      lastStealTurn: enemy.lastStealTurn ?? -99,
+      stolenGoldTotal: enemy.stolenGoldTotal ?? 0,
+      maxGoldStealPerBattle: enemy.maxGoldStealPerBattle ?? Math.max(1, Math.floor(enemy.goldReward * 0.5)),
+      stolenItems: [...(enemy.stolenItems ?? [])],
       statusEffects: enemyStatusTick.nextStatuses,
       stats: {
         ...enemy.stats,
@@ -714,6 +743,7 @@ export const useBattleController = ({
     const lowMana = simulatedEnemy.stats.maxMp > 0 && mpRatio <= simulatedEnemy.aiProfile.lowManaThreshold;
     const playerAggressive = lastPlayerActionRef.current === 'attack' || lastPlayerActionRef.current === 'skill';
     const playerDefensive = lastPlayerActionRef.current === 'defend';
+    const canDefend = simulatedEnemy.lastAction !== 'defend';
 
     const finishEnemyActionToPlayerTurn = (nextEnemy: Enemy) => {
       const enemyAfterBuffTick = tickEnemyBuffs(nextEnemy);
@@ -726,6 +756,7 @@ export const useBattleController = ({
     const useDefendAction = (reasonLabel: string) => {
       const nextEnemy = {
         ...simulatedEnemy,
+        lastAction: 'defend' as const,
         isDefending: true,
         stats: {
           ...simulatedEnemy.stats,
@@ -739,29 +770,132 @@ export const useBattleController = ({
     };
 
     if (lowHp && hasPotion) {
-      const healAmount = Math.max(1, Math.floor(simulatedEnemy.stats.maxHp * simulatedEnemy.potionHealRatio));
+      const healAmount = Math.max(1, simulatedEnemy.potionHealValue);
       const nextEnemy = {
         ...simulatedEnemy,
+        lastAction: 'item' as const,
         potionCharges: simulatedEnemy.potionCharges - 1,
         stats: {
           ...simulatedEnemy.stats,
           hp: Math.min(simulatedEnemy.stats.maxHp, simulatedEnemy.stats.hp + healAmount),
         },
       };
-      addLog(`${simulatedEnemy.name} usou pocao e curou ${healAmount} HP.`, 'heal');
-      spawnFloatingText(`+${healAmount}`, 'enemy', 'heal');
-      spawnParticles([2, -0.5, 0], 20, '#22c55e', 'heal');
-      finishEnemyActionToPlayerTurn(nextEnemy);
+      setIsEnemyAttacking(true);
+      triggerEnemyAnimationAction('item', 900);
+      window.setTimeout(() => {
+        addLog(`${simulatedEnemy.name} usou pocao e curou ${healAmount} HP.`, 'heal');
+        spawnFloatingText(`+${healAmount}`, 'enemy', 'heal');
+        spawnParticles([2, -0.5, 0], 20, '#22c55e', 'heal');
+        window.setTimeout(() => {
+          setIsEnemyAttacking(false);
+          finishEnemyActionToPlayerTurn(nextEnemy);
+        }, 620);
+      }, 520);
       return;
     }
 
-    if (criticalHp && !hasPotion) {
+    if (criticalHp && !hasPotion && canDefend) {
       useDefendAction('sobreviver');
       return;
     }
 
-    if (lowMana) {
+    if (lowMana && canDefend) {
       useDefendAction('recuperar mana');
+      return;
+    }
+
+    const equippedItemIds = new Set([
+      player.equippedWeapon?.id,
+      player.equippedArmor?.id,
+      player.equippedHelmet?.id,
+      player.equippedLegs?.id,
+      player.equippedShield?.id,
+    ].filter((entry): entry is string => Boolean(entry)));
+    const stealableInventoryIds = Object.entries(player.inventory)
+      .filter(([itemId, quantity]) => quantity > 0 && !equippedItemIds.has(itemId))
+      .map(([itemId]) => itemId);
+    const canAttemptSteal = simulatedEnemy.enemyClassId === 'rogue'
+      && simulatedEnemy.stealAttemptsUsed < simulatedEnemy.maxStealAttempts
+      && simulatedEnemy.lastAction !== 'steal'
+      && (simulatedEnemy.aiTurnCounter - simulatedEnemy.lastStealTurn) > 1;
+    const stealIntentChance = clamp(0.2 + (simulatedEnemy.aiProfile.tier * 0.025), 0.2, 0.55);
+    if (canAttemptSteal && Math.random() < stealIntentChance) {
+      setIsEnemyAttacking(true);
+      triggerEnemyAnimationAction('attack', 800);
+      window.setTimeout(() => {
+        const chanceFinal = clamp(
+          ENEMY_STEAL_BASE_CHANCE
+            + (ENEMY_STEAL_SPEED_WEIGHT * (simulatedEnemy.stats.speed - player.stats.speed))
+            + (ENEMY_STEAL_LUCK_WEIGHT * (simulatedEnemy.stats.luck - player.stats.luck)),
+          0.1,
+          0.75,
+        );
+        let nextEnemy = {
+          ...simulatedEnemy,
+          lastAction: 'steal' as const,
+          stealAttemptsUsed: simulatedEnemy.stealAttemptsUsed + 1,
+          lastStealTurn: simulatedEnemy.aiTurnCounter,
+        };
+
+        if (Math.random() >= chanceFinal) {
+          spawnFloatingText('Falha ao saquear', 'enemy', 'buff');
+          addLog(`${simulatedEnemy.name} falhou ao saquear.`, 'info');
+          window.setTimeout(() => {
+            setIsEnemyAttacking(false);
+            finishEnemyActionToPlayerTurn(nextEnemy);
+          }, 420);
+          return;
+        }
+
+        const preferGold = player.gold > 0 && (stealableInventoryIds.length === 0 || Math.random() < 0.55);
+        if (preferGold) {
+          const attemptedGold = Math.max(1, Math.floor(player.gold * (0.12 + (simulatedEnemy.aiProfile.tier * 0.012))));
+          const remainingStealCap = Math.max(0, nextEnemy.maxGoldStealPerBattle - nextEnemy.stolenGoldTotal);
+          const stolenGold = Math.min(attemptedGold, player.gold, remainingStealCap);
+          if (stolenGold > 0) {
+            setPlayer((prev) => ({ ...prev, gold: Math.max(0, prev.gold - stolenGold) }));
+            nextEnemy = {
+              ...nextEnemy,
+              stolenGoldTotal: nextEnemy.stolenGoldTotal + stolenGold,
+            };
+            spawnFloatingText(`💰 ${stolenGold} Ouro Saqueado`, 'player', 'crit');
+            addLog(`${simulatedEnemy.name} saqueou ${stolenGold} de ouro.`, 'crit');
+            window.setTimeout(() => {
+              setIsEnemyAttacking(false);
+              finishEnemyActionToPlayerTurn(nextEnemy);
+            }, 420);
+            return;
+          }
+        }
+
+        if (stealableInventoryIds.length > 0) {
+          const targetItemId = stealableInventoryIds[Math.floor(Math.random() * stealableInventoryIds.length)];
+          const stolenItem = ALL_ITEMS.find((entry) => entry.id === targetItemId);
+          setPlayer((prev) => {
+            const qty = prev.inventory[targetItemId] || 0;
+            if (qty <= 0) return prev;
+            return { ...prev, inventory: { ...prev.inventory, [targetItemId]: qty - 1 } };
+          });
+          nextEnemy = {
+            ...nextEnemy,
+            stolenItems: [...nextEnemy.stolenItems, targetItemId],
+          };
+          spawnFloatingText(`${stolenItem?.icon ?? '🎒'} ${stolenItem?.name ?? 'Item'} Saqueado`, 'player', 'crit');
+          addLog(`${simulatedEnemy.name} saqueou ${stolenItem?.name ?? 'um item'}!`, 'crit');
+          window.setTimeout(() => {
+            setIsEnemyAttacking(false);
+            finishEnemyActionToPlayerTurn(nextEnemy);
+          }, 420);
+          return;
+        }
+
+        spawnFloatingText('Falha ao saquear', 'enemy', 'buff');
+        addLog(`${simulatedEnemy.name} nao conseguiu saquear.`, 'info');
+        window.setTimeout(() => {
+          setIsEnemyAttacking(false);
+          finishEnemyActionToPlayerTurn(nextEnemy);
+        }, 420);
+      }, 420);
       return;
     }
 
@@ -770,7 +904,8 @@ export const useBattleController = ({
     ));
 
     const extraSkillBias = playerDefensive ? 0.15 : 0;
-    const skillChance = Math.min(0.85, 0.28 + (simulatedEnemy.aiProfile.tier * 0.05) + extraSkillBias);
+    const classSkillBias = ENEMY_CLASS_SKILL_BIAS[simulatedEnemy.enemyClassId] ?? 0.06;
+    const skillChance = Math.min(0.9, 0.2 + (simulatedEnemy.aiProfile.tier * 0.05) + extraSkillBias + classSkillBias);
     const shouldUseSkill = usableSkills.length > 0 && Math.random() < skillChance;
 
     if (shouldUseSkill) {
@@ -782,6 +917,7 @@ export const useBattleController = ({
       ));
       simulatedEnemy = {
         ...simulatedEnemy,
+        lastAction: 'skill',
         skillSet: nextSkillSet,
         stats: {
           ...simulatedEnemy.stats,
@@ -791,7 +927,55 @@ export const useBattleController = ({
 
       setIsEnemyAttacking(true);
       triggerEnemyAnimationAction('skill', 760);
+      const castColor = getSkillCastColor(chosenSkill);
+      spawnFloatingText(chosenSkill.name.toUpperCase(), 'enemy', 'buff');
+      spawnParticles([2, -0.5, 0], 16, castColor, 'spark');
       window.setTimeout(() => {
+        if (chosenSkill.effect === 'heal') {
+          const healAmount = Math.max(1, Math.floor(simulatedEnemy.stats.maxHp * (chosenSkill.healMultiplier ?? 0.2)));
+          const healedEnemy = {
+            ...simulatedEnemy,
+            stats: {
+              ...simulatedEnemy.stats,
+              hp: Math.min(simulatedEnemy.stats.maxHp, simulatedEnemy.stats.hp + healAmount),
+            },
+          };
+          addLog(`${simulatedEnemy.name} usou ${chosenSkill.name} e curou ${healAmount} HP.`, 'heal');
+          spawnFloatingText(`+${healAmount} HP`, 'enemy', 'heal');
+          spawnParticles([2, -0.5, 0], 22, '#34d399', 'heal');
+          window.setTimeout(() => {
+            setIsEnemyAttacking(false);
+            finishEnemyActionToPlayerTurn(healedEnemy);
+          }, 520);
+          return;
+        }
+
+        if (chosenSkill.effect === 'buff_atk' || chosenSkill.effect === 'buff_def') {
+          const buffModifier = chosenSkill.buffModifier ?? 0.18;
+          const buffDuration = chosenSkill.buffDuration ?? 2;
+          const buffedEnemy = {
+            ...simulatedEnemy,
+            combatBuffs: {
+              atkMod: chosenSkill.effect === 'buff_atk'
+                ? Math.max(simulatedEnemy.combatBuffs.atkMod, buffModifier)
+                : simulatedEnemy.combatBuffs.atkMod,
+              defMod: chosenSkill.effect === 'buff_def'
+                ? Math.max(simulatedEnemy.combatBuffs.defMod, buffModifier)
+                : simulatedEnemy.combatBuffs.defMod,
+              turns: Math.max(simulatedEnemy.combatBuffs.turns, buffDuration),
+            },
+          };
+          const buffText = chosenSkill.effect === 'buff_atk' ? 'ATAQUE UP!' : 'DEFESA UP!';
+          addLog(`${simulatedEnemy.name} usou ${chosenSkill.name} (${buffText}).`, 'buff');
+          spawnFloatingText(buffText, 'enemy', 'buff');
+          spawnParticles([2, -0.5, 0], 18, chosenSkill.effect === 'buff_atk' ? '#f97316' : '#60a5fa', 'spark');
+          window.setTimeout(() => {
+            setIsEnemyAttacking(false);
+            finishEnemyActionToPlayerTurn(buffedEnemy);
+          }, 520);
+          return;
+        }
+
         const skillAttackResult = calculateDamage({
           attackerAtk: getEnemyAtkWithBuff(simulatedEnemy),
           defenderDef: player.stats.def,
@@ -828,7 +1012,8 @@ export const useBattleController = ({
               ? 'critical-hit'
               : 'hit';
 
-        spawnParticles([-2, -1, 0], 9, '#dc2626', 'spark');
+        spawnParticles([-2, -1, 0], 14, castColor, 'explode');
+        spawnParticles([-2, -1, 0], 10, chosenSkill.attackKind === 'magic' ? '#7dd3fc' : '#fb7185', 'spark');
         spawnFloatingText(skillAttackResult.isCrit ? `CRIT ${finalDamage}` : finalDamage, 'player', skillAttackResult.isCrit ? 'crit' : 'damage');
         setScreenShake(skillAttackResult.isCrit ? 0.34 : 0.22);
         setIsPlayerHit(true);
@@ -885,13 +1070,17 @@ export const useBattleController = ({
       return;
     }
 
-    const defensiveReactionBoost = playerAggressive ? 0.16 : 0;
-    const shouldDefend = Math.random() < Math.min(0.8, simulatedEnemy.aiProfile.defendBaseChance + defensiveReactionBoost);
+    const defensiveReactionBoost = playerAggressive ? 0.08 : 0;
+    const shouldDefend = canDefend && Math.random() < Math.min(0.65, simulatedEnemy.aiProfile.defendBaseChance + defensiveReactionBoost);
     if (shouldDefend) {
       useDefendAction('segurar a ofensiva');
       return;
     }
 
+    simulatedEnemy = {
+      ...simulatedEnemy,
+      lastAction: 'attack',
+    };
     setIsEnemyAttacking(true);
     triggerEnemyAnimationAction('attack', 750);
 
