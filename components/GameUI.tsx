@@ -327,6 +327,7 @@ const FloatingTextOverlay = ({ texts }: { texts: FloatingText[] }) => {
                 const topPos = t.target === 'player' ? '37%' : '33%';
                 const isCrit = t.type === 'crit';
                 const isBuff = t.type === 'buff';
+                const isSkill = t.type === 'skill';
                 const verticalStackOffset = stackIndex * 34;
                 
                 let colorClass = "text-white";
@@ -334,6 +335,7 @@ const FloatingTextOverlay = ({ texts }: { texts: FloatingText[] }) => {
                 if (t.type === 'heal') colorClass = "text-green-400";
                 if (isCrit) colorClass = "text-amber-400";
                 if (isBuff) colorClass = "text-blue-400";
+                if (isSkill) colorClass = "text-violet-400";
 
                 return (
                     <div 
@@ -346,6 +348,8 @@ const FloatingTextOverlay = ({ texts }: { texts: FloatingText[] }) => {
                                 ? 'clamp(2.45rem, 9vw, 2.9rem)'
                                 : isBuff
                                   ? 'clamp(1.35rem, 5.8vw, 1.7rem)'
+                                  : isSkill
+                                    ? 'clamp(1.35rem, 5.8vw, 1.7rem)'
                                   : 'clamp(1.85rem, 7.2vw, 2.15rem)',
                             minWidth: isCrit ? '8.1rem' : '6.2rem',
                             animation: `floatUp 1s forwards ease-out`,

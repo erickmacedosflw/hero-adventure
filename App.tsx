@@ -975,7 +975,7 @@ export default function App() {
       }, 1100);
   };
 
-  const spawnFloatingText = (value: string | number, target: 'player' | 'enemy', type: 'damage' | 'heal' | 'crit' | 'buff') => {
+  const spawnFloatingText = (value: string | number, target: 'player' | 'enemy', type: 'damage' | 'heal' | 'crit' | 'buff' | 'skill') => {
       const id = Math.random().toString(36);
       setFloatingTexts(prev => [...prev, {
           id,

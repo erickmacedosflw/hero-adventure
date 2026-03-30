@@ -34,7 +34,7 @@ interface UseBattleControllerParams {
   handleVictory: (delayMs?: number) => Promise<void> | void;
   triggerEnemyAnimationAction: (action: PlayerAnimationAction, resetDelay?: number) => void;
   spawnParticles: (position: [number, number, number], count: number, color: string, type: 'explode' | 'heal' | 'spark') => void;
-  spawnFloatingText: (value: string | number, target: 'player' | 'enemy', type: 'damage' | 'heal' | 'crit' | 'buff') => void;
+  spawnFloatingText: (value: string | number, target: 'player' | 'enemy', type: 'damage' | 'heal' | 'crit' | 'buff' | 'skill') => void;
   setPlayer: Dispatch<SetStateAction<Player>>;
   setEnemy: Dispatch<SetStateAction<Enemy | null>>;
   setTurnState: Dispatch<SetStateAction<TurnState>>;
@@ -398,6 +398,7 @@ export const useBattleController = ({
         value: Math.max(0, prev.classResource.value - resourceSpent),
       },
     }));
+    spawnFloatingText(skill.name.toUpperCase(), 'player', 'skill');
 
     if (resourceSpent > 0) {
       spawnFloatingText(`-${resourceSpent} ${player.classResource.name}`, 'player', 'buff');
@@ -928,7 +929,7 @@ export const useBattleController = ({
       setIsEnemyAttacking(true);
       triggerEnemyAnimationAction('skill', 760);
       const castColor = getSkillCastColor(chosenSkill);
-      spawnFloatingText(chosenSkill.name.toUpperCase(), 'enemy', 'buff');
+      spawnFloatingText(chosenSkill.name.toUpperCase(), 'enemy', 'skill');
       spawnParticles([2, -0.5, 0], 16, castColor, 'spark');
       window.setTimeout(() => {
         if (chosenSkill.effect === 'heal') {
