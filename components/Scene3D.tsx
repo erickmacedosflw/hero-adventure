@@ -123,6 +123,7 @@ interface SceneProps {
   stage?: number;
   isDungeonRun?: boolean;
   onGameTimeUpdate?: (time: string) => void;
+  onMenuHeroClick?: () => void;
   playerState?: Player;
   enemyState?: Enemy | null;
 }
@@ -852,7 +853,7 @@ const BattleActorStatusHud = ({
   </Html>
 );
 
-const HeroVoxel = ({ classId = 'knight', playerAnimationAction = 'idle', animationClipName, preferredAnimationBundle, onAvailableAnimationClipsChange, loadAllAnimationBundles = false, loadSecondaryAnimationBundles = true, previewLoopAllActions = false, isAttacking, isDefending, weaponId, armorId, helmetId, legsId, shieldId, isLevelingUp, levelUpCardCategory = 'especial', isMenuView = false, isHit, isPlayerCritHit, hasPerfectEvadeAura, hasDoubleAttackAura, contactShadowResolution = 256, idlePositionX = -2, attackPositionX = 0.5, defendPositionX = -1.5, originPosition = [-2, -1, 0], baseRotationY = 0.5, hiddenPartSlots, visiblePartSlots, runtimeAssetsOverride, calibrationOverride, debugRuntimeId, debugRuntimeLabel, onRuntimeDiagnosticChange, statusOverlay }: any) => {
+const HeroVoxel = ({ classId = 'knight', playerAnimationAction = 'idle', animationClipName, preferredAnimationBundle, onAvailableAnimationClipsChange, loadAllAnimationBundles = false, loadSecondaryAnimationBundles = true, previewLoopAllActions = false, isAttacking, isDefending, weaponId, armorId, helmetId, legsId, shieldId, isLevelingUp, levelUpCardCategory = 'especial', isMenuView = false, isHit, isPlayerCritHit, hasPerfectEvadeAura, hasDoubleAttackAura, contactShadowResolution = 256, idlePositionX = -2, attackPositionX = 0.5, defendPositionX = -1.5, originPosition = [-2, -1, 0], baseRotationY = 0.5, hiddenPartSlots, visiblePartSlots, runtimeAssetsOverride, calibrationOverride, debugRuntimeId, debugRuntimeLabel, onRuntimeDiagnosticChange, statusOverlay, onHeroClick }: any) => {
   const playerClass = getPlayerClassById(classId);
   const runtimeHeroAssets = runtimeAssetsOverride ?? (hasRuntimeFbxAssets(playerClass.assets) ? playerClass.assets : null);
   const group = useRef<THREE.Group>(null);
@@ -972,9 +973,18 @@ const HeroVoxel = ({ classId = 'knight', playerAnimationAction = 'idle', animati
     }
   });
 
+  const handleHeroClick = useCallback((event: any) => {
+    if (!isMenuView || !onHeroClick) {
+      return;
+    }
+
+    event.stopPropagation();
+    onHeroClick();
+  }, [isMenuView, onHeroClick]);
+
   return (
     <group>
-      <group ref={group} position={originPosition} rotation={[0, baseRotationY, 0]}>
+      <group ref={group} position={originPosition} rotation={[0, baseRotationY, 0]} onClick={handleHeroClick}>
         {runtimeHeroAssets ? (
           <Suspense fallback={null}>
             <AnimatedClassHero
@@ -1235,7 +1245,6 @@ export const GameScene: React.FC<SceneProps> = (props) => {
   const activeBloomSmoothing = isDungeonRun ? 0.85 : (shouldUseDepthOfField ? 0.8 : 0.82);
   const activeVignetteOffset = isDungeonRun ? 0.1 : (shouldUseDepthOfField ? 0.06 : 0.08);
   const activeVignetteDarkness = isDungeonRun ? 0.42 : (shouldUseDepthOfField ? 0.1 : 0.13);
-  const shouldEagerLoadAnimationBundles = !isMobileDevice && adaptiveTier === 'desktop-like';
   const battleContactShadowResolution = useMemo(
     () => quality.isLowQuality ? 48 : Math.min(quality.contactShadowResolution, 96),
     [quality.contactShadowResolution, quality.isLowQuality],
@@ -1350,7 +1359,8 @@ export const GameScene: React.FC<SceneProps> = (props) => {
           hasPerfectEvadeAura={props.hasPerfectEvadeAura}
           hasDoubleAttackAura={props.hasDoubleAttackAura}
           contactShadowResolution={quality.contactShadowResolution}
-          loadSecondaryAnimationBundles={shouldEagerLoadAnimationBundles}
+          loadSecondaryAnimationBundles
+          onHeroClick={props.isMenuView ? props.onMenuHeroClick : undefined}
         />
         
         {!props.isMenuView && (

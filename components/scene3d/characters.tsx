@@ -340,7 +340,18 @@ export const AnimatedClassHero = ({
     if (previousAction && !isSameAction) {
       previousAction.enabled = true;
       nextAction.play();
-      previousAction.crossFadeTo(nextAction, transitionDuration, true);
+
+      try {
+        if (previousAction.getMixer() === nextAction.getMixer()) {
+          previousAction.crossFadeTo(nextAction, transitionDuration, true);
+        } else {
+          previousAction.fadeOut(Math.max(0.16, transitionDuration * 0.8));
+          nextAction.fadeIn(transitionDuration);
+        }
+      } catch {
+        previousAction.fadeOut(Math.max(0.16, transitionDuration * 0.8));
+        nextAction.fadeIn(transitionDuration);
+      }
     } else {
       nextAction.fadeIn(transitionDuration).play();
     }

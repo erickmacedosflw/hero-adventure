@@ -306,6 +306,7 @@ export default function App() {
     const previousSkillCountRef = useRef(player.skills.length);
     const enemyAnimationResetTimerRef = useRef<number | null>(null);
     const menuTransitionTimerRef = useRef<number | null>(null);
+    const menuHeroActionResetTimerRef = useRef<number | null>(null);
     const autosaveTimerRef = useRef<number | null>(null);
     const lastSavedSignatureRef = useRef<string>('');
     const wasResourceUnlockedRef = useRef(player.classResource.max > 0);
@@ -330,6 +331,19 @@ export default function App() {
             enemyAnimationResetTimerRef.current = null;
             setEnemyAnimationAction('battle-idle');
         }, resetDelay ?? (action === 'critical-hit' ? 620 : 360));
+    }, []);
+
+    const handleMenuHeroClick = useCallback(() => {
+        if (menuHeroActionResetTimerRef.current !== null) {
+            window.clearTimeout(menuHeroActionResetTimerRef.current);
+            menuHeroActionResetTimerRef.current = null;
+        }
+
+        setMenuHeroAction('item');
+        menuHeroActionResetTimerRef.current = window.setTimeout(() => {
+            menuHeroActionResetTimerRef.current = null;
+            setMenuHeroAction('idle');
+        }, 720);
     }, []);
 
     const refreshSaveSlotCatalog = useCallback(() => {
@@ -528,6 +542,9 @@ export default function App() {
         }
         if (menuTransitionTimerRef.current !== null) {
             window.clearTimeout(menuTransitionTimerRef.current);
+        }
+        if (menuHeroActionResetTimerRef.current !== null) {
+            window.clearTimeout(menuHeroActionResetTimerRef.current);
         }
         if (autosaveTimerRef.current !== null) {
             window.clearTimeout(autosaveTimerRef.current);
@@ -1788,7 +1805,10 @@ export default function App() {
     const isSkillsActionUnlocked = skillsActionUnlocked;
     const isMerchantUnlocked = onboardingPhase === 'merchant_unlocked' || onboardingPhase === 'items_prompt' || onboardingPhase === 'flee_prompt' || onboardingPhase === 'flee_unlocked';
     const isDungeonUnlocked = false;
-    const shouldMenuCameraFocus = menuCameraFocusOverride ?? (resolvedGameState === GameState.TAVERN);
+    const [cameraSceneAnchor, setCameraSceneAnchor] = useState<'camp' | 'battle'>(() => (
+        resolvedGameState === GameState.BATTLE ? 'battle' : 'camp'
+    ));
+    const shouldMenuCameraFocus = menuCameraFocusOverride ?? (cameraSceneAnchor === 'camp');
     const previousResolvedGameStateRef = useRef<GameState>(resolvedGameState);
 
     useEffect(() => {
@@ -1843,25 +1863,27 @@ export default function App() {
     }, [resolvedGameState]);
 
     useEffect(() => {
+        if (resolvedGameState === GameState.BATTLE) {
+            setCameraSceneAnchor('battle');
+            return;
+        }
+
+        if (resolvedGameState === GameState.TAVERN) {
+            setCameraSceneAnchor('camp');
+        }
+    }, [resolvedGameState]);
+
+    useEffect(() => {
         if (resolvedGameState !== GameState.TAVERN) {
+            if (menuHeroActionResetTimerRef.current !== null) {
+                window.clearTimeout(menuHeroActionResetTimerRef.current);
+                menuHeroActionResetTimerRef.current = null;
+            }
             setMenuHeroAction('idle');
             return;
         }
 
         setMenuHeroAction('idle');
-        const first = window.setTimeout(() => {
-            setMenuHeroAction('item');
-            window.setTimeout(() => setMenuHeroAction('idle'), 720);
-        }, 1300);
-        const interval = window.setInterval(() => {
-            setMenuHeroAction('item');
-            window.setTimeout(() => setMenuHeroAction('idle'), 720);
-        }, 3600);
-
-        return () => {
-            window.clearTimeout(first);
-            window.clearInterval(interval);
-        };
     }, [resolvedGameState]);
 
     const [hasUnlockedMusic, setHasUnlockedMusic] = useState(false);
@@ -2065,6 +2087,7 @@ export default function App() {
                         isMenuView={resolvedGameState === GameState.TAVERN}
                         menuCameraFocus={shouldMenuCameraFocus}
                         isDungeonScene={sceneRegion === 'dungeon'}
+                        onMenuHeroClick={resolvedGameState === GameState.TAVERN ? handleMenuHeroClick : undefined}
                     />
             </SceneErrorBoundary>
 
