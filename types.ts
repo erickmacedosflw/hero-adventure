@@ -536,4 +536,5 @@ export interface FloatingText {
   target: 'player' | 'enemy'; // Determines screen position
   xOffset: number; // Random slight offset
   yOffset: number;
+  durationMs?: number;
 }

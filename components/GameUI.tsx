@@ -105,6 +105,29 @@ const getCardRarityLabel = (rarity: Rarity) => {
     return 'Lendaria';
 };
 
+const PERCENT_CARD_EFFECT_TYPES = new Set([
+    'gold_gain_multiplier',
+    'xp_gain_multiplier',
+    'boss_damage_multiplier',
+    'heal_multiplier',
+    'opening_atk_buff',
+    'opening_def_buff',
+    'defend_mana_restore',
+]);
+
+const CARD_PERCENT_BY_RARITY: Record<Rarity, number> = {
+    bronze: 0.04,
+    silver: 0.05,
+    gold: 0.07,
+};
+
+const getScaledCardEffectValue = (card: ProgressionCard, effect: ProgressionCard['effects'][number]) => {
+    if (PERCENT_CARD_EFFECT_TYPES.has(effect.type)) {
+        return CARD_PERCENT_BY_RARITY[card.rarity];
+    }
+    return effect.value;
+};
+
 const getCardEffectPreview = (card: ProgressionCard) => {
     const unlockEffect = card.effects.find(effect => effect.type === 'unlock_skill');
     if (unlockEffect?.skillId) {
@@ -117,9 +140,10 @@ const getCardEffectPreview = (card: ProgressionCard) => {
         return card.description;
     }
 
-    const value = Number.isInteger(primaryEffect.value)
-        ? primaryEffect.value.toString()
-        : `${Math.round(primaryEffect.value * 100)}%`;
+    const primaryValue = getScaledCardEffectValue(card, primaryEffect);
+    const value = Number.isInteger(primaryValue)
+        ? primaryValue.toString()
+        : `${Math.round(primaryValue * 100)}%`;
 
     switch (primaryEffect.type) {
         case 'gold_instant': return `+${value} ouro`;
@@ -329,7 +353,8 @@ const FloatingTextOverlay = ({ texts }: { texts: FloatingText[] }) => {
                 const isBuff = t.type === 'buff';
                 const isSkill = t.type === 'skill';
                 const isItem = t.type === 'item';
-                const verticalStackOffset = stackIndex * 44;
+                const verticalStackOffset = stackIndex * 56;
+                const floatDurationMs = t.durationMs ?? (isSkill || isItem ? 2100 : isCrit ? 1500 : 1100);
                 
                 let colorClass = "text-white";
                 if (t.type === 'damage') colorClass = "text-red-500";
@@ -338,12 +363,12 @@ const FloatingTextOverlay = ({ texts }: { texts: FloatingText[] }) => {
                 if (isBuff) colorClass = "text-blue-400";
                 if (isSkill) colorClass = "text-violet-400";
                 if (isItem) colorClass = "text-yellow-300";
-                const colorStyle = isSkill ? { color: '#c084fc' } : isItem ? { color: '#facc15' } : undefined;
+                const colorStyle = isSkill ? { color: '#d946ef' } : isItem ? { color: '#facc15' } : undefined;
 
                 return (
                     <div 
                         key={t.id}
-                        className={`absolute whitespace-nowrap font-black ${colorClass} drop-shadow-[0_2px_2px_rgba(0,0,0,1)] flex items-center justify-center rounded-xl border border-white/10 bg-black/35 px-3 py-1.5 backdrop-blur-[2px]`}
+                        className={`absolute whitespace-nowrap leading-none font-black ${colorClass} drop-shadow-[0_2px_2px_rgba(0,0,0,1)] inline-flex items-center justify-center rounded-xl border border-white/10 bg-black/35 px-3 py-1.5 backdrop-blur-[2px]`}
                         style={{
                             left: `calc(${leftPos} + ${Math.round(t.xOffset * 0.22)}px)`,
                             top: `calc(${topPos} + ${Math.round(t.yOffset * 0.12) + verticalStackOffset}px)`,
@@ -357,8 +382,8 @@ const FloatingTextOverlay = ({ texts }: { texts: FloatingText[] }) => {
                                       ? 'clamp(1.25rem, 5.2vw, 1.55rem)'
                                   : 'clamp(1.85rem, 7.2vw, 2.15rem)',
                             minWidth: isCrit ? '8.1rem' : '6.2rem',
-                            animation: `floatUp 1s forwards ease-out`,
-                            zIndex: 100,
+                            animation: `floatUp ${floatDurationMs}ms forwards ease-out`,
+                            zIndex: isSkill || isItem ? 130 : 100,
                             ...colorStyle
                         }}
                     >
@@ -1446,7 +1471,8 @@ export const TavernScreen: React.FC<{
 
 const describeCardEffect = (card: ProgressionCard) => {
     return card.effects.map(effect => {
-        const value = Number.isInteger(effect.value) ? effect.value : `${Math.round(effect.value * 100)}%`;
+        const scaledValue = getScaledCardEffectValue(card, effect);
+        const value = Number.isInteger(scaledValue) ? scaledValue : `${Math.round(scaledValue * 100)}%`;
         const skillName = effect.skillId ? SKILLS.find(skill => skill.id === effect.skillId)?.name : null;
 
         switch (effect.type) {

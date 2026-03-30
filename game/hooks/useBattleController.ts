@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+﻿import { useCallback, useEffect, useRef } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import { ALL_ITEMS } from '../../constants';
 import {
@@ -110,6 +110,8 @@ const ENEMY_CLASS_SKILL_BIAS: Record<Player['classId'], number> = {
 const ENEMY_STEAL_BASE_CHANCE = 0.28;
 const ENEMY_STEAL_SPEED_WEIGHT = 0.006;
 const ENEMY_STEAL_LUCK_WEIGHT = 0.004;
+const ENEMY_ACTION_READ_DELAY_MS = 1250;
+const ENEMY_ACTION_READ_DELAY_LONG_MS = 1650;
 
 const getSkillCastColor = (skill: Enemy['skillSet'][number]) => {
   if (skill.effect === 'heal') return '#34d399';
@@ -798,7 +800,6 @@ export const useBattleController = ({
           hp: Math.min(simulatedEnemy.stats.maxHp, simulatedEnemy.stats.hp + healAmount),
         },
       };
-      setIsEnemyAttacking(true);
       triggerEnemyAnimationAction('item', 900);
       window.setTimeout(() => {
         addLog(`${simulatedEnemy.name} usou pocao e curou ${healAmount} HP.`, 'heal');
@@ -806,9 +807,8 @@ export const useBattleController = ({
         spawnFloatingText(`+${healAmount}`, 'enemy', 'heal');
         spawnParticles([2, -0.5, 0], 20, '#22c55e', 'heal');
         window.setTimeout(() => {
-          setIsEnemyAttacking(false);
           finishEnemyActionToPlayerTurn(nextEnemy);
-        }, 620);
+        }, ENEMY_ACTION_READ_DELAY_MS);
       }, 520);
       return;
     }
@@ -862,7 +862,7 @@ export const useBattleController = ({
           window.setTimeout(() => {
             setIsEnemyAttacking(false);
             finishEnemyActionToPlayerTurn(nextEnemy);
-          }, 420);
+          }, ENEMY_ACTION_READ_DELAY_MS);
           return;
         }
 
@@ -877,12 +877,12 @@ export const useBattleController = ({
               ...nextEnemy,
               stolenGoldTotal: nextEnemy.stolenGoldTotal + stolenGold,
             };
-            spawnFloatingText(`💰 ${stolenGold} Ouro Saqueado`, 'player', 'crit');
+            spawnFloatingText(`💰 ${stolenGold} Ouro Saqueado`, 'player', 'item');
             addLog(`${simulatedEnemy.name} saqueou ${stolenGold} de ouro.`, 'crit');
             window.setTimeout(() => {
               setIsEnemyAttacking(false);
               finishEnemyActionToPlayerTurn(nextEnemy);
-            }, 1000);
+            }, ENEMY_ACTION_READ_DELAY_LONG_MS);
             return;
           }
         }
@@ -899,12 +899,12 @@ export const useBattleController = ({
             ...nextEnemy,
             stolenItems: [...nextEnemy.stolenItems, targetItemId],
           };
-          spawnFloatingText(`${stolenItem?.icon ?? '🎒'} ${stolenItem?.name ?? 'Item'} Saqueado`, 'player', 'crit');
+          spawnFloatingText(`${stolenItem?.icon ?? '🎒'} ${stolenItem?.name ?? 'Item'} Saqueado`, 'player', 'item');
           addLog(`${simulatedEnemy.name} saqueou ${stolenItem?.name ?? 'um item'}!`, 'crit');
           window.setTimeout(() => {
             setIsEnemyAttacking(false);
             finishEnemyActionToPlayerTurn(nextEnemy);
-          }, 1000);
+          }, ENEMY_ACTION_READ_DELAY_LONG_MS);
           return;
         }
 
@@ -913,7 +913,7 @@ export const useBattleController = ({
         window.setTimeout(() => {
           setIsEnemyAttacking(false);
           finishEnemyActionToPlayerTurn(nextEnemy);
-        }, 420);
+        }, ENEMY_ACTION_READ_DELAY_MS);
       }, 420);
       return;
     }
@@ -965,7 +965,7 @@ export const useBattleController = ({
           window.setTimeout(() => {
             setIsEnemyAttacking(false);
             finishEnemyActionToPlayerTurn(healedEnemy);
-          }, 520);
+          }, ENEMY_ACTION_READ_DELAY_MS);
           return;
         }
 
@@ -991,7 +991,7 @@ export const useBattleController = ({
           window.setTimeout(() => {
             setIsEnemyAttacking(false);
             finishEnemyActionToPlayerTurn(buffedEnemy);
-          }, 520);
+          }, ENEMY_ACTION_READ_DELAY_MS);
           return;
         }
 
@@ -1084,7 +1084,7 @@ export const useBattleController = ({
           } else {
             finishEnemyActionToPlayerTurn(simulatedEnemy);
           }
-        }, 420);
+        }, ENEMY_ACTION_READ_DELAY_MS);
       }, 420);
       return;
     }
@@ -1234,3 +1234,4 @@ export const useBattleController = ({
     handleEnemyTurn,
   };
 };
+

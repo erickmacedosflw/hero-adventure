@@ -984,19 +984,22 @@ export default function App() {
 
   const spawnFloatingText = (value: string | number, target: 'player' | 'enemy', type: 'damage' | 'heal' | 'crit' | 'buff' | 'skill' | 'item') => {
       const id = Math.random().toString(36);
+      const isNamedActionText = type === 'skill' || type === 'item';
+      const durationMs = isNamedActionText ? 2100 : type === 'crit' ? 1500 : 1100;
       setFloatingTexts(prev => [...prev, {
           id,
           text: value.toString(),
           type,
           target,
-          xOffset: (Math.random() * 40) - 20, // Random spread
-          yOffset: (Math.random() * 20) - 10
+          xOffset: isNamedActionText ? 0 : (Math.random() * 40) - 20, // Keep skill/item labels centered and readable
+          yOffset: isNamedActionText ? 0 : (Math.random() * 20) - 10,
+          durationMs,
       }].slice(-8));
 
       // Auto remove after animation
       setTimeout(() => {
           setFloatingTexts(prev => prev.filter(t => t.id !== id));
-      }, 1000);
+      }, durationMs);
   };
 
     useEffect(() => {
