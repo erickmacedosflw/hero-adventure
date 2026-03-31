@@ -1,44 +1,63 @@
 import { Item, Player } from '../../types';
 
-export const buyItemForPlayer = (player: Player, item: Item): Player => {
-  if (player.gold < item.cost || player.level < item.minLevel) {
+export const buyItemForPlayer = (player: Player, item: Item, quantity = 1): Player => {
+  const safeQuantity = Math.max(1, Math.floor(quantity));
+  if (player.level < item.minLevel) {
+    return player;
+  }
+  const totalCost = item.cost * safeQuantity;
+  if (player.gold < totalCost) {
     return player;
   }
 
   return {
     ...player,
-    gold: player.gold - item.cost,
+    gold: player.gold - totalCost,
     inventory: {
       ...player.inventory,
-      [item.id]: (player.inventory[item.id] || 0) + 1,
+      [item.id]: (player.inventory[item.id] || 0) + safeQuantity,
     },
   };
 };
 
-export const sellItemFromPlayer = (player: Player, item: Item): Player => {
+export const sellItemFromPlayer = (player: Player, item: Item, quantity = 1): Player => {
+  const safeQuantity = Math.max(1, Math.floor(quantity));
   const qty = player.inventory[item.id] || 0;
-  if (qty <= 0) {
+  if (qty <= 0 || safeQuantity > qty) {
     return player;
   }
 
   const sellPrice = Math.floor(item.cost / 2);
   return {
     ...player,
-    gold: player.gold + sellPrice,
+    gold: player.gold + (sellPrice * safeQuantity),
     inventory: {
       ...player.inventory,
-      [item.id]: qty - 1,
+      [item.id]: qty - safeQuantity,
     },
   };
 };
 
 export const equipItemOnPlayer = (player: Player, item: Item): Player => {
-  const qty = player.inventory[item.id] || 0;
+  const normalizedInventory = { ...player.inventory };
+  const ensureEquippedVisible = (equipped: Item | null) => {
+    if (!equipped) return;
+    if ((normalizedInventory[equipped.id] || 0) <= 0) {
+      normalizedInventory[equipped.id] = 1;
+    }
+  };
+
+  ensureEquippedVisible(player.equippedWeapon);
+  ensureEquippedVisible(player.equippedArmor);
+  ensureEquippedVisible(player.equippedHelmet);
+  ensureEquippedVisible(player.equippedLegs);
+  ensureEquippedVisible(player.equippedShield);
+
+  const qty = normalizedInventory[item.id] || 0;
   if (qty <= 0) {
     return player;
   }
 
-  const newInv = { ...player.inventory, [item.id]: qty - 1 };
   const newStats = { ...player.stats };
 
   let newWep = player.equippedWeapon;
@@ -47,38 +66,27 @@ export const equipItemOnPlayer = (player: Player, item: Item): Player => {
   let newLegs = player.equippedLegs;
   let newShield = player.equippedShield;
 
-  const unequipToInventory = (oldItem: Item | null) => {
-    if (oldItem) {
-      newInv[oldItem.id] = (newInv[oldItem.id] || 0) + 1;
-    }
-  };
-
   if (item.type === 'weapon') {
-    unequipToInventory(newWep);
     if (newWep) newStats.atk -= newWep.value;
     newStats.atk += item.value;
     newWep = item;
   }
   if (item.type === 'armor') {
-    unequipToInventory(newArm);
     if (newArm) newStats.def -= newArm.value;
     newStats.def += item.value;
     newArm = item;
   }
   if (item.type === 'helmet') {
-    unequipToInventory(newHelm);
     if (newHelm) newStats.def -= newHelm.value;
     newStats.def += item.value;
     newHelm = item;
   }
   if (item.type === 'legs') {
-    unequipToInventory(newLegs);
     if (newLegs) newStats.def -= newLegs.value;
     newStats.def += item.value;
     newLegs = item;
   }
   if (item.type === 'shield') {
-    unequipToInventory(newShield);
     if (newShield) newStats.def -= newShield.value;
     newStats.def += item.value;
     newShield = item;
@@ -87,7 +95,7 @@ export const equipItemOnPlayer = (player: Player, item: Item): Player => {
   return {
     ...player,
     stats: newStats,
-    inventory: newInv,
+    inventory: normalizedInventory,
     equippedWeapon: newWep,
     equippedArmor: newArm,
     equippedHelmet: newHelm,

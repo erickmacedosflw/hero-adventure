@@ -3,6 +3,29 @@ import { Crown, FlaskConical, Footprints, Shield, Shirt, Sparkles, Sword } from 
 import { SKILLS } from '../../constants';
 import { Item, ProgressionCard, Rarity } from '../../types';
 
+const PERCENT_CARD_EFFECT_TYPES = new Set([
+  'gold_gain_multiplier',
+  'xp_gain_multiplier',
+  'boss_damage_multiplier',
+  'heal_multiplier',
+  'opening_atk_buff',
+  'opening_def_buff',
+  'defend_mana_restore',
+]);
+
+const CARD_PERCENT_BY_RARITY: Record<Rarity, number> = {
+  bronze: 0.04,
+  silver: 0.05,
+  gold: 0.07,
+};
+
+const getScaledCardEffectValue = (card: ProgressionCard, effect: ProgressionCard['effects'][number]) => {
+  if (PERCENT_CARD_EFFECT_TYPES.has(effect.type)) {
+    return CARD_PERCENT_BY_RARITY[card.rarity];
+  }
+  return effect.value;
+};
+
 export const getRarityColor = (rarity: Rarity) => {
   switch (rarity) {
     case 'bronze':
@@ -61,9 +84,10 @@ export const getCardEffectPreview = (card: ProgressionCard) => {
     return card.description;
   }
 
-  const value = Number.isInteger(primaryEffect.value)
-    ? primaryEffect.value.toString()
-    : `${Math.round(primaryEffect.value * 100)}%`;
+  const primaryValue = getScaledCardEffectValue(card, primaryEffect);
+  const value = Number.isInteger(primaryValue)
+    ? primaryValue.toString()
+    : `${Math.round(primaryValue * 100)}%`;
 
   switch (primaryEffect.type) {
     case 'gold_instant': return `+${value} ouro`;

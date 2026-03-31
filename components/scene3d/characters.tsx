@@ -449,6 +449,8 @@ export const EnemyCharacter = ({
   const wasHitRef = useRef(false);
   const flashMaterialsRef = useRef<THREE.Material[]>([]);
   const runtimeEnemyAssets = hasRuntimeFbxAssets(assets) ? assets : null;
+  const holdGroundForAction = animationActionOverride === 'item';
+  const shouldLungeAttack = isAttacking && !holdGroundForAction;
 
   const refreshFlashMaterials = React.useCallback(() => {
     if (!group.current) {
@@ -493,7 +495,7 @@ export const EnemyCharacter = ({
     if (group.current) {
       const t = state.clock.elapsedTime;
 
-      if (isAttacking) {
+      if (shouldLungeAttack) {
         group.current.position.x = THREE.MathUtils.lerp(group.current.position.x, attackPositionX, 0.2);
         group.current.position.y = THREE.MathUtils.lerp(group.current.position.y, -1, 0.16);
         group.current.rotation.z = Math.sin(t * 20) * 0.05;

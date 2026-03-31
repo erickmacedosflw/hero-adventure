@@ -800,6 +800,7 @@ export const useBattleController = ({
           hp: Math.min(simulatedEnemy.stats.maxHp, simulatedEnemy.stats.hp + healAmount),
         },
       };
+      setIsEnemyAttacking(false);
       triggerEnemyAnimationAction('item', 900);
       window.setTimeout(() => {
         addLog(`${simulatedEnemy.name} usou pocao e curou ${healAmount} HP.`, 'heal');

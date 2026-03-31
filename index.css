@@ -125,6 +125,31 @@ button {
   letter-spacing: 0;
 }
 
+@keyframes rpg-modal-overlay-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes rpg-modal-overlay-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes rpg-modal-panel-in {
+  from { opacity: 0; transform: translateY(14px) scale(0.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes rpg-modal-panel-out {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to { opacity: 0; transform: translateY(10px) scale(0.985); }
+}
+
+.rpg-modal-overlay-in { animation: rpg-modal-overlay-in 180ms ease-out both; }
+.rpg-modal-overlay-out { animation: rpg-modal-overlay-out 180ms ease-out both; }
+.rpg-modal-panel-in { animation: rpg-modal-panel-in 220ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+.rpg-modal-panel-out { animation: rpg-modal-panel-out 200ms ease-in both; }
+
 .rpg-menu-panel,
 .rpg-menu-stat {
   position: relative;

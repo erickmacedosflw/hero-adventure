@@ -161,15 +161,25 @@ const WorldFloatingText = ({
       ? 'text-emerald-400'
       : type === 'crit'
         ? 'text-amber-400'
-        : 'text-sky-400';
+        : type === 'skill'
+          ? 'text-fuchsia-400'
+          : type === 'item'
+            ? 'text-yellow-300'
+            : 'text-sky-400';
 
-  const textSize = type === 'crit' ? 'text-3xl' : type === 'buff' ? 'text-lg' : 'text-2xl';
+  const textSize = type === 'crit'
+    ? 'text-3xl'
+    : type === 'buff'
+      ? 'text-lg'
+      : type === 'skill' || type === 'item'
+        ? 'text-xl'
+        : 'text-2xl';
 
   return (
     <group ref={groupRef} position={basePosition}>
       <Html center sprite distanceFactor={10} zIndexRange={[120, 0]}>
         <div
-          className={`px-1 text-center font-black ${tone} ${textSize} select-none`}
+          className={`px-1 text-center font-black whitespace-nowrap leading-none ${tone} ${textSize} select-none`}
           style={{
             WebkitTextStroke: '4px rgba(255,255,255,1)',
             paintOrder: 'stroke fill',

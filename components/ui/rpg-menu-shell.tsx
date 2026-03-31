@@ -16,6 +16,7 @@ type RpgMenuShellProps = {
   subtitle?: string;
   closeLabel?: string;
   onClose: () => void;
+  closing?: boolean;
   accent?: Accent;
   valueBadge?: React.ReactNode;
   headerAction?: React.ReactNode;
@@ -70,6 +71,7 @@ export const RpgMenuShell = ({
   subtitle,
   closeLabel = 'Fechar',
   onClose,
+  closing = false,
   accent = 'wine',
   valueBadge,
   headerAction,
@@ -79,11 +81,13 @@ export const RpgMenuShell = ({
 }: RpgMenuShellProps) => {
   const palette = accentMap[accent];
   const hasSidebar = Boolean(navItems?.length);
+  const overlayAnimationClass = closing ? 'rpg-modal-overlay-out' : 'rpg-modal-overlay-in';
+  const panelAnimationClass = closing ? 'rpg-modal-panel-out' : 'rpg-modal-panel-in';
 
   return (
-    <div className="absolute inset-0 z-[70] bg-[rgba(28,13,18,0.36)] backdrop-blur-[3px] pointer-events-auto" onClick={onClose}>
+    <div className={cn('absolute inset-0 z-[70] bg-[rgba(28,13,18,0.36)] backdrop-blur-[3px] pointer-events-auto', overlayAnimationClass)} onClick={onClose}>
       <div className="flex h-full w-full items-stretch p-2 sm:p-3 xl:p-5" onClick={(event) => event.stopPropagation()}>
-        <div className="rpg-menu-theme mx-auto flex h-full max-h-[calc(100dvh-1rem)] w-full max-w-[96rem] flex-col overflow-hidden rounded-[24px] border border-[#c59d82] shadow-[0_24px_90px_rgba(40,20,25,0.32)] sm:max-h-[calc(100dvh-1.5rem)]">
+        <div className={cn('rpg-menu-theme mx-auto flex h-full max-h-[calc(100dvh-1rem)] w-full max-w-[96rem] flex-col overflow-hidden rounded-[24px] border border-[#c59d82] shadow-[0_24px_90px_rgba(40,20,25,0.32)] sm:max-h-[calc(100dvh-1.5rem)]', panelAnimationClass)}>
             <header className={cn('grid grid-cols-[auto_1fr_auto] items-center gap-2 px-3 py-2 sm:px-4 sm:py-2.5', palette.header)}>
               <button onClick={onClose} className="inline-flex items-center gap-1.5 text-xs font-semibold transition-opacity hover:opacity-80 sm:text-sm">
                 <span className="flex h-7 w-7 items-center justify-center rounded-full border border-current/20 bg-white/10"><X size={14} /></span>

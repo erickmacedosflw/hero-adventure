@@ -9,15 +9,16 @@ import { ClassTalentTrail, Item, Player, PlayerClassId, ProgressionCard, TalentN
 import { DeveloperHeroScene } from '../Scene3D';
 import { GameAssetIcon } from '../ui/game-asset-icon';
 import { getCardEffectPreview, getRarityColor, getRarityLabel, ItemTypeIcon } from '../ui/game-display';
-import { RpgMenuSectionTitle, RpgMenuShell, RpgMenuStat, RpgMenuTab } from '../ui/rpg-menu-shell';
+import { RpgMenuSectionTitle, RpgMenuShell, RpgMenuTab } from '../ui/rpg-menu-shell';
 import { ScrollArea } from '../ui/scroll-area';
 
 type CharacterSheetModalProps = {
   player: Player;
   shopItems: Item[];
   onClose: () => void;
-  onOpenInventory: () => void;
+  onOpenInventory: (initialFilter?: 'all' | 'equipment' | 'potion' | 'material') => void;
   onUnlockTalent: (nodeId: string) => void;
+  isClosing?: boolean;
   restrictToStatusOnly?: boolean;
   allowCardsTab?: boolean;
   allowSkillsTab?: boolean;
@@ -110,8 +111,26 @@ const CLASS_GUIDES: Record<PlayerClassId, ClassGuideDefinition> = {
   },
 };
 
-const SummaryCard = ({ label, value, tone }: { label: string; value: React.ReactNode; tone?: string }) => (
-  <RpgMenuStat label={label} value={<span className={tone}>{value}</span>} />
+const SummaryCard = ({
+  label,
+  value,
+  tone,
+  icon,
+  panel,
+}: {
+  label: string;
+  value: React.ReactNode;
+  tone?: string;
+  icon?: React.ReactNode;
+  panel?: string;
+}) => (
+  <div className={`rounded-[16px] border px-3 py-2.5 ${panel ?? 'border-[#cfab91] bg-[#fff7ed]'}`}>
+    <div className="flex items-center gap-1.5">
+      {icon}
+      <div className="text-[10px] font-black uppercase tracking-[0.18em] text-[#9a7068]">{label}</div>
+    </div>
+    <div className={`mt-1 text-xl font-black ${tone ?? 'text-[#6b3141]'}`}>{value}</div>
+  </div>
 );
 
 const ResourceBar = ({
@@ -140,17 +159,57 @@ const ResourceBar = ({
   );
 };
 
-const EquipmentCard = ({ label, item, type }: { label: string; item: Item | null; type: Item['type'] }) => (
-  <div className={`flex items-center gap-3 rounded-[18px] border px-3 py-3 ${item ? `${getRarityColor(item.rarity)} bg-[#f4e5d4]` : 'border-[#cfab91] bg-[#f7ecdd] text-[#8f6c67]'}`}>
-    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[#dcc0aa] bg-[#f8eddf]">
+const getEquipmentBonusMeta = (item: Item | null): { icon: React.ReactNode; label: string; value: string; chip: string; valueTone: string } | null => {
+  if (!item) return null;
+  if (item.type === 'weapon') {
+    return {
+      icon: <Sword size={12} />,
+      label: 'ATK',
+      value: `+${item.value}`,
+      chip: 'border-[#e4adb6] bg-[#fbe9ec]',
+      valueTone: 'text-[#b83a4b]',
+    };
+  }
+  if (item.type === 'armor' || item.type === 'helmet' || item.type === 'legs' || item.type === 'shield') {
+    return {
+      icon: <Shield size={12} />,
+      label: 'DEF',
+      value: `+${item.value}`,
+      chip: 'border-[#b9c8d7] bg-[#ebf2f8]',
+      valueTone: 'text-[#4d6780]',
+    };
+  }
+  return null;
+};
+
+const EquipmentCard = ({ label, item, type, onClick }: { label: string; item: Item | null; type: Item['type']; onClick?: () => void }) => {
+  const bonus = getEquipmentBonusMeta(item);
+  const Component = onClick ? 'button' : 'div';
+
+  return (
+  <Component onClick={onClick} className={`relative flex w-full items-center gap-3 overflow-hidden rounded-[18px] border px-3 py-3 text-left transition-all duration-200 ${item ? `${getRarityColor(item.rarity)} bg-[#f4e5d4]` : 'border-[#cfab91] bg-[#f7ecdd] text-[#8f6c67]'} ${onClick ? 'group cursor-pointer hover:-translate-y-[1px] hover:border-[#b98774] hover:bg-[#efdfcd] hover:shadow-[0_10px_22px_rgba(107,49,65,0.14)] active:scale-[0.99]' : ''}`}>
+    <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[#dcc0aa] bg-[#f8eddf] transition-transform duration-200 ${onClick ? 'group-hover:scale-105 group-active:scale-95' : ''}`}>
       {item ? <span className="text-2xl leading-none">{item.icon}</span> : <ItemTypeIcon type={type} size={18} />}
     </div>
     <div className="min-w-0 flex-1">
       <div className="text-[8px] font-black uppercase tracking-[0.14em] text-[#8a5a57]">{label}</div>
       <div className="mt-0.5 truncate text-sm font-black text-[#6b3141]">{item ? item.name : 'Vazio'}</div>
+      {bonus && (
+        <div className={`mt-1 inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] ${bonus.chip} ${bonus.valueTone}`}>
+          {bonus.icon}
+          {bonus.label} {bonus.value}
+        </div>
+      )}
     </div>
-  </div>
-);
+    {onClick && (
+      <span className="pointer-events-none absolute right-2 top-2 hidden items-center gap-1 rounded-full border border-[#d6b9a3] bg-[#f8eddf]/95 px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-[#8a5a57] opacity-0 transition-opacity group-hover:opacity-100 lg:inline-flex">
+        <GameAssetIcon name="bag" size={12} />
+        Mochila
+      </span>
+    )}
+  </Component>
+  );
+};
 
 const getCardCategoryBadge = (card: ProgressionCard) => {
   if (card.category === 'economia') return { icon: <Coins size={14} />, label: 'Economia', color: 'text-amber-700 border-amber-300 bg-amber-100' };
@@ -322,13 +381,13 @@ const ClassGuideModal = ({
   );
 };
 
-export const CharacterSheetModal = ({ player, shopItems: _shopItems, onClose, onOpenInventory, onUnlockTalent, restrictToStatusOnly = false, allowCardsTab = false, allowSkillsTab = false, allowConstellationTab = false, initialTab = 'overview' }: CharacterSheetModalProps) => {
+export const CharacterSheetModal = ({ player, shopItems: _shopItems, onClose, onOpenInventory, onUnlockTalent, isClosing = false, restrictToStatusOnly = false, allowCardsTab = false, allowSkillsTab = false, allowConstellationTab = false, initialTab = 'overview' }: CharacterSheetModalProps) => {
   const [activeTab, setActiveTab] = useState<ProfileTab>(initialTab);
   const [showClassGuide, setShowClassGuide] = useState(false);
   const isStatusOnlyMode = Boolean(restrictToStatusOnly);
   const canAccessCards = !isStatusOnlyMode || allowCardsTab;
   const canAccessSkills = !isStatusOnlyMode || allowSkillsTab;
-  const canOpenInventory = !isStatusOnlyMode;
+  const canOpenInventory = true;
   const currentClass = getPlayerClassById(player.classId);
   const constellation = getConstellationByClassId(player.classId);
   const classGuide = CLASS_GUIDES[player.classId];
@@ -408,17 +467,19 @@ export const CharacterSheetModal = ({ player, shopItems: _shopItems, onClose, on
     animation: 'profileTabPanelIn 340ms cubic-bezier(0.22, 1, 0.36, 1)',
     willChange: 'transform, opacity',
   };
+  const handleOpenInventoryEquipment = () => onOpenInventory('equipment');
 
   return (
     <RpgMenuShell
       title="Perfil"
       subtitle={`${currentClass.name} • Nivel ${player.level}`}
       onClose={onClose}
+      closing={isClosing}
       accent="wine"
       valueBadge={<><GameAssetIcon name="book" size={24} /> {player.name}</>}
       headerAction={
         canOpenInventory ? (
-          <button onClick={onOpenInventory} className="rpg-menu-tab rpg-menu-tab-active hidden items-center gap-2.5 md:inline-flex">
+          <button onClick={() => onOpenInventory('all')} className="rpg-menu-tab rpg-menu-tab-active hidden items-center gap-2.5 md:inline-flex">
             <GameAssetIcon name="bag" size={24} /> Mochila
           </button>
         ) : undefined
@@ -451,7 +512,7 @@ export const CharacterSheetModal = ({ player, shopItems: _shopItems, onClose, on
         )}
 
         {activeTab === 'overview' && (
-          <div className="grid gap-3 rounded-[24px] border border-[#c59d82] bg-[#f8eddf] p-4 lg:grid-cols-[15rem_minmax(0,1fr)_15rem]" style={panelMotionStyle}>
+          <div className="grid gap-2 rounded-[24px] bg-[#f8eddf] p-2 lg:grid-cols-[15rem_minmax(0,1fr)_15rem]" style={panelMotionStyle}>
             <div className="grid content-start gap-3">
               <div className="rounded-[20px] border border-[#cfab91] bg-[#fff7ed] p-4">
                 <div className="text-[10px] font-black uppercase tracking-[0.24em] text-[#9a7068]">Heroi</div>
@@ -468,10 +529,10 @@ export const CharacterSheetModal = ({ player, shopItems: _shopItems, onClose, on
               </div>
 
               <div className="grid grid-cols-2 gap-2">
-                <SummaryCard label="Ataque" value={player.stats.atk} tone="text-[#b83a4b]" />
-                <SummaryCard label="Defesa" value={player.stats.def} tone="text-[#4d6780]" />
-                <SummaryCard label="Veloc." value={player.stats.speed} tone="text-[#7c4c76]" />
-                <SummaryCard label="Sorte" value={player.stats.luck} tone="text-[#b26a2e]" />
+                <SummaryCard label="Ataque" value={player.stats.atk} tone="text-[#b83a4b]" icon={<Sword size={14} className="text-[#b83a4b]" />} panel="border-[#e4adb6] bg-[#fbe9ec]" />
+                <SummaryCard label="Defesa" value={player.stats.def} tone="text-[#4d6780]" icon={<Shield size={14} className="text-[#4d6780]" />} panel="border-[#b9c8d7] bg-[#ebf2f8]" />
+                <SummaryCard label="Veloc." value={player.stats.speed} tone="text-[#7c4c76]" icon={<Zap size={14} className="text-[#7c4c76]" />} panel="border-[#d3bfd8] bg-[#f3eaf5]" />
+                <SummaryCard label="Sorte" value={player.stats.luck} tone="text-[#b26a2e]" icon={<Star size={14} className="text-[#b26a2e]" />} panel="border-[#dfc89e] bg-[#f9efdf]" />
               </div>
             </div>
 
@@ -494,7 +555,7 @@ export const CharacterSheetModal = ({ player, shopItems: _shopItems, onClose, on
             <div className="grid content-start gap-2.5">
               <RpgMenuSectionTitle className="px-1">Equipamentos</RpgMenuSectionTitle>
               {equipmentSlots.map((slot) => (
-                <EquipmentCard key={slot.label} label={slot.label} item={slot.item} type={slot.type} />
+                <EquipmentCard key={slot.label} label={slot.label} item={slot.item} type={slot.type} onClick={canOpenInventory ? handleOpenInventoryEquipment : undefined} />
               ))}
             </div>
           </div>

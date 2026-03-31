@@ -942,6 +942,10 @@ export function ItemPreviewThree({ item, variant = 'default' }: { item: Item; va
       const scaleTarget = pose.scaleTarget / Math.max(size.x, size.y, size.z, 1);
       itemGroup.scale.setScalar(scaleTarget);
       itemGroup.rotation.set(pose.rotation[0], pose.rotation[1], pose.rotation[2]);
+      if (isMenuVariant) {
+        // Item previews in shop should start facing front.
+        itemGroup.rotation.y += Math.PI;
+      }
       scene.add(itemGroup);
 
       const fittedBounds = new THREE.Box3().setFromObject(itemGroup);
@@ -953,15 +957,41 @@ export function ItemPreviewThree({ item, variant = 'default' }: { item: Item; va
 
       itemGroup.position.x -= fittedCenter.x;
       itemGroup.position.z -= fittedCenter.z;
-      itemGroup.position.y += -1.02 - fittedBounds.min.y;
 
-      const groundedBounds = new THREE.Box3().setFromObject(itemGroup);
-      const groundedCenter = groundedBounds.getCenter(new THREE.Vector3());
-      const groundedSize = groundedBounds.getSize(new THREE.Vector3());
-      const framedDistance = Math.max(fitDistance * 1.65, groundedSize.y * 1.1 + 2.4, 4.4);
+      if (isMenuVariant) {
+        itemGroup.position.y -= fittedCenter.y;
+      } else {
+        itemGroup.position.y += -1.02 - fittedBounds.min.y;
+      }
 
-      controls.target.set(0, groundedCenter.y, 0);
-      camera.position.set(0, groundedCenter.y + groundedSize.y * 0.12, framedDistance);
+      let framedBounds = new THREE.Box3().setFromObject(itemGroup);
+      let framedCenter = framedBounds.getCenter(new THREE.Vector3());
+
+      if (isMenuVariant) {
+        itemGroup.position.x -= framedCenter.x;
+        itemGroup.position.y -= framedCenter.y;
+        itemGroup.position.z -= framedCenter.z;
+        framedBounds = new THREE.Box3().setFromObject(itemGroup);
+        framedCenter = framedBounds.getCenter(new THREE.Vector3());
+      }
+
+      const framedSize = framedBounds.getSize(new THREE.Vector3());
+      if (isMenuVariant) {
+        // Compensate persistent right-bias in menu composition.
+        itemGroup.position.x -= Math.max(0.08, framedSize.x * 0.07);
+        framedBounds = new THREE.Box3().setFromObject(itemGroup);
+        framedCenter = framedBounds.getCenter(new THREE.Vector3());
+      }
+      const framedDistance = isMenuVariant
+        ? Math.max(fitDistance * 1.95, framedSize.y * 1.2 + 2.7, 5.2)
+        : Math.max(fitDistance * 1.65, framedSize.y * 1.1 + 2.4, 4.4);
+
+      controls.target.set(framedCenter.x, framedCenter.y, framedCenter.z);
+      camera.position.set(
+        framedCenter.x,
+        framedCenter.y + framedSize.y * (isMenuVariant ? 0.04 : 0.12),
+        framedCenter.z + framedDistance
+      );
       camera.near = 0.1;
       camera.far = Math.max(100, framedDistance * 8);
       camera.updateProjectionMatrix();

@@ -20,6 +20,7 @@ import { applyPlayerClass, PLAYER_CLASSES } from './game/data/classes';
 import { gameMusicManager, isNightTime, type MusicTrackId } from './game/audio/music';
 import { createEmptyBuffState } from './game/mechanics/combat';
 import { createClassResourceState, getTalentBonuses, getUnlockedResourceMax, syncPlayerConstellationSkills, unlockTalentNode } from './game/mechanics/classProgression';
+import { buyItemForPlayer, sellItemFromPlayer } from './game/mechanics/inventory';
 import { SavePayload, SaveSlotId, SaveSlotSummary, getActiveSaveSlotId, listSaveSlots, loadSaveFromSlot, saveToActiveSlot, setActiveSaveSlotId, clearSlot } from './game/mechanics/saveSystem';
 import { useBattleController } from './game/hooks/useBattleController';
 import { useBattleResolution } from './game/hooks/useBattleResolution';
@@ -1928,16 +1929,9 @@ export default function App() {
       setOpenConstellationToken((prev) => prev + 1);
   };
 
-  const buyItem = (item: Item) => {
-      if (player.gold >= item.cost && player.level >= item.minLevel) {
-          setPlayer(p => {
-              const newGold = p.gold - item.cost;
-              const newInv = { ...p.inventory };
-
-              newInv[item.id] = (newInv[item.id] || 0) + 1;
-              return { ...p, gold: newGold, inventory: newInv };
-          });
-      }
+  const buyItem = (item: Item, quantity = 1) => {
+      const safeQuantity = Math.max(1, Math.floor(quantity));
+      setPlayer((p) => buyItemForPlayer(p, item, safeQuantity));
   };
 
   const buyAlchemistCard = (offer: AlchemistCardOffer) => {
@@ -1986,16 +1980,30 @@ export default function App() {
   };
 
   const equipItem = (item: Item) => {
+      if (gameState === GameState.BATTLE) {
+          addLog('Durante a batalha voce nao pode trocar equipamento. Abra a mochila apenas para consultar.', 'info');
+          return;
+      }
+
       setPlayer(p => {
-          const qty = p.inventory[item.id];
+          const normalizedInventory = { ...p.inventory };
+          const ensureEquippedVisible = (equipped: Item | null) => {
+              if (!equipped) return;
+              if ((normalizedInventory[equipped.id] || 0) <= 0) {
+                  normalizedInventory[equipped.id] = 1;
+              }
+          };
+
+          ensureEquippedVisible(p.equippedWeapon);
+          ensureEquippedVisible(p.equippedArmor);
+          ensureEquippedVisible(p.equippedHelmet);
+          ensureEquippedVisible(p.equippedLegs);
+          ensureEquippedVisible(p.equippedShield);
+
+          const qty = normalizedInventory[item.id];
           if (!qty || qty <= 0) return p;
 
-          const newInv = { ...p.inventory };
-          
-          // Remove 1 from inventory
-          newInv[item.id] = qty - 1;
-
-          // Gear -> Equip Logic with Swap to Inventory
+          // Equip keeps the item visible in inventory.
           let newStats = { ...p.stats };
           let newWep = p.equippedWeapon;
           let newArm = p.equippedArmor;
@@ -2003,39 +2011,27 @@ export default function App() {
           let newLegs = p.equippedLegs;
           let newShield = p.equippedShield;
 
-          // Helper: put old item into inventory
-          const unequipToInventory = (oldItem: Item | null) => {
-              if (oldItem) {
-                  newInv[oldItem.id] = (newInv[oldItem.id] || 0) + 1;
-              }
-          }
-
           if (item.type === 'weapon') {
-              unequipToInventory(newWep);
               if (newWep) newStats.atk -= newWep.value;
               newStats.atk += item.value;
               newWep = item;
           }
           if (item.type === 'armor') {
-              unequipToInventory(newArm);
               if (newArm) newStats.def -= newArm.value;
               newStats.def += item.value;
               newArm = item;
           }
           if (item.type === 'helmet') {
-              unequipToInventory(newHelm);
               if (newHelm) newStats.def -= newHelm.value;
               newStats.def += item.value;
               newHelm = item;
           }
           if (item.type === 'legs') {
-              unequipToInventory(newLegs);
               if (newLegs) newStats.def -= newLegs.value;
               newStats.def += item.value;
               newLegs = item;
           }
           if (item.type === 'shield') {
-              unequipToInventory(newShield);
               if (newShield) newStats.def -= newShield.value;
               newStats.def += item.value;
               newShield = item;
@@ -2044,7 +2040,7 @@ export default function App() {
           return { 
               ...p, 
               stats: newStats,
-              inventory: newInv,
+              inventory: normalizedInventory,
               equippedWeapon: newWep,
               equippedArmor: newArm,
               equippedHelmet: newHelm,
@@ -2054,17 +2050,56 @@ export default function App() {
       });
   };
 
-  const sellItem = (item: Item) => {
-      const sellPrice = Math.floor(item.cost / 2);
+  const unequipItem = (item: Item) => {
+      if (gameState === GameState.BATTLE) {
+          addLog('Durante a batalha voce nao pode trocar equipamento. Abra a mochila apenas para consultar.', 'info');
+          return;
+      }
 
-      setPlayer(p => {
-          const qty = p.inventory[item.id];
-          if (!qty || qty <= 0) return p;
+      setPlayer((p) => {
+          let newStats = { ...p.stats };
+          let newWep = p.equippedWeapon;
+          let newArm = p.equippedArmor;
+          let newHelm = p.equippedHelmet;
+          let newLegs = p.equippedLegs;
+          let newShield = p.equippedShield;
 
-          const newInv = { ...p.inventory };
-          newInv[item.id] = qty - 1;
-          return { ...p, gold: p.gold + sellPrice, inventory: newInv };
+          if (item.type === 'weapon' && newWep?.id === item.id) {
+              newStats.atk -= item.value;
+              newWep = null;
+          }
+          if (item.type === 'armor' && newArm?.id === item.id) {
+              newStats.def -= item.value;
+              newArm = null;
+          }
+          if (item.type === 'helmet' && newHelm?.id === item.id) {
+              newStats.def -= item.value;
+              newHelm = null;
+          }
+          if (item.type === 'legs' && newLegs?.id === item.id) {
+              newStats.def -= item.value;
+              newLegs = null;
+          }
+          if (item.type === 'shield' && newShield?.id === item.id) {
+              newStats.def -= item.value;
+              newShield = null;
+          }
+
+          return {
+              ...p,
+              stats: newStats,
+              equippedWeapon: newWep,
+              equippedArmor: newArm,
+              equippedHelmet: newHelm,
+              equippedLegs: newLegs,
+              equippedShield: newShield,
+          };
       });
+  };
+
+  const sellItem = (item: Item, quantity = 1) => {
+      const safeQuantity = Math.max(1, Math.floor(quantity));
+      setPlayer((p) => sellItemFromPlayer(p, item, safeQuantity));
   };
 
     const resolvedGameState = (() => {
@@ -2452,6 +2487,7 @@ export default function App() {
             shopItems={ALL_ITEMS}
             autoOpenConstellationToken={openConstellationToken}
             onEquipItem={equipItem}
+            onUnequipItem={unequipItem}
             onUseItem={handleUseItem}
             onUnlockTalent={handleUnlockTalent}
                         campIntroOnly={isCampIntroRestricted}
@@ -2526,6 +2562,7 @@ export default function App() {
             onBuyItem={buyItem}
             onSellItem={sellItem}
             onEquipItem={equipItem}
+            onUnequipItem={unequipItem}
             onContinue={() => {}}
             onFlee={handleFlee}
             onOpenAr={() => handleOpenAr('battle')}

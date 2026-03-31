@@ -27,6 +27,7 @@ interface GameUIProps {
   onBuyItem: (item: Item) => void;
   onSellItem: (item: Item) => void;
   onEquipItem: (item: Item) => void;
+  onUnequipItem: (item: Item) => void;
   onContinue: () => void; // Used for Level Up or Victory -> Tavern
   onFlee: () => void;
     onOpenAr: () => void;
@@ -173,6 +174,45 @@ const HeaderChip = ({ icon, children }: { icon: React.ReactNode, children: React
         <span>{children}</span>
     </div>
 );
+
+const MENU_MODAL_ANIM_MS = 220;
+
+const AnimatedModal = ({
+    open,
+    children,
+}: {
+    open: boolean;
+    children: (isClosing: boolean) => React.ReactNode;
+}) => {
+    const [shouldRender, setShouldRender] = useState(open);
+    const [isClosing, setIsClosing] = useState(false);
+
+    useEffect(() => {
+        if (open) {
+            setShouldRender(true);
+            setIsClosing(false);
+            return;
+        }
+
+        if (!shouldRender) {
+            return;
+        }
+
+        setIsClosing(true);
+        const timer = window.setTimeout(() => {
+            setShouldRender(false);
+            setIsClosing(false);
+        }, MENU_MODAL_ANIM_MS);
+
+        return () => window.clearTimeout(timer);
+    }, [open, shouldRender]);
+
+    if (!shouldRender) {
+        return null;
+    }
+
+    return <>{children(isClosing)}</>;
+};
 
 const ActionTile = ({
     icon,
@@ -890,6 +930,7 @@ export const TavernScreen: React.FC<{
   shopItems: Item[],
     autoOpenConstellationToken?: number,
   onEquipItem: (item: Item) => void,
+  onUnequipItem: (item: Item) => void,
   onUseItem: (itemId: string) => void,
     onUnlockTalent: (nodeId: string) => void,
     campIntroOnly?: boolean,
@@ -910,9 +951,11 @@ export const TavernScreen: React.FC<{
     merchantUnlocked?: boolean,
     dungeonUnlocked?: boolean,
     showSkillsAction?: boolean,
-}> = ({ player, killCount, onHunt, onBoss, onDungeon, onShop, onAlchemist, onOpenAr, arSupport, shopItems, autoOpenConstellationToken = 0, onEquipItem, onUseItem, onUnlockTalent, campIntroOnly = false, restrictProfileToStatusOnly = false, inventoryUnlocked = false, inventoryUnlockPromptActive = false, onAcknowledgeInventoryUnlock, cardsUnlockPromptActive = false, onAcknowledgeCardsUnlock, skillsUnlockPromptActive = false, onAcknowledgeSkillsUnlock, constellationUnlockPromptActive = false, onAcknowledgeConstellationUnlock, allowCardsInProfile = false, fleeUnlocked = false, merchantUnlockPromptActive = false, onAcknowledgeMerchantUnlock, merchantUnlocked = false, dungeonUnlocked = false, showSkillsAction = false }) => {
+}> = ({ player, killCount, onHunt, onBoss, onDungeon, onShop, onAlchemist, onOpenAr, arSupport, shopItems, autoOpenConstellationToken = 0, onEquipItem, onUnequipItem, onUseItem, onUnlockTalent, campIntroOnly = false, restrictProfileToStatusOnly = false, inventoryUnlocked = false, inventoryUnlockPromptActive = false, onAcknowledgeInventoryUnlock, cardsUnlockPromptActive = false, onAcknowledgeCardsUnlock, skillsUnlockPromptActive = false, onAcknowledgeSkillsUnlock, constellationUnlockPromptActive = false, onAcknowledgeConstellationUnlock, allowCardsInProfile = false, fleeUnlocked = false, merchantUnlockPromptActive = false, onAcknowledgeMerchantUnlock, merchantUnlocked = false, dungeonUnlocked = false, showSkillsAction = false }) => {
   const [showProfile, setShowProfile] = useState(false);
   const [showInventory, setShowInventory] = useState(false);
+    const [returnToProfileOnInventoryClose, setReturnToProfileOnInventoryClose] = useState(false);
+    const [inventoryInitialFilter, setInventoryInitialFilter] = useState<'all' | 'equipment' | 'potion' | 'material'>('all');
     const [profileInitialTab, setProfileInitialTab] = useState<'overview' | 'cards' | 'skills' | 'constellation' | undefined>(undefined);
     const [isClosing, setIsClosing] = useState(false);
     const [showDungeonConfirm, setShowDungeonConfirm] = useState(false);
@@ -935,6 +978,22 @@ export const TavernScreen: React.FC<{
     const xpPercent = player.xpToNext > 0 ? Math.min(100, (player.xp / player.xpToNext) * 100) : 0;
     const hasConstellationUnlocked = player.talentPoints > 0 || player.unlockedTalentNodeIds.length > 0;
     const availableConstellationPoints = Math.max(0, player.talentPoints);
+    const openProfileModal = (initialTab?: 'overview' | 'cards' | 'skills' | 'constellation') => {
+        setProfileInitialTab(initialTab);
+        setShowProfile(true);
+    };
+    const openInventoryModal = (initialFilter: 'all' | 'equipment' | 'potion' | 'material' = 'all', fromProfile = false) => {
+        setInventoryInitialFilter(initialFilter);
+        setReturnToProfileOnInventoryClose(fromProfile);
+        setShowInventory(true);
+    };
+    const closeInventoryModal = () => {
+        setShowInventory(false);
+        if (returnToProfileOnInventoryClose) {
+            setReturnToProfileOnInventoryClose(false);
+            setShowProfile(true);
+        }
+    };
     const profileActions = [
         {
             id: 'profile',
@@ -942,8 +1001,7 @@ export const TavernScreen: React.FC<{
             icon: <GameAssetIcon name="book" size={20} />,
             accent: 'border-[#cfab91] bg-[#f4e5d4] text-[#6b3141] hover:bg-[#e9d7c2]',
             onClick: () => {
-                setProfileInitialTab(undefined);
-                setShowProfile(true);
+                openProfileModal(undefined);
             },
         },
         ...(hasConstellationUnlocked ? [{
@@ -953,8 +1011,7 @@ export const TavernScreen: React.FC<{
             accent: 'border-[#cfab91] bg-[#f4e5d4] text-[#6b3141] hover:bg-[#e9d7c2]',
             badge: availableConstellationPoints > 0 ? availableConstellationPoints : undefined,
             onClick: () => {
-                setProfileInitialTab('constellation');
-                setShowProfile(true);
+                openProfileModal('constellation');
             },
         }] : []),
         ...((!campIntroOnly || inventoryUnlocked) ? [{
@@ -962,7 +1019,9 @@ export const TavernScreen: React.FC<{
             label: 'Mochila',
             icon: <GameAssetIcon name="bag" size={20} />,
             accent: 'border-[#cfab91] bg-[#f4e5d4] text-[#6b3141] hover:bg-[#e9d7c2]',
-            onClick: () => setShowInventory(true),
+            onClick: () => {
+                openInventoryModal('all');
+            },
         }] : []),
     ];
 
@@ -1017,8 +1076,7 @@ export const TavernScreen: React.FC<{
             return;
         }
 
-        setProfileInitialTab('constellation');
-        setShowProfile(true);
+        openProfileModal('constellation');
     }, [autoOpenConstellationToken]);
     const serviceActions = merchantUnlocked ? [
         {
@@ -1251,8 +1309,16 @@ export const TavernScreen: React.FC<{
                     </div>
                 </section>
             </div>
-    {showProfile && <CharacterSheetModal player={player} shopItems={shopItems} onClose={() => setShowProfile(false)} onOpenInventory={() => { setShowProfile(false); setShowInventory(true); }} onUnlockTalent={onUnlockTalent} restrictToStatusOnly={restrictProfileToStatusOnly} allowCardsTab={allowCardsInProfile} allowSkillsTab={showSkillsAction} allowConstellationTab={hasConstellationUnlocked} initialTab={profileInitialTab} />}
-    {showInventory && <InventoryModal player={player} shopItems={shopItems} onClose={() => setShowInventory(false)} onEquip={onEquipItem} onUse={onUseItem} />}
+    <AnimatedModal open={showProfile}>
+        {(isClosing) => (
+            <CharacterSheetModal player={player} shopItems={shopItems} onClose={() => setShowProfile(false)} onOpenInventory={(initialFilter) => { setShowProfile(false); openInventoryModal(initialFilter ?? 'all', true); }} onUnlockTalent={onUnlockTalent} isClosing={isClosing} restrictToStatusOnly={restrictProfileToStatusOnly} allowCardsTab={allowCardsInProfile} allowSkillsTab={showSkillsAction} allowConstellationTab={hasConstellationUnlocked} initialTab={profileInitialTab} />
+        )}
+    </AnimatedModal>
+    <AnimatedModal open={showInventory}>
+        {(isClosing) => (
+            <InventoryModal player={player} shopItems={shopItems} onClose={closeInventoryModal} onEquip={onEquipItem} onUnequip={onUnequipItem} onUse={onUseItem} isBattleContext={false} initialFilter={inventoryInitialFilter} isClosing={isClosing} />
+        )}
+    </AnimatedModal>
 
     {showInventoryUnlockPrompt && (
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-sm pointer-events-auto p-4">
@@ -1270,7 +1336,7 @@ export const TavernScreen: React.FC<{
                         onClick={() => {
                             setShowInventoryUnlockPrompt(false);
                             onAcknowledgeInventoryUnlock?.();
-                            setShowInventory(true);
+                            openInventoryModal('all');
                         }}
                         className="w-full rounded-xl bg-[#4d7a96] px-4 py-3 font-black text-white shadow-[0_8px_24px_rgba(77,122,150,0.28)] transition-all hover:bg-[#5a8aa6]"
                     >
@@ -1297,8 +1363,7 @@ export const TavernScreen: React.FC<{
                         onClick={() => {
                             setShowCardsUnlockPrompt(false);
                             onAcknowledgeCardsUnlock?.();
-                            setProfileInitialTab('cards');
-                            setShowProfile(true);
+                            openProfileModal('cards');
                         }}
                         className="w-full rounded-xl bg-[#4d7a96] px-4 py-3 font-black text-white shadow-[0_8px_24px_rgba(77,122,150,0.28)] transition-all hover:bg-[#5a8aa6]"
                     >
@@ -1325,8 +1390,7 @@ export const TavernScreen: React.FC<{
                         onClick={() => {
                             setShowSkillsUnlockPrompt(false);
                             onAcknowledgeSkillsUnlock?.();
-                            setProfileInitialTab('skills');
-                            setShowProfile(true);
+                            openProfileModal('skills');
                         }}
                         className="w-full rounded-xl bg-[#4d7a96] px-4 py-3 font-black text-white shadow-[0_8px_24px_rgba(77,122,150,0.28)] transition-all hover:bg-[#5a8aa6]"
                     >
@@ -1353,8 +1417,7 @@ export const TavernScreen: React.FC<{
                         onClick={() => {
                             setShowConstellationUnlockPrompt(false);
                             onAcknowledgeConstellationUnlock?.();
-                            setProfileInitialTab('constellation');
-                            setShowProfile(true);
+                            openProfileModal('constellation');
                         }}
                         className="w-full rounded-xl bg-[#4d7a96] px-4 py-3 font-black text-white shadow-[0_8px_24px_rgba(77,122,150,0.28)] transition-all hover:bg-[#5a8aa6]"
                     >
@@ -2274,16 +2337,18 @@ export const BossVictoryModal: React.FC<{
 
 type ShopFilter = 'all' | 'weapon' | 'shield' | 'helmet' | 'armor' | 'legs' | 'potion';
 
-export const ShopScreen: React.FC<{ player: Player, items: Item[], onBuy: (i: Item) => void, onSell: (i: Item) => void, onEquip: (i: Item) => void, onLeave: () => void }> = ({ player, items, onBuy, onSell, onEquip, onLeave }) => {
+export const ShopScreen: React.FC<{ player: Player, items: Item[], onBuy: (i: Item, quantity: number) => void, onSell: (i: Item, quantity: number) => void, onEquip: (i: Item) => void, onLeave: () => void }> = ({ player, items, onBuy, onSell, onEquip, onLeave }) => {
     return <ShopMenuScreen player={player} items={items} onBuy={onBuy} onSell={onSell} onEquip={onEquip} onLeave={onLeave} />;
 };
 
 export const BattleHUD: React.FC<GameUIProps> = (props) => {
-    const { player, enemy, turnState, logs, onAttack, onDefend, onSkill, onUseItem, onUnlockTalent, currentNarration, gameState, shopItems, floatingTexts, onFlee, onOpenAr, arSupport, onStartBattle, stage, killCount, onEquipItem, isDungeonRun, dungeonRewards, dungeonCleared = 0, dungeonTotal = 30, gameTime, restrictProfileToStatusOnly = false, limitBattleActionsToBasics = false, inventoryUnlocked = false, inventoryUnlockPromptActive = false, onAcknowledgeInventoryUnlock, cardsUnlockPromptActive = false, onAcknowledgeCardsUnlock, skillsUnlockPromptActive = false, onAcknowledgeSkillsUnlock, constellationUnlockPromptActive = false, onAcknowledgeConstellationUnlock, allowCardsInProfile = false, fleeUnlocked = false, showItemsAction = false, showSkillsAction = false, itemsUnlockPromptActive = false, onAcknowledgeItemsUnlock, fleeUnlockPromptActive = false, onAcknowledgeFleeUnlock } = props;
+    const { player, enemy, turnState, logs, onAttack, onDefend, onSkill, onUseItem, onUnlockTalent, currentNarration, gameState, shopItems, floatingTexts, onFlee, onOpenAr, arSupport, onStartBattle, stage, killCount, onEquipItem, onUnequipItem, isDungeonRun, dungeonRewards, dungeonCleared = 0, dungeonTotal = 30, gameTime, restrictProfileToStatusOnly = false, limitBattleActionsToBasics = false, inventoryUnlocked = false, inventoryUnlockPromptActive = false, onAcknowledgeInventoryUnlock, cardsUnlockPromptActive = false, onAcknowledgeCardsUnlock, skillsUnlockPromptActive = false, onAcknowledgeSkillsUnlock, constellationUnlockPromptActive = false, onAcknowledgeConstellationUnlock, allowCardsInProfile = false, fleeUnlocked = false, showItemsAction = false, showSkillsAction = false, itemsUnlockPromptActive = false, onAcknowledgeItemsUnlock, fleeUnlockPromptActive = false, onAcknowledgeFleeUnlock } = props;
   const [activeBattleMenu, setActiveBattleMenu] = useState<'skills' | 'items' | null>(null);
   const [showProfile, setShowProfile] = useState(false);
     const [profileInitialTab, setProfileInitialTab] = useState<'overview' | 'cards' | 'skills' | 'constellation' | undefined>(undefined);
   const [showInventory, setShowInventory] = useState(false);
+    const [returnToProfileOnInventoryClose, setReturnToProfileOnInventoryClose] = useState(false);
+    const [inventoryInitialFilter, setInventoryInitialFilter] = useState<'all' | 'equipment' | 'potion' | 'material'>('all');
     const [showInventoryUnlockPrompt, setShowInventoryUnlockPrompt] = useState(false);
         const [showCardsUnlockPrompt, setShowCardsUnlockPrompt] = useState(false);
                 const [showSkillsUnlockPrompt, setShowSkillsUnlockPrompt] = useState(false);
@@ -2302,6 +2367,26 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
     const previousResourceRef = useRef(player.classResource.value);
     const showDiamondOnBattleHud = false;
         const hasConstellationUnlocked = player.talentPoints > 0 || player.unlockedTalentNodeIds.length > 0;
+    const openProfileModal = (initialTab?: 'overview' | 'cards' | 'skills' | 'constellation') => {
+        setProfileInitialTab(initialTab);
+        setShowProfile(true);
+    };
+    const openInventoryModal = (initialFilter: 'all' | 'equipment' | 'potion' | 'material' = 'all', fromProfile = false) => {
+        setInventoryInitialFilter(initialFilter);
+        setReturnToProfileOnInventoryClose(fromProfile);
+        setShowInventory(true);
+    };
+    const closeInventoryModal = () => {
+        setShowInventory(false);
+        if (resumeBattleAfterInventoryPrompt) {
+            setResumeBattleAfterInventoryPrompt(false);
+            onStartBattle(false);
+        }
+        if (returnToProfileOnInventoryClose) {
+            setReturnToProfileOnInventoryClose(false);
+            setShowProfile(true);
+        }
+    };
   const isPlayerTurn = turnState === TurnState.PLAYER_INPUT;
     const enemyClassLabelMap: Record<Player['classId'], string> = {
         knight: 'Knight',
@@ -2620,7 +2705,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                               setShowInventoryUnlockPrompt(false);
                               onAcknowledgeInventoryUnlock?.();
                               setResumeBattleAfterInventoryPrompt(true);
-                              setShowInventory(true);
+                              openInventoryModal('all');
                           }}
                           className="w-full rounded-xl bg-[#4d7a96] px-4 py-3 font-black text-white shadow-[0_8px_24px_rgba(77,122,150,0.28)] transition-all hover:bg-[#5a8aa6]"
                       >
@@ -2646,8 +2731,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                           onClick={() => {
                               setShowCardsUnlockPrompt(false);
                               onAcknowledgeCardsUnlock?.();
-                              setProfileInitialTab('cards');
-                              setShowProfile(true);
+                              openProfileModal('cards');
                           }}
                           className="w-full rounded-xl bg-[#4d7a96] px-4 py-3 font-black text-white shadow-[0_8px_24px_rgba(77,122,150,0.28)] transition-all hover:bg-[#5a8aa6]"
                       >
@@ -2673,8 +2757,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                           onClick={() => {
                               setShowSkillsUnlockPrompt(false);
                               onAcknowledgeSkillsUnlock?.();
-                              setProfileInitialTab('skills');
-                              setShowProfile(true);
+                              openProfileModal('skills');
                           }}
                           className="w-full rounded-xl bg-[#4d7a96] px-4 py-3 font-black text-white shadow-[0_8px_24px_rgba(77,122,150,0.28)] transition-all hover:bg-[#5a8aa6]"
                       >
@@ -2700,8 +2783,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                           onClick={() => {
                               setShowConstellationUnlockPrompt(false);
                               onAcknowledgeConstellationUnlock?.();
-                              setProfileInitialTab('constellation');
-                              setShowProfile(true);
+                              openProfileModal('constellation');
                           }}
                           className="w-full rounded-xl bg-[#4d7a96] px-4 py-3 font-black text-white shadow-[0_8px_24px_rgba(77,122,150,0.28)] transition-all hover:bg-[#5a8aa6]"
                       >
@@ -3222,12 +3304,12 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                               </button>
                           )}
                           {(!restrictProfileToStatusOnly || inventoryUnlocked) && (
-                              <button onClick={() => setShowInventory(true)} className="flex h-10 w-10 items-center justify-center rounded-[12px] border border-[#dcc0aa] bg-[#f4e5d4] text-[#6b3141] transition-colors hover:bg-[#e9d7c2]" title="Mochila">
+                              <button onClick={() => openInventoryModal('all')} className="flex h-10 w-10 items-center justify-center rounded-[12px] border border-[#dcc0aa] bg-[#f4e5d4] text-[#6b3141] transition-colors hover:bg-[#e9d7c2]" title="Mochila">
                                   <GameAssetIcon name="bag" size={22} />
                               </button>
                           )}
                               {hasConstellationUnlocked && (
-                                  <button onClick={() => { setProfileInitialTab('constellation'); setShowProfile(true); }} className="relative flex h-10 w-10 items-center justify-center rounded-[12px] border border-[#dcc0aa] bg-[#f4e5d4] text-[#6b3141] transition-colors hover:bg-[#e9d7c2]" title="Constelacao">
+                                  <button onClick={() => openProfileModal('constellation')} className="relative flex h-10 w-10 items-center justify-center rounded-[12px] border border-[#dcc0aa] bg-[#f4e5d4] text-[#6b3141] transition-colors hover:bg-[#e9d7c2]" title="Constelacao">
                                       <Orbit size={20} />
                                       {player.talentPoints > 0 && (
                                           <span className="absolute -top-1.5 -right-1.5 inline-flex min-w-[18px] h-[18px] items-center justify-center rounded-full border border-[#7d3d4d] bg-[#b83a4b] px-1 text-[10px] font-black text-white shadow-[0_4px_10px_rgba(125,61,77,0.35)]">
@@ -3236,7 +3318,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                                       )}
                                   </button>
                               )}
-                          <button onClick={() => { setProfileInitialTab(undefined); setShowProfile(true); }} className="flex h-10 w-10 items-center justify-center rounded-[12px] border border-[#dcc0aa] bg-[#f4e5d4] text-[#6b3141] transition-colors hover:bg-[#e9d7c2]" title="Perfil">
+                          <button onClick={() => openProfileModal(undefined)} className="flex h-10 w-10 items-center justify-center rounded-[12px] border border-[#dcc0aa] bg-[#f4e5d4] text-[#6b3141] transition-colors hover:bg-[#e9d7c2]" title="Perfil">
                               <GameAssetIcon name="book" size={22} />
                           </button>
                       </div>
@@ -3267,14 +3349,16 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
           </div>
       </div>
 
-        {showProfile && <CharacterSheetModal player={player} shopItems={shopItems} onClose={() => setShowProfile(false)} onOpenInventory={() => { setShowProfile(false); setShowInventory(true); }} onUnlockTalent={onUnlockTalent} restrictToStatusOnly={restrictProfileToStatusOnly} allowCardsTab={allowCardsInProfile} allowSkillsTab={showSkillsAction} allowConstellationTab={hasConstellationUnlocked} initialTab={profileInitialTab} />}
-    {showInventory && <InventoryModal player={player} shopItems={shopItems} onClose={() => {
-        setShowInventory(false);
-        if (resumeBattleAfterInventoryPrompt) {
-            setResumeBattleAfterInventoryPrompt(false);
-            onStartBattle(false);
-        }
-    }} onEquip={onEquipItem} onUse={onUseItem} />}
+        <AnimatedModal open={showProfile}>
+          {(isClosing) => (
+            <CharacterSheetModal player={player} shopItems={shopItems} onClose={() => setShowProfile(false)} onOpenInventory={(initialFilter) => { setShowProfile(false); openInventoryModal(initialFilter ?? 'all', true); }} onUnlockTalent={onUnlockTalent} isClosing={isClosing} restrictToStatusOnly={restrictProfileToStatusOnly} allowCardsTab={allowCardsInProfile} allowSkillsTab={showSkillsAction} allowConstellationTab={hasConstellationUnlocked} initialTab={profileInitialTab} />
+          )}
+        </AnimatedModal>
+        <AnimatedModal open={showInventory}>
+          {(isClosing) => (
+            <InventoryModal player={player} shopItems={shopItems} onClose={closeInventoryModal} onEquip={onEquipItem} onUnequip={onUnequipItem} onUse={onUseItem} isBattleContext initialFilter={inventoryInitialFilter} isClosing={isClosing} />
+          )}
+        </AnimatedModal>
     </div>
   );
 };
