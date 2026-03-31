@@ -72,7 +72,11 @@ class UiSfxManager {
     }
 
     this.lastPlayAt.set(event, now);
-    this.getSound(event).play();
+    try {
+      this.getSound(event).play();
+    } catch (error) {
+      console.warn(`[UI-SFX] Reproducao bloqueada para ${event}.`, error);
+    }
   }
 
   dispose() {

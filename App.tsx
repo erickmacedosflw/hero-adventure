@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { ShoppingBag, Play, Sword, Home } from 'lucide-react';
+import { Howler } from 'howler';
 import { DeveloperConsole } from './components/DeveloperConsole';
 import { GameScene } from './components/Scene3D';
 import { OpeningScreen } from './components/OpeningScreen';
@@ -2272,25 +2273,44 @@ export default function App() {
         return sceneRegion === 'dungeon' ? 'dungeon' : 'title';
     }, [dungeonRun, gameTime, hasConfirmedStartingClass, isBootReady, pathname, resolvedGameState, sceneRegion]);
 
+    const isAudioUnlockingRef = useRef(false);
     useEffect(() => {
         if (typeof window === 'undefined' || hasUnlockedMusic) {
             return;
         }
 
         const unlockMusic = () => {
+            if (isAudioUnlockingRef.current || hasUnlockedMusic) {
+                return;
+            }
+            isAudioUnlockingRef.current = true;
+
+            const howlerWithContext = Howler as typeof Howler & { ctx?: AudioContext };
+            if (howlerWithContext.ctx && howlerWithContext.ctx.state === 'suspended') {
+                void howlerWithContext.ctx.resume().catch(() => undefined);
+            }
+
             Promise.allSettled([gameMusicManager.unlock(), battleSfx.unlock(), uiSfx.unlock()]).finally(() => {
                 battleSfx.preload();
                 uiSfx.preload();
                 setHasUnlockedMusic(true);
+                isAudioUnlockingRef.current = false;
             });
         };
 
-        window.addEventListener('pointerdown', unlockMusic, { once: true });
-        window.addEventListener('keydown', unlockMusic, { once: true });
+        const listenerOptions: AddEventListenerOptions = { once: true, capture: true, passive: true };
+        window.addEventListener('pointerdown', unlockMusic, listenerOptions);
+        window.addEventListener('touchstart', unlockMusic, listenerOptions);
+        window.addEventListener('mousedown', unlockMusic, listenerOptions);
+        window.addEventListener('click', unlockMusic, listenerOptions);
+        window.addEventListener('keydown', unlockMusic, { once: true, capture: true });
 
         return () => {
-            window.removeEventListener('pointerdown', unlockMusic);
-            window.removeEventListener('keydown', unlockMusic);
+            window.removeEventListener('pointerdown', unlockMusic, listenerOptions);
+            window.removeEventListener('touchstart', unlockMusic, listenerOptions);
+            window.removeEventListener('mousedown', unlockMusic, listenerOptions);
+            window.removeEventListener('click', unlockMusic, listenerOptions);
+            window.removeEventListener('keydown', unlockMusic, { capture: true });
         };
     }, [hasUnlockedMusic]);
 
