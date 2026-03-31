@@ -3,15 +3,17 @@ import { AlertTriangle, ArrowLeft, Heart, MousePointerClick, Shield, Sparkles, S
 import { Item, Player } from '../../types';
 import { ItemPreviewThree } from '../items/ItemPreviewThree';
 import { GameAssetIcon } from '../ui/game-asset-icon';
-import { getRarityColor, getRarityLabel, isEquipmentType, ItemTypeLabel } from '../ui/game-display';
+import { getRarityColor, getRarityLabel, isEquipmentType, ItemTypeIcon, ItemTypeLabel } from '../ui/game-display';
 import { RpgMenuPanel, RpgMenuSectionTitle, RpgMenuShell, RpgMenuStat, RpgMenuTab } from '../ui/rpg-menu-shell';
 import { ScrollArea } from '../ui/scroll-area';
+import { getUnlockedShopRaritiesByStage } from '../../game/mechanics/shopProgression';
 
 type ShopFilter = 'all' | 'weapon' | 'shield' | 'helmet' | 'armor' | 'legs' | 'potion';
 
 type ShopMenuScreenProps = {
   player: Player;
   items: Item[];
+  huntStage: number;
   onBuy: (item: Item, quantity: number) => void;
   onEquip: (item: Item) => void;
   onSell: (item: Item, quantity: number) => void;
@@ -207,7 +209,7 @@ const ShopItemDetail = ({ item, player, onBuy }: { item: Item | null; player: Pl
   );
 };
 
-export const ShopMenuScreen: React.FC<ShopMenuScreenProps> = ({ player, items, onBuy, onEquip, onSell, onLeave }) => {
+export const ShopMenuScreen: React.FC<ShopMenuScreenProps> = ({ player, items, huntStage, onBuy, onEquip, onSell, onLeave }) => {
   const MODAL_CLOSE_MS = 180;
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [filter, setFilter] = useState<ShopFilter>('all');
@@ -222,11 +224,13 @@ export const ShopMenuScreen: React.FC<ShopMenuScreenProps> = ({ player, items, o
   const [sellModalClosing, setSellModalClosing] = useState(false);
   const buyModalCloseTimerRef = useRef<number | null>(null);
   const sellModalCloseTimerRef = useRef<number | null>(null);
+  const unlockedRarities = useMemo(() => getUnlockedShopRaritiesByStage(huntStage), [huntStage]);
 
   const filteredItems = useMemo(() => {
     return items
       .filter((item) => item.type !== 'material')
       .filter((item) => item.source !== 'dungeon' && item.source !== 'alchemist')
+      .filter((item) => unlockedRarities.includes(item.rarity))
       .filter((item) => filter === 'all' || item.type === filter)
       .sort((left, right) => {
         const rarityDifference = getRarityWeight(left.rarity) - getRarityWeight(right.rarity);
@@ -235,7 +239,7 @@ export const ShopMenuScreen: React.FC<ShopMenuScreenProps> = ({ player, items, o
         }
         return left.cost - right.cost;
       });
-  }, [filter, items]);
+  }, [filter, items, unlockedRarities]);
 
   const sellableEntries = useMemo(() => {
     return Object.entries(player.inventory)
@@ -289,6 +293,13 @@ export const ShopMenuScreen: React.FC<ShopMenuScreenProps> = ({ player, items, o
 
   const selectedItem = filteredItems.find((item) => item.id === selectedItemId) ?? null;
   const mobileDetailItem = filteredItems.find((item) => item.id === mobileDetailItemId) ?? null;
+  const isItemEquipped = (item: Item) => (
+    player.equippedWeapon?.id === item.id
+      || player.equippedArmor?.id === item.id
+      || player.equippedHelmet?.id === item.id
+      || player.equippedLegs?.id === item.id
+      || player.equippedShield?.id === item.id
+  );
 
   const openBuyModal = (item: Item) => {
     const isEquipped = player.equippedWeapon?.id === item.id || player.equippedArmor?.id === item.id || player.equippedHelmet?.id === item.id || player.equippedLegs?.id === item.id || player.equippedShield?.id === item.id;
@@ -455,6 +466,10 @@ export const ShopMenuScreen: React.FC<ShopMenuScreenProps> = ({ player, items, o
                           </div>
                           <div className="mt-1.5 flex flex-wrap items-center gap-1">
                             <span className={`inline-flex rounded-full border px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.12em] ${getRarityColor(item.rarity)}`}>{getRarityLabel(item.rarity)}</span>
+                            <span className="inline-flex items-center gap-1 rounded-full border border-[#d6b9a3] bg-[#f3e5d5] px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.12em] text-[#7f5b56]">
+                              <ItemTypeIcon type={item.type} size={10} />
+                              <ItemTypeLabel type={item.type} />
+                            </span>
                           </div>
                         </div>
                         {isSelected && <MousePointerClick size={18} className="text-[#7d3d4d]" />}
@@ -475,18 +490,29 @@ export const ShopMenuScreen: React.FC<ShopMenuScreenProps> = ({ player, items, o
               <RpgMenuSectionTitle className="mb-4"><span className="inline-flex items-center gap-2.5"><GameAssetIcon name="coinSilver" size={22} /> Venda rapida</span></RpgMenuSectionTitle>
               <ScrollArea className="min-h-0 flex-1 rounded-[20px] border border-[#dcc0aa] bg-[#f8eddf]" viewportClassName="p-3">
                 <div className="grid gap-3">
-                  {sellableEntries.map((entry) => (
+                  {sellableEntries.map((entry) => {
+                    const equipped = isItemEquipped(entry.item);
+                    return (
                     <button key={entry.item.id} onClick={() => openSellModal(entry.item)} className={`rounded-[20px] border bg-[#f3e3d2] p-3 text-left transition-all hover:-translate-y-0.5 hover:bg-[#efdac6] ${getRarityColor(entry.item.rarity)}`}>
                       <div className="flex items-center gap-3">
                         <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[#d6b9a3] bg-[#f6eadb] text-2xl">{entry.item.icon}</div>
                         <div className="min-w-0 flex-1">
                           <div className="truncate text-sm font-black text-[#6b3141]">{entry.item.name}</div>
-                          <div className="mt-1 text-[10px] uppercase tracking-[0.2em] text-[#9a7068]">x{entry.qty}</div>
+                          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                            <span className="inline-flex rounded-full border border-[#d6b9a3] bg-[#fff5e8] px-2.5 py-0.5 text-[11px] font-black uppercase tracking-[0.14em] text-[#6b3141]">
+                              x{entry.qty}
+                            </span>
+                            {equipped && (
+                              <span className="inline-flex rounded-full border border-[#7d3d4d] bg-[#fff3e7] px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.12em] text-[#6b3141]">
+                                Equipado
+                              </span>
+                            )}
+                          </div>
                         </div>
                         <div className="inline-flex items-center gap-1.5 text-right text-base font-black text-[#8d5e29]"><GameAssetIcon name="coin" size={18} /> {entry.unitSellPrice}</div>
                       </div>
                     </button>
-                  ))}
+                  );})}
                   {sellableEntries.length === 0 && (
                     <div className="rounded-2xl border border-dashed border-[#c59d82] bg-[#f8eddf] px-4 py-10 text-center text-sm text-[#8f6c67]">Nenhum item para vender.</div>
                   )}
@@ -657,16 +683,27 @@ export const ShopMenuScreen: React.FC<ShopMenuScreenProps> = ({ player, items, o
             <div className="flex-1 overflow-y-auto p-4">
               <RpgMenuPanel className="rounded-[24px] p-4">
                 <div className="grid gap-3">
-                  {sellableEntries.map((entry) => (
+                  {sellableEntries.map((entry) => {
+                    const equipped = isItemEquipped(entry.item);
+                    return (
                     <button key={entry.item.id} onClick={() => openSellModal(entry.item)} className={`flex items-center gap-3 rounded-[20px] border bg-[#f3e3d2] p-3 text-left transition-all hover:bg-[#efdac6] ${getRarityColor(entry.item.rarity)}`}>
                       <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[#d6b9a3] bg-[#f6eadb] text-2xl">{entry.item.icon}</div>
                       <div className="min-w-0 flex-1">
                         <div className="truncate text-sm font-black text-[#6b3141]">{entry.item.name}</div>
-                        <div className="mt-1 text-[10px] uppercase tracking-[0.2em] text-[#9a7068]">x{entry.qty}</div>
+                        <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                          <span className="inline-flex rounded-full border border-[#d6b9a3] bg-[#fff5e8] px-2.5 py-0.5 text-[11px] font-black uppercase tracking-[0.14em] text-[#6b3141]">
+                            x{entry.qty}
+                          </span>
+                          {equipped && (
+                            <span className="inline-flex rounded-full border border-[#7d3d4d] bg-[#fff3e7] px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.12em] text-[#6b3141]">
+                              Equipado
+                            </span>
+                          )}
+                        </div>
                       </div>
                       <div className="inline-flex items-center gap-1.5 text-right text-base font-black text-[#8d5e29]"><GameAssetIcon name="coin" size={18} /> {entry.unitSellPrice}</div>
                     </button>
-                  ))}
+                  );})}
                   {sellableEntries.length === 0 && (
                     <div className="rounded-2xl border border-dashed border-[#c59d82] bg-[#f8eddf] px-4 py-10 text-center text-sm text-[#8f6c67]">Nenhum item para vender.</div>
                   )}

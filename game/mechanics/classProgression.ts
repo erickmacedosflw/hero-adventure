@@ -142,6 +142,23 @@ const applyNodeStats = (stats: Stats, node: TalentNode): Stats => {
   return nextStats;
 };
 
+const removeNodeStats = (stats: Stats, node: TalentNode): Stats => {
+  const nextStats = { ...stats };
+
+  node.effects.forEach((effect) => {
+    if (!effect.stats) {
+      return;
+    }
+
+    Object.entries(effect.stats).forEach(([key, value]) => {
+      const typedKey = key as keyof Stats;
+      nextStats[typedKey] -= value ?? 0;
+    });
+  });
+
+  return nextStats;
+};
+
 export const syncPlayerConstellationSkills = (player: Player, skillCatalog: Skill[]): Player => {
   const constellationSkills = getUnlockedConstellationSkills(player, skillCatalog);
   const nonConstellationSkills = player.skills.filter((skill) => skill.source !== 'constellation');
@@ -185,6 +202,37 @@ export const unlockTalentNode = (player: Player, nodeId: string, skillCatalog: S
   }, skillCatalog);
 
   return { player: nextPlayer, node };
+};
+
+export const resetTalentNodes = (player: Player, skillCatalog: Skill[]): Player => {
+  const unlockedNodes = getUnlockedTalentNodes(player);
+  if (unlockedNodes.length === 0) {
+    return player;
+  }
+
+  const refundedPoints = unlockedNodes.reduce((sum, node) => sum + node.cost, 0);
+  const resetStats = unlockedNodes.reduce((currentStats, node) => removeNodeStats(currentStats, node), { ...player.stats });
+
+  const nextPlayer = syncPlayerConstellationSkills({
+    ...player,
+    talentPoints: player.talentPoints + refundedPoints,
+    unlockedTalentNodeIds: [],
+    stats: {
+      ...resetStats,
+      hp: Math.min(resetStats.maxHp, resetStats.hp),
+      mp: Math.min(resetStats.maxMp, resetStats.mp),
+    },
+    classResource: { ...player.classResource },
+  }, skillCatalog);
+
+  return {
+    ...nextPlayer,
+    stats: {
+      ...nextPlayer.stats,
+      hp: Math.min(nextPlayer.stats.maxHp, nextPlayer.stats.hp),
+      mp: Math.min(nextPlayer.stats.maxMp, nextPlayer.stats.mp),
+    },
+  };
 };
 
 export const gainClassResource = (player: Player, amount: number): Player => {

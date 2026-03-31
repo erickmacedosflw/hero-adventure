@@ -17,6 +17,8 @@ export interface SavePayload {
   skillsActionUnlocked: boolean;
   skillsUnlockPromptPending?: boolean;
   constellationUnlockPromptPending?: boolean;
+  constellationRespecUnlockPromptPending?: boolean;
+  constellationRespecPromptSeen?: boolean;
   gameState: GameState;
   turnState?: TurnState;
   hasEnemy: boolean;
@@ -143,6 +145,14 @@ const isSavePayloadLike = (value: unknown): value is SavePayload => {
   }
 
   if (payload.constellationUnlockPromptPending !== undefined && typeof payload.constellationUnlockPromptPending !== 'boolean') {
+    return false;
+  }
+
+  if (payload.constellationRespecUnlockPromptPending !== undefined && typeof payload.constellationRespecUnlockPromptPending !== 'boolean') {
+    return false;
+  }
+
+  if (payload.constellationRespecPromptSeen !== undefined && typeof payload.constellationRespecPromptSeen !== 'boolean') {
     return false;
   }
 

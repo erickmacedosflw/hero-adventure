@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { CircleHelp, Coins, Crosshair, Heart, Lock, Orbit, Shield, Sparkles, Star, Sword, WandSparkles, X, Zap } from 'lucide-react';
+import { CircleHelp, Coins, Crosshair, Heart, Lock, Orbit, RefreshCcw, Shield, Sparkles, Star, Sword, WandSparkles, X, Zap } from 'lucide-react';
 import { ALL_CARDS } from '../../game/data/cards';
 import { getConstellationByClassId } from '../../game/data/classTalents';
 import { getPlayerClassById } from '../../game/data/classes';
@@ -18,12 +18,15 @@ type CharacterSheetModalProps = {
   onClose: () => void;
   onOpenInventory: (initialFilter?: 'all' | 'equipment' | 'potion' | 'material') => void;
   onUnlockTalent: (nodeId: string) => void;
+  onResetTalents: () => void;
   isClosing?: boolean;
   restrictToStatusOnly?: boolean;
   allowCardsTab?: boolean;
   allowSkillsTab?: boolean;
   allowConstellationTab?: boolean;
   initialTab?: ProfileTab;
+  respecUnlockPromptActive?: boolean;
+  onAcknowledgeRespecUnlock?: () => void;
 };
 
 type ProfileTab = 'overview' | 'cards' | 'skills' | 'constellation';
@@ -236,6 +239,11 @@ const ConstellationNodeCard = ({
   const consumeAllResource = Boolean(unlockedSkill?.resourceEffect?.consumeAll);
   const hasResourceCost = consumeAllResource || resourceCost > 0;
   const resourceLabel = unlockedSkill?.resourceLabel ?? player.classResource.name;
+  const availableCostStyle: React.CSSProperties = {
+    borderColor: `${player.classResource.color}66`,
+    backgroundColor: `${player.classResource.color}22`,
+    color: player.classResource.color,
+  };
 
   return (
     <button
@@ -260,11 +268,20 @@ const ConstellationNodeCard = ({
           </div>
         </div>
         <div className={`shrink-0 rounded-full border px-2 py-1 text-[9px] font-black uppercase tracking-[0.16em] ${isUnlocked ? 'border-white/25 bg-white/10 text-white' : isAvailable ? 'border-emerald-400/35 bg-emerald-50 text-emerald-700' : 'border-[#dcc0aa] bg-[#f8eddf] text-[#8f6c67]'}`}>
-          {isUnlocked ? 'Ativo' : isAvailable ? 'Liberar' : `Nv ${node.requiredLevel}`}
+          {isUnlocked ? 'Ativo' : isAvailable ? 'Liberar' : 'Bloqueado'}
         </div>
       </div>
-      <div className={`mt-2 inline-flex items-center rounded-full border px-2 py-1 text-[10px] font-black uppercase tracking-[0.14em] ${isUnlocked ? 'border-white/30 bg-white/10 text-white' : 'border-[#cfab91] bg-[#f4e5d4] text-[#8d5e29]'}`}>
-        Custo: {node.cost} PE
+      <div
+        className={`mt-2 inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] ${
+          isUnlocked
+            ? 'border-white/30 bg-white/10 text-white'
+            : isAvailable
+              ? ''
+              : 'border-[#cfab91] bg-[#f4e5d4] text-[#8d5e29]'
+        }`}
+        style={isUnlocked ? undefined : isAvailable ? availableCostStyle : undefined}
+      >
+        Custo {node.cost} PE
       </div>
       {!isUnlocked && node.prerequisites.length > 0 && (
         <div className="mt-3 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-[#9a7068]">
@@ -381,9 +398,11 @@ const ClassGuideModal = ({
   );
 };
 
-export const CharacterSheetModal = ({ player, shopItems: _shopItems, onClose, onOpenInventory, onUnlockTalent, isClosing = false, restrictToStatusOnly = false, allowCardsTab = false, allowSkillsTab = false, allowConstellationTab = false, initialTab = 'overview' }: CharacterSheetModalProps) => {
+export const CharacterSheetModal = ({ player, shopItems: _shopItems, onClose, onOpenInventory, onUnlockTalent, onResetTalents, isClosing = false, restrictToStatusOnly = false, allowCardsTab = false, allowSkillsTab = false, allowConstellationTab = false, initialTab = 'overview', respecUnlockPromptActive = false, onAcknowledgeRespecUnlock }: CharacterSheetModalProps) => {
   const [activeTab, setActiveTab] = useState<ProfileTab>(initialTab);
   const [showClassGuide, setShowClassGuide] = useState(false);
+  const [showRespecUnlockPrompt, setShowRespecUnlockPrompt] = useState(false);
+  const [showRespecConfirm, setShowRespecConfirm] = useState(false);
   const isStatusOnlyMode = Boolean(restrictToStatusOnly);
   const canAccessCards = !isStatusOnlyMode || allowCardsTab;
   const canAccessSkills = !isStatusOnlyMode || allowSkillsTab;
@@ -391,6 +410,7 @@ export const CharacterSheetModal = ({ player, shopItems: _shopItems, onClose, on
   const currentClass = getPlayerClassById(player.classId);
   const constellation = getConstellationByClassId(player.classId);
   const classGuide = CLASS_GUIDES[player.classId];
+  const classAccentColor = currentClass.visualProfile.secondaryColor;
 
   useEffect(() => {
     if (isStatusOnlyMode && !allowCardsTab && !allowSkillsTab && !(allowConstellationTab && activeTab === 'constellation') && activeTab !== 'overview') {
@@ -463,11 +483,19 @@ export const CharacterSheetModal = ({ player, shopItems: _shopItems, onClose, on
 
   const unlockedNodes = constellation.trails.flatMap((trail) => trail.nodes).filter((node) => player.unlockedTalentNodeIds.includes(node.id));
   const constellationSkills = player.skills.filter((skill) => skill.source === 'constellation');
+  const canResetTalents = unlockedNodes.length >= 2;
   const panelMotionStyle: React.CSSProperties = {
     animation: 'profileTabPanelIn 340ms cubic-bezier(0.22, 1, 0.36, 1)',
     willChange: 'transform, opacity',
   };
   const handleOpenInventoryEquipment = () => onOpenInventory('equipment');
+
+  useEffect(() => {
+    if (!respecUnlockPromptActive) {
+      return;
+    }
+    setShowRespecUnlockPrompt(true);
+  }, [respecUnlockPromptActive]);
 
   return (
     <RpgMenuShell
@@ -476,14 +504,8 @@ export const CharacterSheetModal = ({ player, shopItems: _shopItems, onClose, on
       onClose={onClose}
       closing={isClosing}
       accent="wine"
+      headerStyle={{ background: `linear-gradient(135deg, ${classAccentColor}, #6b3141)` }}
       valueBadge={<><GameAssetIcon name="book" size={24} /> {player.name}</>}
-      headerAction={
-        canOpenInventory ? (
-          <button onClick={() => onOpenInventory('all')} className="rpg-menu-tab rpg-menu-tab-active hidden items-center gap-2.5 md:inline-flex">
-            <GameAssetIcon name="bag" size={24} /> Mochila
-          </button>
-        ) : undefined
-      }
     >
       <div className="flex flex-col gap-3 pb-14 md:pb-0">
         <style>{`
@@ -499,13 +521,49 @@ export const CharacterSheetModal = ({ player, shopItems: _shopItems, onClose, on
               filter: blur(0);
             }
           }
+          @keyframes constellationPointsPulse {
+            0% {
+              transform: translateY(0) scale(1);
+              box-shadow: 0 10px 22px rgba(0, 0, 0, 0.16);
+            }
+            50% {
+              transform: translateY(-2px) scale(1.03);
+              box-shadow: 0 16px 30px rgba(0, 0, 0, 0.2);
+            }
+            100% {
+              transform: translateY(0) scale(1);
+              box-shadow: 0 10px 22px rgba(0, 0, 0, 0.16);
+            }
+          }
+          @keyframes constellationActionPulse {
+            0% {
+              transform: scale(1);
+              box-shadow: 0 10px 24px rgba(232, 168, 72, 0.34);
+            }
+            50% {
+              transform: scale(1.03);
+              box-shadow: 0 16px 32px rgba(232, 168, 72, 0.44);
+            }
+            100% {
+              transform: scale(1);
+              box-shadow: 0 10px 24px rgba(232, 168, 72, 0.34);
+            }
+          }
         `}</style>
 
         {visibleTabs.length > 1 && (
           <div className="hidden flex-wrap gap-2 px-1 md:flex">
             {visibleTabs.map((tab) => (
-              <RpgMenuTab key={tab.id} active={activeTab === tab.id} onClick={() => setActiveTab(tab.id)} className="inline-flex items-center gap-2">
+              <RpgMenuTab key={tab.id} active={activeTab === tab.id} onClick={() => setActiveTab(tab.id)} className="relative inline-flex items-center gap-2">
                 {tab.icon} {tab.label}
+                {tab.id === 'constellation' && player.talentPoints > 0 && (
+                  <span
+                    className="absolute -right-1 -top-1 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full border px-1 text-[10px] font-black text-white"
+                    style={{ borderColor: `${classAccentColor}cc`, backgroundColor: classAccentColor, boxShadow: `0 4px 10px ${classAccentColor}55` }}
+                  >
+                    {player.talentPoints}
+                  </span>
+                )}
               </RpgMenuTab>
             ))}
           </div>
@@ -657,21 +715,29 @@ export const CharacterSheetModal = ({ player, shopItems: _shopItems, onClose, on
                       <h3 className="mt-2 text-2xl font-black">{currentClass.name}</h3>
                       <p className="mt-2 max-w-2xl text-sm text-white/80">{constellation.subtitle}</p>
                     </div>
-                    <button
-                      onClick={() => setShowClassGuide(true)}
-                      className="inline-flex items-center gap-2 rounded-[16px] border border-white/18 bg-white/10 px-3 py-2 text-xs font-black uppercase tracking-[0.14em] text-white transition-colors hover:bg-white/18"
-                    >
-                      <CircleHelp size={16} />
-                      Ver guia da classe
-                    </button>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {canResetTalents && (
+                        <button
+                          onClick={() => setShowRespecConfirm(true)}
+                          className="inline-flex items-center gap-2 rounded-[16px] border border-[#f3d37e] bg-[linear-gradient(135deg,#f6c55e,#e8a848)] px-3 py-2 text-xs font-black uppercase tracking-[0.14em] text-[#4d2a11] shadow-[0_10px_24px_rgba(232,168,72,0.38)] transition-all hover:brightness-105"
+                          style={{ animation: 'constellationActionPulse 1.9s ease-in-out infinite' }}
+                        >
+                          <RefreshCcw size={15} />
+                          Redistribuir
+                        </button>
+                      )}
+                      <button
+                        onClick={() => setShowClassGuide(true)}
+                        className="inline-flex items-center gap-2 rounded-[16px] border border-white/18 bg-white/10 px-3 py-2 text-xs font-black uppercase tracking-[0.14em] text-white transition-colors hover:bg-white/18"
+                      >
+                        <CircleHelp size={16} />
+                        Ver guia da classe
+                      </button>
+                    </div>
                   </div>
                 </div>
                 <div className="grid gap-3 px-4 py-4 sm:grid-cols-4">
                   <div className="sm:col-span-4 flex flex-wrap gap-1.5">
-                    <div className="inline-flex items-center gap-1.5 rounded-full border border-[#d6b9a3] bg-[#f8eddf] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[#8d5e29]">
-                      <span className="text-[#9a7068]">Pontos</span>
-                      <span className="text-[#6b3141]">{player.talentPoints}</span>
-                    </div>
                     <div className="inline-flex items-center gap-1.5 rounded-full border border-[#d6b9a3] bg-[#f8eddf] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[#6b3141]">
                       <span className="text-[#9a7068]">Nodos</span>
                       <span>{unlockedNodes.length}</span>
@@ -695,7 +761,7 @@ export const CharacterSheetModal = ({ player, shopItems: _shopItems, onClose, on
 
               <div className="rounded-[24px] border border-[#cfab91] bg-[#f4e5d4] p-4">
                 <p className="text-xs leading-relaxed text-[#7f5b56]">
-                  Voce recebe 1 ponto de evolucao por chefe derrotado. Cada trilha segue a ordem 1, depois 2 e depois 3, com custos de 1, 2 e 3 pontos.
+                  Voce recebe 1 ponto de evolucao por nivel ganho. Cada trilha segue a ordem 1, depois 2 e depois 3, com custos de 1, 2 e 3 pontos.
                 </p>
               </div>
 
@@ -718,29 +784,106 @@ export const CharacterSheetModal = ({ player, shopItems: _shopItems, onClose, on
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex min-w-[68px] flex-col items-center justify-center rounded-[14px] px-3 py-1.5 transition-all duration-250 ${isActive ? 'bg-[#fff4e7] text-[#6b3141] shadow-sm' : 'text-[#8f6c67]'}`}
+                  className={`relative flex min-w-[68px] flex-col items-center justify-center rounded-[14px] px-3 py-1.5 transition-all duration-250 ${isActive ? 'bg-[#fff4e7] text-[#6b3141] shadow-sm' : 'text-[#8f6c67]'}`}
                 >
                   <span className={`transition-all duration-250 ${isActive ? 'scale-[1.32] -translate-y-0.5 drop-shadow-[0_6px_12px_rgba(107,49,65,0.26)]' : 'scale-100 opacity-80'}`}>{tab.icon}</span>
+                  {tab.id === 'constellation' && player.talentPoints > 0 && (
+                    <span
+                      className="absolute right-2 top-1 inline-flex h-[17px] min-w-[17px] items-center justify-center rounded-full border px-1 text-[9px] font-black text-white"
+                      style={{ borderColor: `${classAccentColor}cc`, backgroundColor: classAccentColor, boxShadow: `0 4px 10px ${classAccentColor}55` }}
+                    >
+                      {player.talentPoints}
+                    </span>
+                  )}
                   {!isActive && <span className="mt-0.5 text-[9px] font-black uppercase tracking-[0.12em] opacity-70">{tab.label}</span>}
                 </button>
               );
             })}
 
-            {canOpenInventory && (
-              <>
-                <div className="mx-0.5 h-6 w-px bg-[#c59d82]/40" />
-
-                <button onClick={onOpenInventory} className="flex flex-col items-center justify-center rounded-[14px] px-3 py-1.5 text-[#8f6c67] transition-all duration-200">
-                  <GameAssetIcon name="bag" size={20} className="opacity-80" />
-                  <span className="mt-0.5 text-[9px] font-black uppercase tracking-[0.12em] opacity-70">Mochila</span>
-                </button>
-              </>
-            )}
+            
           </div>
         </div>
         )}
 
         {showClassGuide && <ClassGuideModal player={player} onClose={() => setShowClassGuide(false)} />}
+        {canOpenInventory && !showClassGuide && !showRespecUnlockPrompt && !showRespecConfirm && (
+          <div className="pointer-events-none fixed bottom-[5.7rem] right-4 z-[124] md:bottom-6 md:right-6">
+            <button
+              onClick={() => onOpenInventory('all')}
+              className="pointer-events-auto inline-flex items-center gap-2 rounded-full border border-[#b98774] bg-[linear-gradient(135deg,#6b3141,#7a3d4d)] px-3.5 py-2 text-xs font-black uppercase tracking-[0.14em] text-[#f7eadf] shadow-[0_14px_28px_rgba(107,49,65,0.35)] transition-all hover:-translate-y-0.5 hover:brightness-105 md:gap-2.5 md:px-5 md:py-3 md:text-sm"
+              title="Abrir mochila"
+            >
+              <GameAssetIcon name="bag" size={18} />
+              Mochila
+            </button>
+          </div>
+        )}
+        {player.talentPoints > 0 && (!isStatusOnlyMode || allowConstellationTab) && (
+          <div className="pointer-events-none fixed bottom-[5.7rem] left-1/2 z-[125] -translate-x-1/2 md:bottom-6 md:left-1/2 md:-translate-x-1/2">
+            <div
+              className="inline-flex items-center gap-2 rounded-full border px-4 py-2.5 text-sm font-black uppercase tracking-[0.14em] text-white md:text-base"
+              style={{
+                borderColor: `${classAccentColor}cc`,
+                backgroundColor: classAccentColor,
+                boxShadow: `0 12px 24px ${classAccentColor}66`,
+                animation: 'constellationPointsPulse 1.8s ease-in-out infinite',
+              }}
+            >
+              <Orbit size={16} />
+              <span>{player.talentPoints} PE</span>
+            </div>
+          </div>
+        )}
+        {showRespecUnlockPrompt && (
+          <div className="absolute inset-0 z-[130] flex items-center justify-center bg-[#2e1820]/55 p-4 backdrop-blur-sm">
+            <div className="w-full max-w-md overflow-hidden rounded-[24px] border border-[#cfab91] bg-[#f7ecdd] shadow-[0_24px_80px_rgba(54,26,33,0.24)]" onClick={(event) => event.stopPropagation()}>
+              <div className="bg-[#6b3141] px-5 py-4 text-[#f6eadc]">
+                <div className="text-[10px] font-black uppercase tracking-[0.24em]">Constelacao</div>
+                <h3 className="mt-1 text-2xl font-black text-white">Redistribuicao liberada</h3>
+                <p className="mt-2 text-sm text-[#dcc0aa]">Voce desbloqueou o segundo nodo. Agora pode redistribuir seus pontos e testar novas rotas da classe.</p>
+              </div>
+              <div className="p-4">
+                <button
+                  onClick={() => {
+                    setShowRespecUnlockPrompt(false);
+                    onAcknowledgeRespecUnlock?.();
+                  }}
+                  className="w-full rounded-xl border border-[#7d3d4d] bg-[#6b3141] px-4 py-2.5 text-xs font-black uppercase tracking-[0.14em] text-[#f7eadf] transition-colors hover:bg-[#7a3d4d]"
+                >
+                  Entendi
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        {showRespecConfirm && (
+          <div className="absolute inset-0 z-[130] flex items-center justify-center bg-[#2e1820]/55 p-4 backdrop-blur-sm" onClick={() => setShowRespecConfirm(false)}>
+            <div className="w-full max-w-md overflow-hidden rounded-[24px] border border-[#cfab91] bg-[#f7ecdd] shadow-[0_24px_80px_rgba(54,26,33,0.24)]" onClick={(event) => event.stopPropagation()}>
+              <div className="border-b border-[#dcc0aa] px-5 py-4">
+                <div className="text-[10px] font-black uppercase tracking-[0.24em] text-[#9a7068]">Constelacao</div>
+                <h3 className="mt-1 text-2xl font-black text-[#6b3141]">Redistribuir pontos?</h3>
+                <p className="mt-2 text-sm text-[#7f5b56]">Todos os nodos ativos serao resetados. Voce vai recuperar os pontos gastos para escolher novamente.</p>
+              </div>
+              <div className="grid grid-cols-2 gap-3 p-4">
+                <button
+                  onClick={() => setShowRespecConfirm(false)}
+                  className="rounded-xl border border-[#cfab91] bg-[#f4e5d4] px-4 py-2.5 text-xs font-black uppercase tracking-[0.14em] text-[#6b3141] transition-colors hover:bg-[#e9d7c2]"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={() => {
+                    onResetTalents();
+                    setShowRespecConfirm(false);
+                  }}
+                  className="rounded-xl border border-[#c3903b] bg-[#eeb653] px-4 py-2.5 text-xs font-black uppercase tracking-[0.14em] text-[#4d2a11] transition-colors hover:bg-[#f1bf66]"
+                >
+                  Redistribuir
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </RpgMenuShell>
   );

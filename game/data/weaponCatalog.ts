@@ -30,6 +30,11 @@ export interface RegisteredWeapon3DDefinition {
 
 const sharedTexturePath = 'game/assets/Characters/Weapons/another/weapons_bits_texture.png';
 const sharedTextureUrl = new URL('../assets/Characters/Weapons/another/weapons_bits_texture.png', import.meta.url).href;
+const MIN_WEAPON_COST_BY_RARITY: Record<Item['rarity'], number> = {
+  bronze: 240,
+  silver: 1200,
+  gold: 3600,
+};
 
 const createRegisteredWeapon = ({
   id,
@@ -64,7 +69,7 @@ const createRegisteredWeapon = ({
     id,
     name,
     description,
-    cost,
+    cost: Math.max(cost, MIN_WEAPON_COST_BY_RARITY[rarity]),
     type: 'weapon',
     value,
     icon,

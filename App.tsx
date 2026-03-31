@@ -18,8 +18,10 @@ import {
 import { PROGRESSION_CARDS, ALCHEMIST_CARDS } from './game/data/cards';
 import { applyPlayerClass, PLAYER_CLASSES } from './game/data/classes';
 import { gameMusicManager, isNightTime, type MusicTrackId } from './game/audio/music';
+import { battleSfx } from './game/audio/sfx';
+import { uiSfx } from './game/audio/uiSfx';
 import { createEmptyBuffState } from './game/mechanics/combat';
-import { createClassResourceState, getTalentBonuses, getUnlockedResourceMax, syncPlayerConstellationSkills, unlockTalentNode } from './game/mechanics/classProgression';
+import { createClassResourceState, getTalentBonuses, getUnlockedResourceMax, resetTalentNodes, syncPlayerConstellationSkills, unlockTalentNode } from './game/mechanics/classProgression';
 import { buyItemForPlayer, sellItemFromPlayer } from './game/mechanics/inventory';
 import { SavePayload, SaveSlotId, SaveSlotSummary, getActiveSaveSlotId, listSaveSlots, loadSaveFromSlot, saveToActiveSlot, setActiveSaveSlotId, clearSlot } from './game/mechanics/saveSystem';
 import { useBattleController } from './game/hooks/useBattleController';
@@ -453,7 +455,7 @@ export default function App() {
     const [selectedSaveSlotId, setSelectedSaveSlotId] = useState<SaveSlotId>(() => getActiveSaveSlotId());
     const [hasSavePromptDecision, setHasSavePromptDecision] = useState(false);
     const [resourceUnlockModal, setResourceUnlockModal] = useState<{ name: string; color: string } | null>(null);
-    const [openConstellationToken, setOpenConstellationToken] = useState(0);
+    const openConstellationToken = 0;
     const { arSupport, refreshArSupport } = useARCapabilities();
     const [isArOverlayOpen, setIsArOverlayOpen] = useState(false);
     const [arEntryPoint, setArEntryPoint] = useState<ArEntryPoint>('tavern');
@@ -538,11 +540,17 @@ export default function App() {
     const [menuHeroAction, setMenuHeroAction] = useState<PlayerAnimationAction>('idle');
     const [menuCameraFocusOverride, setMenuCameraFocusOverride] = useState<boolean | null>(null);
     const [showTavernUi, setShowTavernUi] = useState(true);
+    const [shopReturnToInventory, setShopReturnToInventory] = useState(false);
+    const [shopReturnInventoryFilter, setShopReturnInventoryFilter] = useState<'all' | 'equipment' | 'potion' | 'material'>('all');
+    const [openInventoryFromShopToken, setOpenInventoryFromShopToken] = useState(0);
+    const [openInventoryFromShopFilter, setOpenInventoryFromShopFilter] = useState<'all' | 'equipment' | 'potion' | 'material'>('all');
     const [sceneRegion, setSceneRegion] = useState<SceneRegion>('forest');
     const [onboardingPhase, setOnboardingPhase] = useState<OnboardingPhase>('intro_camp');
     const [hasPlayerDiedOnce, setHasPlayerDiedOnce] = useState(false);
     const [skillsUnlockPromptPending, setSkillsUnlockPromptPending] = useState(false);
     const [constellationUnlockPromptPending, setConstellationUnlockPromptPending] = useState(false);
+    const [constellationRespecUnlockPromptPending, setConstellationRespecUnlockPromptPending] = useState(false);
+    const [constellationRespecPromptSeen, setConstellationRespecPromptSeen] = useState(false);
     const [skillsActionUnlocked, setSkillsActionUnlocked] = useState(false);
     const previousSkillCountRef = useRef(player.skills.length);
     const enemyAnimationResetTimerRef = useRef<number | null>(null);
@@ -603,6 +611,8 @@ export default function App() {
         skillsActionUnlocked,
         skillsUnlockPromptPending,
         constellationUnlockPromptPending,
+        constellationRespecUnlockPromptPending,
+        constellationRespecPromptSeen,
         gameState,
         turnState,
         hasEnemy: Boolean(enemy),
@@ -623,6 +633,8 @@ export default function App() {
         bossVictoryContext,
         cardRewardQueue,
         constellationUnlockPromptPending,
+        constellationRespecPromptSeen,
+        constellationRespecUnlockPromptPending,
         currentCardChoices,
         currentCardOffer,
         dungeonEvolution,
@@ -677,6 +689,8 @@ export default function App() {
         const restoredTurnState = payload.turnState ?? TurnState.PLAYER_INPUT;
         const restoredSkillsPromptPending = payload.skillsUnlockPromptPending ?? false;
         const restoredConstellationPromptPending = payload.constellationUnlockPromptPending ?? false;
+        const restoredConstellationRespecPromptPending = payload.constellationRespecUnlockPromptPending ?? false;
+        const restoredConstellationRespecPromptSeen = payload.constellationRespecPromptSeen ?? false;
         const restoredCardRewardQueue = payload.cardRewardQueue ? cloneCardRewardOffers(payload.cardRewardQueue) : [];
         const restoredCurrentCardOffer = payload.currentCardOffer ? { ...payload.currentCardOffer } : null;
         const restoredCurrentCardChoices = payload.currentCardChoices ? cloneProgressionCards(payload.currentCardChoices) : [];
@@ -702,6 +716,8 @@ export default function App() {
         setSkillsActionUnlocked(payload.skillsActionUnlocked);
         setSkillsUnlockPromptPending(wasInterrupted ? false : restoredSkillsPromptPending);
         setConstellationUnlockPromptPending(wasInterrupted ? false : restoredConstellationPromptPending);
+        setConstellationRespecUnlockPromptPending(wasInterrupted ? false : restoredConstellationRespecPromptPending);
+        setConstellationRespecPromptSeen(restoredConstellationRespecPromptSeen);
         previousSkillCountRef.current = payload.player.skills.length;
 
         setEnemy(null);
@@ -749,6 +765,8 @@ export default function App() {
             hasPlayerDiedOnce: payload.hasPlayerDiedOnce || wasInterrupted,
             skillsUnlockPromptPending: wasInterrupted ? false : restoredSkillsPromptPending,
             constellationUnlockPromptPending: wasInterrupted ? false : restoredConstellationPromptPending,
+            constellationRespecUnlockPromptPending: wasInterrupted ? false : restoredConstellationRespecPromptPending,
+            constellationRespecPromptSeen: restoredConstellationRespecPromptSeen,
             turnState: wasInterrupted ? TurnState.PLAYER_INPUT : restoredTurnState,
             cardRewardQueue: wasInterrupted ? [] : restoredCardRewardQueue,
             currentCardOffer: wasInterrupted ? null : restoredCurrentCardOffer,
@@ -836,6 +854,8 @@ export default function App() {
         bossVictoryContext,
         cardRewardQueue,
         constellationUnlockPromptPending,
+        constellationRespecUnlockPromptPending,
+        constellationRespecPromptSeen,
         currentCardChoices,
         currentCardOffer,
         logs,
@@ -1009,12 +1029,6 @@ export default function App() {
         return () => window.removeEventListener('popstate', handleLocationChange);
     }, []);
 
-    const createLevelUpOffers = (count: number): CardRewardOffer[] =>
-        Array.from({ length: count }, (_, index) => ({
-            source: 'level-up',
-            reason: count > 1 ? `Carta de evolucao ${index + 1}/${count}` : 'Carta de evolucao',
-        }));
-
     const hasUnlockedSkill = (currentPlayer: Player, skillId?: string) => {
         if (!skillId) {
             return false;
@@ -1023,8 +1037,8 @@ export default function App() {
         return currentPlayer.skills.some(skill => skill.id === skillId);
     };
 
-    const isCardEligibleForOffer = (card: ProgressionCard, source: CardRewardOffer['source'], currentPlayer: Player) => {
-        if (!card.offerSources.includes(source) || card.minLevel > currentPlayer.level) {
+    const isCardEligibleForOffer = (card: ProgressionCard, source: CardRewardOffer['source'], currentPlayer: Player, phaseLevel: number) => {
+        if (!card.offerSources.includes(source) || card.minLevel > phaseLevel) {
             return false;
         }
 
@@ -1037,12 +1051,12 @@ export default function App() {
             || card.effects.some(effect => effect.type !== 'unlock_skill');
     };
 
-    const generateCardChoices = (source: CardRewardOffer['source'], currentPlayer: Player) => {
-        const availablePool = PROGRESSION_CARDS.filter(card => isCardEligibleForOffer(card, source, currentPlayer));
+    const generateCardChoices = (source: CardRewardOffer['source'], currentPlayer: Player, phaseLevel: number) => {
+        const availablePool = PROGRESSION_CARDS.filter(card => isCardEligibleForOffer(card, source, currentPlayer, phaseLevel));
 
         const fallbackPool = PROGRESSION_CARDS.filter(card => (
             card.offerSources.includes(source)
-            && card.minLevel <= currentPlayer.level
+            && card.minLevel <= phaseLevel
         ));
 
         const pool = availablePool.length >= 3 ? availablePool : fallbackPool;
@@ -1068,6 +1082,10 @@ export default function App() {
             nextPlayer.level += 1;
             nextPlayer.xp -= nextPlayer.xpToNext;
             nextPlayer.xpToNext = Math.floor(nextPlayer.xpToNext * 1.5);
+        }
+
+        if (levelsGained > 0) {
+            nextPlayer.talentPoints += levelsGained;
         }
 
         if (levelsGained > 0) {
@@ -1132,13 +1150,30 @@ export default function App() {
 
     const handleUnlockTalent = (nodeId: string) => {
         setPlayer((prev) => {
+            const unlockedBefore = prev.unlockedTalentNodeIds.length;
             const result = unlockTalentNode(prev, nodeId, SKILLS);
             if (!result) {
                 return prev;
             }
 
             addLog(`Constelacao: ${result.node.title} ativada.`, 'buff');
+            const unlockedAfter = result.player.unlockedTalentNodeIds.length;
+            if (!constellationRespecPromptSeen && unlockedBefore < 2 && unlockedAfter >= 2) {
+                setConstellationRespecPromptSeen(true);
+                setConstellationRespecUnlockPromptPending(true);
+            }
             return result.player;
+        });
+    };
+
+    const handleResetTalents = () => {
+        setPlayer((prev) => {
+            const nextPlayer = resetTalentNodes(prev, SKILLS);
+            if (nextPlayer === prev) {
+                return prev;
+            }
+            addLog('Pontos de constelacao redistribuidos.', 'info');
+            return nextPlayer;
         });
     };
 
@@ -1254,7 +1289,8 @@ export default function App() {
 
         const [nextOffer, ...remainingOffers] = queue;
         setCurrentCardOffer(nextOffer);
-        setCurrentCardChoices(generateCardChoices(nextOffer.source, currentPlayer));
+        const offerPhaseLevel = Math.max(1, nextOffer.phaseLevel ?? currentPlayer.level);
+        setCurrentCardChoices(generateCardChoices(nextOffer.source, currentPlayer, offerPhaseLevel));
         setCardRewardQueue(remainingOffers);
         setGameState(GameState.CARD_REWARD);
         return true;
@@ -1440,10 +1476,14 @@ export default function App() {
         setDungeonRun(null);
         setDungeonResult(null);
         setBossVictoryContext(null);
-        setPendingDungeonQueue([]);
-        setCardRewardQueue([]);
-        setCurrentCardOffer(null);
-        setCurrentCardChoices([]);
+    setPendingDungeonQueue([]);
+    setCardRewardQueue([]);
+    setCurrentCardOffer(null);
+    setCurrentCardChoices([]);
+    setShopReturnToInventory(false);
+    setOpenInventoryFromShopToken(0);
+    setOpenInventoryFromShopFilter('all');
+    setShopReturnInventoryFilter('all');
     setPlayerAnimationAction('idle');
     setEnemyAnimationAction('battle-idle');
     setSceneRegion('forest');
@@ -1451,6 +1491,8 @@ export default function App() {
     setHasPlayerDiedOnce(false);
         setSkillsUnlockPromptPending(false);
         setConstellationUnlockPromptPending(false);
+        setConstellationRespecUnlockPromptPending(false);
+        setConstellationRespecPromptSeen(false);
         setSkillsActionUnlocked(false);
         previousSkillCountRef.current = startingPlayer.skills.length;
     setGameState(GameState.TAVERN);
@@ -1467,6 +1509,8 @@ export default function App() {
                 skillsActionUnlocked: false,
                 skillsUnlockPromptPending: false,
                 constellationUnlockPromptPending: false,
+                constellationRespecUnlockPromptPending: false,
+                constellationRespecPromptSeen: false,
                 gameState: GameState.TAVERN,
                 turnState: TurnState.PLAYER_INPUT,
                 hasEnemy: false,
@@ -1777,9 +1821,7 @@ export default function App() {
     enemy,
     stage,
     dungeonRun,
-    pendingDungeonQueue,
     applyLevelProgression,
-    createLevelUpOffers,
     triggerLevelUpPulse,
     generateDungeonDrops,
     applyDropsToInventory,
@@ -1865,13 +1907,9 @@ export default function App() {
       addLog(`Carta escolhida: ${card.name}`, 'buff');
       triggerLevelUpPulse(card.category);
       const afterCardPlayer = applyCardChoice(player, card);
-      const { nextPlayer, levelsGained } = applyLevelProgression(afterCardPlayer);
+      const { nextPlayer } = applyLevelProgression(afterCardPlayer);
       let nextQueue = [...cardRewardQueue];
-            const shouldTriggerCardsUnlockTutorial = currentCardOffer.source === 'level-up' && onboardingPhase === 'inventory_unlocked';
-
-      if (levelsGained > 0) {
-        nextQueue = [...createLevelUpOffers(levelsGained), ...nextQueue];
-      }
+            const shouldTriggerCardsUnlockTutorial = currentCardOffer.source === 'boss' && onboardingPhase === 'inventory_unlocked';
 
             if (shouldTriggerCardsUnlockTutorial) {
                 setOnboardingPhase('cards_prompt');
@@ -1918,15 +1956,6 @@ export default function App() {
       setDungeonResult(null);
       setPendingDungeonQueue([]);
       setGameState(GameState.TAVERN);
-  };
-
-  const handleOpenConstellationFromBossModal = () => {
-      setBossVictoryContext(null);
-      setPostCardFlow(null);
-      setDungeonResult(null);
-      setPendingDungeonQueue([]);
-      setGameState(GameState.TAVERN);
-      setOpenConstellationToken((prev) => prev + 1);
   };
 
   const buyItem = (item: Item, quantity = 1) => {
@@ -2249,7 +2278,9 @@ export default function App() {
         }
 
         const unlockMusic = () => {
-            gameMusicManager.unlock().finally(() => {
+            Promise.allSettled([gameMusicManager.unlock(), battleSfx.unlock(), uiSfx.unlock()]).finally(() => {
+                battleSfx.preload();
+                uiSfx.preload();
                 setHasUnlockedMusic(true);
             });
         };
@@ -2278,7 +2309,103 @@ export default function App() {
 
     useEffect(() => () => {
         gameMusicManager.dispose();
+        battleSfx.dispose();
+        uiSfx.dispose();
     }, []);
+
+    useEffect(() => {
+        const closeKeywords = ['fechar', 'cancelar', 'voltar', 'sair', 'close', 'cancel'];
+        const clickableRoles = new Set(['button', 'link', 'menuitem', 'tab', 'switch', 'checkbox', 'radio', 'option']);
+
+        const normalize = (value: string) => value
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .trim();
+
+        const isLikelyClickable = (element: HTMLElement) => {
+            const tagName = element.tagName;
+            if (tagName === 'BUTTON' || tagName === 'A') return true;
+            if (tagName === 'INPUT') {
+                const type = (element as HTMLInputElement).type;
+                return type === 'button' || type === 'submit' || type === 'reset';
+            }
+
+            const role = normalize(element.getAttribute('role') ?? '');
+            if (clickableRoles.has(role)) return true;
+
+            if (element.classList.contains('cursor-pointer')) return true;
+            if (element.getAttribute('tabindex') !== null && Number(element.getAttribute('tabindex')) >= 0) return true;
+
+            return false;
+        };
+
+        const shouldPlayOut = (element: HTMLElement) => {
+            if (element.dataset.uiClickOut === 'true') {
+                return true;
+            }
+
+            const roleLabel = [
+                element.getAttribute('aria-label') ?? '',
+                element.getAttribute('title') ?? '',
+                element.textContent ?? '',
+            ].map(normalize).join(' ');
+
+            return closeKeywords.some((keyword) => roleLabel.includes(keyword));
+        };
+
+        const handleUiClick = (event: MouseEvent) => {
+            if (!hasUnlockedMusic) {
+                return;
+            }
+
+            const target = event.target as HTMLElement | null;
+            if (!target) return;
+
+            const clickable = target.closest('button, a, input, [role], .cursor-pointer, [tabindex]') as HTMLElement | null;
+            if (!clickable || !isLikelyClickable(clickable)) return;
+
+            uiSfx.play(shouldPlayOut(clickable) ? 'click_out' : 'click_in');
+        };
+
+        window.addEventListener('click', handleUiClick, { capture: true });
+        return () => {
+            window.removeEventListener('click', handleUiClick, { capture: true });
+        };
+    }, [hasUnlockedMusic]);
+
+    const wasNewMechanicModalOpenRef = useRef(false);
+    useEffect(() => {
+        if (!hasUnlockedMusic) {
+            wasNewMechanicModalOpenRef.current = false;
+            return;
+        }
+
+        const isNewMechanicModalOpen = (
+            onboardingPhase === 'inventory_prompt'
+            || onboardingPhase === 'cards_prompt'
+            || onboardingPhase === 'merchant_prompt'
+            || onboardingPhase === 'items_prompt'
+            || onboardingPhase === 'flee_prompt'
+            || skillsUnlockPromptPending
+            || constellationUnlockPromptPending
+            || constellationRespecUnlockPromptPending
+            || Boolean(resourceUnlockModal)
+        );
+
+        if (isNewMechanicModalOpen && !wasNewMechanicModalOpenRef.current) {
+            uiSfx.play('new_mechanic_modal');
+        }
+
+        wasNewMechanicModalOpenRef.current = isNewMechanicModalOpen;
+    }, [
+        constellationRespecUnlockPromptPending,
+        constellationUnlockPromptPending,
+        hasUnlockedMusic,
+        onboardingPhase,
+        resourceUnlockModal,
+        skillsUnlockPromptPending,
+    ]);
 
     const hasAnySaveSlot = saveSlots.some((slot) => slot.hasSave);
     const selectedSlotSummary = saveSlots.find((slot) => slot.slotId === selectedSaveSlotId) ?? null;
@@ -2479,23 +2606,36 @@ export default function App() {
                         dungeonTotalMonsters={getDungeonMonsterTarget(dungeonEvolution)}
             onHunt={() => enterBattle(false)}
             onBoss={() => enterBattle(true)}
-                        onDungeon={startDungeon}
-            onShop={() => setGameState(GameState.SHOP)}
+            onDungeon={startDungeon}
+            onShop={() => {
+                setShopReturnToInventory(false);
+                setOpenInventoryFromShopToken(0);
+                setOpenInventoryFromShopFilter('all');
+                setGameState(GameState.SHOP);
+            }}
+            onShopFromInventory={(filter) => {
+                setShopReturnToInventory(true);
+                setShopReturnInventoryFilter(filter);
+                setGameState(GameState.SHOP);
+            }}
                         onAlchemist={() => setGameState(GameState.ALCHEMIST)}
             onOpenAr={() => handleOpenAr('tavern')}
             arSupport={arSupport}
             shopItems={ALL_ITEMS}
             autoOpenConstellationToken={openConstellationToken}
+            autoOpenInventoryToken={openInventoryFromShopToken}
+            autoOpenInventoryFilter={openInventoryFromShopFilter}
             onEquipItem={equipItem}
             onUnequipItem={unequipItem}
             onUseItem={handleUseItem}
             onUnlockTalent={handleUnlockTalent}
+            onResetTalents={handleResetTalents}
                         campIntroOnly={isCampIntroRestricted}
                         restrictProfileToStatusOnly={isProfileStatusOnly}
                         inventoryUnlocked={isInventoryUnlocked}
                         inventoryUnlockPromptActive={onboardingPhase === 'inventory_prompt'}
                         onAcknowledgeInventoryUnlock={() => setOnboardingPhase('inventory_unlocked')}
-                        cardsUnlockPromptActive={false}
+                        cardsUnlockPromptActive={onboardingPhase === 'cards_prompt'}
                         onAcknowledgeCardsUnlock={() => setOnboardingPhase('cards_unlocked')}
                         skillsUnlockPromptActive={skillsUnlockPromptPending}
                         onAcknowledgeSkillsUnlock={() => {
@@ -2504,6 +2644,10 @@ export default function App() {
                         constellationUnlockPromptActive={constellationUnlockPromptPending}
                         onAcknowledgeConstellationUnlock={() => {
                             setConstellationUnlockPromptPending(false);
+                        }}
+                        constellationRespecUnlockPromptActive={constellationRespecUnlockPromptPending}
+                        onAcknowledgeConstellationRespecUnlock={() => {
+                            setConstellationRespecUnlockPromptPending(false);
                         }}
                         allowCardsInProfile={isCardsUnlocked}
                         fleeUnlocked={isFleeUnlocked}
@@ -2527,10 +2671,18 @@ export default function App() {
         <ShopScreen 
             player={player} 
             items={ALL_ITEMS} 
+            huntStage={stage}
             onBuy={buyItem} 
             onSell={sellItem}
             onEquip={equipItem}
-            onLeave={() => setGameState(GameState.TAVERN)} 
+            onLeave={() => {
+                if (shopReturnToInventory) {
+                    setOpenInventoryFromShopFilter(shopReturnInventoryFilter);
+                    setOpenInventoryFromShopToken((prev) => prev + 1);
+                    setShopReturnToInventory(false);
+                }
+                setGameState(GameState.TAVERN);
+            }} 
         />
       )}
 
@@ -2557,6 +2709,7 @@ export default function App() {
             onSkill={handleSkill}
             onUseItem={handleUseItem}
             onUnlockTalent={handleUnlockTalent}
+            onResetTalents={handleResetTalents}
             onStartBattle={(isBoss) => enterBattle(isBoss)}
             onEnterShop={() => {}} // Disabled in battle
             onBuyItem={buyItem}
@@ -2593,6 +2746,10 @@ export default function App() {
                                                 constellationUnlockPromptActive={constellationUnlockPromptPending}
                                                 onAcknowledgeConstellationUnlock={() => {
                                                     setConstellationUnlockPromptPending(false);
+                                                }}
+                                                constellationRespecUnlockPromptActive={constellationRespecUnlockPromptPending}
+                                                onAcknowledgeConstellationRespecUnlock={() => {
+                                                    setConstellationRespecUnlockPromptPending(false);
                                                 }}
                                                                                                 itemsUnlockPromptActive={onboardingPhase === 'items_prompt'}
                                                                                                 onAcknowledgeItemsUnlock={() => setOnboardingPhase('flee_prompt')}
@@ -2633,8 +2790,27 @@ export default function App() {
               narration={bossVictoryContext.mode === 'hunt' ? narration : undefined}
               onContinue={handleBossVictoryContinue}
               onExit={handleBossVictoryExit}
-              onOpenConstellation={handleOpenConstellationFromBossModal}
           />
+      )}
+
+      {resolvedGameState === GameState.BOSS_VICTORY && onboardingPhase === 'cards_prompt' && (
+          <div className="absolute inset-0 z-[95] flex items-center justify-center bg-black/55 backdrop-blur-sm p-4 pointer-events-auto">
+              <div className="w-full max-w-sm rounded-[24px] border border-[#cfab91] bg-[#f7ecdd] shadow-[0_24px_80px_rgba(107,49,65,0.22)] overflow-hidden" onClick={(event) => event.stopPropagation()}>
+                  <div className="px-5 py-4 border-b border-[#dcc0aa] bg-[#6b3141] text-[#f6eadc]">
+                      <div className="text-[10px] font-black uppercase tracking-[0.24em]">Evolucao</div>
+                      <h3 className="mt-1 text-2xl font-black text-white">Cartas liberadas</h3>
+                      <p className="mt-1.5 text-sm text-[#dcc0aa]">Sua primeira carta foi registrada. Agora o menu de cartas esta disponivel no perfil.</p>
+                  </div>
+                  <div className="p-4">
+                      <button
+                          onClick={() => setOnboardingPhase('cards_unlocked')}
+                          className="w-full rounded-xl border border-[#7d3d4d] bg-[#6b3141] px-4 py-2.5 text-xs font-black uppercase tracking-[0.14em] text-[#f7eadf] transition-colors hover:bg-[#7a3d4d]"
+                      >
+                          Ver cartas
+                      </button>
+                  </div>
+              </div>
+          </div>
       )}
 
       {resolvedGameState === GameState.GAME_OVER && (

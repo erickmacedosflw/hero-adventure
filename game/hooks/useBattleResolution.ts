@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import { ALL_ITEMS } from '../../constants';
 import { createEmptyBuffState } from '../mechanics/combat';
+import { generateHuntDropsByStage } from '../mechanics/huntDropProgression';
 import { CardRewardOffer, DungeonResult, DungeonRunState, DungeonRewards, Enemy, GameState, Item, Player } from '../../types';
 
 interface LootResult {
@@ -18,9 +19,7 @@ interface UseBattleResolutionParams {
   enemy: Enemy | null;
   stage: number;
   dungeonRun: DungeonRunState | null;
-  pendingDungeonQueue: CardRewardOffer[];
   applyLevelProgression: (basePlayer: Player, levelUpRecoveryRatio?: number) => { nextPlayer: Player; levelsGained: number };
-  createLevelUpOffers: (count: number) => CardRewardOffer[];
   triggerLevelUpPulse: () => void;
   generateDungeonDrops: (targetEnemy: Enemy, evolution: number, wasBoss: boolean) => string[];
   applyDropsToInventory: (inventory: Record<string, number>, rewardDrops: Record<string, number>) => Record<string, number>;
@@ -57,9 +56,7 @@ export const useBattleResolution = ({
   enemy,
   stage,
   dungeonRun,
-  pendingDungeonQueue,
   applyLevelProgression,
-  createLevelUpOffers,
   triggerLevelUpPulse,
   generateDungeonDrops,
   applyDropsToInventory,
@@ -104,45 +101,17 @@ export const useBattleResolution = ({
     const xpGain = Math.floor(enemy.xpReward * (1 + player.cardBonuses.xpGainMultiplier));
     const goldGain = Math.floor(enemy.goldReward * (1 + player.cardBonuses.goldGainMultiplier));
     const wasBoss = enemy.isBoss;
-    const shouldOpenConstellationTutorial = wasBoss && shouldTriggerConstellationUnlockTutorial;
 
     const drops: string[] = [];
     if (dungeonRun) {
       drops.push(...generateDungeonDrops(enemy, dungeonRun.evolution, wasBoss));
     } else {
-      if (Math.random() < 0.6) {
-        if (enemy.type === 'beast') drops.push(Math.random() < 0.5 ? 'mat_bone' : 'mat_slime');
-        else if (enemy.type === 'humanoid') drops.push(Math.random() < 0.5 ? 'mat_cloth' : 'mat_wood');
-        else if (enemy.type === 'undead') drops.push(Math.random() < 0.5 ? 'mat_bone' : 'mat_cloth');
-      }
-      if (wasBoss) {
-        drops.push('mat_iron');
-        if (Math.random() < 0.3) drops.push('mat_gold');
-        if (Math.random() < 0.5) drops.push('pot_1');
-      } else if (Math.random() < 0.15) {
-        drops.push('pot_1');
-      }
-
-      // One-time onboarding rule: the very first enemy kill always grants at least one item.
-      if (!wasBoss && shouldForceFirstEnemyDrop && drops.length === 0) {
-        if (enemy.type === 'beast') {
-          drops.push(Math.random() < 0.5 ? 'mat_bone' : 'mat_slime');
-        } else if (enemy.type === 'humanoid') {
-          drops.push(Math.random() < 0.5 ? 'mat_cloth' : 'mat_wood');
-        } else {
-          drops.push(Math.random() < 0.5 ? 'mat_bone' : 'mat_cloth');
-        }
-      }
-
-      if (!wasBoss && shouldTriggerInventoryUnlockTutorial && drops.length === 0) {
-        if (enemy.type === 'beast') {
-          drops.push(Math.random() < 0.5 ? 'mat_bone' : 'mat_slime');
-        } else if (enemy.type === 'humanoid') {
-          drops.push(Math.random() < 0.5 ? 'mat_cloth' : 'mat_wood');
-        } else {
-          drops.push(Math.random() < 0.5 ? 'mat_bone' : 'mat_cloth');
-        }
-      }
+      drops.push(...generateHuntDropsByStage({
+        enemyType: enemy.type,
+        stage,
+        isBoss: wasBoss,
+        ensureAtLeastOneDrop: !wasBoss && (shouldForceFirstEnemyDrop || shouldTriggerInventoryUnlockTutorial),
+      }));
     }
 
     const effectiveDrops = allowPotionDrops
@@ -169,6 +138,7 @@ export const useBattleResolution = ({
       let levelsGained = 0;
       let progressedDungeonPlayer = playerAfterXpGain;
       ({ nextPlayer: progressedDungeonPlayer, levelsGained } = applyLevelProgression(playerAfterXpGain, 0.3));
+      const shouldOpenConstellationTutorial = levelsGained > 0 && shouldTriggerConstellationUnlockTutorial;
 
       const nextDrops = { ...dungeonRun.rewards.drops };
       effectiveDrops.forEach(dropId => {
@@ -190,12 +160,7 @@ export const useBattleResolution = ({
         triggerLevelUpPulse();
       }
 
-      const levelUpOffers = levelsGained > 0 ? createLevelUpOffers(levelsGained) : [];
-
       setPlayer(progressedDungeonPlayer);
-      if (levelsGained > 0 && !wasBoss) {
-        setPendingDungeonQueue(prev => [...prev, ...levelUpOffers]);
-      }
 
       addLog(`Vitória na dungeon! +${xpGain} XP ganho agora, +${goldGain} Ouro em reserva${diamondGain > 0 ? `, +${diamondGain} Diamante` : ''}.`, 'crit');
       setLootResult({ gold: goldGain, xp: xpGain, diamonds: diamondGain, drops: dropItems, isBoss: wasBoss, enemyName: enemy.name });
@@ -208,7 +173,6 @@ export const useBattleResolution = ({
         const nextTotalMonsters = getDungeonMonsterTarget(nextEvolution);
         const updatedPlayer = {
           ...progressedDungeonPlayer,
-          talentPoints: progressedDungeonPlayer.talentPoints + 1,
           gold: progressedDungeonPlayer.gold + nextRewards.gold,
           diamonds: progressedDungeonPlayer.diamonds + nextRewards.diamonds,
           inventory: applyDropsToInventory(progressedDungeonPlayer.inventory, nextRewards.drops),
@@ -228,16 +192,16 @@ export const useBattleResolution = ({
           nextEvolution,
           nextTotalMonsters,
           rewards: nextRewards,
-          constellationPointsAwarded: 1,
         });
         setNarration('Escolha: continuar para a proxima evolucao da dungeon ou sair sem custo.');
         setDungeonRun(null);
         setDungeonResult(null);
 
-        const bossQueue: CardRewardOffer[] = [
-          ...pendingDungeonQueue,
-          ...levelUpOffers,
-        ];
+        const bossQueue: CardRewardOffer[] = [{
+          source: 'boss',
+          reason: 'Recompensa de chefe da dungeon',
+          phaseLevel: dungeonRun.evolution + 1,
+        }];
         setPendingDungeonQueue([]);
 
         if (bossQueue.length > 0) {
@@ -281,21 +245,13 @@ export const useBattleResolution = ({
         mode: 'hunt',
         bossName: enemy.name,
         nextStage: stage + 1,
-        constellationPointsAwarded: 1,
       });
     } else {
       setKillCount(prev => prev + 1);
     }
 
     ({ nextPlayer: updatedPlayer, levelsGained } = applyLevelProgression(updatedPlayer, 0.3));
-
-    if (wasBoss) {
-      updatedPlayer = {
-        ...updatedPlayer,
-        talentPoints: updatedPlayer.talentPoints + 1,
-      };
-      addLog('Chefe derrotado: +1 ponto de evolucao da constelacao.', 'buff');
-    }
+    const shouldOpenConstellationTutorial = levelsGained > 0 && shouldTriggerConstellationUnlockTutorial;
 
     if (levelsGained > 0) {
       triggerLevelUpPulse();
@@ -316,10 +272,13 @@ export const useBattleResolution = ({
 
     setEnemy(null);
     setEnemyAnimationAction('battle-idle');
-    const queuedCardRewards: CardRewardOffer[] = [];
-    if (levelsGained > 0) {
-      queuedCardRewards.push(...createLevelUpOffers(levelsGained));
-    }
+    const queuedCardRewards: CardRewardOffer[] = wasBoss
+      ? [{
+        source: 'boss',
+        reason: 'Recompensa do chefao da fase',
+        phaseLevel: stage,
+      }]
+      : [];
 
     const shouldOpenInventoryTutorial = !wasBoss && effectiveDrops.length > 0 && shouldTriggerInventoryUnlockTutorial;
 
@@ -355,7 +314,6 @@ export const useBattleResolution = ({
     addLog,
     applyDropsToInventory,
     applyLevelProgression,
-    createLevelUpOffers,
     dungeonRun,
     enemy,
     enterBattle,
@@ -363,7 +321,6 @@ export const useBattleResolution = ({
     generateVictorySpeech,
     getDungeonMonsterTarget,
     openCardRewardQueue,
-    pendingDungeonQueue,
     player,
     setBossVictoryContext,
     setDungeonEvolution,

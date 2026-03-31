@@ -19,6 +19,7 @@ type RpgMenuShellProps = {
   closing?: boolean;
   accent?: Accent;
   valueBadge?: React.ReactNode;
+  headerStyle?: React.CSSProperties;
   headerAction?: React.ReactNode;
   navItems?: NavItem[];
   children: React.ReactNode;
@@ -37,9 +38,9 @@ const accentMap: Record<Accent, { header: string; badge: string; active: string 
     active: 'border-[#6a6848] bg-[#f1ead7] text-[#525035] shadow-[0_10px_22px_rgba(82,80,53,0.14)]',
   },
   gold: {
-    header: 'bg-[#7a5733] text-[#fff5e7]',
-    badge: 'border-[#e1bc7b] bg-[#f6ebd4] text-[#704f2e]',
-    active: 'border-[#8d6339] bg-[#f6ead1] text-[#704f2e] shadow-[0_10px_22px_rgba(112,79,46,0.14)]',
+    header: 'bg-[#8a642f] text-[#fff6e6]',
+    badge: 'border-[#d9b26e] bg-[#f5e6c8] text-[#6f4d24]',
+    active: 'border-[#9d7338] bg-[#f4e2be] text-[#6f4d24] shadow-[0_10px_22px_rgba(112,79,46,0.16)]',
   },
 };
 
@@ -74,6 +75,7 @@ export const RpgMenuShell = ({
   closing = false,
   accent = 'wine',
   valueBadge,
+  headerStyle,
   headerAction,
   navItems,
   children,
@@ -88,7 +90,7 @@ export const RpgMenuShell = ({
     <div className={cn('absolute inset-0 z-[70] bg-[rgba(28,13,18,0.36)] backdrop-blur-[3px] pointer-events-auto', overlayAnimationClass)} onClick={onClose}>
       <div className="flex h-full w-full items-stretch p-2 sm:p-3 xl:p-5" onClick={(event) => event.stopPropagation()}>
         <div className={cn('rpg-menu-theme mx-auto flex h-full max-h-[calc(100dvh-1rem)] w-full max-w-[96rem] flex-col overflow-hidden rounded-[24px] border border-[#c59d82] shadow-[0_24px_90px_rgba(40,20,25,0.32)] sm:max-h-[calc(100dvh-1.5rem)]', panelAnimationClass)}>
-            <header className={cn('grid grid-cols-[auto_1fr_auto] items-center gap-2 px-3 py-2 sm:px-4 sm:py-2.5', palette.header)}>
+            <header className={cn('grid grid-cols-[auto_1fr_auto] items-center gap-2 px-3 py-2 sm:px-4 sm:py-2.5', palette.header)} style={headerStyle}>
               <button onClick={onClose} className="inline-flex items-center gap-1.5 text-xs font-semibold transition-opacity hover:opacity-80 sm:text-sm">
                 <span className="flex h-7 w-7 items-center justify-center rounded-full border border-current/20 bg-white/10"><X size={14} /></span>
                 {closeLabel}

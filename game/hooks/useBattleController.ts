@@ -10,6 +10,7 @@ import {
   tickStatusEffects,
 } from '../mechanics/combat';
 import { getTalentBonuses } from '../mechanics/classProgression';
+import { battleSfx } from '../audio/sfx';
 import { BattleLog, DungeonResult, DungeonRunState, Enemy, GameState, Player, PlayerAnimationAction, Skill, TurnState } from '../../types';
 
 interface SkillVisualConfig {
@@ -112,6 +113,7 @@ const ENEMY_STEAL_SPEED_WEIGHT = 0.006;
 const ENEMY_STEAL_LUCK_WEIGHT = 0.004;
 const ENEMY_ACTION_READ_DELAY_MS = 1250;
 const ENEMY_ACTION_READ_DELAY_LONG_MS = 1650;
+const IMPACT_TO_DEATH_SFX_DELAY_MS = 120;
 
 const getSkillCastColor = (skill: Enemy['skillSet'][number]) => {
   if (skill.effect === 'heal') return '#34d399';
@@ -125,6 +127,49 @@ const getEnemyItemUseLabel = (healAmount: number) => {
   if (healAmount >= 100) return '💖 Elixir Rubro';
   if (healAmount >= 50) return '❤ Pocao de Vida';
   return '🧪 Pocao Menor';
+};
+
+const playAttackImpactSfx = ({
+  attackKind,
+  attackerStyle,
+  defended,
+  source,
+}: {
+  attackKind: 'physical' | 'magic';
+  attackerStyle: 'weapon' | 'unarmed';
+  defended: boolean;
+  source: 'hero' | 'enemy';
+}) => {
+  battleSfx.play(attackerStyle === 'weapon' ? 'attack_weapon_swing' : 'attack_unarmed_swing', {
+    attackKind,
+    attackerStyle,
+    defended,
+    source,
+  });
+
+  if (defended) {
+    battleSfx.play('defended_hit', { attackKind, attackerStyle, defended: true, source });
+    return;
+  }
+
+  if (attackerStyle === 'weapon' && attackKind === 'physical') {
+    battleSfx.play('attack_weapon_impact', { attackKind, attackerStyle, defended: false, source });
+    return;
+  }
+
+  battleSfx.play('attack_unarmed_or_magic_impact', { attackKind, attackerStyle, defended: false, source });
+};
+
+const playEnemyDeathAfterImpactSfx = () => {
+  window.setTimeout(() => {
+    battleSfx.play('death');
+  }, IMPACT_TO_DEATH_SFX_DELAY_MS);
+};
+
+const playMovementSfx = (attackerStyle: 'weapon' | 'unarmed') => {
+  battleSfx.play(attackerStyle === 'weapon' ? 'movement_armed' : 'movement_unarmed', {
+    attackerStyle,
+  });
 };
 
 export const useBattleController = ({
@@ -241,6 +286,7 @@ export const useBattleController = ({
 
     setTurnState(TurnState.PLAYER_ANIMATION);
     setIsPlayerAttacking(true);
+    playMovementSfx(player.equippedWeapon ? 'weapon' : 'unarmed');
     setPlayerAnimationAction('attack');
     setEnemyAnimationAction(enemy.isDefending ? 'defend' : 'battle-idle');
 
@@ -261,6 +307,7 @@ export const useBattleController = ({
       });
 
       if (attackResult.evaded) {
+        battleSfx.play('evade');
         spawnFloatingText(isFirstStrike ? 'DESVIO!' : '2o DESVIO!', 'enemy', 'buff');
         addLog(isFirstStrike ? `${enemy.name} desviou do ataque!` : `${enemy.name} desviou do segundo golpe!`, 'evade');
         triggerEnemyAnimationAction('evade', 520);
@@ -268,6 +315,12 @@ export const useBattleController = ({
       }
 
       const appliedDamage = isFirstStrike && enemy.isDefending ? Math.floor(attackResult.damage * 0.5) : attackResult.damage;
+      playAttackImpactSfx({
+        attackKind: 'physical',
+        attackerStyle: player.equippedWeapon ? 'weapon' : 'unarmed',
+        defended: isFirstStrike ? enemy.isDefending : false,
+        source: 'hero',
+      });
       const strikeLabel = isFirstStrike ? '' : '2o GOLPE! ';
       spawnParticles([2, -0.5, 0], isFirstStrike ? 10 : 12, attackResult.isCrit ? '#fbbf24' : '#ffffff', 'explode');
       spawnFloatingText(attackResult.isCrit ? `${strikeLabel}CRIT! ${appliedDamage}` : `${strikeLabel}${appliedDamage}`, 'enemy', attackResult.isCrit ? 'crit' : 'damage');
@@ -279,6 +332,9 @@ export const useBattleController = ({
       }, 200);
 
       const updatedHp = Math.max(0, remainingHp - appliedDamage);
+      if (updatedHp <= 0) {
+        playEnemyDeathAfterImpactSfx();
+      }
       triggerEnemyAnimationAction(updatedHp <= 0 ? 'death' : attackResult.isCrit ? 'critical-hit' : 'hit', updatedHp <= 0 ? 900 : attackResult.isCrit ? 620 : 360);
       setEnemy((prev) => {
         if (!prev) return null;
@@ -352,6 +408,7 @@ export const useBattleController = ({
     const manaRecovered = Math.max(1, Math.floor(player.stats.maxMp * (0.05 + player.cardBonuses.defendManaRestore)) + Math.floor(talentBonuses.manaOnDefend));
 
     setTurnState(TurnState.PLAYER_ANIMATION);
+    battleSfx.play('defense_use', { source: 'hero' });
     setPlayerAnimationAction('defend');
 
     setPlayer((prev) => ({
@@ -450,6 +507,7 @@ export const useBattleController = ({
 
       spawnParticles([-2, -1, 0], visual.particleCount + 14, visual.color, 'heal');
       spawnFloatingText(`+${healAmount}`, 'player', 'heal');
+      battleSfx.play('heal');
       addLog(`${skill.name}: curou ${healAmount} HP!`, 'heal');
 
       if (skill.buffEffect?.target === 'player') {
@@ -465,6 +523,7 @@ export const useBattleController = ({
     }
 
     setIsPlayerAttacking(true);
+    playMovementSfx(skill.type === 'magic' ? 'unarmed' : (player.equippedWeapon ? 'weapon' : 'unarmed'));
     const doubleAttackActive = player.buffs.doubleAttackTurns > 0 && skill.type === 'physical';
     window.setTimeout(() => {
       setIsPlayerAttacking(false);
@@ -489,6 +548,7 @@ export const useBattleController = ({
         });
 
         if (attackResult.evaded) {
+          battleSfx.play('evade');
           spawnFloatingText(isFirstStrike ? 'DESVIO!' : '2o DESVIO!', 'enemy', 'buff');
           addLog(isFirstStrike ? `${enemy.name} desviou de ${skill.name}!` : `${enemy.name} desviou da repeticao de ${skill.name}!`, 'evade');
           triggerEnemyAnimationAction('evade', 520);
@@ -496,6 +556,12 @@ export const useBattleController = ({
         }
 
         const appliedDamage = isFirstStrike && enemy.isDefending ? Math.floor(attackResult.damage * 0.5) : attackResult.damage;
+        playAttackImpactSfx({
+          attackKind: skill.type === 'magic' ? 'magic' : 'physical',
+          attackerStyle: skill.type === 'magic' ? 'unarmed' : (player.equippedWeapon ? 'weapon' : 'unarmed'),
+          defended: isFirstStrike ? enemy.isDefending : false,
+          source: 'hero',
+        });
         const strikePrefix = isFirstStrike ? '' : '2o ';
         const impactPosition: [number, number, number] = [2, 0.62, 0.06];
         const strikeBurstCount = visual.particleCount + (isFirstStrike ? 10 : 14) + (attackResult.isCrit ? 8 : 0);
@@ -508,6 +574,9 @@ export const useBattleController = ({
         window.setTimeout(() => setScreenShake(0), 200);
 
         const updatedHp = Math.max(0, remainingHp - appliedDamage);
+        if (updatedHp <= 0) {
+          playEnemyDeathAfterImpactSfx();
+        }
         triggerEnemyAnimationAction(updatedHp <= 0 ? 'death' : attackResult.isCrit ? 'critical-hit' : 'hit', updatedHp <= 0 ? 900 : attackResult.isCrit ? 620 : 360);
         setEnemy((prev) => {
           if (!prev) return null;
@@ -617,16 +686,19 @@ export const useBattleController = ({
         : 0;
 
     if (recoveredHp > 0 && recoveredMp > 0) {
+      battleSfx.play('heal');
       spawnParticles([-2, -1, 0], 26, '#4ade80', 'heal');
       spawnParticles([-2, -1, 0], 20, '#3b82f6', 'heal');
       spawnFloatingText(`+${recoveredHp} HP`, 'player', 'heal');
       spawnFloatingText(`+${recoveredMp} MP`, 'player', 'heal');
       addLog(`Usou ${item.name}, recuperou ${recoveredHp} HP e ${recoveredMp} MP`, 'heal');
     } else if (recoveredHp > 0) {
+      battleSfx.play('heal');
       spawnParticles([-2, -1, 0], 24, '#4ade80', 'heal');
       spawnFloatingText(`+${recoveredHp}`, 'player', 'heal');
       addLog(`Usou ${item.name}, recuperou ${recoveredHp} HP`, 'heal');
     } else if (recoveredMp > 0) {
+      battleSfx.play('heal');
       spawnParticles([-2, -1, 0], 24, '#3b82f6', 'heal');
       spawnFloatingText(`+${recoveredMp} MP`, 'player', 'heal');
       addLog(`Usou ${item.name}, recuperou ${recoveredMp} MP`, 'heal');
@@ -741,6 +813,7 @@ export const useBattleController = ({
 
     if (simulatedEnemy.stats.hp <= 0) {
       setEnemy(simulatedEnemy);
+      battleSfx.play('death');
       triggerEnemyAnimationAction('death', 900);
       void handleVictoryRef.current(900);
       return;
@@ -766,6 +839,7 @@ export const useBattleController = ({
     };
 
     const useDefendAction = (reasonLabel: string) => {
+    battleSfx.play('defense_use', { source: 'enemy' });
       const recoveredMp = enemyUsesManaSkills
         ? Math.max(1, Math.min(simulatedEnemy.manaRegenOnDefend, simulatedEnemy.stats.maxMp - simulatedEnemy.stats.mp))
         : 0;
@@ -804,6 +878,7 @@ export const useBattleController = ({
       triggerEnemyAnimationAction('item', 900);
       window.setTimeout(() => {
         addLog(`${simulatedEnemy.name} usou pocao e curou ${healAmount} HP.`, 'heal');
+        battleSfx.play('heal');
         spawnFloatingText(getEnemyItemUseLabel(healAmount), 'enemy', 'item');
         spawnFloatingText(`+${healAmount}`, 'enemy', 'heal');
         spawnParticles([2, -0.5, 0], 20, '#22c55e', 'heal');
@@ -841,6 +916,7 @@ export const useBattleController = ({
     const stealIntentChance = clamp(0.2 + (simulatedEnemy.aiProfile.tier * 0.025), 0.2, 0.55);
     if (canAttemptSteal && Math.random() < stealIntentChance) {
       setIsEnemyAttacking(true);
+      playMovementSfx(simulatedEnemy.attackStyle === 'armed' ? 'weapon' : 'unarmed');
       triggerEnemyAnimationAction('attack', 800);
       window.setTimeout(() => {
         const chanceFinal = clamp(
@@ -878,6 +954,7 @@ export const useBattleController = ({
               ...nextEnemy,
               stolenGoldTotal: nextEnemy.stolenGoldTotal + stolenGold,
             };
+            battleSfx.play('enemy_steal_success');
             spawnFloatingText(`💰 ${stolenGold} Ouro Saqueado`, 'player', 'item');
             addLog(`${simulatedEnemy.name} saqueou ${stolenGold} de ouro.`, 'crit');
             window.setTimeout(() => {
@@ -900,6 +977,7 @@ export const useBattleController = ({
             ...nextEnemy,
             stolenItems: [...nextEnemy.stolenItems, targetItemId],
           };
+          battleSfx.play('enemy_steal_success');
           spawnFloatingText(`${stolenItem?.icon ?? '🎒'} ${stolenItem?.name ?? 'Item'} Saqueado`, 'player', 'item');
           addLog(`${simulatedEnemy.name} saqueou ${stolenItem?.name ?? 'um item'}!`, 'crit');
           window.setTimeout(() => {
@@ -946,6 +1024,7 @@ export const useBattleController = ({
       };
 
       setIsEnemyAttacking(true);
+      playMovementSfx(chosenSkill.attackKind === 'magic' ? 'unarmed' : (simulatedEnemy.attackStyle === 'armed' ? 'weapon' : 'unarmed'));
       triggerEnemyAnimationAction('skill', 760);
       const castColor = getSkillCastColor(chosenSkill);
       spawnFloatingText(chosenSkill.name.toUpperCase(), 'enemy', 'skill');
@@ -961,6 +1040,7 @@ export const useBattleController = ({
             },
           };
           addLog(`${simulatedEnemy.name} usou ${chosenSkill.name} e curou ${healAmount} HP.`, 'heal');
+          battleSfx.play('heal');
           spawnFloatingText(`+${healAmount} HP`, 'enemy', 'heal');
           spawnParticles([2, -0.5, 0], 22, '#34d399', 'heal');
           window.setTimeout(() => {
@@ -1015,6 +1095,7 @@ export const useBattleController = ({
         });
 
         if (skillAttackResult.evaded) {
+          battleSfx.play('evade');
           addLog(`Voce desviou de ${chosenSkill.name}!`, 'evade');
           spawnFloatingText('DESVIO!', 'player', 'buff');
           finishEnemyActionToPlayerTurn(simulatedEnemy);
@@ -1024,6 +1105,15 @@ export const useBattleController = ({
 
         const finalDamage = player.isDefending ? Math.floor(skillAttackResult.damage * 0.5) : skillAttackResult.damage;
         const remainingHpAfterHit = Math.max(0, player.stats.hp - finalDamage);
+        playAttackImpactSfx({
+          attackKind: chosenSkill.attackKind,
+          attackerStyle: chosenSkill.attackKind === 'magic' ? 'unarmed' : (simulatedEnemy.attackStyle === 'armed' ? 'weapon' : 'unarmed'),
+          defended: player.isDefending,
+          source: 'enemy',
+        });
+        if (remainingHpAfterHit <= 0) {
+          battleSfx.play('death');
+        }
         const hitAnimationAction: PlayerAnimationAction = remainingHpAfterHit <= 0
           ? 'death'
           : player.isDefending
@@ -1102,6 +1192,7 @@ export const useBattleController = ({
       lastAction: 'attack',
     };
     setIsEnemyAttacking(true);
+    playMovementSfx(simulatedEnemy.attackStyle === 'armed' ? 'weapon' : 'unarmed');
     triggerEnemyAnimationAction('attack', 750);
 
     window.setTimeout(() => {
@@ -1124,6 +1215,7 @@ export const useBattleController = ({
       });
 
       if (attackResult.evaded) {
+        battleSfx.play('evade');
         spawnFloatingText('DESVIO!', 'player', 'buff');
         addLog(`Voce desviou do ataque de ${simulatedEnemy.name}!`, 'evade');
         setPlayer((prev) => ({ ...prev, buffs: consumeTurnBuffs(prev.buffs), isDefending: false }));
@@ -1137,6 +1229,15 @@ export const useBattleController = ({
 
       const finalDamage = player.isDefending ? Math.floor(attackResult.damage * 0.5) : attackResult.damage;
       const remainingHpAfterHit = Math.max(0, player.stats.hp - finalDamage);
+      playAttackImpactSfx({
+        attackKind: 'physical',
+        attackerStyle: simulatedEnemy.attackStyle === 'armed' ? 'weapon' : 'unarmed',
+        defended: player.isDefending,
+        source: 'enemy',
+      });
+      if (remainingHpAfterHit <= 0) {
+        battleSfx.play('death');
+      }
       const hitAnimationAction: PlayerAnimationAction = remainingHpAfterHit <= 0
         ? 'death'
         : player.isDefending

@@ -356,6 +356,7 @@ export interface ProgressionCard {
 export interface CardRewardOffer {
   source: CardOfferSource;
   reason: string;
+  phaseLevel?: number;
 }
 
 export interface AlchemistCardOffer {
@@ -390,7 +391,6 @@ export interface BossVictoryContext {
   nextEvolution?: number;
   nextTotalMonsters?: number;
   rewards?: DungeonRewards;
-  constellationPointsAwarded?: number;
 }
 
 export interface DungeonRunState {

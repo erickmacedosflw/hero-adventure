@@ -11,6 +11,7 @@ type InventoryScreenProps = {
   player: Player;
   shopItems: Item[];
   onClose: () => void;
+  onOpenShop?: () => void;
   onEquip: (item: Item) => void;
   onUnequip: (item: Item) => void;
   onUse: (itemId: string) => void;
@@ -195,7 +196,7 @@ const ItemDetailCard = ({
   );
 };
 
-export const InventoryScreen = ({ player, shopItems, onClose, onEquip, onUnequip, onUse, isBattleContext = false, initialFilter = 'all', isClosing = false }: InventoryScreenProps) => {
+export const InventoryScreen = ({ player, shopItems, onClose, onOpenShop, onEquip, onUnequip, onUse, isBattleContext = false, initialFilter = 'all', isClosing = false }: InventoryScreenProps) => {
   const MODAL_CLOSE_MS = 180;
   const [filter, setFilter] = useState<InventoryFilter>(initialFilter);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
@@ -360,6 +361,7 @@ export const InventoryScreen = ({ player, shopItems, onClose, onEquip, onUnequip
   };
 
   const totalItems = inventoryItems.reduce((sum, entry) => sum + entry.quantity, 0);
+  const showShopShortcut = !isBattleContext && Boolean(onOpenShop) && !mobileEntry && !pendingAction;
 
   return (
     <RpgMenuShell
@@ -367,7 +369,7 @@ export const InventoryScreen = ({ player, shopItems, onClose, onEquip, onUnequip
       subtitle="Mochila do aventureiro"
       onClose={onClose}
       closing={isClosing}
-      accent="gold"
+      accent="wine"
       valueBadge={<span className="inline-flex items-center gap-2.5 text-lg font-black"><GameAssetIcon name="bag" size={24} /> {totalItems} itens</span>}
     >
       <div className="flex h-full min-h-0 flex-col gap-3 pb-16 xl:pb-0">
@@ -457,6 +459,19 @@ export const InventoryScreen = ({ player, shopItems, onClose, onEquip, onUnequip
           })}
         </div>
       </div>
+      )}
+
+      {showShopShortcut && (
+        <div className="pointer-events-none fixed bottom-[5.6rem] right-4 z-[95] md:bottom-6 md:right-6">
+          <button
+            onClick={() => onOpenShop?.()}
+            className="pointer-events-auto inline-flex items-center gap-2 rounded-full border border-[#d9b26e] bg-[linear-gradient(135deg,#8a642f,#a9783c)] px-3.5 py-2 text-xs font-black uppercase tracking-[0.14em] text-[#fff6e6] shadow-[0_14px_28px_rgba(112,79,46,0.35)] transition-all hover:-translate-y-0.5 hover:brightness-105 md:gap-2.5 md:px-5 md:py-3 md:text-sm"
+            title="Ir ao mercador"
+          >
+            <GameAssetIcon name="chest" size={18} />
+            Mercador
+          </button>
+        </div>
       )}
 
       {mobileEntry && (

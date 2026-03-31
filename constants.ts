@@ -1,4 +1,4 @@
-
+﻿
 import { Item, Skill, EnemyTemplate, DungeonEnemyTemplate, DungeonBossTemplate, AlchemistItemOffer } from './types';
 import { REGISTERED_WEAPON_ITEMS } from './game/data/weaponCatalog';
 import { CONSTELLATION_SKILLS } from './game/data/classTalents';
@@ -23,23 +23,23 @@ export const SHOP_ITEMS: Item[] = [
   { id: 'pot_def', name: 'Tônico de Ferro', description: '+50% de Defesa por 3 turnos.', cost: 150, type: 'potion', value: 0.5, icon: '🛡️', rarity: 'silver', minLevel: 3, duration: 3 },
 
   // --- ARMOR (CHEST) ---
-  { id: 'arm_b1', name: 'Túnica de Couro', description: 'Proteção básica. +4 DEF', cost: 80, type: 'armor', value: 4, icon: '👕', rarity: 'bronze', minLevel: 1 },
-  { id: 'arm_s1', name: 'Cota de Malha', description: 'Elos de aço entrelaçados. +12 DEF', cost: 500, type: 'armor', value: 12, icon: '⛓️', rarity: 'silver', minLevel: 4 },
-  { id: 'arm_g1', name: 'Peitoral Rúnico', description: 'Encantado com magia antiga. +30 DEF', cost: 2800, type: 'armor', value: 30, icon: '🛡️', rarity: 'gold', minLevel: 9 },
+  { id: 'arm_b1', name: 'Túnica de Couro', description: 'Proteção básica. +4 DEF', cost: 240, type: 'armor', value: 4, icon: '👕', rarity: 'bronze', minLevel: 1 },
+  { id: 'arm_s1', name: 'Cota de Malha', description: 'Elos de aço entrelaçados. +12 DEF', cost: 1200, type: 'armor', value: 12, icon: '⛓️', rarity: 'silver', minLevel: 4 },
+  { id: 'arm_g1', name: 'Peitoral Rúnico', description: 'Encantado com magia antiga. +30 DEF', cost: 3600, type: 'armor', value: 30, icon: '🛡️', rarity: 'gold', minLevel: 9 },
 
   // --- HELMETS ---
-  { id: 'hlm_b1', name: 'Capuz de Viajante', description: 'Protege do sol. +2 DEF', cost: 50, type: 'helmet', value: 2, icon: '🧢', rarity: 'bronze', minLevel: 1 },
-  { id: 'hlm_s1', name: 'Elmo de Gladiador', description: 'Intimidador. +8 DEF', cost: 400, type: 'helmet', value: 8, icon: '🪖', rarity: 'silver', minLevel: 5 },
-  { id: 'hlm_g1', name: 'Coroa do Rei Lich', description: 'Gelada ao toque. +20 DEF', cost: 2200, type: 'helmet', value: 20, icon: '👑', rarity: 'gold', minLevel: 10 },
+  { id: 'hlm_b1', name: 'Capuz de Viajante', description: 'Protege do sol. +2 DEF', cost: 240, type: 'helmet', value: 2, icon: '🧢', rarity: 'bronze', minLevel: 1 },
+  { id: 'hlm_s1', name: 'Elmo de Gladiador', description: 'Intimidador. +8 DEF', cost: 1200, type: 'helmet', value: 8, icon: '🪖', rarity: 'silver', minLevel: 5 },
+  { id: 'hlm_g1', name: 'Coroa do Rei Lich', description: 'Gelada ao toque. +20 DEF', cost: 3600, type: 'helmet', value: 20, icon: '👑', rarity: 'gold', minLevel: 10 },
 
   // --- LEGS ---
-  { id: 'leg_b1', name: 'Botas de Pano', description: 'Confortáveis. +1 DEF', cost: 40, type: 'legs', value: 1, icon: '🧦', rarity: 'bronze', minLevel: 1 },
-  { id: 'leg_s1', name: 'Grevas de Ferro', description: 'Protege as canelas. +6 DEF', cost: 350, type: 'legs', value: 6, icon: '👢', rarity: 'silver', minLevel: 4 },
+  { id: 'leg_b1', name: 'Botas de Pano', description: 'Confortáveis. +1 DEF', cost: 240, type: 'legs', value: 1, icon: '🧦', rarity: 'bronze', minLevel: 1 },
+  { id: 'leg_s1', name: 'Grevas de Ferro', description: 'Protege as canelas. +6 DEF', cost: 1200, type: 'legs', value: 6, icon: '👢', rarity: 'silver', minLevel: 4 },
   
   // --- SHIELDS ---
-  { id: 'shd_b1', name: 'Tábua de Madeira', description: 'Melhor que nada. +3 DEF', cost: 70, type: 'shield', value: 3, icon: '🪵', rarity: 'bronze', minLevel: 1 },
-  { id: 'shd_s1', name: 'Escudo Torre', description: 'Uma parede móvel. +10 DEF', cost: 550, type: 'shield', value: 10, icon: '🚪', rarity: 'silver', minLevel: 5 },
-  { id: 'shd_g1', name: 'Égide Sagrada', description: 'Reflete o mal. +25 DEF', cost: 3000, type: 'shield', value: 25, icon: '☀️', rarity: 'gold', minLevel: 9 },
+  { id: 'shd_b1', name: 'Tábua de Madeira', description: 'Melhor que nada. +3 DEF', cost: 240, type: 'shield', value: 3, icon: '🪵', rarity: 'bronze', minLevel: 1 },
+  { id: 'shd_s1', name: 'Escudo Torre', description: 'Uma parede móvel. +10 DEF', cost: 1200, type: 'shield', value: 10, icon: '🚪', rarity: 'silver', minLevel: 5 },
+  { id: 'shd_g1', name: 'Égide Sagrada', description: 'Reflete o mal. +25 DEF', cost: 3600, type: 'shield', value: 25, icon: '☀️', rarity: 'gold', minLevel: 9 },
 ];
 
 export const MATERIALS: Item[] = [
@@ -219,3 +219,4 @@ export const ENEMY_COLORS = [
   "#dc2626", // red
   "#f59e0b", // amber
 ];
+
