@@ -1194,9 +1194,18 @@ export default function App() {
         gold: 0.07,
     };
 
-    const getScaledCardEffectValue = (card: ProgressionCard, effectType: ProgressionCard['effects'][number]['type'], rawValue: number) => (
-        PERCENT_CARD_EFFECT_TYPES.has(effectType) ? CARD_PERCENT_BY_RARITY[card.rarity] : rawValue
-    );
+    const OPENING_COMBAT_BOOST_BY_RARITY: Record<ProgressionCard['rarity'], number> = {
+        bronze: 0.1,
+        silver: 0.15,
+        gold: 0.2,
+    };
+
+    const getScaledCardEffectValue = (card: ProgressionCard, effectType: ProgressionCard['effects'][number]['type'], rawValue: number) => {
+        if (effectType === 'opening_atk_buff' || effectType === 'opening_def_buff') {
+            return OPENING_COMBAT_BOOST_BY_RARITY[card.rarity];
+        }
+        return PERCENT_CARD_EFFECT_TYPES.has(effectType) ? CARD_PERCENT_BY_RARITY[card.rarity] : rawValue;
+    };
 
     const applyCardChoice = (basePlayer: Player, card: ProgressionCard) => {
         const nextPlayer: Player = {
@@ -1260,6 +1269,12 @@ export default function App() {
                     break;
                 case 'defend_mana_restore':
                     nextPlayer.cardBonuses.defendManaRestore = Math.min(0.18, nextPlayer.cardBonuses.defendManaRestore + effectValue);
+                    break;
+                case 'counter_attack_chance_bonus':
+                    nextPlayer.cardBonuses.counterAttackChanceBonus = Math.min(0.25, (nextPlayer.cardBonuses.counterAttackChanceBonus ?? 0) + effectValue);
+                    break;
+                case 'opening_counter_attack_boost':
+                    nextPlayer.cardBonuses.openingCounterAttackBoost = Math.min(0.3, (nextPlayer.cardBonuses.openingCounterAttackBoost ?? 0) + effectValue);
                     break;
                 case 'hp_regen_per_turn':
                     nextPlayer.cardBonuses.hpRegenPerTurn = Math.min(60, nextPlayer.cardBonuses.hpRegenPerTurn + Math.floor(effectValue));
@@ -1574,6 +1589,10 @@ export default function App() {
                 if (prev.cardBonuses.openingDefBuff > 0) {
                     nextBuffs.defMod = Math.max(nextBuffs.defMod, prev.cardBonuses.openingDefBuff);
                     nextBuffs.defTurns = Math.max(nextBuffs.defTurns, 2);
+                }
+                if ((prev.cardBonuses.openingCounterAttackBoost ?? 0) > 0) {
+                    nextBuffs.counterChanceBoost = Math.max(nextBuffs.counterChanceBoost, prev.cardBonuses.openingCounterAttackBoost ?? 0);
+                    nextBuffs.counterChanceBoostTurns = Math.max(nextBuffs.counterChanceBoostTurns, 2);
                 }
                 return {
                     ...prev,

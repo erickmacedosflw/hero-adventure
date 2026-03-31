@@ -126,6 +126,8 @@ export type CardEffectType =
   | 'opening_atk_buff'
   | 'opening_def_buff'
   | 'defend_mana_restore'
+  | 'counter_attack_chance_bonus'
+  | 'opening_counter_attack_boost'
   | 'hp_regen_per_turn'
   | 'mp_regen_per_turn'
   | 'unlock_skill';
@@ -415,6 +417,8 @@ export interface PlayerCardBonuses {
   openingAtkBuff: number;
   openingDefBuff: number;
   defendManaRestore: number;
+  counterAttackChanceBonus: number;
+  openingCounterAttackBoost: number;
   hpRegenPerTurn: number;
   mpRegenPerTurn: number;
 }
@@ -452,6 +456,8 @@ export interface Player {
     doubleAttackTurns: number;
     riposteTurns: number;
     riposteArmed: boolean;
+    counterChanceBoost: number;
+    counterChanceBoostTurns: number;
   };
 }
 

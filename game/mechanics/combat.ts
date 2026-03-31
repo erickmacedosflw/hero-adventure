@@ -43,6 +43,8 @@ export const createEmptyBuffState = (): Player['buffs'] => ({
   doubleAttackTurns: 0,
   riposteTurns: 0,
   riposteArmed: false,
+  counterChanceBoost: 0,
+  counterChanceBoostTurns: 0,
 });
 
 export const consumeTurnBuffs = (buffs: Player['buffs']): Player['buffs'] => {
@@ -52,6 +54,12 @@ export const consumeTurnBuffs = (buffs: Player['buffs']): Player['buffs'] => {
   if (nextBuffs.defTurns > 0) nextBuffs.defTurns--;
   if (nextBuffs.perfectEvadeTurns > 0) nextBuffs.perfectEvadeTurns--;
   if (nextBuffs.doubleAttackTurns > 0) nextBuffs.doubleAttackTurns--;
+  if (nextBuffs.counterChanceBoostTurns > 0) {
+    nextBuffs.counterChanceBoostTurns--;
+    if (nextBuffs.counterChanceBoostTurns <= 0) {
+      nextBuffs.counterChanceBoost = 0;
+    }
+  }
 
   return nextBuffs;
 };

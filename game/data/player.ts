@@ -31,6 +31,8 @@ export const INITIAL_PLAYER: Player = {
     openingAtkBuff: 0,
     openingDefBuff: 0,
     defendManaRestore: 0,
+    counterAttackChanceBonus: 0,
+    openingCounterAttackBoost: 0,
     hpRegenPerTurn: 0,
     mpRegenPerTurn: 0,
   },
@@ -45,5 +47,7 @@ export const INITIAL_PLAYER: Player = {
     doubleAttackTurns: 0,
     riposteTurns: 0,
     riposteArmed: false,
+    counterChanceBoost: 0,
+    counterChanceBoostTurns: 0,
   },
 };

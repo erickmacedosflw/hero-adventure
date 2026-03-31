@@ -131,7 +131,13 @@ const RIPOSTE_DAMAGE_MULTIPLIER = 1.35;
 const RIPOSTE_RESOURCE_BONUS = 1;
 const DEFEND_COUNTER_BASE_CHANCE = 0.06;
 const DEFEND_COUNTER_TALENT_CAP = 0.12;
-const DEFEND_COUNTER_MAX_CHANCE = 0.3;
+const DEFEND_COUNTER_MAX_CHANCE_BY_CLASS: Record<Player['classId'], number> = {
+  knight: 0.25,
+  barbarian: 0.25,
+  mage: 0.3,
+  ranger: 0.4,
+  rogue: 0.4,
+};
 const DEFEND_COUNTER_DEF_WEIGHT = 0.0025;
 const DEFEND_COUNTER_SPEED_WEIGHT = 0.002;
 const DEFEND_COUNTER_LUCK_WEIGHT = 0.0015;
@@ -922,9 +928,12 @@ export const useBattleController = ({
         (Math.max(0, player.stats.def) * DEFEND_COUNTER_DEF_WEIGHT)
         + (Math.max(0, player.stats.speed) * DEFEND_COUNTER_SPEED_WEIGHT)
         + (Math.max(0, player.stats.luck) * DEFEND_COUNTER_LUCK_WEIGHT);
+      const cardBonus = Math.max(0, player.cardBonuses.counterAttackChanceBonus ?? 0);
+      const openingBonus = player.buffs.counterChanceBoostTurns > 0 ? Math.max(0, player.buffs.counterChanceBoost) : 0;
+      const classCap = DEFEND_COUNTER_MAX_CHANCE_BY_CLASS[player.classId] ?? 0.3;
       const counterChance = Math.min(
-        DEFEND_COUNTER_MAX_CHANCE,
-        DEFEND_COUNTER_BASE_CHANCE + talentBonus + attributeBonus,
+        classCap,
+        DEFEND_COUNTER_BASE_CHANCE + talentBonus + attributeBonus + cardBonus + openingBonus,
       );
       if (Math.random() >= counterChance) {
         return { triggered: false as const, damage: 0, nextEnemy: targetEnemy };
@@ -989,7 +998,7 @@ export const useBattleController = ({
       }, 380);
     };
 
-    const useDefendAction = (reasonLabel: string) => {
+    const useDefendAction = (_reasonLabel: string) => {
     battleSfx.play('defense_use', { source: 'enemy' });
       const recoveredMp = enemyUsesManaSkills
         ? Math.max(1, Math.min(simulatedEnemy.manaRegenOnDefend, simulatedEnemy.stats.maxMp - simulatedEnemy.stats.mp))
@@ -1004,11 +1013,8 @@ export const useBattleController = ({
         },
       };
       if (recoveredMp > 0) {
-        addLog(`${simulatedEnemy.name} defendeu para ${reasonLabel} e recuperou ${recoveredMp} Mana.`, 'buff');
-        spawnFloatingText('DEFESA + MANA', 'enemy', 'buff');
-      } else {
-        addLog(`${simulatedEnemy.name} defendeu para ${reasonLabel}.`, 'buff');
-        spawnFloatingText('DEFESA', 'enemy', 'buff');
+        addLog(`+${recoveredMp} Mana`, 'heal');
+        spawnFloatingText(`+${recoveredMp} Mana`, 'enemy', 'heal');
       }
       spawnParticles([2, -0.5, 0], 12, '#3b82f6', 'spark');
       finishEnemyActionToPlayerTurn(nextEnemy);

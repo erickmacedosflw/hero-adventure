@@ -127,7 +127,16 @@ const CARD_PERCENT_BY_RARITY: Record<Rarity, number> = {
     gold: 0.07,
 };
 
+const OPENING_COMBAT_BOOST_BY_RARITY: Record<Rarity, number> = {
+    bronze: 0.1,
+    silver: 0.15,
+    gold: 0.2,
+};
+
 const getScaledCardEffectValue = (card: ProgressionCard, effect: ProgressionCard['effects'][number]) => {
+    if (effect.type === 'opening_atk_buff' || effect.type === 'opening_def_buff') {
+        return OPENING_COMBAT_BOOST_BY_RARITY[card.rarity];
+    }
     if (PERCENT_CARD_EFFECT_TYPES.has(effect.type)) {
         return CARD_PERCENT_BY_RARITY[card.rarity];
     }
@@ -167,6 +176,8 @@ const getCardEffectPreview = (card: ProgressionCard) => {
         case 'opening_atk_buff': return `+${value} ataque inicial`;
         case 'opening_def_buff': return `+${value} defesa inicial`;
         case 'defend_mana_restore': return `+${value} mana ao defender`;
+        case 'counter_attack_chance_bonus': return `+${value} contra-ataque`;
+        case 'opening_counter_attack_boost': return `+${value} contra no inicio`;
         case 'hp_regen_per_turn': return `+${value} HP por turno`;
         case 'mp_regen_per_turn': return `+${value} MP por turno`;
         default: return card.description;
@@ -1589,6 +1600,8 @@ const describeCardEffect = (card: ProgressionCard) => {
             case 'opening_atk_buff': return `Buff inicial de ataque: +${value}`;
             case 'opening_def_buff': return `Buff inicial de defesa: +${value}`;
             case 'defend_mana_restore': return `Recupera +${value} de mana ao defender`;
+            case 'counter_attack_chance_bonus': return `+${value} de chance de contra-ataque`;
+            case 'opening_counter_attack_boost': return `+${value} de chance de contra nos 2 primeiros turnos`;
             case 'hp_regen_per_turn': return `Regenera ${value} HP a cada turno`;
             case 'mp_regen_per_turn': return `Regenera ${value} MP a cada turno`;
             case 'unlock_skill': return skillName ? `Desbloqueia habilidade: ${skillName}` : 'Desbloqueia nova habilidade';
@@ -2487,12 +2500,22 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
           key: 'counter-chance',
           icon: <Sword size={12} className="text-[#b83a4b]" />,
           label: (() => {
+              const counterCapByClass: Record<Player['classId'], number> = {
+                  knight: 0.25,
+                  barbarian: 0.25,
+                  mage: 0.3,
+                  ranger: 0.4,
+                  rogue: 0.4,
+              };
               const bonuses = getTalentBonuses(player);
               const talentBonus = Math.max(0, Math.min(0.12, bonuses.counterOnDefendChance));
               const attributeBonus = (Math.max(0, player.stats.def) * 0.0025)
                   + (Math.max(0, player.stats.speed) * 0.002)
                   + (Math.max(0, player.stats.luck) * 0.0015);
-              const chance = Math.min(0.3, 0.06 + talentBonus + attributeBonus);
+              const cardBonus = Math.max(0, player.cardBonuses.counterAttackChanceBonus ?? 0);
+              const openingBonus = player.buffs.counterChanceBoostTurns > 0 ? Math.max(0, player.buffs.counterChanceBoost) : 0;
+              const classCap = counterCapByClass[player.classId] ?? 0.3;
+              const chance = Math.min(classCap, 0.06 + talentBonus + attributeBonus + cardBonus + openingBonus);
               return `Contra-ataque ${(chance * 100).toFixed(0)}%`;
           })(),
           chipClass: 'border-[#e79aa7] bg-[#fbe3e8] text-[#8f253c]',
