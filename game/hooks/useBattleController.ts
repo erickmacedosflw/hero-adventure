@@ -273,8 +273,8 @@ export const useBattleController = ({
     }
 
     if (manaGain > 0) {
-      spawnFloatingText(`+${manaGain} MP`, 'player', 'heal');
-      addLog(`Fluxo da constelacao restaurou ${manaGain} MP.`, 'heal');
+      spawnFloatingText(`+${manaGain} Mana`, 'player', 'heal');
+      addLog(`Fluxo da constelacao restaurou ${manaGain} Mana.`, 'heal');
     }
 
     if (resourceGain > 0 && player.classResource.max > 0) {
@@ -478,11 +478,8 @@ export const useBattleController = ({
         value: Math.min(prev.classResource.max, prev.classResource.value + 1),
       },
     }));
-    addLog(`Voce se preparou para defender, ganhou evasao temporaria e recuperou ${manaRecovered} MP!`, 'buff');
-    addLog('Contra preparado para reagir ao proximo golpe inimigo.', 'buff');
-    spawnFloatingText('DEFESA!', 'player', 'buff');
-    spawnFloatingText('CONTRA PREPARADO', 'player', 'buff');
-    spawnFloatingText(`+${manaRecovered} MP`, 'player', 'heal');
+    addLog(`+${manaRecovered} Mana`, 'heal');
+    spawnFloatingText(`+${manaRecovered} Mana`, 'player', 'heal');
     spawnParticles([-2, -1, 0], 10, '#3b82f6', 'spark');
 
     window.setTimeout(() => {
@@ -761,8 +758,8 @@ export const useBattleController = ({
       spawnParticles([-2, -1, 0], 26, '#4ade80', 'heal');
       spawnParticles([-2, -1, 0], 20, '#3b82f6', 'heal');
       spawnFloatingText(`+${recoveredHp} HP`, 'player', 'heal');
-      spawnFloatingText(`+${recoveredMp} MP`, 'player', 'heal');
-      addLog(`Usou ${item.name}, recuperou ${recoveredHp} HP e ${recoveredMp} MP`, 'heal');
+      spawnFloatingText(`+${recoveredMp} Mana`, 'player', 'heal');
+      addLog(`Usou ${item.name}, recuperou ${recoveredHp} HP e ${recoveredMp} Mana`, 'heal');
     } else if (recoveredHp > 0) {
       battleSfx.play('heal');
       spawnParticles([-2, -1, 0], 24, '#4ade80', 'heal');
@@ -771,8 +768,8 @@ export const useBattleController = ({
     } else if (recoveredMp > 0) {
       battleSfx.play('heal');
       spawnParticles([-2, -1, 0], 24, '#3b82f6', 'heal');
-      spawnFloatingText(`+${recoveredMp} MP`, 'player', 'heal');
-      addLog(`Usou ${item.name}, recuperou ${recoveredMp} MP`, 'heal');
+      spawnFloatingText(`+${recoveredMp} Mana`, 'player', 'heal');
+      addLog(`Usou ${item.name}, recuperou ${recoveredMp} Mana`, 'heal');
     } else if (item.id === 'pot_atk') {
       spawnParticles([-2, -1, 0], 15, '#f97316', 'spark');
       spawnFloatingText('ATAQUE UP!', 'player', 'buff');
@@ -915,9 +912,9 @@ export const useBattleController = ({
       setTurnState(TurnState.PLAYER_INPUT);
     };
 
-    const tryTriggerDefensiveCounter = (targetEnemy: Enemy) => {
+    const rollDefensiveCounter = (targetEnemy: Enemy) => {
       if (!player.isDefending || player.stats.hp <= 0) {
-        return { nextEnemy: targetEnemy, triggered: false, defeated: false };
+        return { triggered: false as const, damage: 0, nextEnemy: targetEnemy };
       }
 
       const talentBonus = Math.max(0, Math.min(DEFEND_COUNTER_TALENT_CAP, talentBonuses.counterOnDefendChance));
@@ -930,7 +927,7 @@ export const useBattleController = ({
         DEFEND_COUNTER_BASE_CHANCE + talentBonus + attributeBonus,
       );
       if (Math.random() >= counterChance) {
-        return { nextEnemy: targetEnemy, triggered: false, defeated: false };
+        return { triggered: false as const, damage: 0, nextEnemy: targetEnemy };
       }
 
       const counterDamage = Math.max(1, Math.floor(player.stats.atk * DEFEND_COUNTER_DAMAGE_RATIO));
@@ -944,17 +941,52 @@ export const useBattleController = ({
         isDefending: false,
       };
 
-      battleSfx.play('attack_weapon_impact', { source: 'hero', attackKind: 'physical', attackerStyle: 'weapon', defended: false });
-      announceCounterAttack('player');
-      spawnParticles([2, -0.5, 0], 14, '#f59e0b', 'explode');
-      spawnFloatingText(`CONTRA ${counterDamage}`, 'enemy', 'crit');
-      addLog(`Contra-ataque defensivo: ${counterDamage} dano!`, 'crit');
-
       return {
         nextEnemy: enemyAfterCounter,
-        triggered: true,
-        defeated: remainingEnemyHp <= 0,
+        triggered: true as const,
+        damage: counterDamage,
       };
+    };
+
+    const executeDefensiveCounter = (
+      enemyStateBeforeCounter: Enemy,
+      counterDamage: number,
+      onComplete: (nextEnemyState: Enemy, defeated: boolean) => void,
+    ) => {
+      setIsPlayerAttacking(true);
+      setPlayerAnimationAction('attack');
+      playMovementSfx(player.equippedWeapon ? 'weapon' : 'unarmed');
+
+      window.setTimeout(() => {
+        setIsPlayerAttacking(false);
+        playAttackImpactSfx({
+          attackKind: 'physical',
+          attackerStyle: player.equippedWeapon ? 'weapon' : 'unarmed',
+          defended: false,
+          source: 'hero',
+        });
+        announceCounterAttack('player');
+        spawnParticles([2, -0.5, 0], 14, '#f59e0b', 'explode');
+        spawnFloatingText(`CONTRA ${counterDamage}`, 'enemy', 'crit');
+        addLog(`Contra-ataque defensivo: ${counterDamage} dano!`, 'crit');
+
+        const remainingEnemyHp = Math.max(0, enemyStateBeforeCounter.stats.hp - counterDamage);
+        const enemyAfterCounter = {
+          ...enemyStateBeforeCounter,
+          stats: {
+            ...enemyStateBeforeCounter.stats,
+            hp: remainingEnemyHp,
+          },
+          isDefending: false,
+        };
+        setEnemy(enemyAfterCounter);
+        triggerEnemyAnimationAction(remainingEnemyHp <= 0 ? 'death' : 'hit', remainingEnemyHp <= 0 ? 900 : 360);
+
+        window.setTimeout(() => {
+          setPlayerAnimationAction('idle');
+          onComplete(enemyAfterCounter, remainingEnemyHp <= 0);
+        }, 420);
+      }, 380);
     };
 
     const useDefendAction = (reasonLabel: string) => {
@@ -972,7 +1004,7 @@ export const useBattleController = ({
         },
       };
       if (recoveredMp > 0) {
-        addLog(`${simulatedEnemy.name} defendeu para ${reasonLabel} e recuperou ${recoveredMp} MP.`, 'buff');
+        addLog(`${simulatedEnemy.name} defendeu para ${reasonLabel} e recuperou ${recoveredMp} Mana.`, 'buff');
         spawnFloatingText('DEFESA + MANA', 'enemy', 'buff');
       } else {
         addLog(`${simulatedEnemy.name} defendeu para ${reasonLabel}.`, 'buff');
@@ -1258,8 +1290,7 @@ export const useBattleController = ({
           addLog(`Defesa mitigou ${mitigatedDamage} dano.`, 'buff');
         }
 
-        let enemyAfterCounter = simulatedEnemy;
-        let enemyDefeatedByCounter = false;
+        let pendingCounter: { damage: number; enemyStateBeforeCounter: Enemy } | null = null;
         setPlayer((prev) => ({
           ...prev,
           buffs: {
@@ -1271,12 +1302,12 @@ export const useBattleController = ({
           stats: { ...prev.stats, hp: Math.max(0, prev.stats.hp - finalDamage) },
         }));
         if (player.isDefending && remainingHpAfterHit > 0) {
-          const counterResult = tryTriggerDefensiveCounter(simulatedEnemy);
+          const counterResult = rollDefensiveCounter(simulatedEnemy);
           if (counterResult.triggered) {
-            enemyAfterCounter = counterResult.nextEnemy;
-            enemyDefeatedByCounter = counterResult.defeated;
-            setEnemy(counterResult.nextEnemy);
-            spawnFloatingText('CONTRA PREPARADO', 'player', 'buff');
+            pendingCounter = {
+              damage: counterResult.damage,
+              enemyStateBeforeCounter: simulatedEnemy,
+            };
           }
         }
         setPlayerAnimationAction(hitAnimationAction);
@@ -1312,12 +1343,23 @@ export const useBattleController = ({
               }
             }, 900);
           } else {
-            if (enemyDefeatedByCounter) {
-              triggerEnemyAnimationAction('death', 900);
-              void handleVictoryRef.current(900);
+            if (pendingCounter) {
+              window.setTimeout(() => {
+                executeDefensiveCounter(
+                  pendingCounter.enemyStateBeforeCounter,
+                  pendingCounter.damage,
+                  (enemyAfterCounter, enemyDefeatedByCounter) => {
+                    if (enemyDefeatedByCounter) {
+                      void handleVictoryRef.current(900);
+                      return;
+                    }
+                    finishEnemyActionToPlayerTurn(enemyAfterCounter);
+                  },
+                );
+              }, 150);
               return;
             }
-            finishEnemyActionToPlayerTurn(enemyAfterCounter);
+            finishEnemyActionToPlayerTurn(simulatedEnemy);
           }
         }, ENEMY_ACTION_READ_DELAY_MS);
       }, 420);
@@ -1406,8 +1448,7 @@ export const useBattleController = ({
         addLog(`Defesa mitigou ${mitigatedDamage} dano.`, 'buff');
       }
 
-      let enemyAfterCounter = simulatedEnemy;
-      let enemyDefeatedByCounter = false;
+      let pendingCounter: { damage: number; enemyStateBeforeCounter: Enemy } | null = null;
       setPlayer((prev) => {
         const nextBuffs = consumeTurnBuffs(prev.buffs);
         if (player.isDefending) {
@@ -1422,12 +1463,12 @@ export const useBattleController = ({
         };
       });
       if (player.isDefending && remainingHpAfterHit > 0) {
-        const counterResult = tryTriggerDefensiveCounter(simulatedEnemy);
+        const counterResult = rollDefensiveCounter(simulatedEnemy);
         if (counterResult.triggered) {
-          enemyAfterCounter = counterResult.nextEnemy;
-          enemyDefeatedByCounter = counterResult.defeated;
-          setEnemy(counterResult.nextEnemy);
-          spawnFloatingText('CONTRA PREPARADO', 'player', 'buff');
+          pendingCounter = {
+            damage: counterResult.damage,
+            enemyStateBeforeCounter: simulatedEnemy,
+          };
         }
       }
 
@@ -1464,12 +1505,23 @@ export const useBattleController = ({
             }
           }, 900);
         } else {
-          if (enemyDefeatedByCounter) {
-            triggerEnemyAnimationAction('death', 900);
-            void handleVictoryRef.current(900);
+          if (pendingCounter) {
+            window.setTimeout(() => {
+              executeDefensiveCounter(
+                pendingCounter.enemyStateBeforeCounter,
+                pendingCounter.damage,
+                (enemyAfterCounter, enemyDefeatedByCounter) => {
+                  if (enemyDefeatedByCounter) {
+                    void handleVictoryRef.current(900);
+                    return;
+                  }
+                  finishEnemyActionToPlayerTurn(enemyAfterCounter);
+                },
+              );
+            }, 500);
             return;
           }
-          finishEnemyActionToPlayerTurn(enemyAfterCounter);
+          finishEnemyActionToPlayerTurn(simulatedEnemy);
         }
       }, 350);
     }, 400);
