@@ -129,7 +129,12 @@ const ENEMY_ACTION_READ_DELAY_LONG_MS = 1650;
 const IMPACT_TO_DEATH_SFX_DELAY_MS = 120;
 const RIPOSTE_DAMAGE_MULTIPLIER = 1.35;
 const RIPOSTE_RESOURCE_BONUS = 1;
-const DEFEND_COUNTER_BASE_CHANCE = 0.12;
+const DEFEND_COUNTER_BASE_CHANCE = 0.06;
+const DEFEND_COUNTER_TALENT_CAP = 0.12;
+const DEFEND_COUNTER_MAX_CHANCE = 0.3;
+const DEFEND_COUNTER_DEF_WEIGHT = 0.0025;
+const DEFEND_COUNTER_SPEED_WEIGHT = 0.002;
+const DEFEND_COUNTER_LUCK_WEIGHT = 0.0015;
 const DEFEND_COUNTER_DAMAGE_RATIO = 0.45;
 
 const getEnemyDamagePressure = (target: Enemy, kind: 'basic' | 'skill') => {
@@ -915,7 +920,15 @@ export const useBattleController = ({
         return { nextEnemy: targetEnemy, triggered: false, defeated: false };
       }
 
-      const counterChance = Math.min(0.95, DEFEND_COUNTER_BASE_CHANCE + Math.max(0, talentBonuses.counterOnDefendChance));
+      const talentBonus = Math.max(0, Math.min(DEFEND_COUNTER_TALENT_CAP, talentBonuses.counterOnDefendChance));
+      const attributeBonus =
+        (Math.max(0, player.stats.def) * DEFEND_COUNTER_DEF_WEIGHT)
+        + (Math.max(0, player.stats.speed) * DEFEND_COUNTER_SPEED_WEIGHT)
+        + (Math.max(0, player.stats.luck) * DEFEND_COUNTER_LUCK_WEIGHT);
+      const counterChance = Math.min(
+        DEFEND_COUNTER_MAX_CHANCE,
+        DEFEND_COUNTER_BASE_CHANCE + talentBonus + attributeBonus,
+      );
       if (Math.random() >= counterChance) {
         return { nextEnemy: targetEnemy, triggered: false, defeated: false };
       }
