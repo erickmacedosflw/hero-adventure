@@ -31,6 +31,13 @@ class UiSfxManager {
       },
       onplayerror: (_, error) => {
         console.warn(`[UI-SFX] Falha ao reproduzir ${event}:`, error);
+        sound.once('unlock', () => {
+          try {
+            sound.play();
+          } catch (unlockError) {
+            console.warn(`[UI-SFX] Falha ao reproduzir ${event} apos unlock.`, unlockError);
+          }
+        });
       },
     });
 

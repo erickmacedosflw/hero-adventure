@@ -46,6 +46,13 @@ class GameMusicManager {
       },
       onplayerror: (_, error) => {
         console.error(`[Music] Falha ao reproduzir ${trackId}:`, error);
+        next.once('unlock', () => {
+          try {
+            next.play();
+          } catch (unlockError) {
+            console.warn(`[Music] Falha ao reproduzir ${trackId} apos unlock.`, unlockError);
+          }
+        });
       },
     });
 

@@ -49,6 +49,13 @@ class BattleSfxManager {
       },
       onplayerror: (_, error) => {
         console.warn(`[SFX] Falha ao reproduzir ${event}:`, error);
+        sound.once('unlock', () => {
+          try {
+            sound.play();
+          } catch (unlockError) {
+            console.warn(`[SFX] Falha ao reproduzir ${event} apos unlock.`, unlockError);
+          }
+        });
       },
     });
 

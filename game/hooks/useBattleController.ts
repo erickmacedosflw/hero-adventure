@@ -107,6 +107,20 @@ const ENEMY_CLASS_SKILL_BIAS: Record<Player['classId'], number> = {
   ranger: 0.08,
   rogue: 0.1,
 };
+const ENEMY_CLASS_BASIC_DAMAGE_MULT: Record<Player['classId'], number> = {
+  knight: 1.12,
+  barbarian: 1.2,
+  mage: 1.04,
+  ranger: 1.1,
+  rogue: 1.16,
+};
+const ENEMY_CLASS_SKILL_DAMAGE_MULT: Record<Player['classId'], number> = {
+  knight: 1.12,
+  barbarian: 1.18,
+  mage: 1.24,
+  ranger: 1.14,
+  rogue: 1.2,
+};
 
 const ENEMY_STEAL_BASE_CHANCE = 0.28;
 const ENEMY_STEAL_SPEED_WEIGHT = 0.006;
@@ -114,6 +128,14 @@ const ENEMY_STEAL_LUCK_WEIGHT = 0.004;
 const ENEMY_ACTION_READ_DELAY_MS = 1250;
 const ENEMY_ACTION_READ_DELAY_LONG_MS = 1650;
 const IMPACT_TO_DEATH_SFX_DELAY_MS = 120;
+
+const getEnemyDamagePressure = (target: Enemy, kind: 'basic' | 'skill') => {
+  const tierBonus = Math.min(0.2, (target.aiProfile?.tier ?? 0) * 0.02);
+  const classMult = kind === 'skill'
+    ? (ENEMY_CLASS_SKILL_DAMAGE_MULT[target.enemyClassId] ?? 1.1)
+    : (ENEMY_CLASS_BASIC_DAMAGE_MULT[target.enemyClassId] ?? 1.1);
+  return classMult * (1 + tierBonus);
+};
 
 const getSkillCastColor = (skill: Enemy['skillSet'][number]) => {
   if (skill.effect === 'heal') return '#34d399';
@@ -1082,7 +1104,7 @@ export const useBattleController = ({
           attackerSpeed: simulatedEnemy.stats.speed,
           defenderSpeed: player.stats.speed,
           defenderHasPerfectEvade: player.buffs.perfectEvadeTurns > 0,
-          multiplier: chosenSkill.damageMultiplier,
+          multiplier: chosenSkill.damageMultiplier * getEnemyDamagePressure(simulatedEnemy, 'skill'),
           luck: simulatedEnemy.stats.luck,
           attackKind: chosenSkill.attackKind,
           defenderIsDefending: player.isDefending,
@@ -1202,7 +1224,7 @@ export const useBattleController = ({
         attackerSpeed: simulatedEnemy.stats.speed,
         defenderSpeed: player.stats.speed,
         defenderHasPerfectEvade: player.buffs.perfectEvadeTurns > 0,
-        multiplier: 1,
+        multiplier: getEnemyDamagePressure(simulatedEnemy, 'basic'),
         luck: simulatedEnemy.stats.luck,
         attackKind: 'physical',
         defenderIsDefending: player.isDefending,

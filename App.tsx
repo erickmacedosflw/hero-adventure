@@ -1363,6 +1363,15 @@ export default function App() {
     const defMultiplier = templateCombatProfile.defMultiplier ?? 1;
     const speedBonus = templateCombatProfile.speedBonus ?? 0;
     const combatProfile = createEnemyCombatProfile(enemyClassId, currentStage, isBoss, isDungeonEncounter, activeDungeonEvolution);
+    const classAtkMultiplier: Record<Player['classId'], number> = {
+        knight: 1.12,
+        barbarian: 1.24,
+        mage: 1.06,
+        ranger: 1.1,
+        rogue: 1.16,
+    };
+    const tierAtkPressure = Math.min(0.22, combatProfile.tier * 0.025);
+    const enemyAtkMultiplier = classAtkMultiplier[enemyClassId] * (1 + tierAtkPressure);
     const hasStrongCycleBoost = combatProfile.tier >= 2;
     const color = isBoss && isDungeonEncounter
         ? DUNGEON_BOSS.color
@@ -1383,7 +1392,7 @@ export default function App() {
                 maxHp: Math.floor(68 * levelMult * hpMultiplier),
         mp: combatProfile.maxMp,
         maxMp: combatProfile.maxMp,
-                atk: Math.floor(9 * levelMult * atkMultiplier),
+                atk: Math.floor(9 * levelMult * atkMultiplier * enemyAtkMultiplier),
                 def: Math.floor(3 * levelMult * defMultiplier),
                 speed: 10 + speedBonus + (isDungeonEncounter ? Math.floor(activeDungeonEvolution / 3) : 0),
         luck: Math.max(1, Math.floor((currentStage * 0.55) + (isBoss ? 3 : 0) + (isDungeonEncounter ? activeDungeonEvolution * 0.35 : 0)))
@@ -2285,25 +2294,41 @@ export default function App() {
             }
             isAudioUnlockingRef.current = true;
 
-            const howlerWithContext = Howler as typeof Howler & { ctx?: AudioContext };
-            if (howlerWithContext.ctx && howlerWithContext.ctx.state === 'suspended') {
-                void howlerWithContext.ctx.resume().catch(() => undefined);
-            }
+            const tryUnlock = async () => {
+                const howlerWithContext = Howler as typeof Howler & { ctx?: AudioContext };
 
-            Promise.allSettled([gameMusicManager.unlock(), battleSfx.unlock(), uiSfx.unlock()]).finally(() => {
-                battleSfx.preload();
-                uiSfx.preload();
-                setHasUnlockedMusic(true);
-                isAudioUnlockingRef.current = false;
-            });
+                try {
+                    if (howlerWithContext.ctx && howlerWithContext.ctx.state === 'suspended') {
+                        await howlerWithContext.ctx.resume();
+                    }
+
+                    await Promise.allSettled([gameMusicManager.unlock(), battleSfx.unlock(), uiSfx.unlock()]);
+
+                    const isContextReady = !howlerWithContext.ctx || howlerWithContext.ctx.state === 'running';
+                    if (!isContextReady) {
+                        console.warn('[Audio] Contexto ainda bloqueado; aguardando nova interacao do usuario.');
+                        return;
+                    }
+
+                    battleSfx.preload();
+                    uiSfx.preload();
+                    setHasUnlockedMusic(true);
+                } catch (error) {
+                    console.warn('[Audio] Falha ao desbloquear audio; nova tentativa sera feita na proxima interacao.', error);
+                } finally {
+                    isAudioUnlockingRef.current = false;
+                }
+            };
+
+            void tryUnlock();
         };
 
-        const listenerOptions: AddEventListenerOptions = { once: true, capture: true, passive: true };
+        const listenerOptions: AddEventListenerOptions = { capture: true, passive: true };
         window.addEventListener('pointerdown', unlockMusic, listenerOptions);
         window.addEventListener('touchstart', unlockMusic, listenerOptions);
         window.addEventListener('mousedown', unlockMusic, listenerOptions);
         window.addEventListener('click', unlockMusic, listenerOptions);
-        window.addEventListener('keydown', unlockMusic, { once: true, capture: true });
+        window.addEventListener('keydown', unlockMusic, { capture: true });
 
         return () => {
             window.removeEventListener('pointerdown', unlockMusic, listenerOptions);
