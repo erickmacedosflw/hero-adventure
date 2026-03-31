@@ -339,8 +339,6 @@ export const useBattleController = ({
           riposteTurns: 0,
         },
       }));
-      spawnFloatingText('CONTRA ATIVO!', 'player', 'buff');
-      addLog('Contra ativado: o proximo golpe recebeu bonus ofensivo.', 'buff');
     }
 
     const resolveStrike = (remainingHp: number, isFirstStrike: boolean) => {
@@ -533,10 +531,6 @@ export const useBattleController = ({
         : prev.buffs,
     }));
     spawnFloatingText(skill.name.toUpperCase(), 'player', 'skill');
-    if (riposteActive) {
-      spawnFloatingText('CONTRA ATIVO!', 'player', 'buff');
-      addLog('Contra ativado: a proxima habilidade ofensiva recebeu bonus.', 'buff');
-    }
 
     if (resourceSpent > 0) {
       spawnFloatingText(`-${resourceSpent} ${player.classResource.name}`, 'player', 'buff');
@@ -962,40 +956,48 @@ export const useBattleController = ({
       counterDamage: number,
       onComplete: (nextEnemyState: Enemy, defeated: boolean) => void,
     ) => {
-      setIsPlayerAttacking(true);
-      setPlayerAnimationAction('attack');
-      playMovementSfx(player.equippedWeapon ? 'weapon' : 'unarmed');
-
       window.setTimeout(() => {
-        setIsPlayerAttacking(false);
-        playAttackImpactSfx({
-          attackKind: 'physical',
-          attackerStyle: player.equippedWeapon ? 'weapon' : 'unarmed',
-          defended: false,
-          source: 'hero',
-        });
-        announceCounterAttack('player');
-        spawnParticles([2, -0.5, 0], 14, '#f59e0b', 'explode');
-        spawnFloatingText(`CONTRA ${counterDamage}`, 'enemy', 'crit');
-        addLog(`Contra-ataque defensivo: ${counterDamage} dano!`, 'crit');
-
-        const remainingEnemyHp = Math.max(0, enemyStateBeforeCounter.stats.hp - counterDamage);
-        const enemyAfterCounter = {
-          ...enemyStateBeforeCounter,
-          stats: {
-            ...enemyStateBeforeCounter.stats,
-            hp: remainingEnemyHp,
-          },
-          isDefending: false,
-        };
-        setEnemy(enemyAfterCounter);
-        triggerEnemyAnimationAction(remainingEnemyHp <= 0 ? 'death' : 'hit', remainingEnemyHp <= 0 ? 900 : 360);
-
+        setIsPlayerHit(true);
+        setScreenShake(0.12);
         window.setTimeout(() => {
-          setPlayerAnimationAction('idle');
-          onComplete(enemyAfterCounter, remainingEnemyHp <= 0);
-        }, 420);
-      }, 380);
+          setIsPlayerHit(false);
+          setScreenShake(0);
+          setIsPlayerAttacking(true);
+          setPlayerAnimationAction('attack');
+          playMovementSfx(player.equippedWeapon ? 'weapon' : 'unarmed');
+
+          window.setTimeout(() => {
+            setIsPlayerAttacking(false);
+            playAttackImpactSfx({
+              attackKind: 'physical',
+              attackerStyle: player.equippedWeapon ? 'weapon' : 'unarmed',
+              defended: false,
+              source: 'hero',
+            });
+            announceCounterAttack('player');
+            spawnParticles([2, -0.5, 0], 14, '#f59e0b', 'explode');
+            spawnFloatingText(`CONTRA ${counterDamage}`, 'enemy', 'crit');
+            addLog(`Contra-ataque defensivo: ${counterDamage} dano!`, 'crit');
+
+            const remainingEnemyHp = Math.max(0, enemyStateBeforeCounter.stats.hp - counterDamage);
+            const enemyAfterCounter = {
+              ...enemyStateBeforeCounter,
+              stats: {
+                ...enemyStateBeforeCounter.stats,
+                hp: remainingEnemyHp,
+              },
+              isDefending: false,
+            };
+            setEnemy(enemyAfterCounter);
+            triggerEnemyAnimationAction(remainingEnemyHp <= 0 ? 'death' : 'hit', remainingEnemyHp <= 0 ? 900 : 360);
+
+            window.setTimeout(() => {
+              setPlayerAnimationAction('idle');
+              onComplete(enemyAfterCounter, remainingEnemyHp <= 0);
+            }, 420);
+          }, 380);
+        }, 160);
+      }, 40);
     };
 
     const useDefendAction = (_reasonLabel: string) => {

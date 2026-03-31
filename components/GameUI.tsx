@@ -431,13 +431,13 @@ const FloatingTextOverlay = ({ texts }: { texts: FloatingText[] }) => {
                             fontSize: isCrit
                                 ? 'clamp(2.45rem, 9vw, 2.9rem)'
                                 : isBuff
-                                  ? 'clamp(1.35rem, 5.8vw, 1.7rem)'
+                                  ? 'clamp(1.75rem, 7.2vw, 2.2rem)'
                                   : isSkill
                                     ? 'clamp(1.35rem, 5.8vw, 1.7rem)'
                                     : isItem
                                       ? 'clamp(1.25rem, 5.2vw, 1.55rem)'
-                                  : 'clamp(1.85rem, 7.2vw, 2.15rem)',
-                            minWidth: isCrit ? '8.1rem' : '6.2rem',
+                                  : 'clamp(2.2rem, 8.8vw, 2.7rem)',
+                            minWidth: isCrit ? '8.1rem' : '6.8rem',
                             animation: `floatUp ${floatDurationMs}ms forwards ease-out`,
                             zIndex: isSkill || isItem ? 130 : 100,
                             ...colorStyle
