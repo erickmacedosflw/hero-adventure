@@ -5,7 +5,6 @@ import {
   applyStatusEffect,
   calculateDamage,
   consumeTurnBuffs,
-  createEmptyBuffState,
   createStatusEffect,
   tickStatusEffects,
 } from '../mechanics/combat';
@@ -128,6 +127,10 @@ const ENEMY_STEAL_LUCK_WEIGHT = 0.004;
 const ENEMY_ACTION_READ_DELAY_MS = 1250;
 const ENEMY_ACTION_READ_DELAY_LONG_MS = 1650;
 const IMPACT_TO_DEATH_SFX_DELAY_MS = 120;
+const RIPOSTE_DAMAGE_MULTIPLIER = 1.35;
+const RIPOSTE_RESOURCE_BONUS = 1;
+const DEFEND_COUNTER_BASE_CHANCE = 0.12;
+const DEFEND_COUNTER_DAMAGE_RATIO = 0.45;
 
 const getEnemyDamagePressure = (target: Enemy, kind: 'basic' | 'skill') => {
   const tierBonus = Math.min(0.2, (target.aiProfile?.tier ?? 0) * 0.02);
@@ -230,6 +233,10 @@ export const useBattleController = ({
   const handleVictoryRef = useRef(handleVictory);
   const lastPlayerActionRef = useRef<'attack' | 'defend' | 'skill' | 'item' | null>(null);
 
+  const announceCounterAttack = useCallback((attacker: 'player' | 'enemy') => {
+    spawnFloatingText('⚔ CONTRA-ATAQUE!', attacker, 'damage');
+  }, [spawnFloatingText]);
+
   useEffect(() => {
     handleVictoryRef.current = handleVictory;
   }, [handleVictory]);
@@ -303,6 +310,7 @@ export const useBattleController = ({
 
     const talentBonuses = getTalentBonuses(player);
     const doubleAttackActive = player.buffs.doubleAttackTurns > 0;
+    const riposteActive = Boolean(player.buffs.riposteArmed);
     const attackDelay = player.equippedWeapon ? 650 : 400;
     const idleDelay = player.equippedWeapon ? 400 : 550;
 
@@ -311,14 +319,27 @@ export const useBattleController = ({
     playMovementSfx(player.equippedWeapon ? 'weapon' : 'unarmed');
     setPlayerAnimationAction('attack');
     setEnemyAnimationAction(enemy.isDefending ? 'defend' : 'battle-idle');
+    if (riposteActive) {
+      setPlayer((prev) => ({
+        ...prev,
+        buffs: {
+          ...prev.buffs,
+          riposteArmed: false,
+          riposteTurns: 0,
+        },
+      }));
+      spawnFloatingText('CONTRA ATIVO!', 'player', 'buff');
+      addLog('Contra ativado: o proximo golpe recebeu bonus ofensivo.', 'buff');
+    }
 
     const resolveStrike = (remainingHp: number, isFirstStrike: boolean) => {
+      const riposteMultiplier = riposteActive && isFirstStrike ? RIPOSTE_DAMAGE_MULTIPLIER : 1;
       const attackResult = calculateDamage({
         attackerAtk: player.stats.atk,
         defenderDef: getEnemyDefWithBuff(enemy),
         attackerSpeed: player.stats.speed,
         defenderSpeed: enemy.stats.speed,
-        multiplier: getBossDamageMultiplier() * (1 + talentBonuses.physicalDamage + getMarkedBonus(enemy.statusEffects, talentBonuses.markedDamage)),
+        multiplier: getBossDamageMultiplier() * (1 + talentBonuses.physicalDamage + getMarkedBonus(enemy.statusEffects, talentBonuses.markedDamage)) * riposteMultiplier,
         luck: player.stats.luck,
         attackKind: 'physical',
         defenderIsDefending: isFirstStrike ? enemy.isDefending : false,
@@ -366,7 +387,8 @@ export const useBattleController = ({
           isDefending: false,
         };
       });
-      awardCombatBenefits(appliedDamage, 1 + Math.max(0, Math.floor(talentBonuses.resourceOnAttack)), talentBonuses);
+      const riposteResourceGain = riposteActive && isFirstStrike ? RIPOSTE_RESOURCE_BONUS : 0;
+      awardCombatBenefits(appliedDamage, 1 + Math.max(0, Math.floor(talentBonuses.resourceOnAttack)) + riposteResourceGain, talentBonuses);
       addLog(`${isFirstStrike ? 'Causou' : 'Segundo golpe:'} ${appliedDamage} dano!${isFirstStrike && enemy.isDefending ? ' (Defendido)' : ''}`, attackResult.isCrit ? 'crit' : 'damage');
       return { remainingHp: updatedHp, defeated: updatedHp <= 0, evaded: false };
     };
@@ -420,6 +442,7 @@ export const useBattleController = ({
     spawnParticles,
     triggerEnemyAnimationAction,
     turnState,
+    setPlayer,
   ]);
 
   const handlePlayerDefense = useCallback(() => {
@@ -436,6 +459,11 @@ export const useBattleController = ({
     setPlayer((prev) => ({
       ...prev,
       isDefending: true,
+      buffs: {
+        ...prev.buffs,
+        riposteTurns: 1,
+        riposteArmed: false,
+      },
       stats: {
         ...prev.stats,
         mp: Math.min(prev.stats.maxMp, prev.stats.mp + manaRecovered),
@@ -446,7 +474,9 @@ export const useBattleController = ({
       },
     }));
     addLog(`Voce se preparou para defender, ganhou evasao temporaria e recuperou ${manaRecovered} MP!`, 'buff');
+    addLog('Contra preparado para reagir ao proximo golpe inimigo.', 'buff');
     spawnFloatingText('DEFESA!', 'player', 'buff');
+    spawnFloatingText('CONTRA PREPARADO', 'player', 'buff');
     spawnFloatingText(`+${manaRecovered} MP`, 'player', 'heal');
     spawnParticles([-2, -1, 0], 10, '#3b82f6', 'spark');
 
@@ -471,6 +501,7 @@ export const useBattleController = ({
     lastPlayerActionRef.current = 'skill';
 
     const talentBonuses = getTalentBonuses(player);
+    const riposteActive = skill.type !== 'heal' && Boolean(player.buffs.riposteArmed);
     const visual = getSkillVisualConfig(skill);
     const impactColor = skill.trailColor ?? visual.color;
     const resourceSpent = skill.resourceEffect?.consumeAll ? player.classResource.value : requiredResource;
@@ -485,8 +516,19 @@ export const useBattleController = ({
         ...prev.classResource,
         value: Math.max(0, prev.classResource.value - resourceSpent),
       },
+      buffs: riposteActive
+        ? {
+          ...prev.buffs,
+          riposteArmed: false,
+          riposteTurns: 0,
+        }
+        : prev.buffs,
     }));
     spawnFloatingText(skill.name.toUpperCase(), 'player', 'skill');
+    if (riposteActive) {
+      spawnFloatingText('CONTRA ATIVO!', 'player', 'buff');
+      addLog('Contra ativado: a proxima habilidade ofensiva recebeu bonus.', 'buff');
+    }
 
     if (resourceSpent > 0) {
       spawnFloatingText(`-${resourceSpent} ${player.classResource.name}`, 'player', 'buff');
@@ -554,12 +596,13 @@ export const useBattleController = ({
         const statusBonus = getMarkedBonus(enemy.statusEffects, talentBonuses.markedDamage);
         const schoolBonus = skill.type === 'magic' ? talentBonuses.magicDamage : talentBonuses.physicalDamage;
         const resourceBurst = resourceSpent * (skill.resourceEffect?.bonusDamagePerPoint ?? 0);
+        const riposteMultiplier = riposteActive && isFirstStrike ? RIPOSTE_DAMAGE_MULTIPLIER : 1;
         const attackResult = calculateDamage({
           attackerAtk: player.stats.atk,
           defenderDef: getEnemyDefWithBuff(enemy),
           attackerSpeed: player.stats.speed,
           defenderSpeed: enemy.stats.speed,
-          multiplier: (skill.damageMult + resourceBurst) * getBossDamageMultiplier() * (1 + schoolBonus + statusBonus),
+          multiplier: (skill.damageMult + resourceBurst) * getBossDamageMultiplier() * (1 + schoolBonus + statusBonus) * riposteMultiplier,
           luck: player.stats.luck,
           attackKind: skill.type === 'magic' ? 'magic' : 'physical',
           defenderIsDefending: isFirstStrike ? enemy.isDefending : false,
@@ -609,7 +652,8 @@ export const useBattleController = ({
           };
         });
 
-        awardCombatBenefits(appliedDamage, (skill.resourceEffect?.gain ?? 0) + Math.max(0, Math.floor(talentBonuses.resourceOnSkill)), talentBonuses);
+        const riposteResourceGain = riposteActive && isFirstStrike ? RIPOSTE_RESOURCE_BONUS : 0;
+        awardCombatBenefits(appliedDamage, (skill.resourceEffect?.gain ?? 0) + Math.max(0, Math.floor(talentBonuses.resourceOnSkill)) + riposteResourceGain, talentBonuses);
         if (isFirstStrike) {
           tryApplySkillStatus(skill, talentBonuses);
         }
@@ -855,9 +899,49 @@ export const useBattleController = ({
     const finishEnemyActionToPlayerTurn = (nextEnemy: Enemy) => {
       const enemyAfterBuffTick = tickEnemyBuffs(nextEnemy);
       setEnemy(enemyAfterBuffTick);
-      setPlayer((prev) => ({ ...prev, buffs: consumeTurnBuffs(prev.buffs), isDefending: false }));
+      setPlayer((prev) => {
+        const nextBuffs = consumeTurnBuffs(prev.buffs);
+        if (!nextBuffs.riposteArmed) {
+          nextBuffs.riposteTurns = 0;
+        }
+        return { ...prev, buffs: nextBuffs, isDefending: false };
+      });
       setPlayerAnimationAction('idle');
       setTurnState(TurnState.PLAYER_INPUT);
+    };
+
+    const tryTriggerDefensiveCounter = (targetEnemy: Enemy) => {
+      if (!player.isDefending || player.stats.hp <= 0) {
+        return { nextEnemy: targetEnemy, triggered: false, defeated: false };
+      }
+
+      const counterChance = Math.min(0.95, DEFEND_COUNTER_BASE_CHANCE + Math.max(0, talentBonuses.counterOnDefendChance));
+      if (Math.random() >= counterChance) {
+        return { nextEnemy: targetEnemy, triggered: false, defeated: false };
+      }
+
+      const counterDamage = Math.max(1, Math.floor(player.stats.atk * DEFEND_COUNTER_DAMAGE_RATIO));
+      const remainingEnemyHp = Math.max(0, targetEnemy.stats.hp - counterDamage);
+      const enemyAfterCounter = {
+        ...targetEnemy,
+        stats: {
+          ...targetEnemy.stats,
+          hp: remainingEnemyHp,
+        },
+        isDefending: false,
+      };
+
+      battleSfx.play('attack_weapon_impact', { source: 'hero', attackKind: 'physical', attackerStyle: 'weapon', defended: false });
+      announceCounterAttack('player');
+      spawnParticles([2, -0.5, 0], 14, '#f59e0b', 'explode');
+      spawnFloatingText(`CONTRA ${counterDamage}`, 'enemy', 'crit');
+      addLog(`Contra-ataque defensivo: ${counterDamage} dano!`, 'crit');
+
+      return {
+        nextEnemy: enemyAfterCounter,
+        triggered: true,
+        defeated: remainingEnemyHp <= 0,
+      };
     };
 
     const useDefendAction = (reasonLabel: string) => {
@@ -1126,6 +1210,7 @@ export const useBattleController = ({
         }
 
         const finalDamage = player.isDefending ? Math.floor(skillAttackResult.damage * 0.5) : skillAttackResult.damage;
+        const mitigatedDamage = player.isDefending ? Math.max(0, skillAttackResult.damage - finalDamage) : 0;
         const remainingHpAfterHit = Math.max(0, player.stats.hp - finalDamage);
         playAttackImpactSfx({
           attackKind: chosenSkill.attackKind,
@@ -1156,12 +1241,31 @@ export const useBattleController = ({
           setIsPlayerCritHit(false);
         }, 220);
 
+        if (mitigatedDamage > 0) {
+          addLog(`Defesa mitigou ${mitigatedDamage} dano.`, 'buff');
+        }
+
+        let enemyAfterCounter = simulatedEnemy;
+        let enemyDefeatedByCounter = false;
         setPlayer((prev) => ({
           ...prev,
-          buffs: consumeTurnBuffs(prev.buffs),
+          buffs: {
+            ...consumeTurnBuffs(prev.buffs),
+            riposteTurns: player.isDefending ? 1 : prev.buffs.riposteTurns,
+            riposteArmed: player.isDefending ? true : prev.buffs.riposteArmed,
+          },
           isDefending: false,
           stats: { ...prev.stats, hp: Math.max(0, prev.stats.hp - finalDamage) },
         }));
+        if (player.isDefending && remainingHpAfterHit > 0) {
+          const counterResult = tryTriggerDefensiveCounter(simulatedEnemy);
+          if (counterResult.triggered) {
+            enemyAfterCounter = counterResult.nextEnemy;
+            enemyDefeatedByCounter = counterResult.defeated;
+            setEnemy(counterResult.nextEnemy);
+            spawnFloatingText('CONTRA PREPARADO', 'player', 'buff');
+          }
+        }
         setPlayerAnimationAction(hitAnimationAction);
         addLog(`${simulatedEnemy.name} usou ${chosenSkill.name}: ${finalDamage} dano!${skillAttackResult.isCrit ? ' CRITICO!' : ''}`, skillAttackResult.isCrit ? 'crit' : 'damage');
 
@@ -1195,7 +1299,12 @@ export const useBattleController = ({
               }
             }, 900);
           } else {
-            finishEnemyActionToPlayerTurn(simulatedEnemy);
+            if (enemyDefeatedByCounter) {
+              triggerEnemyAnimationAction('death', 900);
+              void handleVictoryRef.current(900);
+              return;
+            }
+            finishEnemyActionToPlayerTurn(enemyAfterCounter);
           }
         }, ENEMY_ACTION_READ_DELAY_MS);
       }, 420);
@@ -1250,6 +1359,7 @@ export const useBattleController = ({
       }
 
       const finalDamage = player.isDefending ? Math.floor(attackResult.damage * 0.5) : attackResult.damage;
+      const mitigatedDamage = player.isDefending ? Math.max(0, attackResult.damage - finalDamage) : 0;
       const remainingHpAfterHit = Math.max(0, player.stats.hp - finalDamage);
       playAttackImpactSfx({
         attackKind: 'physical',
@@ -1279,8 +1389,18 @@ export const useBattleController = ({
         setIsPlayerCritHit(false);
       }, 200);
 
+      if (mitigatedDamage > 0) {
+        addLog(`Defesa mitigou ${mitigatedDamage} dano.`, 'buff');
+      }
+
+      let enemyAfterCounter = simulatedEnemy;
+      let enemyDefeatedByCounter = false;
       setPlayer((prev) => {
         const nextBuffs = consumeTurnBuffs(prev.buffs);
+        if (player.isDefending) {
+          nextBuffs.riposteTurns = 1;
+          nextBuffs.riposteArmed = true;
+        }
         return {
           ...prev,
           buffs: nextBuffs,
@@ -1288,6 +1408,15 @@ export const useBattleController = ({
           stats: { ...prev.stats, hp: Math.max(0, prev.stats.hp - finalDamage) },
         };
       });
+      if (player.isDefending && remainingHpAfterHit > 0) {
+        const counterResult = tryTriggerDefensiveCounter(simulatedEnemy);
+        if (counterResult.triggered) {
+          enemyAfterCounter = counterResult.nextEnemy;
+          enemyDefeatedByCounter = counterResult.defeated;
+          setEnemy(counterResult.nextEnemy);
+          spawnFloatingText('CONTRA PREPARADO', 'player', 'buff');
+        }
+      }
 
       addLog(`${simulatedEnemy.name} atacou: ${finalDamage} dano!${player.isDefending ? ' (Defendido)' : ''}${attackResult.isCrit ? ' CRITICO!' : ''}`, attackResult.isCrit ? 'crit' : 'damage');
       setPlayerAnimationAction(hitAnimationAction);
@@ -1322,12 +1451,18 @@ export const useBattleController = ({
             }
           }, 900);
         } else {
-          finishEnemyActionToPlayerTurn(simulatedEnemy);
+          if (enemyDefeatedByCounter) {
+            triggerEnemyAnimationAction('death', 900);
+            void handleVictoryRef.current(900);
+            return;
+          }
+          finishEnemyActionToPlayerTurn(enemyAfterCounter);
         }
       }, 350);
     }, 400);
   }, [
     addLog,
+    announceCounterAttack,
     clonePlayer,
     dungeonRun,
     enemy,

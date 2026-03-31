@@ -43,5 +43,7 @@ export const INITIAL_PLAYER: Player = {
     defTurns: 0,
     perfectEvadeTurns: 0,
     doubleAttackTurns: 0,
+    riposteTurns: 0,
+    riposteArmed: false,
   },
 };

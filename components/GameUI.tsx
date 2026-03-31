@@ -2482,6 +2482,18 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
           label: `Ataque duplo • ${player.buffs.doubleAttackTurns}t`,
           chipClass: 'border-[#e8bc89] bg-[#fcecd7] text-[#9a6127]',
       } : null,
+      player.buffs.riposteArmed ? {
+          key: 'riposte-active',
+          icon: <Shield size={12} className="text-[#7c4c76]" />,
+          label: 'Contra ativo',
+          chipClass: 'border-[#b9a5e5] bg-[#efeaff] text-[#5f43a8]',
+      } : null,
+      (!player.buffs.riposteArmed && player.buffs.riposteTurns > 0) ? {
+          key: 'riposte-prepared',
+          icon: <Shield size={12} className="text-[#4d6780]" />,
+          label: `Contra preparado • ${player.buffs.riposteTurns}t`,
+          chipClass: 'border-[#9ec2cf] bg-[#e6f3f8] text-[#2f6274]',
+      } : null,
     ].filter(Boolean) as Array<{ key: string; icon: React.ReactElement; label: string; chipClass: string }>;
   const describeBattleSkill = (skill: Skill) => {
       const statusText = skill.statusEffect

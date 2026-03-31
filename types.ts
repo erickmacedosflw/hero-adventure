@@ -450,6 +450,8 @@ export interface Player {
     defTurns: number;
     perfectEvadeTurns: number;
     doubleAttackTurns: number;
+    riposteTurns: number;
+    riposteArmed: boolean;
   };
 }
 

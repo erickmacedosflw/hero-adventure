@@ -41,6 +41,8 @@ export const createEmptyBuffState = (): Player['buffs'] => ({
   defTurns: 0,
   perfectEvadeTurns: 0,
   doubleAttackTurns: 0,
+  riposteTurns: 0,
+  riposteArmed: false,
 });
 
 export const consumeTurnBuffs = (buffs: Player['buffs']): Player['buffs'] => {
