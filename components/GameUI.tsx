@@ -2260,7 +2260,9 @@ export const BossVictoryModal: React.FC<{
         .filter((entry): entry is { item: Item; quantity: number } => Boolean(entry.item));
 
     const isDungeon = context.mode === 'dungeon';
-    const newlyUnlockedShopRarity = !isDungeon ? getNewlyUnlockedShopRarityByStage(context.nextStage ?? 0) : null;
+    const newlyUnlockedShopRarity = !isDungeon
+        ? (context.newlyUnlockedShopRarity ?? getNewlyUnlockedShopRarityByStage(context.nextStage ?? 0))
+        : null;
     const unlockBadgeClass = newlyUnlockedShopRarity === 'gold'
         ? 'border-[#dcb570] bg-[#f3e3c3] text-[#7a5733]'
         : 'border-[#b8becb] bg-[#e9edf4] text-[#4f5d76]';

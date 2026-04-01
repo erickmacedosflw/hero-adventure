@@ -392,6 +392,7 @@ export interface BossVictoryContext {
   mode: 'hunt' | 'dungeon';
   bossName: string;
   nextStage?: number;
+  newlyUnlockedShopRarity?: Rarity;
   nextEvolution?: number;
   nextTotalMonsters?: number;
   rewards?: DungeonRewards;

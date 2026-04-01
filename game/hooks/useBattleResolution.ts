@@ -3,6 +3,7 @@ import type { Dispatch, SetStateAction } from 'react';
 import { ALL_ITEMS } from '../../constants';
 import { createEmptyBuffState } from '../mechanics/combat';
 import { generateHuntDropsByStage } from '../mechanics/huntDropProgression';
+import { getNewlyUnlockedShopRarityByStage } from '../mechanics/shopProgression';
 import { CardRewardOffer, DungeonResult, DungeonRunState, DungeonRewards, Enemy, GameState, Item, Player } from '../../types';
 
 interface LootResult {
@@ -252,6 +253,7 @@ export const useBattleResolution = ({
         mode: 'hunt',
         bossName: enemy.name,
         nextStage: stage + 1,
+        newlyUnlockedShopRarity: getNewlyUnlockedShopRarityByStage(stage + 1),
       });
     } else {
       setKillCount(prev => prev + 1);
