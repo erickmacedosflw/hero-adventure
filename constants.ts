@@ -8,8 +8,8 @@ export const SHOP_ITEMS: Item[] = [
   // --- POTIONS & CONSUMABLES ---
   { id: 'pot_1', name: 'Poção Menor', description: 'Cura ferimentos leves. +25 HP', cost: 40, type: 'potion', value: 25, icon: '🧪', rarity: 'bronze', minLevel: 1 },
   { id: 'pot_3', name: 'Poção de Vida', description: 'Recuperação moderada. +50 HP', cost: 70, type: 'potion', value: 50, icon: '❤️', rarity: 'bronze', minLevel: 2 },
-  { id: 'pot_5', name: 'Elixir Rubro', description: 'Cura poderosa. +100 HP', cost: 120, type: 'potion', value: 100, icon: '💖', rarity: 'silver', minLevel: 3 },
-  { id: 'pot_4', name: 'Ambrosia Dourada', description: 'Restauração superior. +220 HP', cost: 300, type: 'potion', value: 220, icon: '🌟', rarity: 'gold', minLevel: 7 },
+  { id: 'pot_5', name: 'Elixir Rubro', description: 'Cura poderosa. +100 HP', cost: 120, type: 'potion', value: 100, icon: '💖', rarity: 'silver', minLevel: 8 },
+  { id: 'pot_4', name: 'Ambrosia Dourada', description: 'Restauração superior. +220 HP', cost: 300, type: 'potion', value: 220, icon: '🌟', rarity: 'gold', minLevel: 15 },
 
   { id: 'pot_2', name: 'Essência de Mana Menor', description: 'Recupera energia arcana. +20 MP', cost: 40, type: 'potion', value: 20, icon: '⚗️', rarity: 'bronze', minLevel: 1 },
   { id: 'pot_mana_2', name: 'Tônico Arcano', description: 'Recuperação de mana intermediária. +45 MP', cost: 75, type: 'potion', value: 45, icon: '🔵', rarity: 'silver', minLevel: 3 },
@@ -85,8 +85,8 @@ export const DUNGEON_ITEMS: Item[] = [
   { id: 'pot_alc_phantom_veil', name: 'Véu Fantasma', description: 'Reveste o corpo com névoa alquímica e garante evasão perfeita por 4 turnos em qualquer batalha.', cost: 0, type: 'potion', value: 1, icon: '👻', rarity: 'gold', minLevel: 1, source: 'alchemist', duration: 4 },
   { id: 'pot_alc_twin_fang', name: 'Presa Gêmea', description: 'Desperta um ritmo feroz e faz o comando Atacar acertar duas vezes por 6 turnos.', cost: 0, type: 'potion', value: 1, icon: '🦷', rarity: 'gold', minLevel: 1, source: 'alchemist', duration: 6 },
   { id: 'pot_dg_mana', name: 'Reserva de Mana Abissal', description: 'Energia condensada da dungeon. +80 MP', cost: 0, type: 'potion', value: 80, icon: '🔷', rarity: 'silver', minLevel: 6, source: 'dungeon' },
-  { id: 'pot_dg_elixir', name: 'Elixir Abissal', description: 'Restauração reforçada da dungeon. +260 HP', cost: 0, type: 'potion', value: 260, icon: '🩸', rarity: 'gold', minLevel: 7, source: 'dungeon' },
-  { id: 'pot_dg_ambrosia', name: 'Ambrosia do Nexus', description: 'Essência rara guardada no fundo da dungeon. +650 HP', cost: 0, type: 'potion', value: 650, icon: '🫧', rarity: 'gold', minLevel: 12, source: 'dungeon' },
+  { id: 'pot_dg_elixir', name: 'Elixir Abissal', description: 'Restauração reforçada da dungeon. +260 HP', cost: 0, type: 'potion', value: 260, icon: '🩸', rarity: 'gold', minLevel: 8, source: 'dungeon' },
+  { id: 'pot_dg_ambrosia', name: 'Ambrosia do Nexus', description: 'Essência rara guardada no fundo da dungeon. +650 HP', cost: 0, type: 'potion', value: 650, icon: '🫧', rarity: 'gold', minLevel: 15, source: 'dungeon' },
   { id: 'wep_dg_nexus', name: 'Lâmina do Nexus', description: 'Arma exclusiva forjada com energia da dungeon. +58 ATK', cost: 0, type: 'weapon', value: 58, icon: '🗡️', rarity: 'gold', minLevel: 10, source: 'dungeon' },
   { id: 'arm_dg_abyss', name: 'Armadura do Abismo', description: 'Placas pesadas feitas para sobreviver aos ciclos profundos. +38 DEF e +54 MP', cost: 0, type: 'armor', value: 38, mpBonus: 54, icon: '🥋', rarity: 'gold', minLevel: 10, source: 'dungeon' },
   { id: 'shd_dg_eclipse', name: 'Escudo Eclipse', description: 'Barreira exclusiva da dungeon que segura impactos do chefão. +32 DEF', cost: 0, type: 'shield', value: 32, icon: '🌘', rarity: 'gold', minLevel: 11, source: 'dungeon' },

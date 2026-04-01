@@ -368,10 +368,14 @@ export default function App() {
         const tierBase = Math.max(0, Math.floor((Math.max(1, currentStage) - 1) / 2));
         const tierWithMode = tierBase + (isDungeonEncounter ? Math.floor(evolution / 2) : 0) + (isBoss ? 1 : 0);
         const tier = Math.max(0, tierWithMode);
-        const cycleStrength = tier <= 0 ? 0 : Math.floor((tier - 1) / 3);
-        const cycleStep = tier <= 0 ? 0 : ((tier - 1) % 3);
+        // Enemy mechanics (skills/patterns) evolve every 3 phases in hunt and dungeon.
+        const mechanicTierBase = Math.max(0, Math.floor((Math.max(1, currentStage) - 1) / 3));
+        const mechanicTierWithMode = mechanicTierBase + (isDungeonEncounter ? Math.floor(evolution / 3) : 0) + (isBoss ? 1 : 0);
+        const mechanicTier = Math.max(0, mechanicTierWithMode);
+        const cycleStrength = mechanicTier <= 0 ? 0 : Math.floor((mechanicTier - 1) / 3);
+        const cycleStep = mechanicTier <= 0 ? 0 : ((mechanicTier - 1) % 3);
         const potionCharges = tier === 0 ? 0 : (isBoss ? 2 : 1);
-        const potionHealValue = currentStage >= 9 ? 220 : currentStage >= 6 ? 100 : currentStage >= 3 ? 50 : 25;
+        const potionHealValue = currentStage >= 15 ? 220 : currentStage >= 8 ? 100 : currentStage >= 3 ? 50 : 25;
         const classMpBase: Record<Player['classId'], number> = {
             knight: 18,
             barbarian: 16,
@@ -405,7 +409,7 @@ export default function App() {
             manaRegenOnDefend,
             critChanceBonus: Math.min(0.24, (tier * 0.015) + (isBoss ? 0.035 : 0)),
             critDamageBonus: Math.min(0.5, (tier * 0.03) + (isBoss ? 0.08 : 0)),
-            skillSet: createEnemySkillSet(enemyClassId, tier, cycleStrength),
+            skillSet: createEnemySkillSet(enemyClassId, mechanicTier, cycleStrength),
             lowHpThreshold: enemyClassId === 'mage' ? 0.58 : enemyClassId === 'knight' ? 0.52 : 0.48,
             criticalHpThreshold: 0.25,
             lowManaThreshold: enemyClassId === 'mage' ? 0.35 : 0.25,
@@ -1824,17 +1828,23 @@ export default function App() {
             rewardDrops.push(getDungeonBaseDrop(targetEnemy.type));
         }
 
-        if (evolution >= 2 && Math.random() < 0.22) {
+        if (evolution >= 5 && Math.random() < 0.22) {
             rewardDrops.push('mat_iron');
         }
 
-        if (evolution >= 4 && Math.random() < 0.16) {
+        if (evolution >= 10 && Math.random() < 0.16) {
             rewardDrops.push('mat_gold');
         }
 
         targetEnemy.guaranteedDrops?.forEach(dropId => rewardDrops.push(dropId));
 
         targetEnemy.rareDrops?.forEach(drop => {
+            if (drop.itemId === 'pot_dg_elixir' && evolution < 8) {
+                return;
+            }
+            if (drop.itemId === 'pot_dg_ambrosia' && evolution < 15) {
+                return;
+            }
             const finalChance = Math.min(0.92, drop.chance + (evolution * 0.02) + (wasBoss ? 0.08 : 0));
             if (Math.random() < finalChance) {
                 rewardDrops.push(drop.itemId);
@@ -1845,7 +1855,7 @@ export default function App() {
             rewardDrops.push(Math.random() < 0.55 ? 'pot_dg_mana' : 'pot_3');
         }
 
-        if (wasBoss && evolution >= 3 && Math.random() < 0.28) {
+        if (wasBoss && evolution >= 8 && Math.random() < 0.28) {
             rewardDrops.push('pot_dg_elixir');
         }
 

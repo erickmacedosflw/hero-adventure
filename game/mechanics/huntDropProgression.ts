@@ -3,10 +3,10 @@ import { Enemy } from '../../types';
 const pickRandom = <T,>(entries: T[]): T => entries[Math.floor(Math.random() * entries.length)];
 
 export const getUnlockedDropRaritiesByStage = (stage: number) => {
-  if (stage >= 7) {
+  if (stage >= 10) {
     return ['bronze', 'silver', 'gold'] as const;
   }
-  if (stage >= 4) {
+  if (stage >= 5) {
     return ['bronze', 'silver'] as const;
   }
   return ['bronze'] as const;
@@ -45,6 +45,8 @@ export const generateHuntDropsByStage = ({
 }: GenerateHuntDropsParams): string[] => {
   const unlockedRarities = getUnlockedDropRaritiesByStage(stage);
   const drops: string[] = [];
+  const silverPool = SILVER_DROP_BY_TYPE[enemyType].filter((dropId) => dropId !== 'pot_5' || stage >= 8);
+  const goldPool = GOLD_DROP_BY_TYPE[enemyType].filter((dropId) => dropId !== 'pot_4' || stage >= 15);
 
   const shouldDropBase = Math.random() < 0.6 || ensureAtLeastOneDrop || isBoss;
   if (shouldDropBase) {
@@ -55,20 +57,20 @@ export const generateHuntDropsByStage = ({
     drops.push('pot_1');
   }
 
-  if (unlockedRarities.includes('silver') && Math.random() < (isBoss ? 0.55 : 0.22)) {
-    drops.push(pickRandom(SILVER_DROP_BY_TYPE[enemyType]));
+  if (unlockedRarities.includes('silver') && silverPool.length > 0 && Math.random() < (isBoss ? 0.55 : 0.22)) {
+    drops.push(pickRandom(silverPool));
   }
 
-  if (unlockedRarities.includes('gold') && Math.random() < (isBoss ? 0.35 : 0.12)) {
-    drops.push(pickRandom(GOLD_DROP_BY_TYPE[enemyType]));
+  if (unlockedRarities.includes('gold') && goldPool.length > 0 && Math.random() < (isBoss ? 0.35 : 0.12)) {
+    drops.push(pickRandom(goldPool));
   }
 
   // Bosses can roll a rarity above the current phase progression.
-  if (isBoss && stage < 4 && Math.random() < 0.18) {
-    drops.push(pickRandom(SILVER_DROP_BY_TYPE[enemyType]));
+  if (isBoss && stage < 5 && silverPool.length > 0 && Math.random() < 0.18) {
+    drops.push(pickRandom(silverPool));
   }
-  if (isBoss && stage < 7 && Math.random() < 0.07) {
-    drops.push(pickRandom(GOLD_DROP_BY_TYPE[enemyType]));
+  if (isBoss && stage < 10 && goldPool.length > 0 && Math.random() < 0.07) {
+    drops.push(pickRandom(goldPool));
   }
 
   return drops;
