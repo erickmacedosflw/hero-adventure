@@ -39,6 +39,7 @@ export const createEmptyBuffState = (): Player['buffs'] => ({
   defMod: 0,
   atkTurns: 0,
   defTurns: 0,
+  autoGuardTurns: 0,
   perfectEvadeTurns: 0,
   doubleAttackTurns: 0,
   riposteTurns: 0,
@@ -52,6 +53,7 @@ export const consumeTurnBuffs = (buffs: Player['buffs']): Player['buffs'] => {
 
   if (nextBuffs.atkTurns > 0) nextBuffs.atkTurns--;
   if (nextBuffs.defTurns > 0) nextBuffs.defTurns--;
+  if (nextBuffs.autoGuardTurns > 0) nextBuffs.autoGuardTurns--;
   if (nextBuffs.perfectEvadeTurns > 0) nextBuffs.perfectEvadeTurns--;
   if (nextBuffs.doubleAttackTurns > 0) nextBuffs.doubleAttackTurns--;
   if (nextBuffs.counterChanceBoostTurns > 0) {

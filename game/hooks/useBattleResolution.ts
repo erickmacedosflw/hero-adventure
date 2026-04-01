@@ -46,6 +46,8 @@ interface UseBattleResolutionParams {
   setEnemyAnimationAction: Dispatch<SetStateAction<any>>;
   setPlayerAnimationAction: Dispatch<SetStateAction<any>>;
   generateVictorySpeech: (enemyName: string) => Promise<string>;
+  onFirstDungeonDiamondGain: () => void;
+  onDungeonSubBossDefeated: (evolution: number) => void;
   shouldForceFirstEnemyDrop: boolean;
   shouldTriggerInventoryUnlockTutorial: boolean;
   onTriggerInventoryUnlockTutorial: () => void;
@@ -85,6 +87,8 @@ export const useBattleResolution = ({
   setEnemyAnimationAction,
   setPlayerAnimationAction,
   generateVictorySpeech,
+  onFirstDungeonDiamondGain,
+  onDungeonSubBossDefeated,
   shouldForceFirstEnemyDrop,
   shouldTriggerInventoryUnlockTutorial,
   onTriggerInventoryUnlockTutorial,
@@ -124,12 +128,16 @@ export const useBattleResolution = ({
       ? drops
       : drops.filter((dropId) => ALL_ITEMS.find((item) => item.id === dropId)?.type !== 'potion');
 
-    const dungeonEncounterNumber = dungeonRun ? dungeonRun.rewards.clearedMonsters + (wasBoss ? 0 : 1) : 0;
-    const diamondGain = dungeonRun
-      ? (wasBoss
-          ? 3 + (Math.random() < 0.45 ? 1 : 0)
-          : ((dungeonEncounterNumber % 10 === 0 ? 1 : 0) + (Math.random() < 0.08 ? 1 : 0)))
-      : 0;
+    const diamondGain = (() => {
+      if (!dungeonRun) return 0;
+
+      // Dungeon diamonds are intentionally rare and capped to 3 per run.
+      const remainingDiamonds = Math.max(0, 3 - dungeonRun.rewards.diamonds);
+      if (remainingDiamonds <= 0) return 0;
+
+      const dropChance = wasBoss ? 0.05 : 0.01;
+      return Math.random() < dropChance ? 1 : 0;
+    })();
 
     const dropItems = effectiveDrops.map(dropId => ALL_ITEMS.find(item => item.id === dropId)).filter((item): item is Item => Boolean(item));
 
@@ -152,7 +160,8 @@ export const useBattleResolution = ({
       });
 
       const clearedMonsters = wasBoss ? dungeonRun.rewards.clearedMonsters : dungeonRun.rewards.clearedMonsters + 1;
-      const nextRewards: DungeonRewards = {
+      const totalDiamondsBeforeBattle = player.diamonds + dungeonRun.rewards.diamonds;
+      let nextRewards: DungeonRewards = {
         ...dungeonRun.rewards,
         gold: dungeonRun.rewards.gold + goldGain,
         xp: dungeonRun.rewards.xp + xpGain,
@@ -160,7 +169,14 @@ export const useBattleResolution = ({
         drops: nextDrops,
         clearedMonsters,
         bossDefeated: wasBoss,
+        subBossDefeatedInPhase: dungeonRun.rewards.subBossDefeatedInPhase || wasSubBoss,
       };
+      if (diamondGain > 0 && totalDiamondsBeforeBattle <= 0) {
+        onFirstDungeonDiamondGain();
+      }
+      if (wasSubBoss) {
+        onDungeonSubBossDefeated(dungeonRun.evolution);
+      }
 
       if (levelsGained > 0) {
         triggerLevelUpPulse();
@@ -176,6 +192,16 @@ export const useBattleResolution = ({
       setEnemyAnimationAction('battle-idle');
 
       if (wasBoss) {
+        if (nextRewards.diamonds < 3) {
+          nextRewards = {
+            ...nextRewards,
+            diamonds: 3,
+          };
+          addLog('A reliquia da dungeon se estabilizou: total de diamantes ajustado para 3.', 'buff');
+          if (totalDiamondsBeforeBattle <= 0) {
+            onFirstDungeonDiamondGain();
+          }
+        }
         const nextEvolution = dungeonRun.evolution + 1;
         const nextTotalMonsters = getDungeonMonsterTarget(nextEvolution);
         const updatedPlayer = {
@@ -200,7 +226,7 @@ export const useBattleResolution = ({
           nextTotalMonsters,
           rewards: nextRewards,
         });
-        setNarration('Escolha: continuar para a proxima evolucao da dungeon ou sair sem custo.');
+        setNarration('Escolha: continuar para a proxima evolucao da dungeon ou descansar.');
         setDungeonRun(null);
         setDungeonResult(null);
 
@@ -220,10 +246,21 @@ export const useBattleResolution = ({
         }
       } else {
         setDungeonRun({ ...dungeonRun, rewards: nextRewards });
-        setNarration(clearedMonsters >= nextRewards.totalMonsters ? 'A câmara final se abriu. O chefão aguarda no fundo da dungeon.' : `A dungeon continua. Encontro ${clearedMonsters}/${nextRewards.totalMonsters}.`);
-        window.setTimeout(() => {
-          enterBattle(clearedMonsters >= nextRewards.totalMonsters, 'dungeon', clearedMonsters);
-        }, 1500);
+        if (wasSubBoss) {
+          const dungeonSubBossQueue: CardRewardOffer[] = [{
+            source: 'level-up',
+            reason: 'Recompensa de evolucao por derrotar um subchefe da dungeon',
+            phaseLevel: dungeonRun.evolution + 1,
+          }];
+          setPostCardFlow('resume-hunt');
+          setNarration('Subchefe da dungeon derrotado! Escolha sua carta de evolucao.');
+          window.setTimeout(() => openCardRewardQueue(progressedDungeonPlayer, dungeonSubBossQueue), 3200);
+        } else {
+          setNarration(clearedMonsters >= nextRewards.totalMonsters ? 'A câmara final se abriu. O chefão aguarda no fundo da dungeon.' : `A dungeon continua. Encontro ${clearedMonsters}/${nextRewards.totalMonsters}.`);
+          window.setTimeout(() => {
+            enterBattle(clearedMonsters >= nextRewards.totalMonsters, 'dungeon', clearedMonsters);
+          }, 1500);
+        }
       }
 
       return;
@@ -340,6 +377,8 @@ export const useBattleResolution = ({
     enterBattle,
     generateDungeonDrops,
     generateVictorySpeech,
+    onFirstDungeonDiamondGain,
+    onDungeonSubBossDefeated,
     getDungeonMonsterTarget,
     openCardRewardQueue,
     player,

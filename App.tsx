@@ -34,7 +34,7 @@ import { generateBattleDescription, generateVictorySpeech } from './services/gem
 type BootWindow = Window & { __heroAdventureBootReady?: boolean };
 const MENU_CAMERA_TRANSITION_MS = 2500;
 type SceneRegion = 'forest' | 'dungeon';
-type OnboardingPhase = 'intro_camp' | 'post_first_hunt' | 'inventory_prompt' | 'inventory_unlocked' | 'cards_prompt' | 'cards_unlocked' | 'merchant_prompt' | 'merchant_unlocked' | 'items_prompt' | 'flee_prompt' | 'flee_unlocked';
+type OnboardingPhase = 'intro_camp' | 'post_first_hunt' | 'inventory_prompt' | 'inventory_unlocked' | 'cards_prompt' | 'cards_unlocked' | 'merchant_prompt' | 'merchant_unlocked' | 'items_prompt' | 'flee_prompt' | 'flee_unlocked' | 'dungeon_prompt' | 'dungeon_unlocked' | 'alchemist_prompt' | 'alchemist_unlocked';
 
 const ONBOARDING_PHASES: OnboardingPhase[] = [
     'intro_camp',
@@ -48,6 +48,10 @@ const ONBOARDING_PHASES: OnboardingPhase[] = [
     'items_prompt',
     'flee_prompt',
     'flee_unlocked',
+    'dungeon_prompt',
+    'dungeon_unlocked',
+    'alchemist_prompt',
+    'alchemist_unlocked',
 ];
 const AUTOSAVE_DEBOUNCE_MS = 2500;
 
@@ -171,7 +175,26 @@ export default function App() {
 
     const getDungeonMonsterTarget = (evolution: number) => 10 + Math.floor(evolution / 3) * 10;
     const getDungeonPowerMultiplier = (evolution: number) => 1 + (evolution * 0.12);
+    const getDungeonPhaseFromEvolution = (evolution: number) => Math.max(1, evolution + 1);
     const pickRandom = <T,>(entries: T[]) => entries[Math.floor(Math.random() * entries.length)];
+    const pickRandomMany = <T,>(entries: T[], amount: number): T[] => {
+        if (entries.length === 0 || amount <= 0) {
+            return [];
+        }
+        const pool = [...entries];
+        const picks: T[] = [];
+        for (let index = 0; index < amount; index += 1) {
+            if (pool.length === 0) {
+                pool.push(...entries);
+            }
+            const pickIndex = Math.floor(Math.random() * pool.length);
+            const [picked] = pool.splice(pickIndex, 1);
+            if (picked !== undefined) {
+                picks.push(picked);
+            }
+        }
+        return picks;
+    };
     const getStagePowerMultiplier = (currentStage: number) => {
         const safeStage = Math.max(1, currentStage);
         return 1 + ((safeStage - 1) * 0.16) + (Math.floor((safeStage - 1) / 2) * 0.06);
@@ -426,6 +449,7 @@ export default function App() {
         totalMonsters: getDungeonMonsterTarget(evolution),
         evolution,
         bossDefeated: false,
+        subBossDefeatedInPhase: dungeonSubBossDefeatedEvolution === evolution,
     });
 
   const [gameState, setGameState] = useState<GameState>(GameState.TAVERN);
@@ -439,6 +463,7 @@ export default function App() {
   const [killCount, setKillCount] = useState(0); // Track kills in current stage
   const [subBossDefeatedInStage, setSubBossDefeatedInStage] = useState(false);
     const [dungeonEvolution, setDungeonEvolution] = useState(0);
+    const [dungeonSubBossDefeatedEvolution, setDungeonSubBossDefeatedEvolution] = useState<number | null>(null);
 
   const [particles, setParticles] = useState<Particle[]>([]);
   const [floatingTexts, setFloatingTexts] = useState<FloatingText[]>([]);
@@ -566,6 +591,8 @@ export default function App() {
     const [constellationRespecUnlockPromptPending, setConstellationRespecUnlockPromptPending] = useState(false);
     const [constellationRespecPromptSeen, setConstellationRespecPromptSeen] = useState(false);
     const [skillsActionUnlocked, setSkillsActionUnlocked] = useState(false);
+    const [hasDiamondHudUnlocked, setHasDiamondHudUnlocked] = useState(false);
+    const [diamondUnlockPromptPending, setDiamondUnlockPromptPending] = useState(false);
     const previousSkillCountRef = useRef(player.skills.length);
     const enemyAnimationResetTimerRef = useRef<number | null>(null);
     const menuTransitionTimerRef = useRef<number | null>(null);
@@ -622,6 +649,7 @@ export default function App() {
         killCount,
         subBossDefeatedInStage,
         dungeonEvolution,
+        dungeonSubBossDefeatedEvolution,
         onboardingPhase,
         hasPlayerDiedOnce,
         skillsActionUnlocked,
@@ -629,6 +657,7 @@ export default function App() {
         constellationUnlockPromptPending,
         constellationRespecUnlockPromptPending,
         constellationRespecPromptSeen,
+        hasDiamondHudUnlocked,
         gameState,
         turnState,
         hasEnemy: Boolean(enemy),
@@ -651,9 +680,11 @@ export default function App() {
         constellationUnlockPromptPending,
         constellationRespecPromptSeen,
         constellationRespecUnlockPromptPending,
+        hasDiamondHudUnlocked,
         currentCardChoices,
         currentCardOffer,
         dungeonEvolution,
+        dungeonSubBossDefeatedEvolution,
         dungeonResult,
         dungeonRun,
         enemy,
@@ -708,6 +739,8 @@ export default function App() {
         const restoredConstellationPromptPending = payload.constellationUnlockPromptPending ?? false;
         const restoredConstellationRespecPromptPending = payload.constellationRespecUnlockPromptPending ?? false;
         const restoredConstellationRespecPromptSeen = payload.constellationRespecPromptSeen ?? false;
+        const restoredDungeonSubBossDefeatedEvolution = payload.dungeonSubBossDefeatedEvolution ?? null;
+        const restoredDiamondHudUnlocked = payload.hasDiamondHudUnlocked ?? payload.player.diamonds > 0;
         const restoredCardRewardQueue = payload.cardRewardQueue ? cloneCardRewardOffers(payload.cardRewardQueue) : [];
         const restoredCurrentCardOffer = payload.currentCardOffer ? { ...payload.currentCardOffer } : null;
         const restoredCurrentCardChoices = payload.currentCardChoices ? cloneProgressionCards(payload.currentCardChoices) : [];
@@ -729,6 +762,7 @@ export default function App() {
         setKillCount(wasInterrupted ? 0 : payload.killCount);
         setSubBossDefeatedInStage(payload.subBossDefeatedInStage ?? false);
         setDungeonEvolution(payload.dungeonEvolution);
+        setDungeonSubBossDefeatedEvolution(restoredDungeonSubBossDefeatedEvolution);
         setOnboardingPhase(safePhase);
         setHasPlayerDiedOnce(payload.hasPlayerDiedOnce || wasInterrupted);
         setSkillsActionUnlocked(payload.skillsActionUnlocked);
@@ -736,6 +770,8 @@ export default function App() {
         setConstellationUnlockPromptPending(wasInterrupted ? false : restoredConstellationPromptPending);
         setConstellationRespecUnlockPromptPending(wasInterrupted ? false : restoredConstellationRespecPromptPending);
         setConstellationRespecPromptSeen(restoredConstellationRespecPromptSeen);
+        setHasDiamondHudUnlocked(restoredDiamondHudUnlocked);
+        setDiamondUnlockPromptPending(false);
         previousSkillCountRef.current = payload.player.skills.length;
 
         setEnemy(null);
@@ -781,10 +817,12 @@ export default function App() {
             ...payload,
             onboardingPhase: safePhase,
             hasPlayerDiedOnce: payload.hasPlayerDiedOnce || wasInterrupted,
+            dungeonSubBossDefeatedEvolution: restoredDungeonSubBossDefeatedEvolution,
             skillsUnlockPromptPending: wasInterrupted ? false : restoredSkillsPromptPending,
             constellationUnlockPromptPending: wasInterrupted ? false : restoredConstellationPromptPending,
             constellationRespecUnlockPromptPending: wasInterrupted ? false : restoredConstellationRespecPromptPending,
             constellationRespecPromptSeen: restoredConstellationRespecPromptSeen,
+            hasDiamondHudUnlocked: restoredDiamondHudUnlocked,
             turnState: wasInterrupted ? TurnState.PLAYER_INPUT : restoredTurnState,
             cardRewardQueue: wasInterrupted ? [] : restoredCardRewardQueue,
             currentCardOffer: wasInterrupted ? null : restoredCurrentCardOffer,
@@ -865,6 +903,7 @@ export default function App() {
             }
         };
     }, [
+        dungeonSubBossDefeatedEvolution,
         dungeonEvolution,
         dungeonResult,
         dungeonRun,
@@ -878,6 +917,7 @@ export default function App() {
         constellationUnlockPromptPending,
         constellationRespecUnlockPromptPending,
         constellationRespecPromptSeen,
+        hasDiamondHudUnlocked,
         currentCardChoices,
         currentCardOffer,
         logs,
@@ -1176,6 +1216,7 @@ export default function App() {
         if (skill.id === 'skl_8') return { color: '#e879f9', particleCount: 24, shake: 0.0, castDelay: 540 };
         if (skill.id === 'skl_9') return { color: '#6366f1', particleCount: 26, shake: 0.5, castDelay: 580 };
         if (skill.id === 'skl_10') return { color: '#fde047', particleCount: 38, shake: 0.72, castDelay: 700 };
+        if (skill.id === 'skl_11') return { color: '#60a5fa', particleCount: 20, shake: 0.18, castDelay: 520 };
         return { color: skill.type === 'magic' ? '#ef4444' : '#a855f7', particleCount: 20, shake: 0.3, castDelay: 500 };
     };
 
@@ -1408,7 +1449,13 @@ export default function App() {
     if (isDungeonEncounter) {
     levelMult *= getDungeonPowerMultiplier(activeDungeonEvolution);
     }
-    const isSubBossEncounter = !isDungeonEncounter && !isBoss && !subBossDefeatedInStage && (killCount + 1 === 5);
+    const dungeonClearedInCurrentPhase = dungeonRun?.rewards.clearedMonsters ?? 0;
+    const isHuntSubBossEncounter = !isDungeonEncounter && !isBoss && !subBossDefeatedInStage && (killCount + 1 === 5);
+    const isDungeonSubBossEncounter = isDungeonEncounter
+        && !isBoss
+        && !dungeonRun?.rewards.subBossDefeatedInPhase
+        && (dungeonClearedInCurrentPhase + 1 === 5);
+    const isSubBossEncounter = isHuntSubBossEncounter || isDungeonSubBossEncounter;
     if (isSubBossEncounter) {
         levelMult *= 1.18;
     }
@@ -1518,8 +1565,17 @@ export default function App() {
         if (isBoss) {
             setNarration(isDungeonEncounter ? 'O soberano da dungeon despertou.' : `O CHEFAO DA FASE ${currentStage} RUGIU!`);
         } else if (isSubBossEncounter) {
-            addLog(`${newEnemy.name} surgiu no marco 5/10 da fase.`, 'crit');
-            setNarration(`SUBCHEFE avistado na fase ${currentStage}!`);
+            addLog(
+                isDungeonEncounter
+                    ? `${newEnemy.name} surgiu no 5o encontro da fase da dungeon.`
+                    : `${newEnemy.name} surgiu no marco 5/10 da fase.`,
+                'crit'
+            );
+            setNarration(
+                isDungeonEncounter
+                    ? `SUBCHEFE da dungeon avistado na fase ${currentStage}!`
+                    : `SUBCHEFE avistado na fase ${currentStage}!`
+            );
         } else {
             setNarration(isDungeonEncounter ? 'Uma presenca da dungeon bloqueia seu caminho.' : 'Um inimigo se aproxima...');
         }
@@ -1555,6 +1611,7 @@ export default function App() {
     setKillCount(0);
     setSubBossDefeatedInStage(false);
         setDungeonEvolution(0);
+        setDungeonSubBossDefeatedEvolution(null);
         setSelectedStartingClassId(classId);
         setHasConfirmedStartingClass(true);
         setHasSavePromptDecision(true);
@@ -1582,6 +1639,8 @@ export default function App() {
         setConstellationUnlockPromptPending(false);
         setConstellationRespecUnlockPromptPending(false);
         setConstellationRespecPromptSeen(false);
+        setHasDiamondHudUnlocked(false);
+        setDiamondUnlockPromptPending(false);
         setSkillsActionUnlocked(false);
         previousSkillCountRef.current = startingPlayer.skills.length;
     setGameState(GameState.TAVERN);
@@ -1594,6 +1653,7 @@ export default function App() {
                 killCount: 0,
                 subBossDefeatedInStage: false,
                 dungeonEvolution: 0,
+                dungeonSubBossDefeatedEvolution: null,
                 onboardingPhase: 'intro_camp',
                 hasPlayerDiedOnce: false,
                 skillsActionUnlocked: false,
@@ -1601,6 +1661,7 @@ export default function App() {
                 constellationUnlockPromptPending: false,
                 constellationRespecUnlockPromptPending: false,
                 constellationRespecPromptSeen: false,
+                hasDiamondHudUnlocked: false,
                 gameState: GameState.TAVERN,
                 turnState: TurnState.PLAYER_INPUT,
                 hasEnemy: false,
@@ -1642,7 +1703,7 @@ export default function App() {
             setSceneRegion(isDungeonBattle ? 'dungeon' : 'forest');
             const dungeonCleared = dungeonClearedOverride ?? dungeonRun?.rewards.clearedMonsters ?? 0;
             const activeDungeonEvolution = dungeonRun?.evolution ?? dungeonEvolution;
-            const encounterStage = isDungeonBattle ? stage + Math.floor(dungeonCleared / 5) + Math.floor(activeDungeonEvolution / 2) : stage;
+            const encounterStage = isDungeonBattle ? getDungeonPhaseFromEvolution(activeDungeonEvolution) : stage;
             setPlayer(prev => {
                 const nextBuffs = { ...prev.buffs };
                 const talentBonuses = getTalentBonuses(prev);
@@ -1777,7 +1838,15 @@ export default function App() {
 
   const respawnAtCamp = () => {
       setOnboardingPhase((prev) => {
-          if (prev === 'merchant_prompt' || prev === 'merchant_unlocked' || prev === 'items_prompt' || prev === 'flee_prompt' || prev === 'flee_unlocked') {
+          if (prev === 'merchant_prompt'
+              || prev === 'merchant_unlocked'
+              || prev === 'items_prompt'
+              || prev === 'flee_prompt'
+              || prev === 'flee_unlocked'
+              || prev === 'dungeon_prompt'
+              || prev === 'dungeon_unlocked'
+              || prev === 'alchemist_prompt'
+              || prev === 'alchemist_unlocked') {
               return prev;
           }
 
@@ -1809,34 +1878,107 @@ export default function App() {
 
     const getHealingValue = (baseValue: number) => Math.floor(baseValue * (1 + player.cardBonuses.healingMultiplier));
 
-    const getDungeonBaseDrop = (enemyType: Enemy['type']) => {
-        if (enemyType === 'beast') {
-            return Math.random() < 0.5 ? 'mat_obsidian_heart' : 'mat_ether_shard';
+    const DUNGEON_COMMON_MATERIAL_POOL = [
+        ...MATERIALS.filter((item) => item.type === 'material' && item.rarity === 'bronze').map((item) => item.id),
+        'mat_dg_coal',
+        'mat_dg_copper_ore',
+        'mat_dg_limestone',
+        'mat_dg_moss_fiber',
+        'mat_dg_fossil_bone',
+        'mat_dg_cracked_shell',
+        'mat_dg_salt_crystal',
+        'mat_dg_rusty_chain',
+        'mat_dg_dark_clay',
+        'mat_dg_sulfur_powder',
+    ];
+
+    const DUNGEON_RARE_MATERIAL_POOL = [
+        'mat_iron',
+        'mat_dg_silver_ore',
+        'mat_dg_moonstone',
+        'mat_dg_amber_resin',
+        'mat_dg_shadow_ink',
+        'mat_dg_arcane_dust',
+        'mat_dg_steel_nodule',
+        'mat_dg_cobalt_shard',
+        'mat_dg_onyx_chip',
+        'mat_dg_ghost_essence',
+        'mat_dg_lumen_pearl',
+    ];
+
+    const DUNGEON_LEGENDARY_MATERIAL_POOL = [
+        'mat_gold',
+        'mat_dg_emerald_cluster',
+        'mat_dg_ruby_prism',
+        'mat_dg_sapphire_core',
+        'mat_dg_void_opal',
+        'mat_dg_dragonite_heart',
+        'mat_dg_star_diamond',
+    ];
+
+    const isDungeonMaterialRarityUnlocked = (rarity: Item['rarity'], evolution: number) => {
+        if (rarity === 'bronze') return true;
+        if (rarity === 'silver') return evolution >= 5;
+        return evolution >= 10;
+    };
+
+    const isDropUnlockedForDungeonEvolution = (itemId: string, evolution: number) => {
+        const item = ALL_ITEMS.find((entry) => entry.id === itemId);
+        if (!item || item.type !== 'material') {
+            return true;
+        }
+        return isDungeonMaterialRarityUnlocked(item.rarity, evolution);
+    };
+
+    const getDungeonBaseDrop = (evolution: number) => {
+        if (evolution < 5) {
+            return pickRandom(DUNGEON_COMMON_MATERIAL_POOL);
         }
 
-        if (enemyType === 'humanoid') {
-            return Math.random() < 0.5 ? 'mat_ether_shard' : 'mat_void_bloom';
+        if (evolution < 10) {
+            return Math.random() < 0.6
+                ? pickRandom(DUNGEON_COMMON_MATERIAL_POOL)
+                : pickRandom(DUNGEON_RARE_MATERIAL_POOL);
         }
 
-        return Math.random() < 0.5 ? 'mat_void_bloom' : 'mat_ether_shard';
+        const roll = Math.random();
+        if (roll < 0.4) {
+            return pickRandom(DUNGEON_COMMON_MATERIAL_POOL);
+        }
+        if (roll < 0.7) {
+            return pickRandom(DUNGEON_RARE_MATERIAL_POOL);
+        }
+        return pickRandom(DUNGEON_LEGENDARY_MATERIAL_POOL);
     };
 
     const generateDungeonDrops = (targetEnemy: Enemy, evolution: number, wasBoss: boolean) => {
         const rewardDrops: string[] = [];
+        const dungeonPhase = getDungeonPhaseFromEvolution(evolution);
+
+        if (wasBoss) {
+            if (dungeonPhase <= 5) {
+                rewardDrops.push(...pickRandomMany(DUNGEON_COMMON_MATERIAL_POOL, 1));
+                rewardDrops.push(...pickRandomMany(DUNGEON_RARE_MATERIAL_POOL, 2));
+            } else if (dungeonPhase <= 10) {
+                rewardDrops.push(...pickRandomMany(DUNGEON_RARE_MATERIAL_POOL, 2));
+                rewardDrops.push(...pickRandomMany(DUNGEON_LEGENDARY_MATERIAL_POOL, 1));
+            } else {
+                rewardDrops.push(...pickRandomMany(DUNGEON_RARE_MATERIAL_POOL, 1));
+                rewardDrops.push(...pickRandomMany(DUNGEON_LEGENDARY_MATERIAL_POOL, 2));
+            }
+            return rewardDrops.slice(0, 3);
+        }
 
         if (Math.random() < 0.92) {
-            rewardDrops.push(getDungeonBaseDrop(targetEnemy.type));
+            rewardDrops.push(getDungeonBaseDrop(evolution));
         }
 
-        if (evolution >= 5 && Math.random() < 0.22) {
-            rewardDrops.push('mat_iron');
-        }
-
-        if (evolution >= 10 && Math.random() < 0.16) {
-            rewardDrops.push('mat_gold');
-        }
-
-        targetEnemy.guaranteedDrops?.forEach(dropId => rewardDrops.push(dropId));
+        targetEnemy.guaranteedDrops?.forEach(dropId => {
+            if (!isDropUnlockedForDungeonEvolution(dropId, evolution)) {
+                return;
+            }
+            rewardDrops.push(dropId);
+        });
 
         targetEnemy.rareDrops?.forEach(drop => {
             if (drop.itemId === 'pot_dg_elixir' && evolution < 8) {
@@ -1845,21 +1987,29 @@ export default function App() {
             if (drop.itemId === 'pot_dg_ambrosia' && evolution < 15) {
                 return;
             }
-            const finalChance = Math.min(0.92, drop.chance + (evolution * 0.02) + (wasBoss ? 0.08 : 0));
+            if (!isDropUnlockedForDungeonEvolution(drop.itemId, evolution)) {
+                return;
+            }
+            const finalChance = Math.min(0.92, drop.chance + (evolution * 0.02));
             if (Math.random() < finalChance) {
                 rewardDrops.push(drop.itemId);
             }
         });
 
-        if (!wasBoss && Math.random() < Math.min(0.45, 0.12 + (evolution * 0.03))) {
+        if (Math.random() < Math.min(0.45, 0.12 + (evolution * 0.03))) {
             rewardDrops.push(Math.random() < 0.55 ? 'pot_dg_mana' : 'pot_3');
         }
 
-        if (wasBoss && evolution >= 8 && Math.random() < 0.28) {
-            rewardDrops.push('pot_dg_elixir');
+        if (rewardDrops.length === 0) {
+            rewardDrops.push(getDungeonBaseDrop(evolution));
         }
 
-        return rewardDrops;
+        const cappedDrops = rewardDrops.slice(0, 3);
+        if (cappedDrops.length === 0) {
+            cappedDrops.push(getDungeonBaseDrop(evolution));
+        }
+
+        return cappedDrops;
     };
 
     const applyDropsToInventory = (inventory: Record<string, number>, rewardDrops: Record<string, number>) => {
@@ -1946,6 +2096,15 @@ export default function App() {
     setEnemyAnimationAction,
     setPlayerAnimationAction,
     generateVictorySpeech,
+    onFirstDungeonDiamondGain: () => {
+        if (!hasDiamondHudUnlocked) {
+            setHasDiamondHudUnlocked(true);
+            setDiamondUnlockPromptPending(true);
+        }
+    },
+    onDungeonSubBossDefeated: (evolution) => {
+        setDungeonSubBossDefeatedEvolution(evolution);
+    },
     onLevelUp: showLevelUpModal,
         shouldForceFirstEnemyDrop: onboardingPhase === 'intro_camp',
         shouldTriggerInventoryUnlockTutorial: onboardingPhase === 'intro_camp' || onboardingPhase === 'post_first_hunt',
@@ -2056,10 +2215,22 @@ export default function App() {
   };
 
   const handleBossVictoryExit = () => {
+      setPlayer((prev) => ({
+          ...prev,
+          stats: {
+              ...prev.stats,
+              hp: prev.stats.maxHp,
+              mp: prev.stats.maxMp,
+          },
+          isDefending: false,
+          buffs: createEmptyBuffState(),
+          statusEffects: [],
+      }));
       setBossVictoryContext(null);
       setPostCardFlow(null);
       setDungeonResult(null);
       setPendingDungeonQueue([]);
+      setNarration('Voce retornou da dungeon totalmente recuperado.');
       setGameState(GameState.TAVERN);
   };
 
@@ -2262,22 +2433,31 @@ export default function App() {
 
         return gameState;
     })();
+    const isDefenseAnimationActive = player.isDefending || player.buffs.autoGuardTurns > 0;
+    const activeDungeonPhase = getDungeonPhaseFromEvolution(dungeonRun?.evolution ?? dungeonEvolution);
+    const alchemistCardOffers = useMemo(
+        () => ALCHEMIST_CARDS.filter((offer) => !player.chosenCards.includes(offer.card.id)),
+        [player.chosenCards]
+    );
     const isCampIntroRestricted = onboardingPhase === 'intro_camp'
         || onboardingPhase === 'post_first_hunt'
         || onboardingPhase === 'inventory_prompt'
         || onboardingPhase === 'inventory_unlocked'
         || onboardingPhase === 'cards_prompt'
         || onboardingPhase === 'cards_unlocked'
-        || onboardingPhase === 'merchant_prompt';
+        || onboardingPhase === 'merchant_prompt'
+        || onboardingPhase === 'dungeon_prompt'
+        || onboardingPhase === 'alchemist_prompt';
     const isProfileStatusOnly = true;
     const isFirstBattleActionRestricted = false;
-    const isInventoryUnlocked = onboardingPhase === 'inventory_unlocked' || onboardingPhase === 'cards_prompt' || onboardingPhase === 'cards_unlocked' || onboardingPhase === 'merchant_prompt' || onboardingPhase === 'merchant_unlocked' || onboardingPhase === 'items_prompt' || onboardingPhase === 'flee_prompt' || onboardingPhase === 'flee_unlocked';
-    const isCardsUnlocked = onboardingPhase === 'cards_prompt' || onboardingPhase === 'cards_unlocked' || onboardingPhase === 'merchant_prompt' || onboardingPhase === 'merchant_unlocked' || onboardingPhase === 'items_prompt' || onboardingPhase === 'flee_prompt' || onboardingPhase === 'flee_unlocked';
-    const isItemsActionUnlocked = onboardingPhase === 'items_prompt' || onboardingPhase === 'flee_prompt' || onboardingPhase === 'flee_unlocked';
-    const isFleeUnlocked = onboardingPhase === 'flee_unlocked';
+    const isInventoryUnlocked = onboardingPhase === 'inventory_unlocked' || onboardingPhase === 'cards_prompt' || onboardingPhase === 'cards_unlocked' || onboardingPhase === 'merchant_prompt' || onboardingPhase === 'merchant_unlocked' || onboardingPhase === 'items_prompt' || onboardingPhase === 'flee_prompt' || onboardingPhase === 'flee_unlocked' || onboardingPhase === 'dungeon_prompt' || onboardingPhase === 'dungeon_unlocked' || onboardingPhase === 'alchemist_prompt' || onboardingPhase === 'alchemist_unlocked';
+    const isCardsUnlocked = onboardingPhase === 'cards_prompt' || onboardingPhase === 'cards_unlocked' || onboardingPhase === 'merchant_prompt' || onboardingPhase === 'merchant_unlocked' || onboardingPhase === 'items_prompt' || onboardingPhase === 'flee_prompt' || onboardingPhase === 'flee_unlocked' || onboardingPhase === 'dungeon_prompt' || onboardingPhase === 'dungeon_unlocked' || onboardingPhase === 'alchemist_prompt' || onboardingPhase === 'alchemist_unlocked';
+    const isItemsActionUnlocked = onboardingPhase === 'items_prompt' || onboardingPhase === 'flee_prompt' || onboardingPhase === 'flee_unlocked' || onboardingPhase === 'dungeon_prompt' || onboardingPhase === 'dungeon_unlocked' || onboardingPhase === 'alchemist_prompt' || onboardingPhase === 'alchemist_unlocked';
+    const isFleeUnlocked = onboardingPhase === 'flee_unlocked' || onboardingPhase === 'dungeon_prompt' || onboardingPhase === 'dungeon_unlocked' || onboardingPhase === 'alchemist_prompt' || onboardingPhase === 'alchemist_unlocked';
     const isSkillsActionUnlocked = skillsActionUnlocked;
-    const isMerchantUnlocked = onboardingPhase === 'merchant_unlocked' || onboardingPhase === 'items_prompt' || onboardingPhase === 'flee_prompt' || onboardingPhase === 'flee_unlocked';
-    const isDungeonUnlocked = false;
+    const isMerchantUnlocked = onboardingPhase === 'merchant_unlocked' || onboardingPhase === 'items_prompt' || onboardingPhase === 'flee_prompt' || onboardingPhase === 'flee_unlocked' || onboardingPhase === 'dungeon_prompt' || onboardingPhase === 'dungeon_unlocked' || onboardingPhase === 'alchemist_prompt' || onboardingPhase === 'alchemist_unlocked';
+    const isDungeonUnlocked = onboardingPhase === 'dungeon_prompt' || onboardingPhase === 'dungeon_unlocked' || onboardingPhase === 'alchemist_prompt' || onboardingPhase === 'alchemist_unlocked';
+    const isAlchemistUnlocked = onboardingPhase === 'alchemist_unlocked';
     const [cameraSceneAnchor, setCameraSceneAnchor] = useState<'camp' | 'battle'>(() => (
         resolvedGameState === GameState.BATTLE ? 'battle' : 'camp'
     ));
@@ -2334,6 +2514,42 @@ export default function App() {
 
         previousResolvedGameStateRef.current = resolvedGameState;
     }, [resolvedGameState]);
+
+    useEffect(() => {
+        if (resolvedGameState !== GameState.TAVERN || dungeonRun || stage < 4) {
+            return;
+        }
+
+        setOnboardingPhase((prev) => {
+            if (prev === 'dungeon_prompt' || prev === 'dungeon_unlocked') {
+                return prev;
+            }
+
+            if (prev !== 'flee_unlocked') {
+                return prev;
+            }
+
+            return 'dungeon_prompt';
+        });
+    }, [dungeonRun, resolvedGameState, stage]);
+
+    useEffect(() => {
+        if (resolvedGameState !== GameState.TAVERN || dungeonRun || dungeonEvolution < 1) {
+            return;
+        }
+
+        setOnboardingPhase((prev) => {
+            if (prev === 'alchemist_prompt' || prev === 'alchemist_unlocked') {
+                return prev;
+            }
+
+            if (prev !== 'dungeon_unlocked') {
+                return prev;
+            }
+
+            return 'alchemist_prompt';
+        });
+    }, [dungeonEvolution, dungeonRun, resolvedGameState]);
 
     useEffect(() => {
         if (resolvedGameState === GameState.BATTLE) {
@@ -2530,6 +2746,7 @@ export default function App() {
             || onboardingPhase === 'merchant_prompt'
             || onboardingPhase === 'items_prompt'
             || onboardingPhase === 'flee_prompt'
+            || onboardingPhase === 'alchemist_prompt'
             || skillsUnlockPromptPending
             || constellationUnlockPromptPending
             || constellationRespecUnlockPromptPending
@@ -2655,11 +2872,13 @@ export default function App() {
                         onGameTimeUpdate={setGameTime}
                                 playerAnimationAction={resolvedGameState === GameState.TAVERN
                                     ? menuHeroAction
-                                    : playerAnimationAction === 'idle' && resolvedGameState === GameState.BATTLE
-                                        ? 'battle-idle'
-                                        : playerAnimationAction === 'defend-hit' || playerAnimationAction === 'evade'
-                                            ? playerAnimationAction
-                                            : player.isDefending ? 'defend' : playerAnimationAction}
+                                    : playerAnimationAction === 'defend-hit' || playerAnimationAction === 'evade'
+                                        ? playerAnimationAction
+                                        : isDefenseAnimationActive && (playerAnimationAction === 'idle' || playerAnimationAction === 'battle-idle')
+                                            ? 'defend'
+                                            : playerAnimationAction === 'idle' && resolvedGameState === GameState.BATTLE
+                                                ? 'battle-idle'
+                                                : playerAnimationAction}
                         isPlayerAttacking={isPlayerAttacking}
                         isEnemyAttacking={isEnemyAttacking}
                         particles={particles}
@@ -2674,7 +2893,7 @@ export default function App() {
                         enemyAnimationAction={enemyAnimationAction}
                         enemyType={enemy?.type || 'beast'}
                         isEnemyBoss={enemy?.isBoss}
-                        isPlayerDefending={player.isDefending}
+                        isPlayerDefending={isDefenseAnimationActive}
                         isEnemyDefending={enemy?.isDefending}
                         isPlayerHit={isPlayerHit}
                         isPlayerCritHit={isPlayerCritHit}
@@ -2796,9 +3015,15 @@ export default function App() {
                         fleeUnlocked={isFleeUnlocked}
                         merchantUnlockPromptActive={onboardingPhase === 'merchant_prompt'}
                         onAcknowledgeMerchantUnlock={() => setOnboardingPhase('merchant_unlocked')}
+                        dungeonUnlockPromptActive={onboardingPhase === 'dungeon_prompt'}
+                        onAcknowledgeDungeonUnlock={() => setOnboardingPhase('dungeon_unlocked')}
+                        alchemistUnlockPromptActive={onboardingPhase === 'alchemist_prompt'}
+                        onAcknowledgeAlchemistUnlock={() => setOnboardingPhase('alchemist_unlocked')}
                         merchantUnlocked={isMerchantUnlocked}
                         dungeonUnlocked={isDungeonUnlocked}
+                        alchemistUnlocked={isAlchemistUnlocked}
                         showSkillsAction={isSkillsActionUnlocked}
+                        showDiamondHud={hasDiamondHudUnlocked}
           />
       )}
 
@@ -2832,7 +3057,7 @@ export default function App() {
             {resolvedGameState === GameState.ALCHEMIST && (
                 <AlchemistScreen
                         player={player}
-                        offers={ALCHEMIST_CARDS}
+                        offers={alchemistCardOffers}
                     itemOffers={ALCHEMIST_ITEM_OFFERS}
                         onBuyCard={buyAlchemistCard}
                     onBuyItem={buyAlchemistItem}
@@ -2867,8 +3092,12 @@ export default function App() {
             shopItems={ALL_ITEMS}
             floatingTexts={floatingTexts}
             stage={stage}
+            dungeonPhase={activeDungeonPhase}
             killCount={killCount}
             isDungeonRun={Boolean(dungeonRun)}
+            showDiamondHud={hasDiamondHudUnlocked}
+            diamondUnlockPromptActive={diamondUnlockPromptPending}
+            onAcknowledgeDiamondUnlock={() => setDiamondUnlockPromptPending(false)}
                         dungeonRewards={dungeonRun?.rewards ?? null}
             dungeonCleared={dungeonRun?.rewards.clearedMonsters ?? 0}
             dungeonTotal={dungeonRun?.rewards.totalMonsters ?? 30}
@@ -2916,6 +3145,19 @@ export default function App() {
                     respawnAtCamp();
                     return;
                 }
+
+                setPlayer((prev) => ({
+                    ...prev,
+                    stats: {
+                        ...prev.stats,
+                        hp: prev.stats.maxHp,
+                        mp: prev.stats.maxMp,
+                    },
+                    isDefending: false,
+                    buffs: createEmptyBuffState(),
+                    statusEffects: [],
+                }));
+                setNarration('Voce retornou da dungeon totalmente recuperado.');
 
                 if (shouldOpenCards) {
                     setPostCardFlow('tavern');

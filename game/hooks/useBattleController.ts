@@ -412,6 +412,7 @@ export const useBattleController = ({
 
       const firstStrike = resolveStrike(enemy.stats.hp, true);
       if (firstStrike.defeated) {
+        setPlayer((prev) => ({ ...prev, buffs: consumeTurnBuffs(prev.buffs) }));
         void handleVictoryRef.current(900);
         return;
       }
@@ -419,6 +420,7 @@ export const useBattleController = ({
       const resolvedIdleDelay = firstStrike.evaded ? Math.max(idleDelay, 570) : idleDelay;
       if (!doubleAttackActive) {
         window.setTimeout(() => {
+          setPlayer((prev) => ({ ...prev, buffs: consumeTurnBuffs(prev.buffs) }));
           setPlayerAnimationAction('idle');
           setTurnState(TurnState.ENEMY_TURN);
         }, resolvedIdleDelay);
@@ -429,10 +431,12 @@ export const useBattleController = ({
       window.setTimeout(() => {
         const secondStrike = resolveStrike(firstStrike.remainingHp, false);
         if (secondStrike.defeated) {
+          setPlayer((prev) => ({ ...prev, buffs: consumeTurnBuffs(prev.buffs) }));
           void handleVictoryRef.current(900);
           return;
         }
         window.setTimeout(() => {
+          setPlayer((prev) => ({ ...prev, buffs: consumeTurnBuffs(prev.buffs) }));
           setPlayerAnimationAction('idle');
           setTurnState(TurnState.ENEMY_TURN);
         }, 450);
@@ -492,6 +496,7 @@ export const useBattleController = ({
     spawnParticles([-2, -1, 0], 10, '#3b82f6', 'spark');
 
     window.setTimeout(() => {
+      setPlayer((prev) => ({ ...prev, buffs: consumeTurnBuffs(prev.buffs) }));
       setTurnState(TurnState.ENEMY_TURN);
     }, 600);
   }, [
@@ -516,9 +521,10 @@ export const useBattleController = ({
     const visual = getSkillVisualConfig(skill);
     const impactColor = skill.trailColor ?? visual.color;
     const resourceSpent = skill.resourceEffect?.consumeAll ? player.classResource.value : requiredResource;
+    const isAutoGuardSkill = skill.id === 'skl_11';
 
     setTurnState(TurnState.PLAYER_ANIMATION);
-    setPlayerAnimationAction(skill.type === 'heal' ? 'heal' : skill.type === 'magic' ? 'skill' : 'attack');
+    setPlayerAnimationAction(isAutoGuardSkill ? 'defend' : skill.type === 'heal' ? 'heal' : skill.type === 'magic' ? 'skill' : 'attack');
     setEnemyAnimationAction(enemy.isDefending ? 'defend' : 'battle-idle');
     setPlayer((prev) => ({
       ...prev,
@@ -541,6 +547,31 @@ export const useBattleController = ({
       spawnFloatingText(`-${resourceSpent} ${player.classResource.name}`, 'player', 'buff', player.classResource.color);
       spawnParticles([-2, -1, 0], 14, player.classResource.color, 'spark');
       addLog(`${skill.name} consumiu ${resourceSpent} ${player.classResource.name}.`, 'info');
+    }
+
+    if (isAutoGuardSkill) {
+      setPlayer((prev) => ({
+        ...prev,
+        buffs: {
+          ...prev.buffs,
+          autoGuardTurns: Math.max(prev.buffs.autoGuardTurns, 3),
+        },
+      }));
+
+      spawnParticles([-2, -1, 0], visual.particleCount + 10, '#60a5fa', 'spark');
+      spawnFloatingText('GUARDA AUTOMATICA!', 'player', 'buff');
+      addLog(`${skill.name}: defesa automatica ativa por 3 turnos.`, 'buff');
+
+      window.setTimeout(() => {
+        setPlayer((prev) => {
+          const consumedBuffs = consumeTurnBuffs(prev.buffs);
+          consumedBuffs.autoGuardTurns = prev.buffs.autoGuardTurns;
+          return { ...prev, buffs: consumedBuffs };
+        });
+        setPlayerAnimationAction('idle');
+        setTurnState(TurnState.ENEMY_TURN);
+      }, 1500);
+      return;
     }
 
     if (skill.type === 'heal') {
@@ -587,6 +618,7 @@ export const useBattleController = ({
       }
 
       window.setTimeout(() => {
+        setPlayer((prev) => ({ ...prev, buffs: consumeTurnBuffs(prev.buffs) }));
         setPlayerAnimationAction('idle');
         setTurnState(TurnState.ENEMY_TURN);
       }, 1500);
@@ -670,12 +702,14 @@ export const useBattleController = ({
 
       const firstStrike = resolveSkillStrike(enemy.stats.hp, true);
       if (firstStrike.defeated) {
+        setPlayer((prev) => ({ ...prev, buffs: consumeTurnBuffs(prev.buffs) }));
         void handleVictoryRef.current(900);
         return;
       }
 
       if (!doubleAttackActive) {
         window.setTimeout(() => {
+          setPlayer((prev) => ({ ...prev, buffs: consumeTurnBuffs(prev.buffs) }));
           setPlayerAnimationAction('idle');
           setTurnState(TurnState.ENEMY_TURN);
         }, 800);
@@ -686,10 +720,12 @@ export const useBattleController = ({
       window.setTimeout(() => {
         const secondStrike = resolveSkillStrike(firstStrike.remainingHp, false);
         if (secondStrike.defeated) {
+          setPlayer((prev) => ({ ...prev, buffs: consumeTurnBuffs(prev.buffs) }));
           void handleVictoryRef.current(900);
           return;
         }
         window.setTimeout(() => {
+          setPlayer((prev) => ({ ...prev, buffs: consumeTurnBuffs(prev.buffs) }));
           setPlayerAnimationAction('idle');
           setTurnState(TurnState.ENEMY_TURN);
         }, 700);
@@ -783,6 +819,11 @@ export const useBattleController = ({
       spawnParticles([-2, -1, 0], 15, '#10b981', 'spark');
       spawnFloatingText('DEFESA UP!', 'player', 'buff');
       addLog(`Usou ${item.name}! Defesa aumentada por ${item.duration} turnos.`, 'buff');
+    } else if (item.id === 'pot_war_sigil' || item.id === 'pot_overclock') {
+      spawnParticles([-2, -1, 0], 16, '#f97316', 'spark');
+      spawnParticles([-2, -1, 0], 16, '#10b981', 'spark');
+      spawnFloatingText('ATK/DEF UP!', 'player', 'buff');
+      addLog(`Usou ${item.name}! Ataque e defesa aumentados por ${item.duration || 2} turnos.`, 'buff');
     } else if (item.id === 'pot_alc_phantom_veil') {
       spawnParticles([-2, -1, 0], 18, '#a78bfa', 'spark');
       spawnFloatingText('INTANGIVEL!', 'player', 'buff');
@@ -815,6 +856,11 @@ export const useBattleController = ({
       } else if (item.id === 'pot_def') {
         newBuffs.defMod = item.value;
         newBuffs.defTurns = item.duration || 3;
+      } else if (item.id === 'pot_war_sigil' || item.id === 'pot_overclock') {
+        newBuffs.atkMod = item.value;
+        newBuffs.defMod = item.value;
+        newBuffs.atkTurns = item.duration || 2;
+        newBuffs.defTurns = item.duration || 2;
       } else if (item.id === 'pot_alc_phantom_veil') {
         newBuffs.perfectEvadeTurns = Math.max(newBuffs.perfectEvadeTurns, item.duration || 4);
       } else if (item.id === 'pot_alc_twin_fang') {
@@ -826,6 +872,26 @@ export const useBattleController = ({
 
     if (gameState === GameState.BATTLE) {
       window.setTimeout(() => {
+        setPlayer((prev) => {
+          const consumedBuffs = consumeTurnBuffs(prev.buffs);
+          if (item.id === 'pot_atk') {
+            consumedBuffs.atkTurns = prev.buffs.atkTurns;
+          }
+          if (item.id === 'pot_def') {
+            consumedBuffs.defTurns = prev.buffs.defTurns;
+          }
+          if (item.id === 'pot_alc_phantom_veil') {
+            consumedBuffs.perfectEvadeTurns = prev.buffs.perfectEvadeTurns;
+          }
+          if (item.id === 'pot_alc_twin_fang') {
+            consumedBuffs.doubleAttackTurns = prev.buffs.doubleAttackTurns;
+          }
+          if (item.id === 'pot_war_sigil' || item.id === 'pot_overclock') {
+            consumedBuffs.atkTurns = prev.buffs.atkTurns;
+            consumedBuffs.defTurns = prev.buffs.defTurns;
+          }
+          return { ...prev, buffs: consumedBuffs };
+        });
         setPlayerAnimationAction('idle');
         setTurnState(TurnState.ENEMY_TURN);
       }, 1500);
@@ -902,12 +968,18 @@ export const useBattleController = ({
     const playerDefensive = lastPlayerActionRef.current === 'defend';
     const canDefend = simulatedEnemy.lastAction !== 'defend';
     const enemyUsesManaSkills = simulatedEnemy.skillSet.some((skill) => skill.manaCost > 0);
+    const defendingActive = player.isDefending || player.buffs.autoGuardTurns > 0;
+
+    if (defendingActive) {
+      // Auto-guard mirrors defend posture while the enemy resolves actions.
+      setPlayerAnimationAction('defend');
+    }
 
     const finishEnemyActionToPlayerTurn = (nextEnemy: Enemy) => {
       const enemyAfterBuffTick = tickEnemyBuffs(nextEnemy);
       setEnemy(enemyAfterBuffTick);
       setPlayer((prev) => {
-        const nextBuffs = consumeTurnBuffs(prev.buffs);
+        const nextBuffs = { ...prev.buffs };
         if (!nextBuffs.riposteArmed) {
           nextBuffs.riposteTurns = 0;
         }
@@ -918,7 +990,7 @@ export const useBattleController = ({
     };
 
     const rollDefensiveCounter = (targetEnemy: Enemy) => {
-      if (!player.isDefending || player.stats.hp <= 0) {
+      if (!defendingActive || player.stats.hp <= 0) {
         return { triggered: false as const, damage: 0, nextEnemy: targetEnemy };
       }
 
@@ -1249,7 +1321,7 @@ export const useBattleController = ({
           multiplier: chosenSkill.damageMultiplier * getEnemyDamagePressure(simulatedEnemy, 'skill'),
           luck: simulatedEnemy.stats.luck,
           attackKind: chosenSkill.attackKind,
-          defenderIsDefending: player.isDefending,
+          defenderIsDefending: defendingActive,
           defenderBuffs: player.buffs,
           applyDefenseBuff: true,
           critChanceBonus: simulatedEnemy.aiProfile.critChanceBonus,
@@ -1267,13 +1339,13 @@ export const useBattleController = ({
           return;
         }
 
-        const finalDamage = player.isDefending ? Math.floor(skillAttackResult.damage * 0.5) : skillAttackResult.damage;
-        const mitigatedDamage = player.isDefending ? Math.max(0, skillAttackResult.damage - finalDamage) : 0;
+        const finalDamage = defendingActive ? Math.floor(skillAttackResult.damage * 0.5) : skillAttackResult.damage;
+        const mitigatedDamage = defendingActive ? Math.max(0, skillAttackResult.damage - finalDamage) : 0;
         const remainingHpAfterHit = Math.max(0, player.stats.hp - finalDamage);
         playAttackImpactSfx({
           attackKind: chosenSkill.attackKind,
           attackerStyle: chosenSkill.attackKind === 'magic' ? 'unarmed' : (simulatedEnemy.attackStyle === 'armed' ? 'weapon' : 'unarmed'),
-          defended: player.isDefending,
+          defended: defendingActive,
           source: 'enemy',
         });
         if (remainingHpAfterHit <= 0) {
@@ -1281,7 +1353,7 @@ export const useBattleController = ({
         }
         const hitAnimationAction: PlayerAnimationAction = remainingHpAfterHit <= 0
           ? 'death'
-          : player.isDefending
+          : defendingActive
             ? 'defend-hit'
             : skillAttackResult.isCrit
               ? 'critical-hit'
@@ -1307,14 +1379,14 @@ export const useBattleController = ({
         setPlayer((prev) => ({
           ...prev,
           buffs: {
-            ...consumeTurnBuffs(prev.buffs),
-            riposteTurns: player.isDefending ? 1 : prev.buffs.riposteTurns,
-            riposteArmed: player.isDefending ? true : prev.buffs.riposteArmed,
+            ...prev.buffs,
+            riposteTurns: defendingActive ? 1 : prev.buffs.riposteTurns,
+            riposteArmed: defendingActive ? true : prev.buffs.riposteArmed,
           },
           isDefending: false,
           stats: { ...prev.stats, hp: Math.max(0, prev.stats.hp - finalDamage) },
         }));
-        if (player.isDefending && remainingHpAfterHit > 0) {
+        if (defendingActive && remainingHpAfterHit > 0) {
           const counterResult = rollDefensiveCounter(simulatedEnemy);
           if (counterResult.triggered) {
             pendingCounter = {
@@ -1404,7 +1476,7 @@ export const useBattleController = ({
         multiplier: getEnemyDamagePressure(simulatedEnemy, 'basic'),
         luck: simulatedEnemy.stats.luck,
         attackKind: 'physical',
-        defenderIsDefending: player.isDefending,
+        defenderIsDefending: defendingActive,
         defenderBuffs: player.buffs,
         applyDefenseBuff: true,
         critChanceBonus: simulatedEnemy.aiProfile.critChanceBonus,
@@ -1417,7 +1489,7 @@ export const useBattleController = ({
         battleSfx.play('evade');
         spawnFloatingText('DESVIO!', 'player', 'buff');
         addLog(`Voce desviou do ataque de ${simulatedEnemy.name}!`, 'evade');
-        setPlayer((prev) => ({ ...prev, buffs: consumeTurnBuffs(prev.buffs), isDefending: false }));
+        setPlayer((prev) => ({ ...prev, isDefending: false }));
         setPlayerAnimationAction('evade');
         window.setTimeout(() => {
           setIsEnemyAttacking(false);
@@ -1426,13 +1498,13 @@ export const useBattleController = ({
         return;
       }
 
-      const finalDamage = player.isDefending ? Math.floor(attackResult.damage * 0.5) : attackResult.damage;
-      const mitigatedDamage = player.isDefending ? Math.max(0, attackResult.damage - finalDamage) : 0;
+      const finalDamage = defendingActive ? Math.floor(attackResult.damage * 0.5) : attackResult.damage;
+      const mitigatedDamage = defendingActive ? Math.max(0, attackResult.damage - finalDamage) : 0;
       const remainingHpAfterHit = Math.max(0, player.stats.hp - finalDamage);
       playAttackImpactSfx({
         attackKind: 'physical',
         attackerStyle: simulatedEnemy.attackStyle === 'armed' ? 'weapon' : 'unarmed',
-        defended: player.isDefending,
+        defended: defendingActive,
         source: 'enemy',
       });
       if (remainingHpAfterHit <= 0) {
@@ -1440,7 +1512,7 @@ export const useBattleController = ({
       }
       const hitAnimationAction: PlayerAnimationAction = remainingHpAfterHit <= 0
         ? 'death'
-        : player.isDefending
+        : defendingActive
           ? 'defend-hit'
           : attackResult.isCrit
             ? 'critical-hit'
@@ -1463,8 +1535,8 @@ export const useBattleController = ({
 
       let pendingCounter: { damage: number; enemyStateBeforeCounter: Enemy } | null = null;
       setPlayer((prev) => {
-        const nextBuffs = consumeTurnBuffs(prev.buffs);
-        if (player.isDefending) {
+        const nextBuffs = { ...prev.buffs };
+        if (defendingActive) {
           nextBuffs.riposteTurns = 1;
           nextBuffs.riposteArmed = true;
         }
@@ -1475,7 +1547,7 @@ export const useBattleController = ({
           stats: { ...prev.stats, hp: Math.max(0, prev.stats.hp - finalDamage) },
         };
       });
-      if (player.isDefending && remainingHpAfterHit > 0) {
+      if (defendingActive && remainingHpAfterHit > 0) {
         const counterResult = rollDefensiveCounter(simulatedEnemy);
         if (counterResult.triggered) {
           pendingCounter = {
@@ -1485,7 +1557,7 @@ export const useBattleController = ({
         }
       }
 
-      addLog(`${simulatedEnemy.name} atacou: ${finalDamage} dano!${player.isDefending ? ' (Defendido)' : ''}${attackResult.isCrit ? ' CRITICO!' : ''}`, attackResult.isCrit ? 'crit' : 'damage');
+      addLog(`${simulatedEnemy.name} atacou: ${finalDamage} dano!${defendingActive ? ' (Defendido)' : ''}${attackResult.isCrit ? ' CRITICO!' : ''}`, attackResult.isCrit ? 'crit' : 'damage');
       setPlayerAnimationAction(hitAnimationAction);
 
       window.setTimeout(() => {

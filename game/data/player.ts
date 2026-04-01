@@ -43,6 +43,7 @@ export const INITIAL_PLAYER: Player = {
     defMod: 0,
     atkTurns: 0,
     defTurns: 0,
+    autoGuardTurns: 0,
     perfectEvadeTurns: 0,
     doubleAttackTurns: 0,
     riposteTurns: 0,

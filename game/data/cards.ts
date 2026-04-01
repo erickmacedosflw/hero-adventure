@@ -71,6 +71,7 @@ export const PROGRESSION_CARDS: ProgressionCard[] = [
   { id: 'card_gold_skill_dragon', name: 'Mandato Dracônico', description: 'Desbloqueia a habilidade Lâmina do Dragão.', icon: '🐉', rarity: 'gold', minLevel: 7, category: 'especial', offerSources: BOTH_SOURCES, effects: [{ type: 'unlock_skill', value: 0, skillId: 'skl_4' }] },
   { id: 'card_gold_skill_shadow', name: 'Pacto do Eclipse', description: 'Desbloqueia a habilidade Lança Sombria.', icon: '🌘', rarity: 'gold', minLevel: 7, category: 'especial', offerSources: BOTH_SOURCES, effects: [{ type: 'unlock_skill', value: 0, skillId: 'skl_9' }] },
   { id: 'card_gold_skill_solar', name: 'Veredito Solar', description: 'Desbloqueia a habilidade Julgamento Solar.', icon: '☀️', rarity: 'gold', minLevel: 9, category: 'especial', offerSources: BOTH_SOURCES, effects: [{ type: 'unlock_skill', value: 0, skillId: 'skl_10' }] },
+  { id: 'card_gold_skill_guardian', name: 'Sentinela Arcana', description: 'Desbloqueia a habilidade Muralha Instintiva.', icon: '🛡️', rarity: 'gold', minLevel: 10, category: 'especial', offerSources: BOTH_SOURCES, effects: [{ type: 'unlock_skill', value: 0, skillId: 'skl_11' }] },
   { id: 'card_gold_colossus', name: 'Carne de Colosso', description: 'Aumente HP em 65 e defesa em 4.', icon: '🗿', rarity: 'gold', minLevel: 7, category: 'atributo', offerSources: BOTH_SOURCES, effects: [{ type: 'max_hp', value: 65 }, { type: 'def', value: 4 }] },
   { id: 'card_gold_archmage', name: 'Reservatório Astral', description: 'Aumente MP em 35, cura em 7% e sorte em 2.', icon: '🔮', rarity: 'gold', minLevel: 7, category: 'especial', offerSources: BOTH_SOURCES, effects: [{ type: 'max_mp', value: 35 }, { type: 'heal_multiplier', value: 0.15 }, { type: 'luck', value: 2 }] },
   { id: 'card_gold_executioner', name: 'Golpe Final', description: 'Aumente ataque em 5 e dano em chefes em 7%.', icon: '🪓', rarity: 'gold', minLevel: 8, category: 'batalha', offerSources: BOTH_SOURCES, effects: [{ type: 'atk', value: 5 }, { type: 'boss_damage_multiplier', value: 0.15 }] },
@@ -97,7 +98,7 @@ const ALCHEMIST_ONLY: CardOfferSource[] = [];
 export const ALCHEMIST_CARDS: AlchemistCardOffer[] = [
   {
     id: 'alchemist_card_phoenix_elixir',
-    cost: 5,
+    cost: 8,
     tagline: 'Restaura o corpo e entrega um finalizador solar raro.',
     card: {
       id: 'card_alchemist_phoenix_elixir',
@@ -117,14 +118,14 @@ export const ALCHEMIST_CARDS: AlchemistCardOffer[] = [
   },
   {
     id: 'alchemist_card_mercury_nerve',
-    cost: 3,
+    cost: 6,
     tagline: 'Acelera a leitura da luta e empilha pressao desde o primeiro turno.',
     card: {
       id: 'card_alchemist_mercury_nerve',
       name: 'Nervos de Mercurio',
       description: 'O alquimista injeta reflexos artificiais e um impulso de abertura brutal.',
       icon: '⚗️',
-      rarity: 'gold',
+      rarity: 'silver',
       minLevel: 5,
       category: 'batalha',
       offerSources: ALCHEMIST_ONLY,
@@ -137,15 +138,15 @@ export const ALCHEMIST_CARDS: AlchemistCardOffer[] = [
   },
   {
     id: 'alchemist_card_void_tonic',
-    cost: 4,
+    cost: 5,
     tagline: 'Mistura defesa viva com regeneracao ritual.',
     card: {
       id: 'card_alchemist_void_tonic',
       name: 'Tonico de Vanguarda',
       description: 'Cristais moidos e cinzas de golem viram uma couraca de abertura para combate.',
       icon: '🫙',
-      rarity: 'gold',
-      minLevel: 5,
+      rarity: 'bronze',
+      minLevel: 4,
       category: 'especial',
       offerSources: ALCHEMIST_ONLY,
       effects: [
@@ -157,14 +158,14 @@ export const ALCHEMIST_CARDS: AlchemistCardOffer[] = [
   },
   {
     id: 'alchemist_card_storm_ampoule',
-    cost: 5,
+    cost: 7,
     tagline: 'Canaliza tempestade condensada para builds agressivas.',
     card: {
       id: 'card_alchemist_storm_ampoule',
       name: 'Ampola da Tempestade',
       description: 'Uma ampola que pulsa com relampagos e ensina a forma mais instavel da arcania.',
       icon: '🌩️',
-      rarity: 'gold',
+      rarity: 'silver',
       minLevel: 6,
       category: 'especial',
       offerSources: ALCHEMIST_ONLY,
@@ -177,7 +178,7 @@ export const ALCHEMIST_CARDS: AlchemistCardOffer[] = [
   },
   {
     id: 'alchemist_card_dragon_resin',
-    cost: 6,
+    cost: 10,
     tagline: 'Catalisa dano em chefes com uma tecnica draconica rara.',
     card: {
       id: 'card_alchemist_dragon_resin',
@@ -197,14 +198,14 @@ export const ALCHEMIST_CARDS: AlchemistCardOffer[] = [
   },
   {
     id: 'alchemist_card_astral_syrup',
-    cost: 4,
+    cost: 6,
     tagline: 'Voltada para conjuradores que precisam sustentar lutas longas.',
     card: {
       id: 'card_alchemist_astral_syrup',
       name: 'Xarope Astral',
       description: 'Uma formula delicada que expande a reserva de mana e abre acesso a Cura Astral.',
       icon: '🌠',
-      rarity: 'gold',
+      rarity: 'silver',
       minLevel: 6,
       category: 'especial',
       offerSources: ALCHEMIST_ONLY,
@@ -217,15 +218,15 @@ export const ALCHEMIST_CARDS: AlchemistCardOffer[] = [
   },
   {
     id: 'alchemist_card_eclipse_ink',
-    cost: 5,
+    cost: 6,
     tagline: 'Uma carta de assassino para builds de sorte e critico.',
     card: {
       id: 'card_alchemist_eclipse_ink',
       name: 'Tinta do Eclipse',
       description: 'A tinta escorre como sombra liquida e grava uma tecnica noturna na memoria muscular.',
       icon: '🌘',
-      rarity: 'gold',
-      minLevel: 7,
+      rarity: 'bronze',
+      minLevel: 5,
       category: 'especial',
       offerSources: ALCHEMIST_ONLY,
       effects: [
@@ -237,7 +238,7 @@ export const ALCHEMIST_CARDS: AlchemistCardOffer[] = [
   },
   {
     id: 'alchemist_card_tyrant_formula',
-    cost: 7,
+    cost: 15,
     tagline: 'A formula mais cara da casa, para builds que querem tudo de uma vez.',
     card: {
       id: 'card_alchemist_tyrant_formula',

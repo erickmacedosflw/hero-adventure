@@ -21,6 +21,8 @@ export const SHOP_ITEMS: Item[] = [
   // Buff Items
   { id: 'pot_atk', name: 'Poção da Fúria', description: '+50% de Ataque por 3 turnos.', cost: 150, type: 'potion', value: 0.5, icon: '🔥', rarity: 'silver', minLevel: 3, duration: 3 },
   { id: 'pot_def', name: 'Tônico de Ferro', description: '+50% de Defesa por 3 turnos.', cost: 150, type: 'potion', value: 0.5, icon: '🛡️', rarity: 'silver', minLevel: 3, duration: 3 },
+  { id: 'pot_war_sigil', name: 'Selo Bélico', description: '+50% ATK e +50% DEF por 2 turnos.', cost: 260, type: 'potion', value: 0.5, icon: '⚔️', rarity: 'silver', minLevel: 8, duration: 2 },
+  { id: 'pot_overclock', name: 'Overclock Bélico', description: '+60% ATK e +60% DEF por 2 turnos.', cost: 620, type: 'potion', value: 0.6, icon: '💥', rarity: 'gold', minLevel: 12, duration: 2 },
 
   // --- ARMOR (CHEST) ---
   { id: 'arm_b1', name: 'Túnica de Couro', description: 'Proteção básica. +4 DEF e +6 MP', cost: 180, type: 'armor', value: 4, mpBonus: 6, icon: '👕', rarity: 'bronze', minLevel: 1 },
@@ -77,6 +79,32 @@ export const MATERIALS: Item[] = [
 ];
 
 export const DUNGEON_ITEMS: Item[] = [
+  { id: 'mat_dg_coal', name: 'Carvão Impuro', description: 'Carvão poroso retirado das camadas rasas da dungeon.', cost: 18, type: 'material', value: 0, icon: '🪨', rarity: 'bronze', minLevel: 1, source: 'dungeon' },
+  { id: 'mat_dg_copper_ore', name: 'Minério de Cobre', description: 'Veio metálico comum, útil para ligas iniciais.', cost: 22, type: 'material', value: 0, icon: '🟤', rarity: 'bronze', minLevel: 1, source: 'dungeon' },
+  { id: 'mat_dg_limestone', name: 'Calcário Fraturado', description: 'Pedra sedimentar que se desfaz com pressão.', cost: 20, type: 'material', value: 0, icon: '🪨', rarity: 'bronze', minLevel: 1, source: 'dungeon' },
+  { id: 'mat_dg_moss_fiber', name: 'Fibra de Musgo Abissal', description: 'Trama orgânica úmida que cresce entre ruínas.', cost: 24, type: 'material', value: 0, icon: '🌿', rarity: 'bronze', minLevel: 1, source: 'dungeon' },
+  { id: 'mat_dg_fossil_bone', name: 'Osso Fossilizado', description: 'Fragmento endurecido de criatura antiga.', cost: 26, type: 'material', value: 0, icon: '🦴', rarity: 'bronze', minLevel: 1, source: 'dungeon' },
+  { id: 'mat_dg_cracked_shell', name: 'Carapaça Quebrada', description: 'Casco mineralizado de monstro subterrâneo.', cost: 28, type: 'material', value: 0, icon: '🛡️', rarity: 'bronze', minLevel: 1, source: 'dungeon' },
+  { id: 'mat_dg_salt_crystal', name: 'Cristal de Sal Sombrio', description: 'Cristal opaco formado em salões fechados.', cost: 30, type: 'material', value: 0, icon: '🧂', rarity: 'bronze', minLevel: 1, source: 'dungeon' },
+  { id: 'mat_dg_rusty_chain', name: 'Elo Enferrujado', description: 'Restos de correntes antigas corroídas.', cost: 19, type: 'material', value: 0, icon: '⛓️', rarity: 'bronze', minLevel: 1, source: 'dungeon' },
+  { id: 'mat_dg_dark_clay', name: 'Argila Escura', description: 'Argila densa com alta concentração mineral.', cost: 21, type: 'material', value: 0, icon: '🟫', rarity: 'bronze', minLevel: 1, source: 'dungeon' },
+  { id: 'mat_dg_sulfur_powder', name: 'Pó de Enxofre', description: 'Resíduo inflamável coletado de fendas quentes.', cost: 23, type: 'material', value: 0, icon: '🟡', rarity: 'bronze', minLevel: 1, source: 'dungeon' },
+  { id: 'mat_dg_silver_ore', name: 'Minério de Prata', description: 'Metal brilhante e estável para peças refinadas.', cost: 72, type: 'material', value: 0, icon: '⚪', rarity: 'silver', minLevel: 5, source: 'dungeon' },
+  { id: 'mat_dg_moonstone', name: 'Pedra Lunar', description: 'Gema fria que pulsa com brilho azulado.', cost: 84, type: 'material', value: 0, icon: '🌙', rarity: 'silver', minLevel: 5, source: 'dungeon' },
+  { id: 'mat_dg_amber_resin', name: 'Resina Âmbar', description: 'Seiva cristalizada de raízes antigas.', cost: 78, type: 'material', value: 0, icon: '🟠', rarity: 'silver', minLevel: 5, source: 'dungeon' },
+  { id: 'mat_dg_shadow_ink', name: 'Tinta Sombria', description: 'Pigmento arcano usado em inscrições ocultas.', cost: 90, type: 'material', value: 0, icon: '🖤', rarity: 'silver', minLevel: 5, source: 'dungeon' },
+  { id: 'mat_dg_arcane_dust', name: 'Pó Arcano', description: 'Partículas místicas deixadas por rituais antigos.', cost: 96, type: 'material', value: 0, icon: '✨', rarity: 'silver', minLevel: 5, source: 'dungeon' },
+  { id: 'mat_dg_steel_nodule', name: 'Nódulo de Aço', description: 'Concreção metálica de altíssima dureza.', cost: 88, type: 'material', value: 0, icon: '🔩', rarity: 'silver', minLevel: 5, source: 'dungeon' },
+  { id: 'mat_dg_cobalt_shard', name: 'Fragmento de Cobalto', description: 'Minério azul escuro encontrado em veios profundos.', cost: 94, type: 'material', value: 0, icon: '🔷', rarity: 'silver', minLevel: 5, source: 'dungeon' },
+  { id: 'mat_dg_onyx_chip', name: 'Lasca de Ônix', description: 'Pedra negra compacta de corte preciso.', cost: 102, type: 'material', value: 0, icon: '🪨', rarity: 'silver', minLevel: 5, source: 'dungeon' },
+  { id: 'mat_dg_ghost_essence', name: 'Essência Espectral', description: 'Névoa condensada em frasco lacrado.', cost: 110, type: 'material', value: 0, icon: '👻', rarity: 'silver', minLevel: 5, source: 'dungeon' },
+  { id: 'mat_dg_lumen_pearl', name: 'Pérola de Lúmen', description: 'Nódulo luminescente cultivado em água parada.', cost: 118, type: 'material', value: 0, icon: '💠', rarity: 'silver', minLevel: 5, source: 'dungeon' },
+  { id: 'mat_dg_emerald_cluster', name: 'Cacho de Esmeralda', description: 'Cristais verdes de alto valor alquímico.', cost: 240, type: 'material', value: 0, icon: '💚', rarity: 'gold', minLevel: 10, source: 'dungeon' },
+  { id: 'mat_dg_ruby_prism', name: 'Prisma Rubi', description: 'Cristal rubro com núcleo incandescente.', cost: 260, type: 'material', value: 0, icon: '❤️', rarity: 'gold', minLevel: 10, source: 'dungeon' },
+  { id: 'mat_dg_sapphire_core', name: 'Núcleo de Safira', description: 'Gema azul pura forjada sob alta pressão.', cost: 280, type: 'material', value: 0, icon: '💙', rarity: 'gold', minLevel: 10, source: 'dungeon' },
+  { id: 'mat_dg_void_opal', name: 'Opala do Vazio', description: 'Pedra iridescente que distorce a luz ao redor.', cost: 320, type: 'material', value: 0, icon: '🌌', rarity: 'gold', minLevel: 10, source: 'dungeon' },
+  { id: 'mat_dg_dragonite_heart', name: 'Coração de Dragonita', description: 'Núcleo mineral quase indestrutível.', cost: 360, type: 'material', value: 0, icon: '🐉', rarity: 'gold', minLevel: 10, source: 'dungeon' },
+  { id: 'mat_dg_star_diamond', name: 'Diamante Estelar', description: 'Cristal lendário que brilha como constelação.', cost: 420, type: 'material', value: 0, icon: '💎', rarity: 'gold', minLevel: 10, source: 'dungeon' },
   { id: 'mat_ether_shard', name: 'Fragmento de Ether', description: 'Cristal instável recolhido das galerias da dungeon.', cost: 55, type: 'material', value: 0, icon: '🧿', rarity: 'silver', minLevel: 4, source: 'dungeon' },
   { id: 'mat_obsidian_heart', name: 'Coração de Obsidiana', description: 'Núcleo denso e quente arrancado de bestas abissais.', cost: 120, type: 'material', value: 0, icon: '🪨', rarity: 'gold', minLevel: 7, source: 'dungeon' },
   { id: 'mat_void_bloom', name: 'Flor do Vazio', description: 'Matéria viva que pulsa com energia da dungeon profunda.', cost: 180, type: 'material', value: 0, icon: '🌌', rarity: 'gold', minLevel: 9, source: 'dungeon' },
@@ -132,6 +160,7 @@ const BASE_SKILLS: Skill[] = [
   { id: 'skl_8', name: 'Cura Astral', cost: 0, damageMult: 0.65, minLevel: 6, description: 'Cura 65% da vida maxima. 30 MP', manaCost: 30, type: 'heal' },
   { id: 'skl_9', name: 'Lança Sombria', cost: 0, damageMult: 3.2, minLevel: 7, description: 'Perfuração sombria com rastro espectral. 34 MP', manaCost: 34, type: 'physical' },
   { id: 'skl_10', name: 'Julgamento Solar', cost: 0, damageMult: 4.1, minLevel: 9, description: 'Coluna sagrada de luz esmagadora. 52 MP', manaCost: 52, type: 'magic' },
+  { id: 'skl_11', name: 'Muralha Instintiva', cost: 0, damageMult: 0, minLevel: 10, description: 'Ativa defesa automatica por 3 turnos. 15 MP', manaCost: 15, type: 'heal', source: 'card' },
 ];
 
 export const SKILLS: Skill[] = [...BASE_SKILLS, ...CONSTELLATION_SKILLS];
@@ -198,14 +227,14 @@ export const ENEMY_DATA: EnemyTemplate[] = [
 ];
 
 export const DUNGEON_ENEMY_DATA: DungeonEnemyTemplate[] = [
-  { name: 'Bone Minion', type: 'undead', enemyClassId: 'ranger', minEvolution: 0, scale: 1.02, assets: createSkeletonAssets('Skeleton_Minion.fbx', 2.02), attackStyle: 'unarmed', hpMultiplier: 0.96, atkMultiplier: 1.05, guaranteedDrops: ['mat_ether_shard'], rareDrops: [{ itemId: 'pot_dg_mana', chance: 0.08 }] },
-  { name: 'Bone Rogue', type: 'undead', enemyClassId: 'rogue', minEvolution: 0, scale: 1.04, assets: createSkeletonAssets('Skeleton_Rogue.fbx', 2.06), attackStyle: 'unarmed', hpMultiplier: 1.02, atkMultiplier: 1.14, speedBonus: 1, guaranteedDrops: ['mat_obsidian_heart'] },
-  { name: 'Bone Warrior', type: 'undead', enemyClassId: 'knight', minEvolution: 1, scale: 1.08, assets: createSkeletonAssets('Skeleton_Warrior.fbx', 2.14), attackStyle: 'unarmed', hpMultiplier: 1.14, defMultiplier: 1.16, guaranteedDrops: ['mat_ether_shard'] },
-  { name: 'Bone Mage', type: 'undead', enemyClassId: 'mage', minEvolution: 1, scale: 1.06, assets: createSkeletonAssets('Skeleton_Mage.fbx', 2.1), attackStyle: 'unarmed', atkMultiplier: 1.22, speedBonus: 2, rareDrops: [{ itemId: 'mat_void_bloom', chance: 0.14 }] },
+  { name: 'Bone Minion', type: 'undead', enemyClassId: 'ranger', minEvolution: 0, scale: 1.02, assets: createSkeletonAssets('Skeleton_Minion.fbx', 2.02), attackStyle: 'unarmed', hpMultiplier: 0.96, atkMultiplier: 1.05, rareDrops: [{ itemId: 'pot_dg_mana', chance: 0.08 }] },
+  { name: 'Bone Rogue', type: 'undead', enemyClassId: 'rogue', minEvolution: 0, scale: 1.04, assets: createSkeletonAssets('Skeleton_Rogue.fbx', 2.06), attackStyle: 'unarmed', hpMultiplier: 1.02, atkMultiplier: 1.14, speedBonus: 1 },
+  { name: 'Bone Warrior', type: 'undead', enemyClassId: 'knight', minEvolution: 1, scale: 1.08, assets: createSkeletonAssets('Skeleton_Warrior.fbx', 2.14), attackStyle: 'unarmed', hpMultiplier: 1.14, defMultiplier: 1.16 },
+  { name: 'Bone Mage', type: 'undead', enemyClassId: 'mage', minEvolution: 1, scale: 1.06, assets: createSkeletonAssets('Skeleton_Mage.fbx', 2.1), attackStyle: 'unarmed', atkMultiplier: 1.22, speedBonus: 2, rareDrops: [{ itemId: 'mat_dg_silver_ore', chance: 0.14 }] },
   { name: 'Crypt Warrior', type: 'undead', enemyClassId: 'barbarian', minEvolution: 2, scale: 1.14, assets: createSkeletonAssets('Skeleton_Warrior.fbx', 2.2), attackStyle: 'unarmed', hpMultiplier: 1.2, atkMultiplier: 1.16, rareDrops: [{ itemId: 'pot_dg_elixir', chance: 0.12 }] },
   { name: 'Crypt Rogue', type: 'undead', enemyClassId: 'rogue', minEvolution: 3, scale: 1.06, assets: createSkeletonAssets('Skeleton_Rogue.fbx', 2.08), attackStyle: 'unarmed', atkMultiplier: 1.24, speedBonus: 2, rareDrops: [{ itemId: 'wep_3d_sword_d', chance: 0.08 }] },
   { name: 'Crypt Mage', type: 'undead', enemyClassId: 'mage', minEvolution: 4, scale: 1.08, assets: createSkeletonAssets('Skeleton_Mage.fbx', 2.14), attackStyle: 'unarmed', hpMultiplier: 1.08, atkMultiplier: 1.28, speedBonus: 3, rareDrops: [{ itemId: 'shd_dg_eclipse', chance: 0.08 }] },
-  { name: 'Bone Champion', type: 'undead', enemyClassId: 'knight', minEvolution: 5, scale: 1.18, assets: createSkeletonAssets('Skeleton_Warrior.fbx', 2.26), attackStyle: 'unarmed', hpMultiplier: 1.26, defMultiplier: 1.2, guaranteedDrops: ['mat_void_bloom'], rareDrops: [{ itemId: 'arm_dg_abyss', chance: 0.1 }] },
+  { name: 'Bone Champion', type: 'undead', enemyClassId: 'knight', minEvolution: 5, scale: 1.18, assets: createSkeletonAssets('Skeleton_Warrior.fbx', 2.26), attackStyle: 'unarmed', hpMultiplier: 1.26, defMultiplier: 1.2, rareDrops: [{ itemId: 'arm_dg_abyss', chance: 0.1 }, { itemId: 'mat_dg_onyx_chip', chance: 0.2 }] },
   { name: 'Catacomb Archmage', type: 'undead', enemyClassId: 'mage', minEvolution: 6, scale: 1.12, assets: createSkeletonAssets('Skeleton_Mage.fbx', 2.18), attackStyle: 'unarmed', hpMultiplier: 1.18, atkMultiplier: 1.32, speedBonus: 4, rareDrops: [{ itemId: 'pot_dg_ambrosia', chance: 0.14 }] },
 ];
 
@@ -221,7 +250,7 @@ export const DUNGEON_BOSS: DungeonBossTemplate = {
   atkMultiplier: 1.24,
   defMultiplier: 1.2,
   speedBonus: 4,
-  guaranteedDrops: ['mat_nexus_core'],
+  guaranteedDrops: ['mat_dg_void_opal'],
   rareDrops: [
     { itemId: 'pot_dg_recall', chance: 0.22 },
     { itemId: 'pot_dg_ambrosia', chance: 0.4 },

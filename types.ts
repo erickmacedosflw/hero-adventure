@@ -386,6 +386,7 @@ export interface DungeonRewards {
   totalMonsters: number;
   evolution: number;
   bossDefeated: boolean;
+  subBossDefeatedInPhase: boolean;
 }
 
 export interface BossVictoryContext {
@@ -455,6 +456,7 @@ export interface Player {
     defMod: number;
     atkTurns: number;
     defTurns: number;
+    autoGuardTurns: number;
     perfectEvadeTurns: number;
     doubleAttackTurns: number;
     riposteTurns: number;

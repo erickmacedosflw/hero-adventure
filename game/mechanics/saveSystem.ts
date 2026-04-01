@@ -13,6 +13,7 @@ export interface SavePayload {
   killCount: number;
   subBossDefeatedInStage?: boolean;
   dungeonEvolution: number;
+  dungeonSubBossDefeatedEvolution?: number | null;
   onboardingPhase: string;
   hasPlayerDiedOnce: boolean;
   skillsActionUnlocked: boolean;
@@ -20,6 +21,7 @@ export interface SavePayload {
   constellationUnlockPromptPending?: boolean;
   constellationRespecUnlockPromptPending?: boolean;
   constellationRespecPromptSeen?: boolean;
+  hasDiamondHudUnlocked?: boolean;
   gameState: GameState;
   turnState?: TurnState;
   hasEnemy: boolean;
@@ -137,6 +139,10 @@ const isSavePayloadLike = (value: unknown): value is SavePayload => {
     return false;
   }
 
+  if (payload.dungeonSubBossDefeatedEvolution !== undefined && payload.dungeonSubBossDefeatedEvolution !== null && (!isFiniteNumber(payload.dungeonSubBossDefeatedEvolution) || payload.dungeonSubBossDefeatedEvolution < 0)) {
+    return false;
+  }
+
   if (typeof payload.onboardingPhase !== 'string') {
     return false;
   }
@@ -158,6 +164,10 @@ const isSavePayloadLike = (value: unknown): value is SavePayload => {
   }
 
   if (payload.constellationRespecPromptSeen !== undefined && typeof payload.constellationRespecPromptSeen !== 'boolean') {
+    return false;
+  }
+
+  if (payload.hasDiamondHudUnlocked !== undefined && typeof payload.hasDiamondHudUnlocked !== 'boolean') {
     return false;
   }
 

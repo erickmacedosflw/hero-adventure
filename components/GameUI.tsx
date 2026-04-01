@@ -39,6 +39,7 @@ interface GameUIProps {
   shopItems: Item[];
   floatingTexts?: FloatingText[];
   stage: number;
+  dungeonPhase?: number;
   killCount: number;
     isDungeonRun?: boolean;
     dungeonRewards?: DungeonRewards | null;
@@ -66,6 +67,9 @@ interface GameUIProps {
     onAcknowledgeItemsUnlock?: () => void;
     fleeUnlockPromptActive?: boolean;
     onAcknowledgeFleeUnlock?: () => void;
+    showDiamondHud?: boolean;
+    diamondUnlockPromptActive?: boolean;
+    onAcknowledgeDiamondUnlock?: () => void;
 }
 
 // --- HELPERS ---
@@ -974,12 +978,18 @@ export const TavernScreen: React.FC<{
     fleeUnlocked?: boolean,
     merchantUnlockPromptActive?: boolean,
     onAcknowledgeMerchantUnlock?: () => void,
+    dungeonUnlockPromptActive?: boolean,
+    onAcknowledgeDungeonUnlock?: () => void,
+    alchemistUnlockPromptActive?: boolean,
+    onAcknowledgeAlchemistUnlock?: () => void,
     merchantUnlocked?: boolean,
     dungeonUnlocked?: boolean,
+    alchemistUnlocked?: boolean,
   showSkillsAction?: boolean,
   autoOpenInventoryToken?: number,
   autoOpenInventoryFilter?: 'all' | 'equipment' | 'potion' | 'material',
-}> = ({ player, killCount, onHunt, onBoss, onDungeon, onShop, onShopFromInventory, onAlchemist, onOpenAr, arSupport, shopItems, autoOpenConstellationToken = 0, onEquipItem, onUnequipItem, onUseItem, onUnlockTalent, onResetTalents, campIntroOnly = false, restrictProfileToStatusOnly = false, inventoryUnlocked = false, inventoryUnlockPromptActive = false, onAcknowledgeInventoryUnlock, cardsUnlockPromptActive = false, onAcknowledgeCardsUnlock, skillsUnlockPromptActive = false, onAcknowledgeSkillsUnlock, constellationUnlockPromptActive = false, onAcknowledgeConstellationUnlock, constellationRespecUnlockPromptActive = false, onAcknowledgeConstellationRespecUnlock, allowCardsInProfile = false, fleeUnlocked = false, merchantUnlockPromptActive = false, onAcknowledgeMerchantUnlock, merchantUnlocked = false, dungeonUnlocked = false, showSkillsAction = false, autoOpenInventoryToken = 0, autoOpenInventoryFilter = 'all' }) => {
+  showDiamondHud?: boolean,
+}> = ({ player, killCount, onHunt, onBoss, onDungeon, onShop, onShopFromInventory, onAlchemist, onOpenAr, arSupport, shopItems, autoOpenConstellationToken = 0, onEquipItem, onUnequipItem, onUseItem, onUnlockTalent, onResetTalents, campIntroOnly = false, restrictProfileToStatusOnly = false, inventoryUnlocked = false, inventoryUnlockPromptActive = false, onAcknowledgeInventoryUnlock, cardsUnlockPromptActive = false, onAcknowledgeCardsUnlock, skillsUnlockPromptActive = false, onAcknowledgeSkillsUnlock, constellationUnlockPromptActive = false, onAcknowledgeConstellationUnlock, constellationRespecUnlockPromptActive = false, onAcknowledgeConstellationRespecUnlock, allowCardsInProfile = false, fleeUnlocked = false, merchantUnlockPromptActive = false, onAcknowledgeMerchantUnlock, dungeonUnlockPromptActive = false, onAcknowledgeDungeonUnlock, alchemistUnlockPromptActive = false, onAcknowledgeAlchemistUnlock, merchantUnlocked = false, dungeonUnlocked = false, alchemistUnlocked = false, showSkillsAction = false, autoOpenInventoryToken = 0, autoOpenInventoryFilter = 'all', showDiamondHud = false }) => {
   const [showProfile, setShowProfile] = useState(false);
   const [showInventory, setShowInventory] = useState(false);
     const [returnToProfileOnInventoryClose, setReturnToProfileOnInventoryClose] = useState(false);
@@ -993,8 +1003,10 @@ export const TavernScreen: React.FC<{
     const [showSkillsUnlockPrompt, setShowSkillsUnlockPrompt] = useState(false);
     const [showConstellationUnlockPrompt, setShowConstellationUnlockPrompt] = useState(false);
     const [showMerchantUnlockPrompt, setShowMerchantUnlockPrompt] = useState(false);
+    const [showDungeonUnlockPrompt, setShowDungeonUnlockPrompt] = useState(false);
+    const [showAlchemistUnlockPrompt, setShowAlchemistUnlockPrompt] = useState(false);
         const showArOption = false;
-    const showDiamondOnTopHud = false;
+    const showDiamondOnTopHud = showDiamondHud;
     const bossUnlocked = killCount >= 10;
     const canAccessDungeon = dungeonUnlocked;
         const arModeReady = arSupport.status === 'supported';
@@ -1085,7 +1097,19 @@ export const TavernScreen: React.FC<{
     }, [merchantUnlockPromptActive]);
 
     useEffect(() => {
-        if (!showInventoryUnlockPrompt && !showCardsUnlockPrompt && !showSkillsUnlockPrompt && !showConstellationUnlockPrompt && !showMerchantUnlockPrompt) {
+        if (dungeonUnlockPromptActive) {
+            setShowDungeonUnlockPrompt(true);
+        }
+    }, [dungeonUnlockPromptActive]);
+
+    useEffect(() => {
+        if (alchemistUnlockPromptActive) {
+            setShowAlchemistUnlockPrompt(true);
+        }
+    }, [alchemistUnlockPromptActive]);
+
+    useEffect(() => {
+        if (!showInventoryUnlockPrompt && !showCardsUnlockPrompt && !showSkillsUnlockPrompt && !showConstellationUnlockPrompt && !showMerchantUnlockPrompt && !showDungeonUnlockPrompt && !showAlchemistUnlockPrompt) {
             return;
         }
 
@@ -1098,7 +1122,7 @@ export const TavernScreen: React.FC<{
 
         window.addEventListener('keydown', handleBlockEscape, true);
         return () => window.removeEventListener('keydown', handleBlockEscape, true);
-    }, [showCardsUnlockPrompt, showConstellationUnlockPrompt, showInventoryUnlockPrompt, showSkillsUnlockPrompt, showMerchantUnlockPrompt]);
+    }, [showCardsUnlockPrompt, showConstellationUnlockPrompt, showInventoryUnlockPrompt, showSkillsUnlockPrompt, showMerchantUnlockPrompt, showDungeonUnlockPrompt, showAlchemistUnlockPrompt]);
 
     useEffect(() => {
         if (autoOpenConstellationToken <= 0) {
@@ -1118,16 +1142,24 @@ export const TavernScreen: React.FC<{
         lastHandledInventoryAutoOpenTokenRef.current = autoOpenInventoryToken;
         openInventoryModal(autoOpenInventoryFilter, false);
     }, [autoOpenInventoryFilter, autoOpenInventoryToken]);
-    const serviceActions = merchantUnlocked ? [
-        {
+    const serviceActions = [
+        ...(merchantUnlocked ? [{
             id: 'merchant',
             label: 'Mercador',
             subtitle: 'Loja de equipamentos',
             icon: <GameAssetIcon name="chest" size={24} />,
             accent: 'border-amber-400/40 bg-amber-50 text-[#8d5e29] hover:bg-amber-100',
             onClick: onShop,
-        },
-    ] : [];
+        }] : []),
+        ...(alchemistUnlocked ? [{
+            id: 'alchemist',
+            label: 'Alquimista',
+            subtitle: 'Cartas e itens unicos',
+            icon: <FlaskConical size={22} />,
+            accent: 'border-cyan-400/40 bg-cyan-50 text-[#2f6274] hover:bg-cyan-100',
+            onClick: onAlchemist,
+        }] : []),
+    ];
 
     const handleMenuTransition = (target: 'hunt' | 'dungeon') => {
         if (isClosing) return;
@@ -1507,6 +1539,59 @@ export const TavernScreen: React.FC<{
         </div>
     )}
 
+    {showDungeonUnlockPrompt && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-sm pointer-events-auto p-4">
+            <div className="w-full max-w-sm rounded-[28px] border border-[#cfab91] bg-[#f7ecdd] shadow-[0_30px_80px_rgba(107,49,65,0.22)] overflow-hidden" onClick={e => e.stopPropagation()}>
+                <div className="bg-[#6b3141] px-6 py-5 text-center">
+                    <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.3em] text-[#f6eadc]">
+                        <GameAssetIcon name="map" size={14} /> Dungeon
+                    </div>
+                    <h3 className="mt-3 text-2xl font-black text-white">Dungeon liberada</h3>
+                    <p className="mt-1.5 text-sm text-[#dcc0aa]">Um novo modo de risco foi desbloqueado. Na dungeon voce enfrenta uma sequência longa de inimigos para acumular espolio raro, mas derrotas podem custar tudo.</p>
+                </div>
+
+                <div className="px-6 py-5">
+                    <button
+                        onClick={() => {
+                            setShowDungeonUnlockPrompt(false);
+                            onAcknowledgeDungeonUnlock?.();
+                        }}
+                        className="w-full rounded-xl bg-[#4d7a96] px-4 py-3 font-black text-white shadow-[0_8px_24px_rgba(77,122,150,0.28)] transition-all hover:bg-[#5a8aa6]"
+                    >
+                        Entendi
+                    </button>
+                </div>
+            </div>
+        </div>
+    )}
+
+    {showAlchemistUnlockPrompt && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-sm pointer-events-auto p-4">
+            <div className="w-full max-w-sm rounded-[28px] border border-[#96bccb] bg-[#eef8fe] shadow-[0_30px_80px_rgba(47,98,116,0.26)] overflow-hidden" onClick={e => e.stopPropagation()}>
+                <div className="bg-[linear-gradient(135deg,#2b6878,#66b8d2)] px-6 py-5 text-center">
+                    <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.3em] text-[#f2fbff]">
+                        <FlaskConical size={12} /> Alquimista
+                    </div>
+                    <h3 className="mt-3 text-2xl font-black text-white">Loja do Alquimista</h3>
+                    <p className="mt-1.5 text-sm text-[#e4f6ff]">Voce desbloqueou o alquimista. Agora pode comprar cartas e itens unicos com raridades comum, rara e lendaria.</p>
+                </div>
+
+                <div className="px-6 py-5">
+                    <button
+                        onClick={() => {
+                            setShowAlchemistUnlockPrompt(false);
+                            onAcknowledgeAlchemistUnlock?.();
+                            handleServiceTransition(onAlchemist);
+                        }}
+                        className="w-full rounded-xl bg-[#2b6878] px-4 py-3 font-black text-white shadow-[0_8px_24px_rgba(47,98,116,0.32)] transition-all hover:bg-[#357b8e]"
+                    >
+                        Ver alquimista
+                    </button>
+                </div>
+            </div>
+        </div>
+    )}
+
     {showHuntIntroConfirm && (
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-sm pointer-events-auto p-4" onClick={() => setShowHuntIntroConfirm(false)}>
             <div className="w-full max-w-sm rounded-[28px] border border-[#cfab91] bg-[#f7ecdd] shadow-[0_30px_80px_rgba(107,49,65,0.22)] overflow-hidden" onClick={e => e.stopPropagation()}>
@@ -1786,6 +1871,10 @@ export const AlchemistScreen: React.FC<{ player: Player, offers: AlchemistCardOf
     const [selectedCardOffer, setSelectedCardOffer] = useState<AlchemistCardOffer | null>(offers[0] ?? null);
     const [selectedItemOffer, setSelectedItemOffer] = useState<AlchemistItemOffer | null>(itemOffers[0] ?? null);
     const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
+    const [pendingCardPurchase, setPendingCardPurchase] = useState<AlchemistCardOffer | null>(null);
+    const [closeMobileAfterCardPurchase, setCloseMobileAfterCardPurchase] = useState(false);
+    const [pendingItemPurchase, setPendingItemPurchase] = useState<AlchemistItemOffer | null>(null);
+    const [closeMobileAfterItemPurchase, setCloseMobileAfterItemPurchase] = useState(false);
 
     useEffect(() => {
         if (!selectedCardOffer || !offers.find(entry => entry.id === selectedCardOffer.id)) {
@@ -1827,6 +1916,40 @@ export const AlchemistScreen: React.FC<{ player: Player, offers: AlchemistCardOf
         setSelectedItemOffer(offer);
         if (isMobileViewport()) {
             setMobileDetailOpen(true);
+        }
+    };
+
+    const requestCardPurchase = (offer: AlchemistCardOffer, closeMobileAfterPurchase = false) => {
+        setPendingCardPurchase(offer);
+        setCloseMobileAfterCardPurchase(closeMobileAfterPurchase);
+    };
+
+    const confirmCardPurchase = () => {
+        if (!pendingCardPurchase) {
+            return;
+        }
+        onBuyCard(pendingCardPurchase);
+        setPendingCardPurchase(null);
+        if (closeMobileAfterCardPurchase) {
+            setMobileDetailOpen(false);
+            setCloseMobileAfterCardPurchase(false);
+        }
+    };
+
+    const requestItemPurchase = (offer: AlchemistItemOffer, closeMobileAfterPurchase = false) => {
+        setPendingItemPurchase(offer);
+        setCloseMobileAfterItemPurchase(closeMobileAfterPurchase);
+    };
+
+    const confirmItemPurchase = () => {
+        if (!pendingItemPurchase) {
+            return;
+        }
+        onBuyItem(pendingItemPurchase);
+        setPendingItemPurchase(null);
+        if (closeMobileAfterItemPurchase) {
+            setMobileDetailOpen(false);
+            setCloseMobileAfterItemPurchase(false);
         }
     };
 
@@ -1984,10 +2107,10 @@ export const AlchemistScreen: React.FC<{ player: Player, offers: AlchemistCardOf
                                         ))}
                                     </div>
 
-                                    <div className="mt-5 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
-                                        <div className="text-sm text-[#8f6c67]">{alreadyOwned ? 'Carta ja comprada.' : !hasLevel ? `Nivel ${selectedCard.card.minLevel} necessario.` : !canAfford ? 'Diamantes insuficientes.' : selectedCard.tagline}</div>
-                                        <button
-                                            onClick={() => onBuyCard(selectedCard)}
+                                        <div className="mt-5 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+                                            <div className="text-sm text-[#8f6c67]">{alreadyOwned ? 'Carta ja comprada.' : !hasLevel ? `Nivel ${selectedCard.card.minLevel} necessario.` : !canAfford ? 'Diamantes insuficientes.' : selectedCard.tagline}</div>
+                                            <button
+                                            onClick={() => requestCardPurchase(selectedCard)}
                                             disabled={alreadyOwned || !canAfford || !hasLevel}
                                             className={`rounded-xl px-5 py-3 font-black uppercase tracking-[0.16em] transition-all ${alreadyOwned || !canAfford || !hasLevel ? 'bg-[#e9d7c2] text-[#8f6c67] cursor-not-allowed border border-[#dcc0aa]' : 'bg-[#b84a63] text-white hover:bg-[#a53d56] border border-[#a53d56]'}`}
                                         >
@@ -2030,10 +2153,10 @@ export const AlchemistScreen: React.FC<{ player: Player, offers: AlchemistCardOf
                                         ))}
                                     </div>
 
-                                    <div className="mt-5 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
-                                        <div className="text-sm text-[#8f6c67]">{!hasLevel ? `Nivel ${selectedItem.item.minLevel} necessario.` : !canAfford ? 'Diamantes insuficientes.' : relicMeta.footer}</div>
-                                        <button
-                                            onClick={() => onBuyItem(selectedItem)}
+                                        <div className="mt-5 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+                                            <div className="text-sm text-[#8f6c67]">{!hasLevel ? `Nivel ${selectedItem.item.minLevel} necessario.` : !canAfford ? 'Diamantes insuficientes.' : relicMeta.footer}</div>
+                                            <button
+                                            onClick={() => requestItemPurchase(selectedItem)}
                                             disabled={!canAfford || !hasLevel}
                                             className={`rounded-xl px-5 py-3 font-black uppercase tracking-[0.16em] transition-all ${!canAfford || !hasLevel ? 'bg-[#e9d7c2] text-[#8f6c67] cursor-not-allowed border border-[#dcc0aa]' : 'bg-[#3b6580] text-white hover:bg-[#34586f] border border-[#34586f]'}`}
                                         >
@@ -2094,8 +2217,7 @@ export const AlchemistScreen: React.FC<{ player: Player, offers: AlchemistCardOf
                                         <div className="mt-4 text-sm text-[#8f6c67]">{alreadyOwned ? 'Carta ja comprada.' : !hasLevel ? `Nivel ${selectedCard.card.minLevel} necessario.` : !canAfford ? 'Diamantes insuficientes.' : selectedCard.tagline}</div>
                                         <button
                                             onClick={() => {
-                                                onBuyCard(selectedCard);
-                                                setMobileDetailOpen(false);
+                                                requestCardPurchase(selectedCard, true);
                                             }}
                                             disabled={alreadyOwned || !canAfford || !hasLevel}
                                             className={`mt-4 w-full rounded-xl px-5 py-3 font-black uppercase tracking-[0.16em] transition-all ${alreadyOwned || !canAfford || !hasLevel ? 'bg-[#e9d7c2] text-[#8f6c67] cursor-not-allowed border border-[#dcc0aa]' : 'bg-[#b84a63] text-white hover:bg-[#a53d56] border border-[#a53d56]'}`}
@@ -2138,8 +2260,7 @@ export const AlchemistScreen: React.FC<{ player: Player, offers: AlchemistCardOf
                                         <div className="mt-4 text-sm text-[#8f6c67]">{!hasLevel ? `Nivel ${selectedItem.item.minLevel} necessario.` : !canAfford ? 'Diamantes insuficientes.' : relicMeta.footer}</div>
                                         <button
                                             onClick={() => {
-                                                onBuyItem(selectedItem);
-                                                setMobileDetailOpen(false);
+                                                requestItemPurchase(selectedItem, true);
                                             }}
                                             disabled={!canAfford || !hasLevel}
                                             className={`mt-4 w-full rounded-xl px-5 py-3 font-black uppercase tracking-[0.16em] transition-all ${!canAfford || !hasLevel ? 'bg-[#e9d7c2] text-[#8f6c67] cursor-not-allowed border border-[#dcc0aa]' : 'bg-[#3b6580] text-white hover:bg-[#34586f] border border-[#34586f]'}`}
@@ -2157,6 +2278,74 @@ export const AlchemistScreen: React.FC<{ player: Player, offers: AlchemistCardOf
                     </div>
                 </div>
             )}
+
+            {pendingCardPurchase && (
+                <div className="absolute inset-0 z-[70] flex items-center justify-center bg-black/55 backdrop-blur-[2px] p-4">
+                    <div className="w-full max-w-sm rounded-[22px] border border-[#cfab91] bg-[#f7ecdd] shadow-[0_24px_70px_rgba(107,49,65,0.24)] overflow-hidden" onClick={(event) => event.stopPropagation()}>
+                        <div className="border-b border-[#dcc0aa] bg-[#6b3141] px-5 py-4 text-center">
+                            <div className="text-[10px] font-black uppercase tracking-[0.26em] text-[#f6eadc]">Confirmar compra</div>
+                            <h3 className="mt-1 text-xl font-black text-white">{pendingCardPurchase.card.name}</h3>
+                            <p className="mt-1 text-sm text-[#dcc0aa]">Essa carta e compra unica no alquimista e sera adicionada as cartas do heroi.</p>
+                        </div>
+                        <div className="p-4">
+                            <div className="mb-3 rounded-xl border border-[#cfab91] bg-[#f4e5d4] px-3 py-2 text-sm font-black text-[#346c7f]">
+                                Custo: {pendingCardPurchase.cost} diamantes
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                                <button
+                                    onClick={() => {
+                                        setPendingCardPurchase(null);
+                                        setCloseMobileAfterCardPurchase(false);
+                                    }}
+                                    className="rounded-xl border border-[#cfab91] bg-[#f4e5d4] px-4 py-2.5 text-xs font-black uppercase tracking-[0.14em] text-[#6b3141] transition-colors hover:bg-[#e9d7c2]"
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    onClick={confirmCardPurchase}
+                                    className="rounded-xl border border-[#a53d56] bg-[#b84a63] px-4 py-2.5 text-xs font-black uppercase tracking-[0.14em] text-white transition-colors hover:bg-[#a53d56]"
+                                >
+                                    Confirmar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {pendingItemPurchase && (
+                <div className="absolute inset-0 z-[70] flex items-center justify-center bg-black/55 backdrop-blur-[2px] p-4">
+                    <div className="w-full max-w-sm rounded-[22px] border border-[#96bccb] bg-[#eef8fe] shadow-[0_24px_70px_rgba(47,98,116,0.24)] overflow-hidden" onClick={(event) => event.stopPropagation()}>
+                        <div className="border-b border-[#c4deea] bg-[linear-gradient(135deg,#2b6878,#66b8d2)] px-5 py-4 text-center">
+                            <div className="text-[10px] font-black uppercase tracking-[0.26em] text-[#f2fbff]">Confirmar compra</div>
+                            <h3 className="mt-1 text-xl font-black text-white">{pendingItemPurchase.item.name}</h3>
+                            <p className="mt-1 text-sm text-[#e4f6ff]">A relíquia será adicionada ao inventário e pode ser acumulada.</p>
+                        </div>
+                        <div className="p-4">
+                            <div className="mb-3 rounded-xl border border-[#96bccb] bg-white px-3 py-2 text-sm font-black text-[#2f6274]">
+                                Custo: {pendingItemPurchase.cost} diamantes
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                                <button
+                                    onClick={() => {
+                                        setPendingItemPurchase(null);
+                                        setCloseMobileAfterItemPurchase(false);
+                                    }}
+                                    className="rounded-xl border border-[#96bccb] bg-white px-4 py-2.5 text-xs font-black uppercase tracking-[0.14em] text-[#2f6274] transition-colors hover:bg-[#e8f6fc]"
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    onClick={confirmItemPurchase}
+                                    className="rounded-xl border border-[#2f6274] bg-[#2b6878] px-4 py-2.5 text-xs font-black uppercase tracking-[0.14em] text-white transition-colors hover:bg-[#357b8e]"
+                                >
+                                    Confirmar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
@@ -2168,79 +2357,93 @@ export const DungeonResultScreen: React.FC<{ result: DungeonResult, onContinue: 
     const isPositiveOutcome = result.outcome !== 'defeat';
     const title = result.outcome === 'victory' ? 'Dungeon Concluída' : result.outcome === 'withdrawal' ? 'Retirada Segura' : 'Dungeon Fracassada';
     const badgeLabel = result.outcome === 'withdrawal' ? 'Extração' : 'Dungeon';
+    const frameClasses = isPositiveOutcome
+        ? 'border-[#7fb0d3] bg-[#e7f4ff] shadow-[0_30px_120px_rgba(31,79,120,0.24)]'
+        : 'border-[#d3a0a0] bg-[#fdecec] shadow-[0_30px_120px_rgba(120,31,31,0.26)]';
+    const headerClasses = isPositiveOutcome ? 'bg-[#1f4f78]' : 'bg-[#7a2525]';
+    const headerTextClass = isPositiveOutcome ? 'text-[#bfdcf2]' : 'text-[#f0c5c5]';
+    const statCardClasses = isPositiveOutcome ? 'border-[#9bc2de] bg-[#dff0ff]' : 'border-[#dfb3b3] bg-[#fbe1e1]';
+    const statLabelClass = isPositiveOutcome ? 'text-[#557f9f]' : 'text-[#9f5757]';
+    const statValueClass = isPositiveOutcome ? 'text-[#214f70]' : 'text-[#7a2525]';
+    const lootPanelClasses = isPositiveOutcome ? 'border-[#9bc2de] bg-[#dff0ff]' : 'border-[#dfb3b3] bg-[#fbe1e1]';
+    const lootChipClasses = isPositiveOutcome ? 'border-[#9bc2de] bg-[#f0f8ff] text-[#4f7694]' : 'border-[#dfb3b3] bg-[#fdecec] text-[#9f5757]';
+    const lootItemClasses = isPositiveOutcome ? 'border-[#9bc2de] bg-[#f0f8ff]' : 'border-[#dfb3b3] bg-[#fdecec]';
+    const lootItemInnerClasses = isPositiveOutcome ? 'border-[#b5d2e8] bg-[#dff0ff]' : 'border-[#ebc3c3] bg-[#fbe1e1]';
+    const lootItemTextClass = isPositiveOutcome ? 'text-[#214f70]' : 'text-[#7a2525]';
+    const emptyLootClasses = isPositiveOutcome ? 'border-[#9bc2de] bg-[#f0f8ff] text-[#4f7694]' : 'border-[#dfb3b3] bg-[#fdecec] text-[#9f5757]';
 
     return (
         <div className="absolute inset-0 z-50 bg-black/55 backdrop-blur-sm flex items-center justify-center p-4 pointer-events-auto">
-            <div className="w-full max-w-4xl rounded-[28px] border border-[#cfab91] bg-[#f7ecdd] overflow-hidden shadow-[0_30px_120px_rgba(107,49,65,0.22)]">
-                <div className={`px-6 py-5 sm:px-8 sm:py-6 text-center ${isPositiveOutcome ? 'bg-[#6b3141]' : 'bg-[#5d1e1e]'}`}>
-                    <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-xs font-black uppercase tracking-[0.3em] text-[#f6eadc]">
+            <div className={`w-full max-w-4xl rounded-[28px] border overflow-hidden ${frameClasses}`}>
+                <div className={`px-6 py-5 sm:px-8 sm:py-6 text-center ${headerClasses}`}>
+                    <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-xs font-black uppercase tracking-[0.3em] text-[#e6f4ff]">
                         {isPositiveOutcome ? <Sparkles size={14} /> : <AlertTriangle size={14} />} {badgeLabel}
                     </div>
                     <h2 className="mt-4 text-3xl sm:text-4xl font-black text-white">{title}</h2>
-                    <p className="mt-2 text-sm sm:text-base text-[#dcc0aa]">{result.reason}</p>
+                    <p className={`mt-2 text-sm sm:text-base ${headerTextClass}`}>{result.reason}</p>
                     {result.outcome === 'victory' && result.nextEvolution !== undefined && result.nextTotalMonsters !== undefined && (
-                        <div className="mt-4 inline-flex flex-wrap items-center justify-center gap-3 rounded-2xl border border-white/20 bg-white/10 px-4 py-3 text-xs sm:text-sm font-black text-[#f6eadc]">
+                        <div className="mt-4 inline-flex flex-wrap items-center justify-center gap-3 rounded-2xl border border-white/20 bg-white/10 px-4 py-3 text-xs sm:text-sm font-black text-[#e6f4ff]">
                             <span>Próxima evolução: {result.nextEvolution}</span>
-                            <span className="text-[#dcc0aa]/60">•</span>
+                            <span className="text-[#bfdcf2]/70">•</span>
                             <span>{result.nextTotalMonsters} encontros até o chefão</span>
                         </div>
                     )}
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 p-6 sm:p-8">
-                    <div className="rounded-2xl border border-[#cfab91] bg-[#f4e5d4] px-4 py-3">
-                        <div className="text-[10px] uppercase tracking-[0.24em] text-[#9a7068] mb-1">Encontros</div>
-                        <div className="text-2xl font-black text-[#6b3141]">{result.rewards.clearedMonsters}<span className="text-sm text-[#9a7068]">/{result.rewards.totalMonsters}</span></div>
+                    <div className={`rounded-2xl border px-4 py-3 ${statCardClasses}`}>
+                        <div className={`text-[10px] uppercase tracking-[0.24em] mb-1 ${statLabelClass}`}>Encontros</div>
+                        <div className={`text-2xl font-black ${statValueClass}`}>{result.rewards.clearedMonsters}<span className={`text-sm ${statLabelClass}`}>/{result.rewards.totalMonsters}</span></div>
                     </div>
-                    <div className="rounded-2xl border border-[#cfab91] bg-[#f4e5d4] px-4 py-3">
-                        <div className="text-[10px] uppercase tracking-[0.24em] text-[#9a7068] mb-1">Ouro</div>
+                    <div className={`rounded-2xl border px-4 py-3 ${statCardClasses}`}>
+                        <div className={`text-[10px] uppercase tracking-[0.24em] mb-1 ${statLabelClass}`}>Ouro</div>
                         <div className="flex items-center gap-1.5 text-2xl font-black text-amber-700">
                             <GameAssetIcon name="coin" size={18} />
                             {isPositiveOutcome ? '+' : ''}{result.rewards.gold}
                         </div>
                     </div>
-                    <div className="rounded-2xl border border-[#cfab91] bg-[#f4e5d4] px-4 py-3">
-                        <div className="text-[10px] uppercase tracking-[0.24em] text-[#9a7068] mb-1">XP</div>
-                        <div className="flex items-center gap-1.5 text-2xl font-black text-[#7d3d4d]">
+                    <div className={`rounded-2xl border px-4 py-3 ${statCardClasses}`}>
+                        <div className={`text-[10px] uppercase tracking-[0.24em] mb-1 ${statLabelClass}`}>XP</div>
+                        <div className={`flex items-center gap-1.5 text-2xl font-black ${isPositiveOutcome ? 'text-[#2d5f85]' : 'text-[#8f3535]'}`}>
                             <Zap size={16} className="shrink-0" />
                             {isPositiveOutcome ? '+' : ''}{result.rewards.xp}
                         </div>
                     </div>
-                    <div className="rounded-2xl border border-[#cfab91] bg-[#f4e5d4] px-4 py-3">
-                        <div className="text-[10px] uppercase tracking-[0.24em] text-[#9a7068] mb-1">Diamantes</div>
+                    <div className={`rounded-2xl border px-4 py-3 ${statCardClasses}`}>
+                        <div className={`text-[10px] uppercase tracking-[0.24em] mb-1 ${statLabelClass}`}>Diamantes</div>
                         <div className="flex items-center gap-1.5 text-2xl font-black text-[#346c7f]">
                             <GameAssetIcon name="diamond" size={18} />
                             {isPositiveOutcome ? '+' : ''}{result.rewards.diamonds}
                         </div>
                     </div>
-                    <div className="rounded-2xl border border-[#cfab91] bg-[#f4e5d4] px-4 py-3">
-                        <div className="text-[10px] uppercase tracking-[0.24em] text-[#9a7068] mb-1">Chefão</div>
-                        <div className={`text-lg font-black ${result.rewards.bossDefeated ? 'text-[#4d7a96]' : 'text-[#9a7068]'}`}>{result.rewards.bossDefeated ? '✓ Derrotado' : '— Intacto'}</div>
+                    <div className={`rounded-2xl border px-4 py-3 ${statCardClasses}`}>
+                        <div className={`text-[10px] uppercase tracking-[0.24em] mb-1 ${statLabelClass}`}>Chefão</div>
+                        <div className={`text-lg font-black ${result.rewards.bossDefeated ? (isPositiveOutcome ? 'text-[#2c6a92]' : 'text-[#9f5757]') : statLabelClass}`}>{result.rewards.bossDefeated ? '✓ Derrotado' : '— Intacto'}</div>
                     </div>
                 </div>
 
                 <div className="px-6 sm:px-8 pb-6 sm:pb-8">
-                    <div className="rounded-2xl border border-[#cfab91] bg-[#f4e5d4] p-5">
-                        <div className="text-[11px] font-black uppercase tracking-[0.3em] text-[#9a7068] mb-3">
+                    <div className={`rounded-2xl border p-5 ${lootPanelClasses}`}>
+                        <div className={`text-[11px] font-black uppercase tracking-[0.3em] mb-3 ${statLabelClass}`}>
                             {isPositiveOutcome ? 'Espólio da dungeon' : 'Itens acumulados'}
-                            {rewardItems.length > 0 && <span className="ml-2 rounded-full border border-[#cfab91] bg-[#f7ecdd] px-2 py-0.5 text-[10px] text-[#8f6c67]">{rewardItems.length}</span>}
+                            {rewardItems.length > 0 && <span className={`ml-2 rounded-full border px-2 py-0.5 text-[10px] ${lootChipClasses}`}>{rewardItems.length}</span>}
                         </div>
                         {rewardItems.length > 0 ? (
                             <div className="flex flex-wrap gap-2 max-h-[28vh] overflow-y-auto pr-1">
                                 {rewardItems.map(({ item, quantity }) => (
-                                    <div key={item.id} className="flex items-center gap-1.5 rounded-full border border-[#cfab91] bg-[#f7ecdd] pl-1.5 pr-3 py-1.5 shrink-0">
-                                        <div className="h-7 w-7 rounded-full border border-[#dcc0aa] bg-[#f4e5d4] flex items-center justify-center text-sm leading-none">{item.icon}</div>
-                                        <span className="text-sm font-black text-[#6b3141]">{item.name}</span>
-                                        {quantity > 1 && <span className="rounded-full border border-[#cfab91] bg-[#f4e5d4] px-1.5 py-0.5 text-[10px] font-black text-[#8f6c67]">×{quantity}</span>}
+                                    <div key={item.id} className={`flex items-center gap-1.5 rounded-full border pl-1.5 pr-3 py-1.5 shrink-0 ${lootItemClasses}`}>
+                                        <div className={`h-7 w-7 rounded-full border flex items-center justify-center text-sm leading-none ${lootItemInnerClasses}`}>{item.icon}</div>
+                                        <span className={`text-sm font-black ${lootItemTextClass}`}>{item.name}</span>
+                                        {quantity > 1 && <span className={`rounded-full border px-1.5 py-0.5 text-[10px] font-black ${lootChipClasses}`}>×{quantity}</span>}
                                     </div>
                                 ))}
                             </div>
                         ) : (
-                            <div className="rounded-2xl border border-dashed border-[#cfab91] bg-[#f7ecdd] px-6 py-8 text-center text-[#8f6c67]">Nenhum item ou material foi acumulado.</div>
+                            <div className={`rounded-2xl border border-dashed px-6 py-8 text-center ${emptyLootClasses}`}>Nenhum item ou material foi acumulado.</div>
                         )}
                     </div>
 
-                    <button onClick={onContinue} className={`mt-6 w-full py-4 rounded-xl font-black text-lg text-white transition-all ${isPositiveOutcome ? 'bg-[#6b3141] hover:bg-[#7d3d4d] shadow-[0_12px_30px_rgba(107,49,65,0.3)]' : 'bg-[#5d1e1e] hover:bg-[#6b2626] shadow-[0_12px_30px_rgba(93,30,30,0.3)]'}`}>
+                    <button onClick={onContinue} className={`mt-6 w-full py-4 rounded-xl font-black text-lg text-white transition-all ${isPositiveOutcome ? 'bg-[#2b6b96] hover:bg-[#327aa9] shadow-[0_12px_30px_rgba(43,107,150,0.35)]' : 'bg-[#2c5f82] hover:bg-[#346f97] shadow-[0_12px_30px_rgba(44,95,130,0.35)]'}`}>
                         {result.outcome === 'victory' ? 'Receber espólio e continuar' : result.outcome === 'withdrawal' ? 'Receber espólio e voltar' : 'Voltar para o acampamento'}
                     </button>
                 </div>
@@ -2379,7 +2582,7 @@ export const BossVictoryModal: React.FC<{
                         className="flex items-center justify-center gap-2 rounded-xl border border-[#cfab91] bg-[#f4e5d4] px-4 py-3 font-black text-[#6b3141] transition-colors hover:bg-[#e9d7c2]"
                     >
                         {isDungeon ? <LogOut size={15} /> : <Home size={15} />}
-                        {isDungeon ? 'Sair sem custo' : 'Descansar'}
+                        Descansar
                     </button>
                     <button
                         onClick={onContinue}
@@ -2400,7 +2603,7 @@ export const ShopScreen: React.FC<{ player: Player, items: Item[], huntStage: nu
 };
 
 export const BattleHUD: React.FC<GameUIProps> = (props) => {
-    const { player, enemy, turnState, logs, onAttack, onDefend, onSkill, onUseItem, onUnlockTalent, onResetTalents, currentNarration, gameState, shopItems, floatingTexts, onFlee, onOpenAr, arSupport, onStartBattle, stage, killCount, onEquipItem, onUnequipItem, isDungeonRun, dungeonRewards, dungeonCleared = 0, dungeonTotal = 30, gameTime, restrictProfileToStatusOnly = false, limitBattleActionsToBasics = false, inventoryUnlocked = false, inventoryUnlockPromptActive = false, onAcknowledgeInventoryUnlock, cardsUnlockPromptActive = false, onAcknowledgeCardsUnlock, skillsUnlockPromptActive = false, onAcknowledgeSkillsUnlock, constellationUnlockPromptActive = false, onAcknowledgeConstellationUnlock, constellationRespecUnlockPromptActive = false, onAcknowledgeConstellationRespecUnlock, allowCardsInProfile = false, fleeUnlocked = false, showItemsAction = false, showSkillsAction = false, itemsUnlockPromptActive = false, onAcknowledgeItemsUnlock, fleeUnlockPromptActive = false, onAcknowledgeFleeUnlock } = props;
+    const { player, enemy, turnState, logs, onAttack, onDefend, onSkill, onUseItem, onUnlockTalent, onResetTalents, currentNarration, gameState, shopItems, floatingTexts, onFlee, onOpenAr, arSupport, onStartBattle, stage, dungeonPhase = 1, killCount, onEquipItem, onUnequipItem, isDungeonRun, dungeonRewards, dungeonCleared = 0, dungeonTotal = 30, gameTime, restrictProfileToStatusOnly = false, limitBattleActionsToBasics = false, inventoryUnlocked = false, inventoryUnlockPromptActive = false, onAcknowledgeInventoryUnlock, cardsUnlockPromptActive = false, onAcknowledgeCardsUnlock, skillsUnlockPromptActive = false, onAcknowledgeSkillsUnlock, constellationUnlockPromptActive = false, onAcknowledgeConstellationUnlock, constellationRespecUnlockPromptActive = false, onAcknowledgeConstellationRespecUnlock, allowCardsInProfile = false, fleeUnlocked = false, showItemsAction = false, showSkillsAction = false, itemsUnlockPromptActive = false, onAcknowledgeItemsUnlock, fleeUnlockPromptActive = false, onAcknowledgeFleeUnlock, showDiamondHud = false, diamondUnlockPromptActive = false, onAcknowledgeDiamondUnlock } = props;
   const [activeBattleMenu, setActiveBattleMenu] = useState<'skills' | 'items' | null>(null);
   const [showProfile, setShowProfile] = useState(false);
     const [profileInitialTab, setProfileInitialTab] = useState<'overview' | 'cards' | 'skills' | 'constellation' | undefined>(undefined);
@@ -2413,6 +2616,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
             const [showConstellationUnlockPrompt, setShowConstellationUnlockPrompt] = useState(false);
         const [showItemsUnlockPrompt, setShowItemsUnlockPrompt] = useState(false);
         const [showFleeUnlockPrompt, setShowFleeUnlockPrompt] = useState(false);
+    const [showDiamondUnlockPrompt, setShowDiamondUnlockPrompt] = useState(false);
     const [resumeBattleAfterInventoryPrompt, setResumeBattleAfterInventoryPrompt] = useState(false);
     const [showFleeConfirm, setShowFleeConfirm] = useState(false);
     const [showDungeonExtractConfirm, setShowDungeonExtractConfirm] = useState(false);
@@ -2424,7 +2628,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
     const resourceDeltaTimeoutRef = useRef<number | null>(null);
     const battleActionsRef = useRef<HTMLDivElement | null>(null);
     const previousResourceRef = useRef(player.classResource.value);
-    const showDiamondOnBattleHud = false;
+    const showDiamondOnBattleHud = showDiamondHud;
     const classAccentColor = getPlayerClassById(player.classId).visualProfile.secondaryColor;
         const hasConstellationUnlocked = player.talentPoints > 0 || player.unlockedTalentNodeIds.length > 0;
     const openProfileModal = (initialTab?: 'overview' | 'cards' | 'skills' | 'constellation') => {
@@ -2503,6 +2707,12 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
           label: `DEF +${(player.buffs.defMod * 100).toFixed(0)}% • ${player.buffs.defTurns}t`,
           chipClass: 'border-[#9ec2cf] bg-[#e6f3f8] text-[#2f6274]',
       } : null,
+      player.buffs.autoGuardTurns > 0 ? {
+          key: 'auto-guard',
+          icon: <Shield size={12} className="text-[#2f6274]" />,
+          label: `Defesa automatica • ${player.buffs.autoGuardTurns}t`,
+          chipClass: 'border-[#9ec2cf] bg-[#e6f3f8] text-[#2f6274]',
+      } : null,
       player.buffs.perfectEvadeTurns > 0 ? {
           key: 'evd',
           icon: <Sparkles size={12} className="text-[#7c4c76]" />,
@@ -2515,7 +2725,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
           label: `Ataque duplo • ${player.buffs.doubleAttackTurns}t`,
           chipClass: 'border-[#e8bc89] bg-[#fcecd7] text-[#9a6127]',
       } : null,
-      player.isDefending ? {
+      (player.isDefending || player.buffs.autoGuardTurns > 0) ? {
           key: 'counter-chance',
           icon: <Sword size={12} className="text-[#b83a4b]" />,
           label: (() => {
@@ -2541,6 +2751,9 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
       } : null,
     ].filter(Boolean) as Array<{ key: string; icon: React.ReactElement; label: string; chipClass: string }>;
   const describeBattleSkill = (skill: Skill) => {
+      if (skill.id === 'skl_11') {
+          return 'Ativa defesa automatica por 3 turnos';
+      }
       const statusText = skill.statusEffect
         ? ` • aplica ${skill.statusEffect.kind}`
         : '';
@@ -2560,6 +2773,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
     if (item.id === 'pot_alc_twin_fang') return 'Duplica ataques basicos e habilidades fisicas por 6 turnos';
       if (item.id === 'pot_atk') return `Aumenta ataque em ${Math.round(item.value * 100)}% por ${item.duration || 3} turnos`;
       if (item.id === 'pot_def') return `Aumenta defesa em ${Math.round(item.value * 100)}% por ${item.duration || 3} turnos`;
+      if (item.id === 'pot_war_sigil' || item.id === 'pot_overclock') return `Aumenta ataque e defesa em ${Math.round(item.value * 100)}% por ${item.duration || 2} turnos`;
 
             const mixed = mixedPotionRecovery[item.id];
             if (mixed) return `Recupera ${mixed.hp} HP e ${mixed.mp} MP`;
@@ -2683,7 +2897,13 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
   }, [fleeUnlockPromptActive]);
 
   useEffect(() => {
-      if (!showInventoryUnlockPrompt && !showCardsUnlockPrompt && !showSkillsUnlockPrompt && !showConstellationUnlockPrompt && !showItemsUnlockPrompt && !showFleeUnlockPrompt) {
+      if (diamondUnlockPromptActive) {
+          setShowDiamondUnlockPrompt(true);
+      }
+  }, [diamondUnlockPromptActive]);
+
+  useEffect(() => {
+      if (!showInventoryUnlockPrompt && !showCardsUnlockPrompt && !showSkillsUnlockPrompt && !showConstellationUnlockPrompt && !showItemsUnlockPrompt && !showFleeUnlockPrompt && !showDiamondUnlockPrompt) {
           return;
       }
 
@@ -2696,7 +2916,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
 
       window.addEventListener('keydown', handleBlockEscape, true);
       return () => window.removeEventListener('keydown', handleBlockEscape, true);
-    }, [showCardsUnlockPrompt, showConstellationUnlockPrompt, showInventoryUnlockPrompt, showSkillsUnlockPrompt, showItemsUnlockPrompt, showFleeUnlockPrompt]);
+    }, [showCardsUnlockPrompt, showConstellationUnlockPrompt, showInventoryUnlockPrompt, showSkillsUnlockPrompt, showItemsUnlockPrompt, showFleeUnlockPrompt, showDiamondUnlockPrompt]);
 
     return (
         <div className="battle-hud-root absolute inset-0 z-10 flex flex-col justify-between p-2 sm:p-4 pointer-events-none safe-bottom">
@@ -2969,13 +3189,38 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
           </div>
       )}
 
+      {showDiamondUnlockPrompt && (
+          <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/55 backdrop-blur-[2px] pointer-events-auto p-4">
+              <div className="w-full max-w-sm rounded-[24px] border border-[#95bdd0] bg-[#eef8fe] shadow-[0_24px_80px_rgba(34,116,152,0.26)] overflow-hidden animate-fade-in-down" onClick={event => event.stopPropagation()}>
+                  <div className="bg-[linear-gradient(135deg,#2b6878,#66b8d2)] px-5 py-4 text-center">
+                      <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.28em] text-[#f2fbff]">
+                          <GameAssetIcon name="diamond" size={14} /> Diamante
+                      </div>
+                      <h3 className="mt-2 text-2xl font-black text-white">Primeiro diamante</h3>
+                      <p className="mt-2 text-sm text-[#e4f6ff]">Voce encontrou seu primeiro diamante. Agora pode acumular diamantes para trocar por itens e cartas especiais.</p>
+                  </div>
+                  <div className="p-4">
+                      <button
+                          onClick={() => {
+                              setShowDiamondUnlockPrompt(false);
+                              onAcknowledgeDiamondUnlock?.();
+                          }}
+                          className="w-full rounded-xl bg-[#2b6878] px-4 py-3 font-black text-white shadow-[0_8px_24px_rgba(34,116,152,0.28)] transition-all hover:bg-[#357b8e]"
+                      >
+                          Entendi
+                      </button>
+                  </div>
+              </div>
+          </div>
+      )}
+
       {/* ═══ TOP: Player vitals (left) + Stage (center) + Enemy HP (right) ═══ */}
       <div className="absolute top-0 left-0 w-full z-20 pointer-events-none pt-1.5 sm:pt-2.5 px-2 sm:px-4">
           <div className="sm:hidden space-y-2">
               <div className={`grid gap-2 ${showDiamondOnBattleHud ? 'grid-cols-[1.6fr_0.85fr_0.85fr_0.85fr]' : 'grid-cols-[1.6fr_0.85fr_0.85fr]'}`}>
                   <div className="bg-[#f7ecdd]/92 backdrop-blur-md border border-[#cfab91] px-2.5 py-1.5 rounded-[12px] shadow-xl animate-fade-in-down">
                       <div className="flex items-center gap-2">
-                          <span className="shrink-0 text-[11px] font-black uppercase tracking-[0.14em] text-[#6b3141]">{isDungeonRun ? 'DUNGEON' : `FASE ${stage}`}</span>
+                          <span className="shrink-0 text-[11px] font-black uppercase tracking-[0.14em] text-[#6b3141]">{isDungeonRun ? `FASE ${dungeonPhase}` : `FASE ${stage}`}</span>
                           <div className="flex items-center gap-1.5 min-w-0 flex-1">
                               <div className="h-2 flex-1 bg-[#e9d7c2] rounded-full overflow-hidden border border-[#dcc0aa]">
                                   <div className="h-full rounded-full bg-[linear-gradient(90deg,#7d3d4d,#c89a66)] transition-all duration-500" style={{ width: `${isDungeonRun ? Math.min(100, (dungeonCleared / dungeonTotal) * 100) : Math.min(100, (killCount / 10) * 100)}%` }} />
@@ -2986,7 +3231,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                           </div>
                       </div>
                   </div>
-                  {gameTime ? (
+                  {gameTime && !isDungeonRun ? (
                       <div className="bg-[#f7ecdd]/92 backdrop-blur-md border border-[#cfab91] px-2.5 py-1.5 rounded-[12px] shadow-xl animate-fade-in-down">
                           <div className="flex h-full items-center justify-center gap-2">
                               <Clock size={14} className="text-[#6b3141]" />
@@ -3207,7 +3452,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
               <div className="flex flex-col items-center gap-1.5 shrink-0 self-start mt-0.5">
                   <div className="bg-[#f7ecdd]/92 backdrop-blur-md border border-[#cfab91] px-2 sm:px-3 py-1 rounded-[12px] shadow-xl animate-fade-in-down">
                       <div className="flex flex-col items-center gap-0.5">
-                          <span className="text-[11px] font-black uppercase tracking-[0.14em] text-[#6b3141]">{isDungeonRun ? 'DUNGEON' : `FASE ${stage}`}</span>
+                          <span className="text-[11px] font-black uppercase tracking-[0.14em] text-[#6b3141]">{isDungeonRun ? `FASE ${dungeonPhase}` : `FASE ${stage}`}</span>
                           <div className="flex items-center gap-1.5">
                               <div className="w-14 sm:w-20 h-2 bg-[#e9d7c2] rounded-full overflow-hidden border border-[#dcc0aa]">
                                   <div className="h-full rounded-full bg-[linear-gradient(90deg,#7d3d4d,#c89a66)] transition-all duration-500" style={{ width: `${isDungeonRun ? Math.min(100, (dungeonCleared / dungeonTotal) * 100) : Math.min(100, (killCount / 10) * 100)}%` }} />
@@ -3219,7 +3464,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                       </div>
                   </div>
                   {/* Clock card — same style */}
-                  {gameTime && (
+                  {gameTime && !isDungeonRun && (
                       <div className="bg-[#f7ecdd]/92 backdrop-blur-md border border-[#cfab91] px-3 sm:px-4 py-1.5 rounded-[12px] shadow-xl animate-fade-in-down">
                           <div className="flex items-center gap-2">
                               <Clock size={16} className="text-[#6b3141]" />
@@ -3403,7 +3648,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                                             {showSkillsAction && (
                                                 <div className="relative col-span-1">
                                                     {activeBattleMenu === 'skills' && (
-                                                        <div className="absolute bottom-full right-0 z-40 mb-2 w-[min(84vw,340px)] rounded-2xl border border-[#b996cf] bg-[linear-gradient(140deg,rgba(245,236,252,0.98),rgba(238,225,247,0.97))] p-2.5 shadow-[0_16px_38px_rgba(88,48,111,0.32)] animate-fade-in-down">
+                                                        <div className="absolute bottom-full right-[-68px] sm:right-0 z-40 mb-2 w-[min(84vw,340px)] rounded-2xl border border-[#b996cf] bg-[linear-gradient(140deg,rgba(245,236,252,0.98),rgba(238,225,247,0.97))] p-2.5 shadow-[0_16px_38px_rgba(88,48,111,0.32)] animate-fade-in-down">
                                                             <div className="mb-2 flex items-center justify-between px-1">
                                                                 <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.22em] text-[#6f447f]">
                                                                     <Sparkles size={12} />
