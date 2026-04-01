@@ -4,6 +4,7 @@ import { ALL_CARDS } from '../../game/data/cards';
 import { getConstellationByClassId } from '../../game/data/classTalents';
 import { getPlayerClassById } from '../../game/data/classes';
 import { canUnlockTalentNode } from '../../game/mechanics/classProgression';
+import { getEquipmentBonuses } from '../../game/mechanics/equipmentBonuses';
 import { SKILLS } from '../../constants';
 import { ClassTalentTrail, Item, Player, PlayerClassId, ProgressionCard, TalentNode } from '../../types';
 import { DeveloperHeroScene } from '../Scene3D';
@@ -21,6 +22,7 @@ type CharacterSheetModalProps = {
   onResetTalents: () => void;
   isClosing?: boolean;
   restrictToStatusOnly?: boolean;
+  allowInventory?: boolean;
   allowCardsTab?: boolean;
   allowSkillsTab?: boolean;
   allowConstellationTab?: boolean;
@@ -162,31 +164,63 @@ const ResourceBar = ({
   );
 };
 
-const getEquipmentBonusMeta = (item: Item | null): { icon: React.ReactNode; label: string; value: string; chip: string; valueTone: string } | null => {
-  if (!item) return null;
-  if (item.type === 'weapon') {
-    return {
+const getEquipmentBonusMeta = (item: Item | null): Array<{ icon: React.ReactNode; label: string; value: string; chip: string; valueTone: string }> => {
+  if (!item) return [];
+
+  const bonuses = getEquipmentBonuses(item);
+  const chips: Array<{ icon: React.ReactNode; label: string; value: string; chip: string; valueTone: string }> = [];
+
+  if (bonuses.atk > 0) {
+    chips.push({
       icon: <Sword size={12} />,
       label: 'ATK',
-      value: `+${item.value}`,
+      value: `+${bonuses.atk}`,
       chip: 'border-[#e4adb6] bg-[#fbe9ec]',
       valueTone: 'text-[#b83a4b]',
-    };
+    });
   }
-  if (item.type === 'armor' || item.type === 'helmet' || item.type === 'legs' || item.type === 'shield') {
-    return {
+  if (bonuses.def > 0) {
+    chips.push({
       icon: <Shield size={12} />,
       label: 'DEF',
-      value: `+${item.value}`,
+      value: `+${bonuses.def}`,
       chip: 'border-[#b9c8d7] bg-[#ebf2f8]',
       valueTone: 'text-[#4d6780]',
-    };
+    });
   }
-  return null;
+  if (bonuses.speed > 0) {
+    chips.push({
+      icon: <Zap size={12} />,
+      label: 'VEL',
+      value: `+${bonuses.speed}`,
+      chip: 'border-[#d3bfd8] bg-[#f3eaf5]',
+      valueTone: 'text-[#7c4c76]',
+    });
+  }
+  if (bonuses.maxHp > 0) {
+    chips.push({
+      icon: <Heart size={12} />,
+      label: 'HP',
+      value: `+${bonuses.maxHp}`,
+      chip: 'border-[#b9d8b9] bg-[#eaf8ea]',
+      valueTone: 'text-[#2f7d32]',
+    });
+  }
+  if (bonuses.maxMp > 0) {
+    chips.push({
+      icon: <WandSparkles size={12} />,
+      label: 'MP',
+      value: `+${bonuses.maxMp}`,
+      chip: 'border-[#b9d1df] bg-[#e8f4fb]',
+      valueTone: 'text-[#346c7f]',
+    });
+  }
+
+  return chips;
 };
 
 const EquipmentCard = ({ label, item, type, onClick }: { label: string; item: Item | null; type: Item['type']; onClick?: () => void }) => {
-  const bonus = getEquipmentBonusMeta(item);
+  const bonuses = getEquipmentBonusMeta(item);
   const Component = onClick ? 'button' : 'div';
 
   return (
@@ -197,10 +231,14 @@ const EquipmentCard = ({ label, item, type, onClick }: { label: string; item: It
     <div className="min-w-0 flex-1">
       <div className="text-[8px] font-black uppercase tracking-[0.14em] text-[#8a5a57]">{label}</div>
       <div className="mt-0.5 truncate text-sm font-black text-[#6b3141]">{item ? item.name : 'Vazio'}</div>
-      {bonus && (
-        <div className={`mt-1 inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] ${bonus.chip} ${bonus.valueTone}`}>
-          {bonus.icon}
-          {bonus.label} {bonus.value}
+      {bonuses.length > 0 && (
+        <div className="mt-1 flex flex-wrap gap-1">
+          {bonuses.map((bonus) => (
+            <div key={`${bonus.label}-${bonus.value}`} className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] ${bonus.chip} ${bonus.valueTone}`}>
+              {bonus.icon}
+              {bonus.label} {bonus.value}
+            </div>
+          ))}
         </div>
       )}
     </div>
@@ -398,7 +436,7 @@ const ClassGuideModal = ({
   );
 };
 
-export const CharacterSheetModal = ({ player, shopItems: _shopItems, onClose, onOpenInventory, onUnlockTalent, onResetTalents, isClosing = false, restrictToStatusOnly = false, allowCardsTab = false, allowSkillsTab = false, allowConstellationTab = false, initialTab = 'overview', respecUnlockPromptActive = false, onAcknowledgeRespecUnlock }: CharacterSheetModalProps) => {
+export const CharacterSheetModal = ({ player, shopItems: _shopItems, onClose, onOpenInventory, onUnlockTalent, onResetTalents, isClosing = false, restrictToStatusOnly = false, allowInventory = false, allowCardsTab = false, allowSkillsTab = false, allowConstellationTab = false, initialTab = 'overview', respecUnlockPromptActive = false, onAcknowledgeRespecUnlock }: CharacterSheetModalProps) => {
   const [activeTab, setActiveTab] = useState<ProfileTab>(initialTab);
   const [showClassGuide, setShowClassGuide] = useState(false);
   const [showRespecUnlockPrompt, setShowRespecUnlockPrompt] = useState(false);
@@ -406,7 +444,7 @@ export const CharacterSheetModal = ({ player, shopItems: _shopItems, onClose, on
   const isStatusOnlyMode = Boolean(restrictToStatusOnly);
   const canAccessCards = !isStatusOnlyMode || allowCardsTab;
   const canAccessSkills = !isStatusOnlyMode || allowSkillsTab;
-  const canOpenInventory = true;
+  const canOpenInventory = !isStatusOnlyMode || allowInventory;
   const currentClass = getPlayerClassById(player.classId);
   const constellation = getConstellationByClassId(player.classId);
   const classGuide = CLASS_GUIDES[player.classId];
@@ -675,25 +713,38 @@ export const CharacterSheetModal = ({ player, shopItems: _shopItems, onClose, on
 
               {player.skills.length > 0 ? (
                 <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-                  {player.skills.map((skill) => (
-                    <article key={skill.id} className="flex items-start gap-4 rounded-[20px] border border-[#cfab91] bg-[#f7ecdd] p-4 shadow-sm">
-                      <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border" style={{ borderColor: skill.trailColor ?? '#c4b5fd', backgroundColor: `${skill.trailColor ?? '#ede9fe'}22`, color: skill.trailColor ?? '#7c3aed' }}>
+                  {player.skills.map((skill) => {
+                    const skillTone = skill.trailColor ?? '#a855f7';
+                    const resourceCost = skill.resourceEffect?.cost ?? 0;
+                    const consumeAllResource = Boolean(skill.resourceEffect?.consumeAll);
+                    const hasResourceCost = consumeAllResource || resourceCost > 0;
+                    return (
+                    <article key={skill.id} className="flex items-start gap-4 rounded-[20px] border p-4 shadow-sm" style={{ borderColor: `${skillTone}80`, backgroundColor: `${skillTone}16` }}>
+                      <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border" style={{ borderColor: `${skillTone}99`, backgroundColor: `${skillTone}24`, color: skillTone }}>
                         <Sparkles size={28} />
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
                           <span className="min-w-0 flex-1 truncate text-base font-black text-[#6b3141]">{skill.name}</span>
-                          <span className="shrink-0 rounded-md border border-[#8eb4c0] bg-[#dceff2] px-2 py-0.5 text-xs font-black text-[#346c7f]">{skill.manaCost} MP</span>
+                          <span className="shrink-0 rounded-md border border-[#6aa9d4] bg-[#dff2ff] px-2 py-0.5 text-xs font-black text-[#1d5f86]">{skill.manaCost} MP</span>
+                          {hasResourceCost && (
+                            <span
+                              className="shrink-0 rounded-md border px-2 py-0.5 text-[10px] font-black"
+                              style={{ borderColor: `${player.classResource.color}66`, backgroundColor: '#ffffff', color: player.classResource.color }}
+                            >
+                              {consumeAllResource ? `Toda ${skill.resourceLabel || player.classResource.name}` : `${resourceCost} ${skill.resourceLabel || player.classResource.name}`}
+                            </span>
+                          )}
                         </div>
                         <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                          <span className="rounded-full border px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide" style={{ borderColor: skill.trailColor ?? '#c4b5fd', backgroundColor: `${skill.trailColor ?? '#ede9fe'}22`, color: skill.trailColor ?? '#7c3aed' }}>{skill.type}</span>
+                          <span className="rounded-full border px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide" style={{ borderColor: `${skillTone}80`, backgroundColor: `${skillTone}20`, color: skillTone }}>{skill.type}</span>
                           <span className="rounded-full border border-[#cfab91] bg-[#f7ecdd] px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-[#9a7068]">Lvl {skill.minLevel}+</span>
-                          {skill.source === 'constellation' && <span className="rounded-full border border-[#cfab91] bg-[#f4e5d4] px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-[#8d5e29]">Constelacao</span>}
+                          {skill.source === 'constellation' && <span className="rounded-full border px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide" style={{ borderColor: `${skillTone}70`, backgroundColor: `${skillTone}1a`, color: skillTone }}>Constelacao</span>}
                         </div>
                         <p className="mt-2 text-sm leading-snug text-[#7f5b56]">{skill.description}</p>
                       </div>
                     </article>
-                  ))}
+                  )})}
                 </div>
               ) : (
                 <div className="rounded-[24px] border border-dashed border-[#c59d82] bg-[#f4e7d5] px-6 py-12 text-center text-[#8f6c67]">

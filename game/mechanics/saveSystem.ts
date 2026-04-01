@@ -11,6 +11,7 @@ export interface SavePayload {
   player: Player;
   stage: number;
   killCount: number;
+  subBossDefeatedInStage?: boolean;
   dungeonEvolution: number;
   onboardingPhase: string;
   hasPlayerDiedOnce: boolean;
@@ -125,6 +126,10 @@ const isSavePayloadLike = (value: unknown): value is SavePayload => {
   }
 
   if (!isFiniteNumber(payload.killCount) || payload.killCount < 0) {
+    return false;
+  }
+
+  if (payload.subBossDefeatedInStage !== undefined && typeof payload.subBossDefeatedInStage !== 'boolean') {
     return false;
   }
 

@@ -139,6 +139,8 @@ export interface Item {
   cost: number;
   type: ItemType;
   value: number; // Atk, Def, or Heal amount
+  hpBonus?: number;
+  mpBonus?: number;
   icon: string; // Icon helper
   rarity: Rarity;
   minLevel: number;
@@ -473,6 +475,7 @@ export interface Enemy {
   type: 'beast' | 'humanoid' | 'undead';
   enemyClassId: PlayerClassId;
   isBoss: boolean;
+  isSubBoss?: boolean;
   isDefending: boolean;
   statusEffects?: StatusEffect[];
   assets?: PlayerClassAssets;
@@ -545,4 +548,5 @@ export interface FloatingText {
   xOffset: number; // Random slight offset
   yOffset: number;
   durationMs?: number;
+  color?: string;
 }

@@ -943,7 +943,7 @@ const HeroVoxel = ({ classId = 'knight', playerAnimationAction = 'idle', animati
         }
 
         flashMaterialsRef.current.forEach((material) => {
-          applyHitFlashToMaterial(material, flashRef.current > 0.03, flashRef.current * 0.65, '#ffffff');
+          applyHitFlashToMaterial(material, flashRef.current > 0.03, flashRef.current * 0.65, '#ef4444');
         });
       }
     }

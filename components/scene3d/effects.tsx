@@ -166,6 +166,7 @@ const WorldFloatingText = ({
           : type === 'item'
             ? 'text-yellow-300'
             : 'text-sky-400';
+  const customToneStyle = text.color ? { color: text.color } : undefined;
 
   const textSize = type === 'crit'
     ? 'text-3xl'
@@ -184,6 +185,7 @@ const WorldFloatingText = ({
             WebkitTextStroke: '4px rgba(255,255,255,1)',
             paintOrder: 'stroke fill',
             opacity: 0.94,
+            ...customToneStyle,
           }}
         >
           {text.text}

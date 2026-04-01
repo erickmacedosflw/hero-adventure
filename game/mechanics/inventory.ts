@@ -1,4 +1,5 @@
 import { Item, Player } from '../../types';
+import { applyEquipmentBonusesToStats } from './equipmentBonuses';
 
 export const buyItemForPlayer = (player: Player, item: Item, quantity = 1): Player => {
   const safeQuantity = Math.max(1, Math.floor(quantity));
@@ -58,7 +59,7 @@ export const equipItemOnPlayer = (player: Player, item: Item): Player => {
     return player;
   }
 
-  const newStats = { ...player.stats };
+  let newStats = { ...player.stats };
 
   let newWep = player.equippedWeapon;
   let newArm = player.equippedArmor;
@@ -67,28 +68,28 @@ export const equipItemOnPlayer = (player: Player, item: Item): Player => {
   let newShield = player.equippedShield;
 
   if (item.type === 'weapon') {
-    if (newWep) newStats.atk -= newWep.value;
-    newStats.atk += item.value;
+    newStats = applyEquipmentBonusesToStats(newStats, newWep, -1);
+    newStats = applyEquipmentBonusesToStats(newStats, item, 1);
     newWep = item;
   }
   if (item.type === 'armor') {
-    if (newArm) newStats.def -= newArm.value;
-    newStats.def += item.value;
+    newStats = applyEquipmentBonusesToStats(newStats, newArm, -1);
+    newStats = applyEquipmentBonusesToStats(newStats, item, 1);
     newArm = item;
   }
   if (item.type === 'helmet') {
-    if (newHelm) newStats.def -= newHelm.value;
-    newStats.def += item.value;
+    newStats = applyEquipmentBonusesToStats(newStats, newHelm, -1);
+    newStats = applyEquipmentBonusesToStats(newStats, item, 1);
     newHelm = item;
   }
   if (item.type === 'legs') {
-    if (newLegs) newStats.def -= newLegs.value;
-    newStats.def += item.value;
+    newStats = applyEquipmentBonusesToStats(newStats, newLegs, -1);
+    newStats = applyEquipmentBonusesToStats(newStats, item, 1);
     newLegs = item;
   }
   if (item.type === 'shield') {
-    if (newShield) newStats.def -= newShield.value;
-    newStats.def += item.value;
+    newStats = applyEquipmentBonusesToStats(newStats, newShield, -1);
+    newStats = applyEquipmentBonusesToStats(newStats, item, 1);
     newShield = item;
   }
 

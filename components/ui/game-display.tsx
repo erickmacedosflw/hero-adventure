@@ -2,6 +2,7 @@ import React from 'react';
 import { Crown, FlaskConical, Footprints, Shield, Shirt, Sparkles, Sword } from 'lucide-react';
 import { SKILLS } from '../../constants';
 import { Item, ProgressionCard, Rarity } from '../../types';
+import { getEquipmentBonuses } from '../../game/mechanics/equipmentBonuses';
 
 const PERCENT_CARD_EFFECT_TYPES = new Set([
   'gold_gain_multiplier',
@@ -117,6 +118,11 @@ export const getItemPowerLabel = (item: Item) => {
   if (item.id.includes('pot_atk')) return `+${item.value * 100}% ATK`;
   if (item.id.includes('pot_def')) return `+${item.value * 100}% DEF`;
   if (item.type === 'material') return 'Ingrediente';
+  if (item.type === 'legs') return `+${item.value} VEL`;
+
+  const bonuses = getEquipmentBonuses(item);
+  if (item.type === 'armor' && bonuses.maxMp > 0) return `+${bonuses.def} DEF | +${bonuses.maxMp} MP`;
+  if (item.type === 'helmet' && bonuses.maxHp > 0) return `+${bonuses.def} DEF | +${bonuses.maxHp} HP`;
   return `+${item.value} DEF`;
 };
 

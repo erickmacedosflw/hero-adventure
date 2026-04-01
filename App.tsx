@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { ShoppingBag, Play, Sword, Home } from 'lucide-react';
+import { ShoppingBag, Play, Sword, Home, Orbit } from 'lucide-react';
 import { Howler } from 'howler';
 import { DeveloperConsole } from './components/DeveloperConsole';
 import { GameScene } from './components/Scene3D';
@@ -24,6 +24,7 @@ import { uiSfx } from './game/audio/uiSfx';
 import { createEmptyBuffState } from './game/mechanics/combat';
 import { createClassResourceState, getTalentBonuses, getUnlockedResourceMax, resetTalentNodes, syncPlayerConstellationSkills, unlockTalentNode } from './game/mechanics/classProgression';
 import { buyItemForPlayer, sellItemFromPlayer } from './game/mechanics/inventory';
+import { applyEquipmentBonusesToStats } from './game/mechanics/equipmentBonuses';
 import { SavePayload, SaveSlotId, SaveSlotSummary, getActiveSaveSlotId, listSaveSlots, loadSaveFromSlot, saveToActiveSlot, setActiveSaveSlotId, clearSlot } from './game/mechanics/saveSystem';
 import { useBattleController } from './game/hooks/useBattleController';
 import { useBattleResolution } from './game/hooks/useBattleResolution';
@@ -432,6 +433,7 @@ export default function App() {
   
   const [stage, setStage] = useState(1);
   const [killCount, setKillCount] = useState(0); // Track kills in current stage
+  const [subBossDefeatedInStage, setSubBossDefeatedInStage] = useState(false);
     const [dungeonEvolution, setDungeonEvolution] = useState(0);
 
   const [particles, setParticles] = useState<Particle[]>([]);
@@ -456,6 +458,7 @@ export default function App() {
     const [selectedSaveSlotId, setSelectedSaveSlotId] = useState<SaveSlotId>(() => getActiveSaveSlotId());
     const [hasSavePromptDecision, setHasSavePromptDecision] = useState(false);
     const [resourceUnlockModal, setResourceUnlockModal] = useState<{ name: string; color: string } | null>(null);
+    const [levelUpModal, setLevelUpModal] = useState<{ levelsGained: number; nextLevel: number } | null>(null);
     const openConstellationToken = 0;
     const { arSupport, refreshArSupport } = useARCapabilities();
     const [isArOverlayOpen, setIsArOverlayOpen] = useState(false);
@@ -465,6 +468,12 @@ export default function App() {
     const [isWebXrRoutingOpen, setIsWebXrRoutingOpen] = useState(false);
 
     const bootEnemies = useMemo(() => [...ENEMY_DATA, ...DUNGEON_ENEMY_DATA, DUNGEON_BOSS], []);
+    const heroClassDefinition = useMemo(
+        () => PLAYER_CLASSES.find((entry) => entry.id === player.classId) ?? PLAYER_CLASSES[0],
+        [player.classId],
+    );
+    const heroClassAccentColor = heroClassDefinition.visualProfile.secondaryColor;
+    const heroClassAuraColor = heroClassDefinition.visualProfile.auraColor;
     const handleBootReady = useCallback(() => {
         setBootReadyMemory(true);
         setIsBootReady(true);
@@ -558,6 +567,7 @@ export default function App() {
     const menuTransitionTimerRef = useRef<number | null>(null);
     const menuHeroActionResetTimerRef = useRef<number | null>(null);
     const autosaveTimerRef = useRef<number | null>(null);
+    const levelUpModalTimerRef = useRef<number | null>(null);
     const lastSavedSignatureRef = useRef<string>('');
     const wasResourceUnlockedRef = useRef(player.classResource.max > 0);
     const particleBudgetRef = useRef({
@@ -606,6 +616,7 @@ export default function App() {
         player: clonePlayer(player),
         stage,
         killCount,
+        subBossDefeatedInStage,
         dungeonEvolution,
         onboardingPhase,
         hasPlayerDiedOnce,
@@ -645,6 +656,7 @@ export default function App() {
         gameState,
         hasPlayerDiedOnce,
         killCount,
+        subBossDefeatedInStage,
         logs,
         narration,
         onboardingPhase,
@@ -711,6 +723,7 @@ export default function App() {
         setPlayer(clonePlayer(payload.player));
         setStage(payload.stage);
         setKillCount(wasInterrupted ? 0 : payload.killCount);
+        setSubBossDefeatedInStage(payload.subBossDefeatedInStage ?? false);
         setDungeonEvolution(payload.dungeonEvolution);
         setOnboardingPhase(safePhase);
         setHasPlayerDiedOnce(payload.hasPlayerDiedOnce || wasInterrupted);
@@ -790,6 +803,7 @@ export default function App() {
             hadDungeonRun: false,
             sceneRegion: wasInterrupted ? 'forest' : payload.sceneRegion,
             killCount: wasInterrupted ? 0 : payload.killCount,
+            subBossDefeatedInStage: payload.subBossDefeatedInStage ?? false,
         };
         lastSavedSignatureRef.current = JSON.stringify(signaturePayload);
 
@@ -808,6 +822,9 @@ export default function App() {
         }
         if (autosaveTimerRef.current !== null) {
             window.clearTimeout(autosaveTimerRef.current);
+        }
+        if (levelUpModalTimerRef.current !== null) {
+            window.clearTimeout(levelUpModalTimerRef.current);
         }
     }, []);
 
@@ -1004,7 +1021,12 @@ export default function App() {
       }, 1100);
   };
 
-  const spawnFloatingText = (value: string | number, target: 'player' | 'enemy', type: 'damage' | 'heal' | 'crit' | 'buff' | 'skill' | 'item') => {
+  const spawnFloatingText = (
+      value: string | number,
+      target: 'player' | 'enemy',
+      type: 'damage' | 'heal' | 'crit' | 'buff' | 'skill' | 'item',
+      color?: string,
+  ) => {
       const id = Math.random().toString(36);
       const isNamedActionText = type === 'skill' || type === 'item';
       const durationMs = isNamedActionText ? 2100 : type === 'crit' ? 1500 : 1100;
@@ -1016,6 +1038,7 @@ export default function App() {
           xOffset: isNamedActionText ? 0 : (Math.random() * 40) - 20, // Keep skill/item labels centered and readable
           yOffset: isNamedActionText ? 0 : (Math.random() * 20) - 10,
           durationMs,
+          color,
       }].slice(-8));
 
       // Auto remove after animation
@@ -1108,6 +1131,23 @@ export default function App() {
         setIsLevelingUp(true);
         window.setTimeout(() => setIsLevelingUp(false), 1100);
     };
+
+    const showLevelUpModal = useCallback((levelsGained: number, nextLevel: number) => {
+        if (levelsGained <= 0) {
+            return;
+        }
+
+        if (levelUpModalTimerRef.current !== null) {
+            window.clearTimeout(levelUpModalTimerRef.current);
+            levelUpModalTimerRef.current = null;
+        }
+
+        setLevelUpModal({ levelsGained, nextLevel });
+        levelUpModalTimerRef.current = window.setTimeout(() => {
+            levelUpModalTimerRef.current = null;
+            setLevelUpModal(null);
+        }, 2600);
+    }, []);
 
     const getSkillVisualConfig = (skill: Skill) => {
         if (skill.visualTheme === 'steel') return { color: '#93c5fd', particleCount: 22, shake: 0.28, castDelay: 520 };
@@ -1364,6 +1404,10 @@ export default function App() {
     if (isDungeonEncounter) {
     levelMult *= getDungeonPowerMultiplier(activeDungeonEvolution);
     }
+    const isSubBossEncounter = !isDungeonEncounter && !isBoss && !subBossDefeatedInStage && (killCount + 1 === 5);
+    if (isSubBossEncounter) {
+        levelMult *= 1.18;
+    }
     if (isBoss) levelMult *= (isDungeonEncounter ? 2.1 : 1.9); // Boss scaling tuned by mode
 
     const availableDungeonEnemies = DUNGEON_ENEMY_DATA.filter(template => template.minEvolution <= activeDungeonEvolution);
@@ -1391,34 +1435,42 @@ export default function App() {
     const color = isBoss && isDungeonEncounter
         ? DUNGEON_BOSS.color
         : ENEMY_COLORS[Math.floor(Math.random() * ENEMY_COLORS.length)];
-    const xpReward = Math.floor(40 * levelMult * (isBoss ? (isDungeonEncounter ? 3.6 : 3) : 1));
-    const goldReward = Math.floor(25 * levelMult * (isBoss ? (isDungeonEncounter ? 3.2 : 3) : 1));
+    const encounterRewardMultiplier = isBoss
+        ? (isDungeonEncounter ? 3.6 : 3)
+        : (isSubBossEncounter ? 1.5 : 1);
+    const xpReward = Math.floor(40 * levelMult * encounterRewardMultiplier);
+    const stageGoldBonusMultiplier = 1 + (Math.max(1, currentStage) - 1) * 0.045;
+    const encounterGoldMultiplier = isBoss
+        ? (isDungeonEncounter ? 3.2 : 3)
+        : (isSubBossEncounter ? 1.45 : 1);
+    const goldReward = Math.floor(25 * levelMult * stageGoldBonusMultiplier * encounterGoldMultiplier);
     
         const name = isBoss
                 ? (isDungeonEncounter ? DUNGEON_BOSS.name : `General ${enemyTemplate.name}`)
-                : enemyTemplate.name;
+                : (isSubBossEncounter ? `Subchefe ${enemyTemplate.name}` : enemyTemplate.name);
 
     const newEnemy: Enemy = {
       id: `enemy_${Date.now()}`,
       name: name,
       level: currentStage,
       stats: {
-                hp: Math.floor(68 * levelMult * hpMultiplier),
-                maxHp: Math.floor(68 * levelMult * hpMultiplier),
+                hp: Math.floor(68 * levelMult * hpMultiplier * (isSubBossEncounter ? 1.35 : 1)),
+                maxHp: Math.floor(68 * levelMult * hpMultiplier * (isSubBossEncounter ? 1.35 : 1)),
         mp: combatProfile.maxMp,
         maxMp: combatProfile.maxMp,
-                atk: Math.floor(9 * levelMult * atkMultiplier * enemyAtkMultiplier),
-                def: Math.floor(3 * levelMult * defMultiplier),
-                speed: 10 + speedBonus + (isDungeonEncounter ? Math.floor(activeDungeonEvolution / 3) : 0),
-        luck: Math.max(1, Math.floor((currentStage * 0.55) + (isBoss ? 3 : 0) + (isDungeonEncounter ? activeDungeonEvolution * 0.35 : 0)))
+                atk: Math.floor(9 * levelMult * atkMultiplier * enemyAtkMultiplier * (isSubBossEncounter ? 1.22 : 1)),
+                def: Math.floor(3 * levelMult * defMultiplier * (isSubBossEncounter ? 1.2 : 1)),
+                speed: 10 + speedBonus + (isDungeonEncounter ? Math.floor(activeDungeonEvolution / 3) : 0) + (isSubBossEncounter ? 2 : 0),
+        luck: Math.max(1, Math.floor((currentStage * 0.55) + (isBoss ? 3 : 0) + (isSubBossEncounter ? 3 : 0) + (isDungeonEncounter ? activeDungeonEvolution * 0.35 : 0)))
       },
             xpReward,
             goldReward,
-                        color: isBoss ? (isDungeonEncounter ? DUNGEON_BOSS.color : '#ef4444') : (enemyTemplate.color ?? color),
-                        scale: isBoss ? (isDungeonEncounter ? DUNGEON_BOSS.scale : (0.8 + (Math.random() * 0.4)) * 2.0) : (enemyTemplate.scale ?? (0.8 + (Math.random() * 0.4))),
+                        color: isBoss ? (isDungeonEncounter ? DUNGEON_BOSS.color : '#ef4444') : (isSubBossEncounter ? '#d97706' : (enemyTemplate.color ?? color)),
+                        scale: isBoss ? (isDungeonEncounter ? DUNGEON_BOSS.scale : (0.8 + (Math.random() * 0.4)) * 2.0) : ((enemyTemplate.scale ?? (0.8 + (Math.random() * 0.4))) * (isSubBossEncounter ? 1.16 : 1)),
       type: enemyTemplate.type as 'beast' | 'humanoid' | 'undead',
       enemyClassId,
       isBoss,
+      isSubBoss: isSubBossEncounter,
             isDefending: false,
             statusEffects: [],
                 assets: enemyTemplate.assets,
@@ -1459,7 +1511,14 @@ export default function App() {
         if (newEnemy.combatBuffs.turns > 0) {
             addLog(`${newEnemy.name} iniciou a luta com impulso inicial (+ATK/+DEF).`, 'buff');
         }
-        setNarration(isBoss ? (isDungeonEncounter ? 'O soberano da dungeon despertou.' : `O CHEFÃO DA FASE ${currentStage} RUGIU!`) : (isDungeonEncounter ? 'Uma presença da dungeon bloqueia seu caminho.' : 'Um inimigo se aproxima...'));
+        if (isBoss) {
+            setNarration(isDungeonEncounter ? 'O soberano da dungeon despertou.' : `O CHEFAO DA FASE ${currentStage} RUGIU!`);
+        } else if (isSubBossEncounter) {
+            addLog(`${newEnemy.name} surgiu no marco 5/10 da fase.`, 'crit');
+            setNarration(`SUBCHEFE avistado na fase ${currentStage}!`);
+        } else {
+            setNarration(isDungeonEncounter ? 'Uma presenca da dungeon bloqueia seu caminho.' : 'Um inimigo se aproxima...');
+        }
     
     try {
         const flavor = await generateBattleDescription(newEnemy.name, newEnemy.level);
@@ -1490,6 +1549,7 @@ export default function App() {
     setActiveSaveSlotId(selectedSaveSlotId);
     setStage(1);
     setKillCount(0);
+    setSubBossDefeatedInStage(false);
         setDungeonEvolution(0);
         setSelectedStartingClassId(classId);
         setHasConfirmedStartingClass(true);
@@ -1528,6 +1588,7 @@ export default function App() {
                 player: clonePlayer(startingPlayer),
                 stage: 1,
                 killCount: 0,
+                subBossDefeatedInStage: false,
                 dungeonEvolution: 0,
                 onboardingPhase: 'intro_camp',
                 hasPlayerDiedOnce: false,
@@ -1871,9 +1932,11 @@ export default function App() {
     setGameState,
     setStage,
     setKillCount,
+    setSubBossDefeatedInStage,
     setEnemyAnimationAction,
     setPlayerAnimationAction,
     generateVictorySpeech,
+    onLevelUp: showLevelUpModal,
         shouldForceFirstEnemyDrop: onboardingPhase === 'intro_camp',
         shouldTriggerInventoryUnlockTutorial: onboardingPhase === 'intro_camp' || onboardingPhase === 'post_first_hunt',
         onTriggerInventoryUnlockTutorial: () => setOnboardingPhase('inventory_prompt'),
@@ -1936,7 +1999,7 @@ export default function App() {
       addLog(`Carta escolhida: ${card.name}`, 'buff');
       triggerLevelUpPulse(card.category);
       const afterCardPlayer = applyCardChoice(player, card);
-      const { nextPlayer } = applyLevelProgression(afterCardPlayer);
+      const { nextPlayer, levelsGained } = applyLevelProgression(afterCardPlayer);
       let nextQueue = [...cardRewardQueue];
             const shouldTriggerCardsUnlockTutorial = currentCardOffer.source === 'boss' && onboardingPhase === 'inventory_unlocked';
 
@@ -1945,6 +2008,9 @@ export default function App() {
             }
 
       setPlayer(nextPlayer);
+      if (levelsGained > 0) {
+          showLevelUpModal(levelsGained, nextPlayer.level);
+      }
               continueProgressionFlow(nextPlayer, nextQueue, postCardFlowRef.current);
   };
 
@@ -1998,6 +2064,7 @@ export default function App() {
       }
 
       let levelsGained = 0;
+      let nextLevelAfterPurchase = player.level;
       setPlayer(prev => {
           if (prev.diamonds < offer.cost || prev.level < offer.card.minLevel || prev.chosenCards.includes(offer.card.id)) {
               return prev;
@@ -2008,11 +2075,13 @@ export default function App() {
 
           const leveledPlayer = applyLevelProgression(afterCard);
           levelsGained = leveledPlayer.levelsGained;
+          nextLevelAfterPurchase = leveledPlayer.nextPlayer.level;
           return leveledPlayer.nextPlayer;
       });
 
       if (levelsGained > 0) {
           triggerLevelUpPulse(offer.card.category);
+          showLevelUpModal(levelsGained, nextLevelAfterPurchase);
       }
   };
 
@@ -2070,28 +2139,28 @@ export default function App() {
           let newShield = p.equippedShield;
 
           if (item.type === 'weapon') {
-              if (newWep) newStats.atk -= newWep.value;
-              newStats.atk += item.value;
+              newStats = applyEquipmentBonusesToStats(newStats, newWep, -1);
+              newStats = applyEquipmentBonusesToStats(newStats, item, 1);
               newWep = item;
           }
           if (item.type === 'armor') {
-              if (newArm) newStats.def -= newArm.value;
-              newStats.def += item.value;
+              newStats = applyEquipmentBonusesToStats(newStats, newArm, -1);
+              newStats = applyEquipmentBonusesToStats(newStats, item, 1);
               newArm = item;
           }
           if (item.type === 'helmet') {
-              if (newHelm) newStats.def -= newHelm.value;
-              newStats.def += item.value;
+              newStats = applyEquipmentBonusesToStats(newStats, newHelm, -1);
+              newStats = applyEquipmentBonusesToStats(newStats, item, 1);
               newHelm = item;
           }
           if (item.type === 'legs') {
-              if (newLegs) newStats.def -= newLegs.value;
-              newStats.def += item.value;
+              newStats = applyEquipmentBonusesToStats(newStats, newLegs, -1);
+              newStats = applyEquipmentBonusesToStats(newStats, item, 1);
               newLegs = item;
           }
           if (item.type === 'shield') {
-              if (newShield) newStats.def -= newShield.value;
-              newStats.def += item.value;
+              newStats = applyEquipmentBonusesToStats(newStats, newShield, -1);
+              newStats = applyEquipmentBonusesToStats(newStats, item, 1);
               newShield = item;
           }
 
@@ -2123,23 +2192,23 @@ export default function App() {
           let newShield = p.equippedShield;
 
           if (item.type === 'weapon' && newWep?.id === item.id) {
-              newStats.atk -= item.value;
+              newStats = applyEquipmentBonusesToStats(newStats, item, -1);
               newWep = null;
           }
           if (item.type === 'armor' && newArm?.id === item.id) {
-              newStats.def -= item.value;
+              newStats = applyEquipmentBonusesToStats(newStats, item, -1);
               newArm = null;
           }
           if (item.type === 'helmet' && newHelm?.id === item.id) {
-              newStats.def -= item.value;
+              newStats = applyEquipmentBonusesToStats(newStats, item, -1);
               newHelm = null;
           }
           if (item.type === 'legs' && newLegs?.id === item.id) {
-              newStats.def -= item.value;
+              newStats = applyEquipmentBonusesToStats(newStats, item, -1);
               newLegs = null;
           }
           if (item.type === 'shield' && newShield?.id === item.id) {
-              newStats.def -= item.value;
+              newStats = applyEquipmentBonusesToStats(newStats, item, -1);
               newShield = null;
           }
 
@@ -2924,8 +2993,59 @@ export default function App() {
           </div>
       )}
 
+      {levelUpModal && (
+          <div className="absolute inset-0 z-[88] flex items-center justify-center p-4 pointer-events-none">
+              <div
+                  className="relative w-full max-w-[276px] overflow-hidden rounded-[20px] border bg-[linear-gradient(165deg,#fffaf3,#f4e8db)] shadow-[0_20px_58px_rgba(54,26,33,0.2)] animate-fade-in-down"
+                  style={{
+                      borderColor: `${heroClassAccentColor}88`,
+                      boxShadow: `0 20px 58px ${heroClassAuraColor}36`,
+                  }}
+              >
+                  <div className="pointer-events-none absolute -left-10 top-5 h-20 w-20 rounded-full blur-2xl" style={{ backgroundColor: `${heroClassAuraColor}55` }} />
+                  <div className="pointer-events-none absolute -right-8 bottom-3 h-16 w-16 rounded-full blur-2xl" style={{ backgroundColor: `${heroClassAccentColor}44` }} />
+                  <div
+                      className="relative px-4 py-3 text-center text-[#f7ecdd]"
+                      style={{
+                          background: `linear-gradient(135deg, ${heroClassAccentColor}, ${heroClassAuraColor})`,
+                      }}
+                  >
+                      <div className="inline-flex items-center gap-1.5 rounded-full border border-white/25 bg-white/10 px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.2em]">
+                          Nivel Up
+                      </div>
+                      <h3 className="mt-1.5 text-lg font-black text-white">Voce evoluiu</h3>
+                      <p className="mt-1 text-[11px] text-[#f7ecdd]">Classe: {heroClassDefinition.name} | Nivel {levelUpModal.nextLevel}</p>
+                  </div>
+                  <div className="relative px-4 py-3.5">
+                      <div className="rounded-xl border bg-[#fff9f1]/95 px-3 py-2.5 text-center shadow-inner" style={{ borderColor: `${heroClassAccentColor}40` }}>
+                          <div className="text-[10px] font-black uppercase tracking-[0.2em] text-[#9a7068]">Ponto de evolucao</div>
+                          <div className="mt-2 inline-flex items-center gap-2 rounded-full border bg-[#f4e5d4] px-3 py-1.5" style={{ borderColor: `${heroClassAccentColor}66` }}>
+                              <span
+                                  className="inline-flex h-6 w-6 items-center justify-center rounded-full shadow-[0_0_16px_rgba(0,0,0,0.2)] animate-pulse"
+                                  style={{
+                                      backgroundColor: `${heroClassAuraColor}22`,
+                                      border: `1.5px solid ${heroClassAccentColor}`,
+                                      color: heroClassAccentColor,
+                                  }}
+                              >
+                                  <Orbit size={14} strokeWidth={2.4} />
+                              </span>
+                              <span className="text-lg font-black text-[#6b3141]">+{levelUpModal.levelsGained} PE</span>
+                          </div>
+                      </div>
+                      <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-[#ebdbc9]">
+                          <div className="h-full rounded-full" style={{ width: '100%', background: `linear-gradient(90deg, ${heroClassAccentColor}, ${heroClassAuraColor})` }} />
+                      </div>
+                  </div>
+              </div>
+          </div>
+      )}
+
       {lootResult && <KillLootOverlay loot={lootResult} />}
     </div>
   );
 }
+
+
+
 

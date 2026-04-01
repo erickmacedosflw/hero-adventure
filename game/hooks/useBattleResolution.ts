@@ -21,6 +21,7 @@ interface UseBattleResolutionParams {
   dungeonRun: DungeonRunState | null;
   applyLevelProgression: (basePlayer: Player, levelUpRecoveryRatio?: number) => { nextPlayer: Player; levelsGained: number };
   triggerLevelUpPulse: () => void;
+  onLevelUp: (levelsGained: number, nextLevel: number) => void;
   generateDungeonDrops: (targetEnemy: Enemy, evolution: number, wasBoss: boolean) => string[];
   applyDropsToInventory: (inventory: Record<string, number>, rewardDrops: Record<string, number>) => Record<string, number>;
   getDungeonMonsterTarget: (evolution: number) => number;
@@ -40,6 +41,7 @@ interface UseBattleResolutionParams {
   setGameState: Dispatch<SetStateAction<GameState>>;
   setStage: Dispatch<SetStateAction<number>>;
   setKillCount: Dispatch<SetStateAction<number>>;
+  setSubBossDefeatedInStage: Dispatch<SetStateAction<boolean>>;
   setEnemyAnimationAction: Dispatch<SetStateAction<any>>;
   setPlayerAnimationAction: Dispatch<SetStateAction<any>>;
   generateVictorySpeech: (enemyName: string) => Promise<string>;
@@ -58,6 +60,7 @@ export const useBattleResolution = ({
   dungeonRun,
   applyLevelProgression,
   triggerLevelUpPulse,
+  onLevelUp,
   generateDungeonDrops,
   applyDropsToInventory,
   getDungeonMonsterTarget,
@@ -77,6 +80,7 @@ export const useBattleResolution = ({
   setGameState,
   setStage,
   setKillCount,
+  setSubBossDefeatedInStage,
   setEnemyAnimationAction,
   setPlayerAnimationAction,
   generateVictorySpeech,
@@ -101,6 +105,7 @@ export const useBattleResolution = ({
     const xpGain = Math.floor(enemy.xpReward * (1 + player.cardBonuses.xpGainMultiplier));
     const goldGain = Math.floor(enemy.goldReward * (1 + player.cardBonuses.goldGainMultiplier));
     const wasBoss = enemy.isBoss;
+    const wasSubBoss = Boolean(enemy.isSubBoss);
 
     const drops: string[] = [];
     if (dungeonRun) {
@@ -158,6 +163,7 @@ export const useBattleResolution = ({
 
       if (levelsGained > 0) {
         triggerLevelUpPulse();
+        onLevelUp(levelsGained, progressedDungeonPlayer.level);
       }
 
       setPlayer(progressedDungeonPlayer);
@@ -241,6 +247,7 @@ export const useBattleResolution = ({
     if (wasBoss) {
       setStage(prev => prev + 1);
       setKillCount(0);
+      setSubBossDefeatedInStage(false);
       setBossVictoryContext({
         mode: 'hunt',
         bossName: enemy.name,
@@ -248,6 +255,9 @@ export const useBattleResolution = ({
       });
     } else {
       setKillCount(prev => prev + 1);
+      if (wasSubBoss) {
+        setSubBossDefeatedInStage(true);
+      }
     }
 
     ({ nextPlayer: updatedPlayer, levelsGained } = applyLevelProgression(updatedPlayer, 0.3));
@@ -255,6 +265,7 @@ export const useBattleResolution = ({
 
     if (levelsGained > 0) {
       triggerLevelUpPulse();
+      onLevelUp(levelsGained, updatedPlayer.level);
     }
 
     setPlayer(updatedPlayer);
@@ -278,7 +289,13 @@ export const useBattleResolution = ({
         reason: 'Recompensa do chefao da fase',
         phaseLevel: stage,
       }]
-      : [];
+      : (wasSubBoss
+          ? [{
+            source: 'level-up',
+            reason: 'Recompensa de evolucao por derrotar um subchefe',
+            phaseLevel: stage,
+          }]
+          : []);
 
     const shouldOpenInventoryTutorial = !wasBoss && effectiveDrops.length > 0 && shouldTriggerInventoryUnlockTutorial;
 
@@ -288,6 +305,8 @@ export const useBattleResolution = ({
         generateVictorySpeech(enemy.name)
           .then(victoryText => setNarration(victoryText))
           .catch(() => undefined);
+      } else if (wasSubBoss) {
+        setNarration('Subchefe derrotado! Escolha sua carta de evolucao.');
       }
       if (shouldOpenInventoryTutorial) {
         onTriggerInventoryUnlockTutorial();
@@ -330,6 +349,7 @@ export const useBattleResolution = ({
     setEnemyAnimationAction,
     setGameState,
     setKillCount,
+    setSubBossDefeatedInStage,
     setLootResult,
     setNarration,
     setPendingDungeonQueue,
@@ -345,6 +365,7 @@ export const useBattleResolution = ({
     allowPotionDrops,
     stage,
     triggerLevelUpPulse,
+    onLevelUp,
   ]);
 
   return { handleVictory };

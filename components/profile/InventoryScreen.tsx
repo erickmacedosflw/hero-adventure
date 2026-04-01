@@ -6,6 +6,7 @@ import { GameAssetIcon } from '../ui/game-asset-icon';
 import { getRarityColor, getRarityLabel, isEquipmentType, ItemTypeIcon, ItemTypeLabel } from '../ui/game-display';
 import { RpgMenuPanel, RpgMenuShell, RpgMenuTab } from '../ui/rpg-menu-shell';
 import { ScrollArea } from '../ui/scroll-area';
+import { getEquipmentBonuses } from '../../game/mechanics/equipmentBonuses';
 
 type InventoryScreenProps = {
   player: Player;
@@ -65,7 +66,21 @@ const getItemEffectCards = (item: Item): EffectCard[] => {
   }
 
   if (item.type === 'armor' || item.type === 'helmet' || item.type === 'legs' || item.type === 'shield') {
-    return [createEffectCard('def', 'DEF', `+${item.value}`, <Shield size={15} />, 'text-[#4d6780]', 'border-[#b9c8d7] bg-[linear-gradient(180deg,#f8fbff,#eaf1f8)]')];
+    const bonuses = getEquipmentBonuses(item);
+    const cards: EffectCard[] = [];
+    if (bonuses.def > 0) {
+      cards.push(createEffectCard('def', 'DEF', `+${bonuses.def}`, <Shield size={15} />, 'text-[#4d6780]', 'border-[#b9c8d7] bg-[linear-gradient(180deg,#f8fbff,#eaf1f8)]'));
+    }
+    if (bonuses.maxHp > 0) {
+      cards.push(createEffectCard('hp', 'VIDA', `+${bonuses.maxHp}`, <Heart size={15} />, 'text-[#2f8f5b]', 'border-[#b7ddc8] bg-[linear-gradient(180deg,#f6fff9,#e8f8ef)]'));
+    }
+    if (bonuses.maxMp > 0) {
+      cards.push(createEffectCard('mp', 'MANA', `+${bonuses.maxMp}`, <Zap size={15} />, 'text-[#2f6fa8]', 'border-[#afc9e2] bg-[linear-gradient(180deg,#f6fbff,#e6f1fb)]'));
+    }
+    if (bonuses.speed > 0) {
+      cards.push(createEffectCard('spd', 'VEL', `+${bonuses.speed}`, <Zap size={15} />, 'text-[#7c4c76]', 'border-[#d3bfd8] bg-[linear-gradient(180deg,#fbf7ff,#f2e9fb)]'));
+    }
+    return cards;
   }
 
   if (item.type === 'potion') {

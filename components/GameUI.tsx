@@ -256,7 +256,7 @@ const ActionTile = ({
         <button
             onClick={onClick}
             disabled={disabled}
-            className={`col-span-1 rounded-[12px] sm:rounded-[14px] aspect-square flex flex-col items-center justify-center gap-1 sm:gap-1.5 border-b-2 sm:border-b-3 transition-all active:translate-y-0.5 active:border-b-0 ${disabled ? 'bg-[#e9d7c2] border-[#dcc0aa] text-[#8f6c67] cursor-not-allowed' : variantClass}`}
+            className={`col-span-1 w-full rounded-[12px] sm:rounded-[14px] aspect-square flex flex-col items-center justify-center gap-1 sm:gap-1.5 border-b-2 sm:border-b-3 transition-all active:translate-y-0.5 active:border-b-0 ${disabled ? 'bg-[#e9d7c2] border-[#dcc0aa] text-[#8f6c67] cursor-not-allowed' : variantClass}`}
         >
             {icon}
             <span className="font-black text-[7px] sm:text-[11px] tracking-wide uppercase">{label}</span>
@@ -419,7 +419,13 @@ const FloatingTextOverlay = ({ texts }: { texts: FloatingText[] }) => {
                 if (isBuff) colorClass = "text-blue-400";
                 if (isSkill) colorClass = "text-violet-400";
                 if (isItem) colorClass = "text-yellow-300";
-                const colorStyle = isSkill ? { color: '#d946ef' } : isItem ? { color: '#facc15' } : undefined;
+                const colorStyle = t.color
+                    ? { color: t.color }
+                    : isSkill
+                      ? { color: '#d946ef' }
+                      : isItem
+                        ? { color: '#facc15' }
+                        : undefined;
 
                 return (
                     <div 
@@ -786,7 +792,7 @@ const CharacterSheet = ({ player, shopItems, onClose, onOpenInventory }: { playe
                         <div className="flex-1 z-10">
                            <div className="text-[9px] uppercase tracking-wider text-slate-500">{slot.label}</div>
                            <div className="font-bold text-white text-sm truncate">{slot.item?.name || "Vazio"}</div>
-                           {slot.item && <div className="text-[10px] text-indigo-300">+{slot.item.value} {slot.item.type === 'weapon' ? 'ATK' : 'DEF'}</div>}
+                           {slot.item && <div className="text-[10px] text-indigo-300">+{slot.item.value} {slot.item.type === 'weapon' ? 'ATK' : (slot.item.type === 'legs' ? 'VEL' : 'DEF')}</div>}
                         </div>
                      </div>
                  )})}
@@ -1357,7 +1363,7 @@ export const TavernScreen: React.FC<{
             </div>
     <AnimatedModal open={showProfile}>
         {(isClosing) => (
-            <CharacterSheetModal player={player} shopItems={shopItems} onClose={() => setShowProfile(false)} onOpenInventory={(initialFilter) => { setShowProfile(false); openInventoryModal(initialFilter ?? 'all', true); }} onUnlockTalent={onUnlockTalent} onResetTalents={onResetTalents} respecUnlockPromptActive={constellationRespecUnlockPromptActive} onAcknowledgeRespecUnlock={onAcknowledgeConstellationRespecUnlock} isClosing={isClosing} restrictToStatusOnly={restrictProfileToStatusOnly} allowCardsTab={allowCardsInProfile} allowSkillsTab={showSkillsAction} allowConstellationTab={hasConstellationUnlocked} initialTab={profileInitialTab} />
+            <CharacterSheetModal player={player} shopItems={shopItems} onClose={() => setShowProfile(false)} onOpenInventory={(initialFilter) => { setShowProfile(false); openInventoryModal(initialFilter ?? 'all', true); }} onUnlockTalent={onUnlockTalent} onResetTalents={onResetTalents} respecUnlockPromptActive={constellationRespecUnlockPromptActive} onAcknowledgeRespecUnlock={onAcknowledgeConstellationRespecUnlock} isClosing={isClosing} restrictToStatusOnly={restrictProfileToStatusOnly} allowInventory={inventoryUnlocked} allowCardsTab={allowCardsInProfile} allowSkillsTab={showSkillsAction} allowConstellationTab={hasConstellationUnlocked} initialTab={profileInitialTab} />
         )}
     </AnimatedModal>
     <AnimatedModal open={showInventory}>
@@ -2410,10 +2416,11 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
     const [showDungeonExtractConfirm, setShowDungeonExtractConfirm] = useState(false);
     const [pendingDungeonExtractItem, setPendingDungeonExtractItem] = useState<Item | null>(null);
     const [showDungeonLootPreview, setShowDungeonLootPreview] = useState(false);
-  const [showBattleStats, setShowBattleStats] = useState(false);
+    const [showBattleStats, setShowBattleStats] = useState(false);
     const [resourceDelta, setResourceDelta] = useState<number>(0);
     const [resourcePulse, setResourcePulse] = useState<'gain' | 'spend' | null>(null);
     const resourceDeltaTimeoutRef = useRef<number | null>(null);
+    const battleActionsRef = useRef<HTMLDivElement | null>(null);
     const previousResourceRef = useRef(player.classResource.value);
     const showDiamondOnBattleHud = false;
     const classAccentColor = getPlayerClassById(player.classId).visualProfile.secondaryColor;
@@ -2456,6 +2463,16 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
     const enemyClassId = enemy?.enemyClassId ?? 'knight';
     const enemyClassLabel = enemyClassLabelMap[enemyClassId];
     const enemyClassTone = enemyClassToneMap[enemyClassId];
+    const enemyCardToneClass = enemy?.isBoss
+        ? 'border-[3px] border-rose-400 bg-[linear-gradient(135deg,rgba(255,238,238,0.96),rgba(255,226,226,0.92))] shadow-[0_12px_30px_rgba(190,24,93,0.28)] ring-1 ring-rose-300/60'
+        : enemy?.isSubBoss
+            ? 'border-[3px] border-amber-400 bg-[linear-gradient(135deg,rgba(255,247,230,0.96),rgba(255,237,201,0.92))] shadow-[0_12px_28px_rgba(180,83,9,0.24)] ring-1 ring-amber-300/60'
+            : 'border-[#cfab91] bg-[#f7ecdd]/94 shadow-xl';
+    const enemyLevelBadgeToneClass = enemy?.isBoss
+        ? 'border-rose-300 bg-rose-100 text-rose-700'
+        : enemy?.isSubBoss
+            ? 'border-amber-300 bg-amber-100 text-amber-700'
+            : 'border-[#d69f69] bg-[#fff1dc] text-[#8d5e29]';
     const enemyUsesManaSkills = Boolean(enemy?.skillSet.some((skill) => skill.manaCost > 0));
         const showArOption = false;
         const arModeReady = arSupport.status === 'supported';
@@ -2595,6 +2612,37 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
           setActiveBattleMenu(null);
       }
   }, [activeBattleMenu, limitBattleActionsToBasics, showItemsAction, showSkillsAction]);
+
+  useEffect(() => {
+      if (!activeBattleMenu) {
+          return;
+      }
+
+      const closeOnOutsideInteraction = (event: PointerEvent) => {
+          const target = event.target;
+          if (!(target instanceof Node)) {
+              return;
+          }
+          if (battleActionsRef.current?.contains(target)) {
+              return;
+          }
+          setActiveBattleMenu(null);
+      };
+
+      const closeOnEscape = (event: KeyboardEvent) => {
+          if (event.key === 'Escape') {
+              setActiveBattleMenu(null);
+          }
+      };
+
+      window.addEventListener('pointerdown', closeOnOutsideInteraction);
+      window.addEventListener('keydown', closeOnEscape);
+
+      return () => {
+          window.removeEventListener('pointerdown', closeOnOutsideInteraction);
+          window.removeEventListener('keydown', closeOnEscape);
+      };
+  }, [activeBattleMenu]);
 
   useEffect(() => {
       if (inventoryUnlockPromptActive) {
@@ -2919,109 +2967,6 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
           </div>
       )}
 
-      {activeBattleMenu && (
-          <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/55 backdrop-blur-[2px] pointer-events-auto p-4" onClick={() => setActiveBattleMenu(null)}>
-              <div className="w-full max-w-2xl rounded-[24px] border border-[#cfab91] bg-[#f7ecdd] shadow-[0_24px_80px_rgba(107,49,65,0.15)] overflow-hidden animate-fade-in-down" onClick={event => event.stopPropagation()}>
-                  <div className="flex items-center justify-between gap-4 border-b border-[#dcc0aa] px-5 py-4 sm:px-6">
-                      <div>
-                          <div className="text-[10px] font-black uppercase tracking-[0.28em] text-[#9a7068]">Escolha de batalha</div>
-                          <h3 className="mt-1 text-xl sm:text-2xl font-black text-[#6b3141]">{activeBattleMenu === 'skills' ? 'Habilidades' : 'Itens de Batalha'}</h3>
-                      </div>
-                      <button onClick={() => setActiveBattleMenu(null)} className="rounded-xl border border-[#cfab91] bg-[#f4e5d4] px-3 py-2 text-xs font-black uppercase tracking-[0.18em] text-[#6b3141] transition-colors hover:bg-[#e9d7c2]">
-                          Fechar
-                      </button>
-                  </div>
-
-                  <div className="max-h-[55vh] overflow-y-auto p-4 sm:p-5">
-                      {activeBattleMenu === 'skills' ? (
-                          player.skills.length > 0 ? (
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                  {player.skills.map(skill => {
-                                      const requiredResource = skill.resourceEffect?.cost ?? 0;
-                                      const hasResource = player.classResource.value >= requiredResource;
-                                      const canCast = player.stats.mp >= skill.manaCost && hasResource;
-                                      return (
-                                          <button
-                                              key={skill.id}
-                                              onClick={() => { onSkill(skill); setActiveBattleMenu(null); }}
-                                              disabled={!isPlayerTurn || !canCast}
-                                              className={`rounded-2xl border p-4 text-left transition-all ${!isPlayerTurn || !canCast ? 'bg-[#e9d7c2] border-[#dcc0aa] text-[#8f6c67] cursor-not-allowed' : 'text-[#6b3141] hover:-translate-y-0.5'}`}
-                                              style={!isPlayerTurn || !canCast ? undefined : { backgroundColor: `${skill.trailColor ?? '#ede9fe'}22`, borderColor: skill.trailColor ?? '#c4b5fd' }}
-                                          >
-                                              <div className="flex items-start justify-between gap-3">
-                                                  <div>
-                                                      <div className="font-black text-sm sm:text-base">{skill.name}</div>
-                                                      <div className="mt-1 text-xs text-[#7f5b56] leading-relaxed">{skill.description}</div>
-                                                  </div>
-                                                  <div className="flex flex-col items-end gap-1">
-                                                      <div className="rounded-md border border-[#8eb4c0] bg-[#dceff2] px-2 py-1 text-[10px] font-black text-[#346c7f] whitespace-nowrap">
-                                                          {skill.manaCost} MP
-                                                      </div>
-                                                      {requiredResource > 0 && (
-                                                          <div
-                                                              className={`rounded-md border px-2 py-0.5 text-[9px] font-black whitespace-nowrap ${hasResource ? '' : 'border-rose-300 bg-rose-100 text-rose-700'}`}
-                                                              style={hasResource ? {
-                                                                  borderColor: `${player.classResource.color}66`,
-                                                                  backgroundColor: `${player.classResource.color}20`,
-                                                                  color: player.classResource.color,
-                                                              } : undefined}
-                                                          >
-                                                              {requiredResource} {skill.resourceLabel || player.classResource.name}
-                                                          </div>
-                                                      )}
-                                                  </div>
-                                              </div>
-                                              {requiredResource > 0 && !hasResource && (
-                                                  <div className="mt-2 text-[10px] font-black uppercase tracking-[0.16em] text-rose-600">
-                                                      Recurso insuficiente
-                                                  </div>
-                                              )}
-                                              <div className="mt-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#7c4c76]">{describeBattleSkill(skill)}</div>
-                                          </button>
-                                      );
-                                  })}
-                              </div>
-                          ) : (
-                              <div className="rounded-2xl border border-dashed border-[#cfab91] bg-[#f4e7d5] px-6 py-10 text-center text-sm text-[#8f6c67]">Nenhuma habilidade disponível.</div>
-                          )
-                      ) : usableItems.length > 0 ? (
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                              {usableItems.map(item => (
-                                  <button
-                                      key={item.id}
-                                      onClick={() => {
-                                          if (item.id === 'pot_dg_recall') {
-                                              setPendingDungeonExtractItem(item);
-                                              setShowDungeonExtractConfirm(true);
-                                              return;
-                                          }
-                                          onUseItem(item.id);
-                                          setActiveBattleMenu(null);
-                                      }}
-                                      disabled={!isPlayerTurn}
-                                      className={`rounded-2xl border p-4 text-left transition-all ${!isPlayerTurn ? 'bg-[#e9d7c2] border-[#dcc0aa] text-[#8f6c67] cursor-not-allowed' : 'bg-amber-100 border-amber-300 text-[#6b3141] hover:bg-amber-50 hover:-translate-y-0.5'}`}
-                                  >
-                                      <div className="flex items-start justify-between gap-3">
-                                          <div className="min-w-0">
-                                              <div className="font-black text-sm sm:text-base flex items-center gap-2"><span>{item.icon}</span><span>{item.name}</span></div>
-                                              <div className="mt-1 text-xs text-[#7f5b56] leading-relaxed">{item.description}</div>
-                                          </div>
-                                          <div className="rounded-md border border-amber-400/40 bg-amber-50 px-2 py-1 text-[10px] font-black text-amber-700 whitespace-nowrap">
-                                              x{player.inventory[item.id]}
-                                          </div>
-                                      </div>
-                                      <div className="mt-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#b26a2e]">{describeBattleItem(item)}</div>
-                                  </button>
-                              ))}
-                          </div>
-                      ) : (
-                          <div className="rounded-2xl border border-dashed border-[#cfab91] bg-[#f4e7d5] px-6 py-10 text-center text-sm text-[#8f6c67]">Nenhum item de batalha disponível.</div>
-                      )}
-                  </div>
-              </div>
-          </div>
-      )}
-      
       {/* ═══ TOP: Player vitals (left) + Stage (center) + Enemy HP (right) ═══ */}
       <div className="absolute top-0 left-0 w-full z-20 pointer-events-none pt-1.5 sm:pt-2.5 px-2 sm:px-4">
           <div className="sm:hidden space-y-2">
@@ -3126,18 +3071,21 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                   </div>
 
                   {enemy && (
-                      <div className="rounded-[18px] border border-[#cfab91] bg-[#f7ecdd]/94 px-3 py-2.5 shadow-xl backdrop-blur-md animate-fade-in-down">
+                      <div className={`rounded-[18px] border px-3 py-2.5 backdrop-blur-md animate-fade-in-down ${enemyCardToneClass}`}>
                           <div className="mb-1.5">
                               <div className="flex items-start justify-between gap-2">
                                   <div className="min-w-0">
                                       <div className="truncate text-[13px] font-black text-[#6b3141]">{enemy.name}</div>
                                   </div>
-                                  <span className="shrink-0 rounded-full border border-[#d69f69] bg-[#fff1dc] px-2.5 py-0.5 text-[11px] font-black uppercase tracking-[0.14em] text-[#8d5e29]">NV {enemy.level}</span>
+                                  <span className={`shrink-0 rounded-full border px-2.5 py-0.5 text-[11px] font-black uppercase tracking-[0.14em] ${enemyLevelBadgeToneClass}`}>NV {enemy.level}</span>
                               </div>
                               <div className="mt-1 flex items-center gap-1.5">
                                   <span className={`rounded-full border px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.14em] ${enemyClassTone}`}>{enemyClassLabel}</span>
                                   {enemy.isBoss && (
                                       <span className="rounded-full border border-rose-300 bg-rose-100 px-2 py-0.5 text-[9px] font-black uppercase text-rose-600">Chefão</span>
+                                  )}
+                                  {!enemy.isBoss && enemy.isSubBoss && (
+                                      <span className="rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 text-[9px] font-black uppercase text-amber-700">Subchefe</span>
                                   )}
                               </div>
                           </div>
@@ -3166,6 +3114,24 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                                   <span className="inline-flex items-center rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.12em] text-amber-700">
                                       Impulso inicial ({enemy.combatBuffs.turns}t)
                                   </span>
+                              </div>
+                          )}
+                          {(enemy.statusEffects?.length ?? 0) > 0 && (
+                              <div className="mt-1 flex flex-wrap gap-1">
+                                  {enemy.statusEffects?.slice(0, 3).map((status) => {
+                                      const fromHeroSkill = status.source === 'skill';
+                                      return (
+                                          <span
+                                              key={status.id}
+                                              className="rounded-full border px-2 py-0.5 text-[8px] font-black uppercase tracking-[0.08em]"
+                                              style={fromHeroSkill
+                                                  ? { borderColor: `${classAccentColor}88`, backgroundColor: `${classAccentColor}20`, color: classAccentColor }
+                                                  : { borderColor: `${status.color}55`, backgroundColor: `${status.color}18`, color: status.color }}
+                                          >
+                                              {status.name} {status.duration}t
+                                          </span>
+                                      );
+                                  })}
                               </div>
                           )}
                       </div>
@@ -3279,18 +3245,21 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
 
               {/* Enemy HP — right */}
               {enemy && (
-                  <div className="rounded-[16px] border border-[#cfab91] bg-[#f7ecdd]/94 px-2.5 py-2 shadow-xl backdrop-blur-md flex-1 max-w-[48%] sm:max-w-[250px] animate-fade-in-down">
+                  <div className={`rounded-[16px] border px-2.5 py-2 backdrop-blur-md flex-1 max-w-[48%] sm:max-w-[250px] animate-fade-in-down ${enemyCardToneClass}`}>
                       <div className="mb-1">
                           <div className="flex items-start justify-between gap-1.5">
                               <div className="min-w-0">
                                   <div className="truncate text-base font-black text-[#6b3141]">{enemy.name}</div>
                               </div>
-                              <span className="shrink-0 rounded-full border border-[#d69f69] bg-[#fff1dc] px-2 py-0.5 text-[12px] font-black uppercase tracking-[0.14em] text-[#8d5e29]">NV {enemy.level}</span>
+                              <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[12px] font-black uppercase tracking-[0.14em] ${enemyLevelBadgeToneClass}`}>NV {enemy.level}</span>
                           </div>
                           <div className="mt-1 flex items-center gap-1.5">
                               <span className={`rounded-full border px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.14em] ${enemyClassTone}`}>{enemyClassLabel}</span>
                               {enemy.isBoss && (
                                   <span className="rounded-full border border-rose-300 bg-rose-100 px-1.5 py-0.5 text-[10px] font-black uppercase text-rose-600">Chefão</span>
+                              )}
+                              {!enemy.isBoss && enemy.isSubBoss && (
+                                  <span className="rounded-full border border-amber-300 bg-amber-100 px-1.5 py-0.5 text-[10px] font-black uppercase text-amber-700">Subchefe</span>
                               )}
                           </div>
                       </div>
@@ -3323,11 +3292,20 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                       )}
                       {(enemy.statusEffects?.length ?? 0) > 0 && (
                           <div className="mt-1 flex flex-wrap gap-1">
-                              {enemy.statusEffects?.slice(0, 3).map((status) => (
-                                  <span key={status.id} className="rounded-full border px-1.5 py-0.5 text-[8px] font-black uppercase" style={{ borderColor: `${status.color}55`, backgroundColor: `${status.color}18`, color: status.color }}>
-                                      {status.name} {status.duration}t
-                                  </span>
-                              ))}
+                              {enemy.statusEffects?.slice(0, 3).map((status) => {
+                                  const fromHeroSkill = status.source === 'skill';
+                                  return (
+                                      <span
+                                          key={status.id}
+                                          className="rounded-full border px-1.5 py-0.5 text-[8px] font-black uppercase"
+                                          style={fromHeroSkill
+                                              ? { borderColor: `${classAccentColor}88`, backgroundColor: `${classAccentColor}20`, color: classAccentColor }
+                                              : { borderColor: `${status.color}55`, backgroundColor: `${status.color}18`, color: status.color }}
+                                      >
+                                          {status.name} {status.duration}t
+                                      </span>
+                                  );
+                              })}
                           </div>
                       )}
                   </div>
@@ -3416,12 +3394,139 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
               </div>
 
               {/* Right: 2x2 action grid */}
-              <div className="flex flex-col items-end gap-2 shrink-0">
+              <div ref={battleActionsRef} className="relative flex flex-col items-end gap-2 shrink-0">
                                     <div className="grid grid-cols-2 gap-1.5 w-[130px] sm:gap-2 sm:w-[210px]">
                       <ActionTile icon={<Sword size={18} />} label="ATACAR" onClick={() => { setActiveBattleMenu(null); onAttack(); }} disabled={!isPlayerTurn} variant="attack" />
                       <ActionTile icon={<Shield size={18} />} label="DEFENDER" onClick={() => { setActiveBattleMenu(null); onDefend(); }} disabled={!isPlayerTurn} variant="defense" />
-                                            {showSkillsAction && <ActionTile icon={<Sparkles size={18} />} label="HABILIDADES" onClick={() => setActiveBattleMenu(prev => prev === 'skills' ? null : 'skills')} disabled={!isPlayerTurn || player.skills.length === 0} variant="skill" />}
-                                            {showItemsAction && <ActionTile icon={<FlaskConical size={18} />} label="ITENS" onClick={() => setActiveBattleMenu(prev => prev === 'items' ? null : 'items')} disabled={!isPlayerTurn || usableItems.length === 0} variant="item" />}
+                                            {showSkillsAction && (
+                                                <div className="relative col-span-1">
+                                                    {activeBattleMenu === 'skills' && (
+                                                        <div className="absolute bottom-full right-0 z-40 mb-2 w-[min(84vw,340px)] rounded-2xl border border-[#b996cf] bg-[linear-gradient(140deg,rgba(245,236,252,0.98),rgba(238,225,247,0.97))] p-2.5 shadow-[0_16px_38px_rgba(88,48,111,0.32)] animate-fade-in-down">
+                                                            <div className="mb-2 flex items-center justify-between px-1">
+                                                                <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.22em] text-[#6f447f]">
+                                                                    <Sparkles size={12} />
+                                                                    Habilidades
+                                                                </span>
+                                                                <button onClick={() => setActiveBattleMenu(null)} className="flex h-6 w-6 items-center justify-center rounded-md border border-[#c6abd9] bg-white/60 text-[#6f447f] transition-colors hover:bg-white/90" aria-label="Fechar habilidades">
+                                                                    <X size={12} />
+                                                                </button>
+                                                            </div>
+                                                            {player.skills.length > 0 ? (
+                                                                <div className="max-h-[46vh] space-y-1.5 overflow-y-auto pr-0.5">
+                                                                    {player.skills.map(skill => {
+                                                                        const requiredResource = skill.resourceEffect?.cost ?? 0;
+                                                                        const hasResource = player.classResource.value >= requiredResource;
+                                                                        const canCast = player.stats.mp >= skill.manaCost && hasResource;
+                                                                        const skillTone = skill.trailColor ?? '#a855f7';
+                                                                        return (
+                                                                            <button
+                                                                                key={skill.id}
+                                                                                onClick={() => { onSkill(skill); setActiveBattleMenu(null); }}
+                                                                                disabled={!isPlayerTurn || !canCast}
+                                                                                className={`w-full rounded-xl border px-2.5 py-2 text-left transition-all ${!isPlayerTurn || !canCast ? 'bg-[#ebe2d8] border-[#d5c0ac] text-[#8f6c67] cursor-not-allowed' : 'text-[#4d2d5d] hover:-translate-y-0.5 hover:shadow-md'}`}
+                                                                                style={!isPlayerTurn || !canCast ? undefined : { background: `linear-gradient(135deg, ${skillTone}38 0%, ${skillTone}1f 45%, #fff7ed 100%)`, borderColor: `${skillTone}aa` }}
+                                                                            >
+                                                                                <div className="flex items-start justify-between gap-2">
+                                                                                    <div className="flex min-w-0 items-start gap-2">
+                                                                                        <div
+                                                                                            className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border"
+                                                                                            style={!isPlayerTurn || !canCast ? undefined : { borderColor: `${skillTone}99`, backgroundColor: `${skillTone}24`, color: skillTone }}
+                                                                                        >
+                                                                                            <Sparkles size={14} />
+                                                                                        </div>
+                                                                                        <div className="min-w-0">
+                                                                                            <div className="truncate text-[11px] sm:text-xs font-black uppercase tracking-[0.1em]">{skill.name}</div>
+                                                                                            <div className="mt-0.5 text-[10px] text-[#6e5367] leading-relaxed">{describeBattleSkill(skill)}</div>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                    <div className="shrink-0 space-y-1 text-right">
+                                                                                        <div className="rounded-md border border-[#6aa9d4] bg-[#dff2ff] px-1.5 py-0.5 text-[10px] font-black text-[#1d5f86]">
+                                                                                            {skill.manaCost} MP
+                                                                                        </div>
+                                                                                        {requiredResource > 0 && (
+                                                                                            <div
+                                                                                                className={`rounded-md border px-1.5 py-0.5 text-[8px] font-black ${hasResource ? '' : 'border-rose-300 bg-rose-100 text-rose-700'}`}
+                                                                                                style={hasResource ? {
+                                                                                                    borderColor: `${player.classResource.color}66`,
+                                                                                                    backgroundColor: '#ffffff',
+                                                                                                    color: player.classResource.color,
+                                                                                                } : undefined}
+                                                                                            >
+                                                                                                {requiredResource} {skill.resourceLabel || player.classResource.name}
+                                                                                            </div>
+                                                                                        )}
+                                                                                    </div>
+                                                                                </div>
+                                                                            </button>
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                            ) : (
+                                                                <div className="rounded-xl border border-dashed border-[#c7adcf] bg-white/55 px-3 py-4 text-center text-[11px] font-semibold text-[#7e6277]">
+                                                                    Nenhuma habilidade disponivel.
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                    <ActionTile icon={<Sparkles size={18} />} label="HABILIDADES" onClick={() => setActiveBattleMenu(prev => prev === 'skills' ? null : 'skills')} disabled={!isPlayerTurn || player.skills.length === 0} variant="skill" />
+                                                </div>
+                                            )}
+                                            {showItemsAction && (
+                                                <div className="relative col-span-1">
+                                                    {activeBattleMenu === 'items' && (
+                                                        <div className="absolute bottom-full right-0 z-40 mb-2 w-[min(84vw,340px)] rounded-2xl border border-[#d8b792] bg-[linear-gradient(140deg,rgba(255,245,230,0.98),rgba(254,235,196,0.96))] p-2.5 shadow-[0_16px_38px_rgba(154,101,48,0.3)] animate-fade-in-down">
+                                                            <div className="mb-2 flex items-center justify-between px-1">
+                                                                <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.22em] text-[#925c27]">
+                                                                    <FlaskConical size={12} />
+                                                                    Itens
+                                                                </span>
+                                                                <button onClick={() => setActiveBattleMenu(null)} className="flex h-6 w-6 items-center justify-center rounded-md border border-[#d6b189] bg-white/60 text-[#925c27] transition-colors hover:bg-white/90" aria-label="Fechar itens">
+                                                                    <X size={12} />
+                                                                </button>
+                                                            </div>
+                                                            {usableItems.length > 0 ? (
+                                                                <div className="max-h-[46vh] space-y-1.5 overflow-y-auto pr-0.5">
+                                                                    {usableItems.map(item => (
+                                                                        <button
+                                                                            key={item.id}
+                                                                            onClick={() => {
+                                                                                if (item.id === 'pot_dg_recall') {
+                                                                                    setPendingDungeonExtractItem(item);
+                                                                                    setShowDungeonExtractConfirm(true);
+                                                                                    setActiveBattleMenu(null);
+                                                                                    return;
+                                                                                }
+                                                                                onUseItem(item.id);
+                                                                                setActiveBattleMenu(null);
+                                                                            }}
+                                                                            disabled={!isPlayerTurn}
+                                                                            className={`w-full rounded-xl border px-2.5 py-2 text-left transition-all ${!isPlayerTurn ? 'bg-[#ebe2d8] border-[#d5c0ac] text-[#8f6c67] cursor-not-allowed' : 'border-amber-300 bg-[#fff4de] text-[#6b3141] hover:-translate-y-0.5 hover:bg-[#ffefcf]'}`}
+                                                                        >
+                                                                            <div className="flex items-start justify-between gap-2">
+                                                                                <div className="min-w-0">
+                                                                                    <div className="flex items-center gap-1.5 truncate text-[11px] sm:text-xs font-black uppercase tracking-[0.1em]">
+                                                                                        <span>{item.icon}</span>
+                                                                                        <span className="truncate">{item.name}</span>
+                                                                                    </div>
+                                                                                    <div className="mt-0.5 text-[10px] text-[#805f4f] leading-relaxed">{describeBattleItem(item)}</div>
+                                                                                </div>
+                                                                                <div className="shrink-0 rounded-md border border-amber-500/40 bg-amber-50 px-1.5 py-0.5 text-[10px] font-black text-amber-700">
+                                                                                    x{player.inventory[item.id]}
+                                                                                </div>
+                                                                            </div>
+                                                                        </button>
+                                                                    ))}
+                                                                </div>
+                                                            ) : (
+                                                                <div className="rounded-xl border border-dashed border-[#d6b189] bg-white/55 px-3 py-4 text-center text-[11px] font-semibold text-[#8f6c67]">
+                                                                    Nenhum item de batalha disponivel.
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                    <ActionTile icon={<FlaskConical size={18} />} label="ITENS" onClick={() => setActiveBattleMenu(prev => prev === 'items' ? null : 'items')} disabled={!isPlayerTurn || usableItems.length === 0} variant="item" />
+                                                </div>
+                                            )}
                   </div>
               </div>
           </div>
@@ -3429,7 +3534,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
 
         <AnimatedModal open={showProfile}>
           {(isClosing) => (
-            <CharacterSheetModal player={player} shopItems={shopItems} onClose={() => setShowProfile(false)} onOpenInventory={(initialFilter) => { setShowProfile(false); openInventoryModal(initialFilter ?? 'all', true); }} onUnlockTalent={onUnlockTalent} onResetTalents={onResetTalents} respecUnlockPromptActive={constellationRespecUnlockPromptActive} onAcknowledgeRespecUnlock={onAcknowledgeConstellationRespecUnlock} isClosing={isClosing} restrictToStatusOnly={restrictProfileToStatusOnly} allowCardsTab={allowCardsInProfile} allowSkillsTab={showSkillsAction} allowConstellationTab={hasConstellationUnlocked} initialTab={profileInitialTab} />
+            <CharacterSheetModal player={player} shopItems={shopItems} onClose={() => setShowProfile(false)} onOpenInventory={(initialFilter) => { setShowProfile(false); openInventoryModal(initialFilter ?? 'all', true); }} onUnlockTalent={onUnlockTalent} onResetTalents={onResetTalents} respecUnlockPromptActive={constellationRespecUnlockPromptActive} onAcknowledgeRespecUnlock={onAcknowledgeConstellationRespecUnlock} isClosing={isClosing} restrictToStatusOnly={restrictProfileToStatusOnly} allowInventory={inventoryUnlocked} allowCardsTab={allowCardsInProfile} allowSkillsTab={showSkillsAction} allowConstellationTab={hasConstellationUnlocked} initialTab={profileInitialTab} />
           )}
         </AnimatedModal>
         <AnimatedModal open={showInventory}>

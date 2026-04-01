@@ -34,7 +34,12 @@ interface UseBattleControllerParams {
   handleVictory: (delayMs?: number) => Promise<void> | void;
   triggerEnemyAnimationAction: (action: PlayerAnimationAction, resetDelay?: number) => void;
   spawnParticles: (position: [number, number, number], count: number, color: string, type: 'explode' | 'heal' | 'spark') => void;
-  spawnFloatingText: (value: string | number, target: 'player' | 'enemy', type: 'damage' | 'heal' | 'crit' | 'buff' | 'skill' | 'item') => void;
+  spawnFloatingText: (
+    value: string | number,
+    target: 'player' | 'enemy',
+    type: 'damage' | 'heal' | 'crit' | 'buff' | 'skill' | 'item',
+    color?: string,
+  ) => void;
   setPlayer: Dispatch<SetStateAction<Player>>;
   setEnemy: Dispatch<SetStateAction<Enemy | null>>;
   setTurnState: Dispatch<SetStateAction<TurnState>>;
@@ -284,7 +289,7 @@ export const useBattleController = ({
     }
 
     if (resourceGain > 0 && player.classResource.max > 0) {
-      spawnFloatingText(`+${resourceGain} ${player.classResource.name}`, 'player', 'buff');
+      spawnFloatingText(`+${resourceGain} ${player.classResource.name}`, 'player', 'buff', player.classResource.color);
     }
   }, [addLog, player.classResource.max, player.classResource.name, setPlayer, spawnFloatingText]);
 
@@ -533,7 +538,7 @@ export const useBattleController = ({
     spawnFloatingText(skill.name.toUpperCase(), 'player', 'skill');
 
     if (resourceSpent > 0) {
-      spawnFloatingText(`-${resourceSpent} ${player.classResource.name}`, 'player', 'buff');
+      spawnFloatingText(`-${resourceSpent} ${player.classResource.name}`, 'player', 'buff', player.classResource.color);
       spawnParticles([-2, -1, 0], 14, player.classResource.color, 'spark');
       addLog(`${skill.name} consumiu ${resourceSpent} ${player.classResource.name}.`, 'info');
     }
@@ -568,7 +573,7 @@ export const useBattleController = ({
       });
 
       if (resourceGain > 0 && player.classResource.max > 0) {
-        spawnFloatingText(`+${resourceGain} ${player.classResource.name}`, 'player', 'buff');
+        spawnFloatingText(`+${resourceGain} ${player.classResource.name}`, 'player', 'buff', player.classResource.color);
       }
 
       spawnParticles([-2, -1, 0], visual.particleCount + 14, visual.color, 'heal');

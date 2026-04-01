@@ -23,23 +23,48 @@ export const SHOP_ITEMS: Item[] = [
   { id: 'pot_def', name: 'Tônico de Ferro', description: '+50% de Defesa por 3 turnos.', cost: 150, type: 'potion', value: 0.5, icon: '🛡️', rarity: 'silver', minLevel: 3, duration: 3 },
 
   // --- ARMOR (CHEST) ---
-  { id: 'arm_b1', name: 'Túnica de Couro', description: 'Proteção básica. +4 DEF', cost: 240, type: 'armor', value: 4, icon: '👕', rarity: 'bronze', minLevel: 1 },
-  { id: 'arm_s1', name: 'Cota de Malha', description: 'Elos de aço entrelaçados. +12 DEF', cost: 1200, type: 'armor', value: 12, icon: '⛓️', rarity: 'silver', minLevel: 4 },
-  { id: 'arm_g1', name: 'Peitoral Rúnico', description: 'Encantado com magia antiga. +30 DEF', cost: 3600, type: 'armor', value: 30, icon: '🛡️', rarity: 'gold', minLevel: 9 },
+  { id: 'arm_b1', name: 'Túnica de Couro', description: 'Proteção básica. +4 DEF e +6 MP', cost: 180, type: 'armor', value: 4, mpBonus: 6, icon: '👕', rarity: 'bronze', minLevel: 1 },
+  { id: 'arm_b2', name: 'Gibão Reforçado', description: 'Costuras duplas para absorver impacto. +5 DEF', cost: 170, type: 'armor', value: 5, icon: '🦺', rarity: 'bronze', minLevel: 2 },
+  { id: 'arm_b3', name: 'Peitoral de Ferro Cru', description: 'Placas simples de ferro batido. +6 DEF e +8 MP', cost: 260, type: 'armor', value: 6, mpBonus: 8, icon: '🥋', rarity: 'bronze', minLevel: 3 },
+  { id: 'arm_s1', name: 'Cota de Malha', description: 'Elos de aço entrelaçados. +12 DEF e +16 MP', cost: 1200, type: 'armor', value: 12, mpBonus: 16, icon: '⛓️', rarity: 'silver', minLevel: 4 },
+  { id: 'arm_s2', name: 'Armadura de Sentinela', description: 'Proteção estável para caçadas longas. +14 DEF', cost: 1450, type: 'armor', value: 14, icon: '🛡️', rarity: 'silver', minLevel: 5 },
+  { id: 'arm_s3', name: 'Couraça de Guarda Real', description: 'Aço lapidado para segurar ataques pesados. +16 DEF e +24 MP', cost: 1700, type: 'armor', value: 16, mpBonus: 24, icon: '🦾', rarity: 'silver', minLevel: 6 },
+  { id: 'arm_g1', name: 'Peitoral Rúnico', description: 'Encantado com magia antiga. +30 DEF e +36 MP', cost: 3600, type: 'armor', value: 30, mpBonus: 36, icon: '🛡️', rarity: 'gold', minLevel: 9 },
+  { id: 'arm_g2', name: 'Armadura do Arconte', description: 'Placas místicas que anulam impacto bruto. +34 DEF e +42 MP', cost: 4200, type: 'armor', value: 34, mpBonus: 42, icon: '🏛️', rarity: 'gold', minLevel: 10 },
+  { id: 'arm_g3', name: 'Bastião Imperial', description: 'Forjada para a linha de frente absoluta. +38 DEF e +50 MP', cost: 5000, type: 'armor', value: 38, mpBonus: 50, icon: '👑', rarity: 'gold', minLevel: 12 },
 
   // --- HELMETS ---
-  { id: 'hlm_b1', name: 'Capuz de Viajante', description: 'Protege do sol. +2 DEF', cost: 240, type: 'helmet', value: 2, icon: '🧢', rarity: 'bronze', minLevel: 1 },
-  { id: 'hlm_s1', name: 'Elmo de Gladiador', description: 'Intimidador. +8 DEF', cost: 1200, type: 'helmet', value: 8, icon: '🪖', rarity: 'silver', minLevel: 5 },
-  { id: 'hlm_g1', name: 'Coroa do Rei Lich', description: 'Gelada ao toque. +20 DEF', cost: 3600, type: 'helmet', value: 20, icon: '👑', rarity: 'gold', minLevel: 10 },
+  { id: 'hlm_b1', name: 'Capuz de Viajante', description: 'Protege do sol. +2 DEF e +10 HP', cost: 150, type: 'helmet', value: 2, hpBonus: 10, icon: '🧢', rarity: 'bronze', minLevel: 1 },
+  { id: 'hlm_b2', name: 'Elmo de Couro', description: 'Leve e firme para iniciantes. +3 DEF', cost: 150, type: 'helmet', value: 3, icon: '⛑️', rarity: 'bronze', minLevel: 2 },
+  { id: 'hlm_b3', name: 'Capacete de Vigia', description: 'Proteção frontal reforçada. +4 DEF e +16 HP', cost: 240, type: 'helmet', value: 4, hpBonus: 16, icon: '🪖', rarity: 'bronze', minLevel: 3 },
+  { id: 'hlm_s1', name: 'Elmo de Gladiador', description: 'Intimidador. +8 DEF e +30 HP', cost: 1200, type: 'helmet', value: 8, hpBonus: 30, icon: '🪖', rarity: 'silver', minLevel: 5 },
+  { id: 'hlm_s2', name: 'Visor de Aço Azul', description: 'Foco e proteção em lutas táticas. +10 DEF', cost: 1360, type: 'helmet', value: 10, icon: '🧲', rarity: 'silver', minLevel: 6 },
+  { id: 'hlm_s3', name: 'Elmo de Comandante', description: 'Projeto fechado para combates intensos. +11 DEF e +42 HP', cost: 1560, type: 'helmet', value: 11, hpBonus: 42, icon: '🛡️', rarity: 'silver', minLevel: 7 },
+  { id: 'hlm_g1', name: 'Coroa do Rei Lich', description: 'Gelada ao toque. +20 DEF e +68 HP', cost: 3600, type: 'helmet', value: 20, hpBonus: 68, icon: '👑', rarity: 'gold', minLevel: 10 },
+  { id: 'hlm_g2', name: 'Elmo do Eclipse', description: 'Canaliza energia para resistir a golpes críticos. +23 DEF', cost: 4100, type: 'helmet', value: 23, icon: '🌘', rarity: 'gold', minLevel: 11 },
+  { id: 'hlm_g3', name: 'Coroa de Aço Celeste', description: 'Proteção régia para mestres de guerra. +26 DEF e +90 HP', cost: 4700, type: 'helmet', value: 26, hpBonus: 90, icon: '✨', rarity: 'gold', minLevel: 12 },
 
   // --- LEGS ---
-  { id: 'leg_b1', name: 'Botas de Pano', description: 'Confortáveis. +1 DEF', cost: 240, type: 'legs', value: 1, icon: '🧦', rarity: 'bronze', minLevel: 1 },
-  { id: 'leg_s1', name: 'Grevas de Ferro', description: 'Protege as canelas. +6 DEF', cost: 1200, type: 'legs', value: 6, icon: '👢', rarity: 'silver', minLevel: 4 },
+  { id: 'leg_b1', name: 'Botas de Pano', description: 'Confortáveis. +1 VEL', cost: 140, type: 'legs', value: 1, icon: '🧦', rarity: 'bronze', minLevel: 1 },
+  { id: 'leg_b2', name: 'Botas de Couro', description: 'Firmes para marcha e esquiva. +2 VEL', cost: 170, type: 'legs', value: 2, icon: '👢', rarity: 'bronze', minLevel: 2 },
+  { id: 'leg_b3', name: 'Grevas Curtas', description: 'Leves e ágeis para reposicionamento. +3 VEL', cost: 230, type: 'legs', value: 3, icon: '🥾', rarity: 'bronze', minLevel: 3 },
+  { id: 'leg_s1', name: 'Grevas de Ferro', description: 'Ajustadas para corrida de combate. +4 VEL', cost: 1200, type: 'legs', value: 4, icon: '👢', rarity: 'silver', minLevel: 4 },
+  { id: 'leg_s2', name: 'Botas de Sentinela', description: 'Passo sólido e resposta rápida. +5 VEL', cost: 1380, type: 'legs', value: 5, icon: '🥾', rarity: 'silver', minLevel: 5 },
+  { id: 'leg_s3', name: 'Grevas de Patrulha', description: 'Mobilidade avançada para lutas longas. +6 VEL', cost: 1560, type: 'legs', value: 6, icon: '🦿', rarity: 'silver', minLevel: 6 },
+  { id: 'leg_g1', name: 'Grevas Dracônicas', description: 'Ligas raras para arrancadas explosivas. +7 VEL', cost: 3400, type: 'legs', value: 7, icon: '🐉', rarity: 'gold', minLevel: 9 },
+  { id: 'leg_g2', name: 'Botas do Guardião Solar', description: 'Impulso lendário com passada firme. +8 VEL', cost: 4100, type: 'legs', value: 8, icon: '☀️', rarity: 'gold', minLevel: 10 },
+  { id: 'leg_g3', name: 'Passos do Colosso', description: 'Conjunto de elite para mobilidade máxima. +9 VEL', cost: 4900, type: 'legs', value: 9, icon: '🏛️', rarity: 'gold', minLevel: 12 },
   
   // --- SHIELDS ---
-  { id: 'shd_b1', name: 'Tábua de Madeira', description: 'Melhor que nada. +3 DEF', cost: 240, type: 'shield', value: 3, icon: '🪵', rarity: 'bronze', minLevel: 1 },
+  { id: 'shd_b1', name: 'Tábua de Madeira', description: 'Melhor que nada. +3 DEF', cost: 140, type: 'shield', value: 3, icon: '🪵', rarity: 'bronze', minLevel: 1 },
+  { id: 'shd_b2', name: 'Broquel de Bronze', description: 'Escudo curto para defesas rápidas. +4 DEF', cost: 170, type: 'shield', value: 4, icon: '🛡️', rarity: 'bronze', minLevel: 2 },
+  { id: 'shd_b3', name: 'Escudo de Caravana', description: 'Modelo robusto usado em viagens longas. +5 DEF', cost: 240, type: 'shield', value: 5, icon: '🧱', rarity: 'bronze', minLevel: 3 },
   { id: 'shd_s1', name: 'Escudo Torre', description: 'Uma parede móvel. +10 DEF', cost: 1200, type: 'shield', value: 10, icon: '🚪', rarity: 'silver', minLevel: 5 },
+  { id: 'shd_s2', name: 'Escudo Bastião', description: 'Largo e estável contra ataques diretos. +12 DEF', cost: 1400, type: 'shield', value: 12, icon: '🧲', rarity: 'silver', minLevel: 6 },
+  { id: 'shd_s3', name: 'Escudo de Guerra', description: 'Estrutura reforçada para duelos brutais. +14 DEF', cost: 1650, type: 'shield', value: 14, icon: '⚔️', rarity: 'silver', minLevel: 7 },
   { id: 'shd_g1', name: 'Égide Sagrada', description: 'Reflete o mal. +25 DEF', cost: 3600, type: 'shield', value: 25, icon: '☀️', rarity: 'gold', minLevel: 9 },
+  { id: 'shd_g2', name: 'Égide do Crepúsculo', description: 'Barreira mística para segurar explosões de dano. +28 DEF', cost: 4200, type: 'shield', value: 28, icon: '🌒', rarity: 'gold', minLevel: 10 },
+  { id: 'shd_g3', name: 'Escudo do Trono', description: 'Defesa suprema usada por campeões veteranos. +31 DEF', cost: 5000, type: 'shield', value: 31, icon: '👑', rarity: 'gold', minLevel: 12 },
 ];
 
 export const MATERIALS: Item[] = [
@@ -63,9 +88,9 @@ export const DUNGEON_ITEMS: Item[] = [
   { id: 'pot_dg_elixir', name: 'Elixir Abissal', description: 'Restauração reforçada da dungeon. +260 HP', cost: 0, type: 'potion', value: 260, icon: '🩸', rarity: 'gold', minLevel: 7, source: 'dungeon' },
   { id: 'pot_dg_ambrosia', name: 'Ambrosia do Nexus', description: 'Essência rara guardada no fundo da dungeon. +650 HP', cost: 0, type: 'potion', value: 650, icon: '🫧', rarity: 'gold', minLevel: 12, source: 'dungeon' },
   { id: 'wep_dg_nexus', name: 'Lâmina do Nexus', description: 'Arma exclusiva forjada com energia da dungeon. +58 ATK', cost: 0, type: 'weapon', value: 58, icon: '🗡️', rarity: 'gold', minLevel: 10, source: 'dungeon' },
-  { id: 'arm_dg_abyss', name: 'Armadura do Abismo', description: 'Placas pesadas feitas para sobreviver aos ciclos profundos. +38 DEF', cost: 0, type: 'armor', value: 38, icon: '🥋', rarity: 'gold', minLevel: 10, source: 'dungeon' },
+  { id: 'arm_dg_abyss', name: 'Armadura do Abismo', description: 'Placas pesadas feitas para sobreviver aos ciclos profundos. +38 DEF e +54 MP', cost: 0, type: 'armor', value: 38, mpBonus: 54, icon: '🥋', rarity: 'gold', minLevel: 10, source: 'dungeon' },
   { id: 'shd_dg_eclipse', name: 'Escudo Eclipse', description: 'Barreira exclusiva da dungeon que segura impactos do chefão. +32 DEF', cost: 0, type: 'shield', value: 32, icon: '🌘', rarity: 'gold', minLevel: 11, source: 'dungeon' },
-  { id: 'hlm_dg_oracle', name: 'Elmo do Oráculo Fendido', description: 'Capacete ritualístico encontrado apenas em profundezas evoluídas. +24 DEF', cost: 0, type: 'helmet', value: 24, icon: '🔮', rarity: 'gold', minLevel: 10, source: 'dungeon' },
+  { id: 'hlm_dg_oracle', name: 'Elmo do Oráculo Fendido', description: 'Capacete ritualístico encontrado apenas em profundezas evoluídas. +24 DEF e +82 HP', cost: 0, type: 'helmet', value: 24, hpBonus: 82, icon: '🔮', rarity: 'gold', minLevel: 10, source: 'dungeon' },
 ];
 
 const NON_WEAPON_SHOP_ITEMS: Item[] = SHOP_ITEMS.filter((item) => item.type !== 'weapon');

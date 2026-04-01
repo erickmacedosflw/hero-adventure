@@ -366,6 +366,9 @@ const renderIllustration = (item: Item, palette: TonePalette) => {
 const getStatLine = (item: Item) => {
   if (item.type === 'material') return 'Crafting material';
   if (item.type === 'weapon') return `+${item.value} ATK`;
+  if (item.type === 'legs') return `+${item.value} VEL`;
+  if (item.type === 'armor' && (item.mpBonus ?? 0) > 0) return `+${item.value} DEF | +${item.mpBonus} MP`;
+  if (item.type === 'helmet' && (item.hpBonus ?? 0) > 0) return `+${item.value} DEF | +${item.hpBonus} HP`;
   if (item.type === 'potion') {
     if (item.id.includes('pot_atk')) return '+50% ATK for 3 turns';
     if (item.id.includes('pot_def')) return '+50% DEF for 3 turns';
