@@ -3887,7 +3887,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                                                             )}
                                                         </div>
                                                     )}
-                                                    <ActionTile icon={<FlaskConical size={18} />} label="ITENS" onClick={() => setActiveBattleMenu(prev => prev === 'items' ? null : 'items')} disabled={!isPlayerTurn || usableItems.length === 0} variant="item" glowColor={impulseButtonGlowColor} glowStrength={24} energized={buttonsEnergized} sparkleColor={currentImpulseFxColor} />
+                                                    <ActionTile icon={<FlaskConical size={18} />} label="ITENS" onClick={() => setActiveBattleMenu(prev => prev === 'items' ? null : 'items')} disabled={!isPlayerTurn || usableItems.length === 0} variant="item" />
                                                 </div>
                                             )}
                   </div>

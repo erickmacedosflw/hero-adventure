@@ -118,11 +118,11 @@ const tickEnemyBuffs = (target: Enemy): Enemy => {
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 const clampImpulse = (value: number) => clamp(value, 0, 3);
-const IMPULSE_ATTACK_DAMAGE_BONUS = 0.3;
+const IMPULSE_ATTACK_DAMAGE_BONUS = 0.5;
 const IMPULSE_DEF_IGNORE_RATIO = 0.3;
-const IMPULSE_MANA_DISCOUNT = 0.3;
-const IMPULSE_SKILL_EFFECT_BONUS = 0.3;
-const IMPULSE_DEFENSE_EXTRA_MITIGATION = 0.3;
+const IMPULSE_MANA_DISCOUNT = 0.5;
+const IMPULSE_SKILL_EFFECT_BONUS = 0.5;
+const IMPULSE_DEFENSE_EXTRA_MITIGATION = 0.5;
 
 const ENEMY_INTENT_ATTACK_OR_DEFEND_EXECUTION_CHANCE = 0.8;
 
