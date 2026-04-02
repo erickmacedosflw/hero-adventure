@@ -1,6 +1,6 @@
 ﻿
 import React, { useState, useEffect, useRef } from 'react';
-import { Player, Enemy, BattleLog, TurnState, Item, Skill, GameState, FloatingText, Rarity, ProgressionCard, CardRewardOffer, AlchemistCardOffer, AlchemistItemOffer, DungeonResult, DungeonRewards, BossVictoryContext, ArSupportState } from '../types';
+import { Player, Enemy, EnemyIntentPreview, BattleLog, TurnState, Item, Skill, GameState, FloatingText, Rarity, ProgressionCard, CardRewardOffer, AlchemistCardOffer, AlchemistItemOffer, DungeonResult, DungeonRewards, BossVictoryContext, ArSupportState } from '../types';
 import { Sword, Shield, Zap, Heart, Coins, ShoppingBag, Skull, Play, Plus, FlaskConical, User, X, Home, LogOut, DollarSign, AlertTriangle, MousePointerClick, Shirt, Footprints, Crown, LayoutGrid, Sparkles, Crosshair, ArrowLeft, Star, Clock, Camera, Orbit } from 'lucide-react';
 import { ItemPreviewThree } from './items/ItemPreviewThree';
 import { GameAssetIcon } from './ui/game-asset-icon';
@@ -21,8 +21,11 @@ interface GameUIProps {
   logs: BattleLog[];
   onAttack: () => void;
   onDefend: () => void;
+  onChargeImpulse: () => void;
+  onAbsorbImpulse: () => void;
   onSkill: (skill: Skill) => void;
   onUseItem: (itemId: string) => void;
+  enemyIntentPreview?: EnemyIntentPreview | null;
   onUnlockTalent: (nodeId: string) => void;
   onResetTalents: () => void;
   onStartBattle: (isBoss: boolean) => void;
@@ -235,17 +238,27 @@ const AnimatedModal = ({
 };
 
 const ActionTile = ({
-    icon,
-    label,
-    disabled,
-    onClick,
-    variant,
+  icon,
+  label,
+  disabled,
+  onClick,
+  variant,
+  glowColor,
+  forceClassName,
+  glowStrength = 16,
+  energized = false,
+  sparkleColor = '#ffffff',
 }: {
-    icon: React.ReactNode;
-    label: string;
-    disabled?: boolean;
-    onClick: () => void;
-    variant: 'attack' | 'defense' | 'item' | 'neutral' | 'danger' | 'skill';
+  icon: React.ReactNode;
+  label: string;
+  disabled?: boolean;
+  onClick: () => void;
+  variant: 'attack' | 'defense' | 'item' | 'neutral' | 'danger' | 'skill';
+  glowColor?: string;
+  forceClassName?: string;
+  glowStrength?: number;
+  energized?: boolean;
+  sparkleColor?: string;
 }) => {
     const variantClass = {
         attack: 'bg-[#c44b54] border-[#a83a42] text-white hover:bg-[#b5424a] shadow-lg shadow-[#c44b54]/20',
@@ -260,8 +273,18 @@ const ActionTile = ({
         <button
             onClick={onClick}
             disabled={disabled}
-            className={`col-span-1 w-full rounded-[12px] sm:rounded-[14px] aspect-square flex flex-col items-center justify-center gap-1 sm:gap-1.5 border-b-2 sm:border-b-3 transition-all active:translate-y-0.5 active:border-b-0 ${disabled ? 'bg-[#e9d7c2] border-[#dcc0aa] text-[#8f6c67] cursor-not-allowed' : variantClass}`}
+            className={`relative overflow-hidden col-span-1 w-full rounded-[12px] sm:rounded-[14px] aspect-square flex flex-col items-center justify-center gap-1 sm:gap-1.5 border-b-2 sm:border-b-3 transition-all active:translate-y-0.5 active:border-b-0 ${disabled ? 'bg-[#e9d7c2] border-[#dcc0aa] text-[#8f6c67] cursor-not-allowed' : (forceClassName ?? variantClass)}`}
+            style={!disabled && glowColor ? { boxShadow: `0 0 0 1px ${glowColor}88, 0 0 ${glowStrength}px ${glowColor}88` } : undefined}
         >
+            {energized && !disabled && (
+                <span className="pointer-events-none absolute inset-0 overflow-hidden rounded-[12px] sm:rounded-[14px]">
+                    <span className="absolute -left-1/4 top-1/2 h-8 w-[140%] -translate-y-1/2 rotate-[-16deg] blur-md animate-pulse" style={{ backgroundColor: `${sparkleColor}55` }} />
+                    <span className="absolute left-[18%] top-[20%] h-1.5 w-1.5 rounded-full animate-ping" style={{ backgroundColor: sparkleColor }} />
+                    <span className="absolute right-[18%] top-[30%] h-1 w-1 rounded-full animate-ping" style={{ backgroundColor: sparkleColor }} />
+                    <span className="absolute left-[35%] bottom-[24%] h-1.5 w-1.5 rounded-full animate-pulse" style={{ backgroundColor: sparkleColor }} />
+                    <span className="absolute right-[30%] bottom-[20%] h-1 w-1 rounded-full animate-pulse" style={{ backgroundColor: sparkleColor }} />
+                </span>
+            )}
             {icon}
             <span className="font-black text-[7px] sm:text-[11px] tracking-wide uppercase">{label}</span>
         </button>
@@ -2603,7 +2626,7 @@ export const ShopScreen: React.FC<{ player: Player, items: Item[], huntStage: nu
 };
 
 export const BattleHUD: React.FC<GameUIProps> = (props) => {
-    const { player, enemy, turnState, logs, onAttack, onDefend, onSkill, onUseItem, onUnlockTalent, onResetTalents, currentNarration, gameState, shopItems, floatingTexts, onFlee, onOpenAr, arSupport, onStartBattle, stage, dungeonPhase = 1, killCount, onEquipItem, onUnequipItem, isDungeonRun, dungeonRewards, dungeonCleared = 0, dungeonTotal = 30, gameTime, restrictProfileToStatusOnly = false, limitBattleActionsToBasics = false, inventoryUnlocked = false, inventoryUnlockPromptActive = false, onAcknowledgeInventoryUnlock, cardsUnlockPromptActive = false, onAcknowledgeCardsUnlock, skillsUnlockPromptActive = false, onAcknowledgeSkillsUnlock, constellationUnlockPromptActive = false, onAcknowledgeConstellationUnlock, constellationRespecUnlockPromptActive = false, onAcknowledgeConstellationRespecUnlock, allowCardsInProfile = false, fleeUnlocked = false, showItemsAction = false, showSkillsAction = false, itemsUnlockPromptActive = false, onAcknowledgeItemsUnlock, fleeUnlockPromptActive = false, onAcknowledgeFleeUnlock, showDiamondHud = false, diamondUnlockPromptActive = false, onAcknowledgeDiamondUnlock } = props;
+    const { player, enemy, turnState, logs, onAttack, onDefend, onChargeImpulse, onAbsorbImpulse, onSkill, onUseItem, enemyIntentPreview = null, onUnlockTalent, onResetTalents, currentNarration, gameState, shopItems, floatingTexts, onFlee, onOpenAr, arSupport, onStartBattle, stage, dungeonPhase = 1, killCount, onEquipItem, onUnequipItem, isDungeonRun, dungeonRewards, dungeonCleared = 0, dungeonTotal = 30, gameTime, restrictProfileToStatusOnly = false, limitBattleActionsToBasics = false, inventoryUnlocked = false, inventoryUnlockPromptActive = false, onAcknowledgeInventoryUnlock, cardsUnlockPromptActive = false, onAcknowledgeCardsUnlock, skillsUnlockPromptActive = false, onAcknowledgeSkillsUnlock, constellationUnlockPromptActive = false, onAcknowledgeConstellationUnlock, constellationRespecUnlockPromptActive = false, onAcknowledgeConstellationRespecUnlock, allowCardsInProfile = false, fleeUnlocked = false, showItemsAction = false, showSkillsAction = false, itemsUnlockPromptActive = false, onAcknowledgeItemsUnlock, fleeUnlockPromptActive = false, onAcknowledgeFleeUnlock, showDiamondHud = false, diamondUnlockPromptActive = false, onAcknowledgeDiamondUnlock } = props;
   const [activeBattleMenu, setActiveBattleMenu] = useState<'skills' | 'items' | null>(null);
   const [showProfile, setShowProfile] = useState(false);
     const [profileInitialTab, setProfileInitialTab] = useState<'overview' | 'cards' | 'skills' | 'constellation' | undefined>(undefined);
@@ -2669,6 +2692,35 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
     const enemyClassId = enemy?.enemyClassId ?? 'knight';
     const enemyClassLabel = enemyClassLabelMap[enemyClassId];
     const enemyClassTone = enemyClassToneMap[enemyClassId];
+    const intentMetaByType: Record<NonNullable<GameUIProps['enemyIntentPreview']>['type'], { icon: string; color: string; label: string }> = {
+        attack: { icon: '⚔', color: '#ef4444', label: 'Ataque' },
+        defend: { icon: '🛡', color: '#60a5fa', label: 'Defesa' },
+        impulse: { icon: '⚡', color: '#f59e0b', label: 'Impulso' },
+        skill: { icon: '✨', color: '#a855f7', label: 'Habilidade' },
+        item: { icon: '💊', color: '#22c55e', label: 'Item' },
+    };
+    void enemyIntentPreview;
+    void intentMetaByType;
+    const impulseButtonGlowColor = player.impulsoAtivo >= 3 ? '#3b82f6' : player.impulsoAtivo === 2 ? '#a855f7' : player.impulsoAtivo === 1 ? '#ef4444' : undefined;
+    const absorbGlowColor = player.impulsoAtivo >= 3 ? '#3b82f6' : player.impulsoAtivo === 2 ? '#a855f7' : '#ef4444';
+    const currentImpulseFxColor = player.impulsoAtivo >= 3
+        ? '#3b82f6'
+        : player.impulsoAtivo === 2
+            ? '#a855f7'
+            : player.impulsoAtivo === 1
+                ? '#ef4444'
+                : player.impulso >= 3
+                    ? '#3b82f6'
+                    : player.impulso === 2
+                        ? '#a855f7'
+                        : '#ef4444';
+    const impulseReserveColors = ['#ef4444', '#a855f7', '#3b82f6'];
+    const buttonsEnergized = player.impulsoAtivo > 0;
+    const impulsoButtonClass = player.impulso >= 2
+        ? 'bg-[#3b82f6] border-[#2563eb] text-white hover:bg-[#4f8ff8] shadow-lg shadow-[#3b82f6]/30'
+        : player.impulso >= 1
+            ? 'bg-[#a855f7] border-[#9333ea] text-white hover:bg-[#b76af8] shadow-lg shadow-[#a855f7]/30'
+            : 'bg-[#ef4444] border-[#dc2626] text-white hover:bg-[#f35a5a] shadow-lg shadow-[#ef4444]/30';
     const enemyCardToneClass = enemy?.isBoss
         ? 'border-[3px] border-rose-400 bg-[linear-gradient(135deg,rgba(255,238,238,0.96),rgba(255,226,226,0.92))] shadow-[0_12px_30px_rgba(190,24,93,0.28)] ring-1 ring-rose-300/60'
         : enemy?.isSubBoss
@@ -3640,11 +3692,74 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
 
               </div>
 
-              {/* Right: 2x2 action grid */}
+              {/* Right: action grid */}
               <div ref={battleActionsRef} className="relative flex flex-col items-end gap-2 shrink-0">
-                                    <div className="grid grid-cols-2 gap-1.5 w-[130px] sm:gap-2 sm:w-[210px]">
-                      <ActionTile icon={<Sword size={18} />} label="ATACAR" onClick={() => { setActiveBattleMenu(null); onAttack(); }} disabled={!isPlayerTurn} variant="attack" />
-                      <ActionTile icon={<Shield size={18} />} label="DEFENDER" onClick={() => { setActiveBattleMenu(null); onDefend(); }} disabled={!isPlayerTurn} variant="defense" />
+                  <div className="flex w-[198px] items-center justify-end gap-2 sm:w-[310px]">
+                      <div className="flex flex-1 items-center justify-end gap-1.5 sm:gap-2">
+                          {[0, 1, 2].map((slot) => {
+                              const isFilled = player.impulso > slot;
+                              const blockColor = impulseReserveColors[slot];
+                              return (
+                                  <span
+                                      key={`impulse-slot-${slot}`}
+                                      className="h-5 w-8 rounded-md border-2 transition-all sm:h-6 sm:w-10"
+                                      style={isFilled
+                                          ? {
+                                              borderColor: '#ffffff',
+                                              background: `linear-gradient(135deg, ${blockColor}, ${blockColor}cc)`,
+                                              boxShadow: `0 0 14px ${blockColor}aa`,
+                                            }
+                                          : {
+                                              borderColor: '#d2b6a2',
+                                              backgroundColor: '#f9ecdf',
+                                            }}
+                                  />
+                              );
+                          })}
+                      </div>
+                      {player.impulso > 0 && (
+                          <button
+                              onClick={() => { setActiveBattleMenu(null); onAbsorbImpulse(); }}
+                              disabled={!isPlayerTurn || player.impulsoAtivo >= 3}
+                              className={`relative overflow-hidden inline-flex h-9 items-center gap-1.5 rounded-[10px] border-2 px-2.5 text-[10px] font-black uppercase tracking-[0.08em] transition-all sm:h-10 sm:text-[11px] ${
+                                  !isPlayerTurn || player.impulsoAtivo >= 3
+                                      ? 'cursor-not-allowed border-[#dcc0aa] bg-[#e9d7c2] text-[#8f6c67]'
+                                      : 'border-[#f59e0b] bg-[#fff4de] text-[#6b3141] hover:bg-[#ffefcf] hover:shadow-[0_0_26px_rgba(245,158,11,0.55)]'
+                              }`}
+                              style={!isPlayerTurn || player.impulsoAtivo >= 3
+                                  ? undefined
+                                  : {
+                                      boxShadow: `0 0 0 1px ${absorbGlowColor}88, 0 0 24px ${absorbGlowColor}aa`,
+                                    }}
+                          >
+                              <Sparkles size={13} />
+                              <span>Absorver</span>
+                              <span className="rounded-full border border-[#e4c7a7] bg-white/80 px-1.5 py-0.5 text-[9px] text-[#7a4a43]">{player.impulso}</span>
+                              {isPlayerTurn && player.impulsoAtivo < 3 && (
+                                  <span className="pointer-events-none absolute inset-0 rounded-[10px]">
+                                      <span className="absolute left-[16%] top-[28%] h-1.5 w-1.5 rounded-full animate-ping" style={{ backgroundColor: currentImpulseFxColor }} />
+                                      <span className="absolute right-[18%] top-[35%] h-1 w-1 rounded-full animate-ping" style={{ backgroundColor: currentImpulseFxColor }} />
+                                      <span className="absolute left-[56%] bottom-[22%] h-1 w-1 rounded-full animate-pulse" style={{ backgroundColor: currentImpulseFxColor }} />
+                                  </span>
+                              )}
+                          </button>
+                      )}
+                  </div>
+                  <div className="grid grid-cols-3 gap-1.5 w-[198px] sm:gap-2 sm:w-[310px]">
+                      <ActionTile icon={<Sword size={18} />} label="ATACAR" onClick={() => { setActiveBattleMenu(null); onAttack(); }} disabled={!isPlayerTurn} variant="attack" glowColor={impulseButtonGlowColor} glowStrength={24} energized={buttonsEnergized} sparkleColor={currentImpulseFxColor} />
+                      <ActionTile icon={<Shield size={18} />} label="DEFENDER" onClick={() => { setActiveBattleMenu(null); onDefend(); }} disabled={!isPlayerTurn} variant="defense" glowColor={impulseButtonGlowColor} glowStrength={24} energized={buttonsEnergized} sparkleColor={currentImpulseFxColor} />
+                      <ActionTile
+                          icon={<Zap size={18} />}
+                          label="IMPULSO"
+                          onClick={() => { setActiveBattleMenu(null); onChargeImpulse(); }}
+                          disabled={!isPlayerTurn || player.impulso >= 3}
+                          variant="skill"
+                          forceClassName={impulsoButtonClass}
+                          glowColor={player.impulso >= 2 ? '#3b82f6' : player.impulso >= 1 ? '#a855f7' : '#ef4444'}
+                          glowStrength={26}
+                          energized={player.impulso > 0}
+                          sparkleColor={currentImpulseFxColor}
+                      />
                                             {showSkillsAction && (
                                                 <div className="relative col-span-1">
                                                     {activeBattleMenu === 'skills' && (
@@ -3663,7 +3778,8 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                                                                     {player.skills.map(skill => {
                                                                         const requiredResource = skill.resourceEffect?.cost ?? 0;
                                                                         const hasResource = player.classResource.value >= requiredResource;
-                                                                        const canCast = player.stats.mp >= skill.manaCost && hasResource;
+                                                                        const effectiveManaCost = player.impulsoAtivo >= 1 ? Math.max(1, Math.floor(skill.manaCost * 0.7)) : skill.manaCost;
+                                                                        const canCast = player.stats.mp >= effectiveManaCost && hasResource;
                                                                         const skillTone = skill.trailColor ?? '#a855f7';
                                                                         return (
                                                                             <button
@@ -3688,7 +3804,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                                                                                     </div>
                                                                                     <div className="shrink-0 space-y-1 text-right">
                                                                                         <div className="rounded-md border border-[#6aa9d4] bg-[#dff2ff] px-1.5 py-0.5 text-[10px] font-black text-[#1d5f86]">
-                                                                                            {skill.manaCost} MP
+                                                                                            {effectiveManaCost} MP
                                                                                         </div>
                                                                                         {requiredResource > 0 && (
                                                                                             <div
@@ -3715,7 +3831,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                                                             )}
                                                         </div>
                                                     )}
-                                                    <ActionTile icon={<Sparkles size={18} />} label="HABILIDADES" onClick={() => setActiveBattleMenu(prev => prev === 'skills' ? null : 'skills')} disabled={!isPlayerTurn || player.skills.length === 0} variant="skill" />
+                                                    <ActionTile icon={<Sparkles size={18} />} label="HABILIDADES" onClick={() => setActiveBattleMenu(prev => prev === 'skills' ? null : 'skills')} disabled={!isPlayerTurn || player.skills.length === 0} variant="skill" glowColor={impulseButtonGlowColor} glowStrength={24} energized={buttonsEnergized} sparkleColor={currentImpulseFxColor} />
                                                 </div>
                                             )}
                                             {showItemsAction && (
@@ -3771,7 +3887,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                                                             )}
                                                         </div>
                                                     )}
-                                                    <ActionTile icon={<FlaskConical size={18} />} label="ITENS" onClick={() => setActiveBattleMenu(prev => prev === 'items' ? null : 'items')} disabled={!isPlayerTurn || usableItems.length === 0} variant="item" />
+                                                    <ActionTile icon={<FlaskConical size={18} />} label="ITENS" onClick={() => setActiveBattleMenu(prev => prev === 'items' ? null : 'items')} disabled={!isPlayerTurn || usableItems.length === 0} variant="item" glowColor={impulseButtonGlowColor} glowStrength={24} energized={buttonsEnergized} sparkleColor={currentImpulseFxColor} />
                                                 </div>
                                             )}
                   </div>

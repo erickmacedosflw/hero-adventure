@@ -10,7 +10,19 @@ import {
 } from '../mechanics/combat';
 import { getTalentBonuses } from '../mechanics/classProgression';
 import { battleSfx } from '../audio/sfx';
-import { BattleLog, DungeonResult, DungeonRunState, Enemy, GameState, Player, PlayerAnimationAction, Skill, TurnState } from '../../types';
+import {
+  BattleLog,
+  DungeonResult,
+  DungeonRunState,
+  Enemy,
+  EnemyIntentPreview,
+  EnemyIntentType,
+  GameState,
+  Player,
+  PlayerAnimationAction,
+  Skill,
+  TurnState,
+} from '../../types';
 
 interface SkillVisualConfig {
   color: string;
@@ -55,6 +67,8 @@ interface UseBattleControllerParams {
   setIsPlayerCritHit: Dispatch<SetStateAction<boolean>>;
   setIsEnemyHit: Dispatch<SetStateAction<boolean>>;
   setScreenShake: Dispatch<SetStateAction<number>>;
+  setEnemyIntentPreview: Dispatch<SetStateAction<EnemyIntentPreview | null>>;
+  enemyIntentPreview?: EnemyIntentPreview | null;
   onPlayerDefeat?: () => void;
 }
 
@@ -103,6 +117,22 @@ const tickEnemyBuffs = (target: Enemy): Enemy => {
 };
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+const clampImpulse = (value: number) => clamp(value, 0, 3);
+const IMPULSE_ATTACK_DAMAGE_BONUS = 0.3;
+const IMPULSE_DEF_IGNORE_RATIO = 0.3;
+const IMPULSE_MANA_DISCOUNT = 0.3;
+const IMPULSE_SKILL_EFFECT_BONUS = 0.3;
+const IMPULSE_DEFENSE_EXTRA_MITIGATION = 0.3;
+
+const ENEMY_INTENT_ATTACK_OR_DEFEND_EXECUTION_CHANCE = 0.8;
+
+const ENEMY_INTENT_PROBABILITY_BY_TYPE: Record<EnemyIntentType, number> = {
+  attack: 80,
+  defend: 80,
+  impulse: 100,
+  skill: 100,
+  item: 100,
+};
 
 const ENEMY_CLASS_SKILL_BIAS: Record<Player['classId'], number> = {
   knight: 0.06,
@@ -213,6 +243,10 @@ const playMovementSfx = (attackerStyle: 'weapon' | 'unarmed') => {
   });
 };
 
+const getImpulseColorByLevel = (level: number) => (
+  level >= 3 ? '#3b82f6' : level === 2 ? '#a855f7' : '#ef4444'
+);
+
 export const useBattleController = ({
   player,
   enemy,
@@ -244,10 +278,13 @@ export const useBattleController = ({
   setIsPlayerCritHit,
   setIsEnemyHit,
   setScreenShake,
+  setEnemyIntentPreview,
+  enemyIntentPreview,
   onPlayerDefeat,
 }: UseBattleControllerParams) => {
   const handleVictoryRef = useRef(handleVictory);
   const lastPlayerActionRef = useRef<'attack' | 'defend' | 'skill' | 'item' | null>(null);
+  const pendingEnemyIntentRef = useRef<EnemyIntentType | null>(null);
 
   const announceCounterAttack = useCallback((attacker: 'player' | 'enemy') => {
     spawnFloatingText('⚔ CONTRA-ATAQUE!', attacker, 'damage');
@@ -256,6 +293,31 @@ export const useBattleController = ({
   useEffect(() => {
     handleVictoryRef.current = handleVictory;
   }, [handleVictory]);
+
+  const consumeActiveImpulse = useCallback(() => {
+    const active = clampImpulse(player.impulsoAtivo);
+    if (active <= 0) {
+      return 0;
+    }
+
+    setPlayer((prev) => ({ ...prev, impulsoAtivo: 0 }));
+    return active;
+  }, [player.impulsoAtivo, setPlayer]);
+
+  const createEnemyIntentPreview = useCallback((type: EnemyIntentType): EnemyIntentPreview => ({
+    type,
+    probability: ENEMY_INTENT_PROBABILITY_BY_TYPE[type],
+  }), []);
+
+  const playImpulseVisual = useCallback((target: 'player' | 'enemy', level: number, label: string) => {
+    const color = getImpulseColorByLevel(level);
+    const basePosition: [number, number, number] = target === 'player' ? [-2, -0.45, 0] : [2, -0.45, 0];
+    const corePosition: [number, number, number] = target === 'player' ? [-2, 0.1, 0] : [2, 0.1, 0];
+    spawnParticles(basePosition, 22 + (level * 6), color, 'spark');
+    spawnParticles(corePosition, 18 + (level * 4), color, 'heal');
+    spawnParticles(corePosition, 14 + (level * 4), '#ffffff', 'spark');
+    spawnFloatingText(label, target, 'buff', color);
+  }, [spawnFloatingText, spawnParticles]);
 
   const awardCombatBenefits = useCallback((damage: number, resourceGain: number, talentBonuses: ReturnType<typeof getTalentBonuses>) => {
     if (damage <= 0 && resourceGain <= 0 && talentBonuses.lifeSteal <= 0 && talentBonuses.manaOnHit <= 0) {
@@ -320,6 +382,56 @@ export const useBattleController = ({
     addLog(`${skill.name} aplicou ${status.name.toLowerCase()}!`, 'buff');
   }, [addLog, enemy, setEnemy, spawnFloatingText]);
 
+  const handleChargeImpulse = useCallback(() => {
+    if (!enemy || turnState !== TurnState.PLAYER_INPUT || player.impulso >= 3) return;
+    lastPlayerActionRef.current = 'item';
+    setTurnState(TurnState.PLAYER_ANIMATION);
+    battleSfx.play('defense_use', { source: 'hero' });
+    setPlayerAnimationAction('defend');
+    const nextReserve = clampImpulse(player.impulso + 1);
+    setPlayer((prev) => ({
+      ...prev,
+      impulso: clampImpulse(prev.impulso + 1),
+    }));
+    playImpulseVisual('player', nextReserve, '+1 IMPULSO');
+    addLog('Impulso carregado +1.', 'buff');
+
+    window.setTimeout(() => {
+      setPlayer((prev) => ({ ...prev, buffs: consumeTurnBuffs(prev.buffs) }));
+      setPlayerAnimationAction('idle');
+      setTurnState(TurnState.ENEMY_TURN);
+    }, 520);
+  }, [
+    addLog,
+    enemy,
+    playImpulseVisual,
+    player.impulso,
+    setPlayer,
+    setPlayerAnimationAction,
+    setTurnState,
+    turnState,
+  ]);
+
+  const handleAbsorbImpulse = useCallback(() => {
+    if (turnState !== TurnState.PLAYER_INPUT || player.impulso <= 0 || player.impulsoAtivo >= 3) return;
+
+    setPlayer((prev) => ({
+      ...prev,
+      impulso: clampImpulse(prev.impulso - 1),
+      impulsoAtivo: clampImpulse(prev.impulsoAtivo + 1),
+    }));
+    const nextActive = clampImpulse(player.impulsoAtivo + 1);
+    playImpulseVisual('player', nextActive, `ABSORVER ${nextActive}/3`);
+    addLog(`Absorcao de impulso: ${nextActive}/3 ativo.`, 'buff');
+  }, [
+    addLog,
+    playImpulseVisual,
+    player.impulso,
+    player.impulsoAtivo,
+    setPlayer,
+    turnState,
+  ]);
+
   const handlePlayerAttack = useCallback(() => {
     if (!enemy || turnState !== TurnState.PLAYER_INPUT) return;
     lastPlayerActionRef.current = 'attack';
@@ -327,6 +439,10 @@ export const useBattleController = ({
     const talentBonuses = getTalentBonuses(player);
     const doubleAttackActive = player.buffs.doubleAttackTurns > 0;
     const riposteActive = Boolean(player.buffs.riposteArmed);
+    const activeImpulse = consumeActiveImpulse();
+    const attackImpulseMultiplier = activeImpulse > 0 ? (1 + IMPULSE_ATTACK_DAMAGE_BONUS) : 1;
+    const attackDefenseIgnoreRatio = activeImpulse >= 2 ? IMPULSE_DEF_IGNORE_RATIO : 0;
+    const guaranteedCritFromImpulse = activeImpulse >= 3;
     const attackDelay = player.equippedWeapon ? 650 : 400;
     const idleDelay = player.equippedWeapon ? 400 : 550;
 
@@ -353,7 +469,7 @@ export const useBattleController = ({
         defenderDef: getEnemyDefWithBuff(enemy),
         attackerSpeed: player.stats.speed,
         defenderSpeed: enemy.stats.speed,
-        multiplier: getBossDamageMultiplier() * (1 + talentBonuses.physicalDamage + getMarkedBonus(enemy.statusEffects, talentBonuses.markedDamage)) * riposteMultiplier,
+        multiplier: getBossDamageMultiplier() * attackImpulseMultiplier * (1 + talentBonuses.physicalDamage + getMarkedBonus(enemy.statusEffects, talentBonuses.markedDamage)) * riposteMultiplier,
         luck: player.stats.luck,
         attackKind: 'physical',
         defenderIsDefending: isFirstStrike ? enemy.isDefending : false,
@@ -361,6 +477,8 @@ export const useBattleController = ({
         applyAttackBuff: true,
         critChanceBonus: talentBonuses.critChance,
         critDamageBonus: talentBonuses.critDamage,
+        defenderDefenseIgnoreRatio: attackDefenseIgnoreRatio,
+        forceCrit: guaranteedCritFromImpulse,
       });
 
       if (attackResult.evaded) {
@@ -371,7 +489,13 @@ export const useBattleController = ({
         return { remainingHp, defeated: false, evaded: true };
       }
 
-      const appliedDamage = isFirstStrike && enemy.isDefending ? Math.floor(attackResult.damage * 0.5) : attackResult.damage;
+      const enemyGuardLevel = isFirstStrike && enemy.isDefending ? clampImpulse(enemy.impulseGuardLevel ?? 0) : 0;
+      const defendedDamage = isFirstStrike && enemy.isDefending ? Math.floor(attackResult.damage * 0.5) : attackResult.damage;
+      const appliedDamage = enemyGuardLevel >= 2
+        ? 0
+        : enemyGuardLevel === 1
+          ? Math.floor(defendedDamage * (1 - IMPULSE_DEFENSE_EXTRA_MITIGATION))
+          : defendedDamage;
       playAttackImpactSfx({
         attackKind: 'physical',
         attackerStyle: player.equippedWeapon ? 'weapon' : 'unarmed',
@@ -399,6 +523,7 @@ export const useBattleController = ({
           ...prev,
           stats: { ...prev.stats, hp: Math.max(0, prev.stats.hp - appliedDamage) },
           isDefending: false,
+          impulseGuardLevel: 0,
         };
       });
       const riposteResourceGain = riposteActive && isFirstStrike ? RIPOSTE_RESOURCE_BONUS : 0;
@@ -468,6 +593,10 @@ export const useBattleController = ({
     lastPlayerActionRef.current = 'defend';
 
     const talentBonuses = getTalentBonuses(player);
+    const activeImpulse = consumeActiveImpulse();
+    const perfectGuardTurns = activeImpulse >= 2 ? 1 : 0;
+    const guaranteedCounterTurns = activeImpulse >= 3 ? 1 : 0;
+    const impulseDefenseBoostTurns = activeImpulse >= 1 ? 1 : 0;
     const manaRecovered = Math.max(1, Math.floor(player.stats.maxMp * (0.05 + player.cardBonuses.defendManaRestore)) + Math.floor(talentBonuses.manaOnDefend));
 
     setTurnState(TurnState.PLAYER_ANIMATION);
@@ -481,6 +610,9 @@ export const useBattleController = ({
         ...prev.buffs,
         riposteTurns: 1,
         riposteArmed: false,
+        perfectGuardTurns: Math.max(prev.buffs.perfectGuardTurns, perfectGuardTurns),
+        guaranteedCounterTurns: Math.max(prev.buffs.guaranteedCounterTurns, guaranteedCounterTurns),
+        impulseDefenseBoostTurns: Math.max(prev.buffs.impulseDefenseBoostTurns, impulseDefenseBoostTurns),
       },
       stats: {
         ...prev.stats,
@@ -492,15 +624,31 @@ export const useBattleController = ({
       },
     }));
     addLog(`+${manaRecovered} Mana`, 'heal');
+    if (activeImpulse > 0) {
+      addLog(`Defesa reforcada por impulso nivel ${activeImpulse}.`, 'buff');
+      spawnFloatingText(
+        activeImpulse >= 3 ? 'DEFESA PERFEITA + CONTRA!' : activeImpulse >= 2 ? 'DEFESA PERFEITA!' : 'DEFESA REFORCADA!',
+        'player',
+        'buff',
+        activeImpulse >= 3 ? '#3b82f6' : activeImpulse >= 2 ? '#a855f7' : '#ef4444',
+      );
+    }
     spawnFloatingText(`+${manaRecovered} Mana`, 'player', 'heal');
     spawnParticles([-2, -1, 0], 10, '#3b82f6', 'spark');
 
     window.setTimeout(() => {
-      setPlayer((prev) => ({ ...prev, buffs: consumeTurnBuffs(prev.buffs) }));
+      setPlayer((prev) => {
+        const consumedBuffs = consumeTurnBuffs(prev.buffs);
+        consumedBuffs.perfectGuardTurns = prev.buffs.perfectGuardTurns;
+        consumedBuffs.guaranteedCounterTurns = prev.buffs.guaranteedCounterTurns;
+        consumedBuffs.impulseDefenseBoostTurns = prev.buffs.impulseDefenseBoostTurns;
+        return { ...prev, buffs: consumedBuffs };
+      });
       setTurnState(TurnState.ENEMY_TURN);
     }, 600);
   }, [
     addLog,
+    consumeActiveImpulse,
     enemy,
     player,
     setPlayer,
@@ -513,11 +661,20 @@ export const useBattleController = ({
 
   const handleSkill = useCallback((skill: Skill) => {
     const requiredResource = skill.resourceEffect?.cost ?? 0;
-    if (!enemy || turnState !== TurnState.PLAYER_INPUT || player.stats.mp < skill.manaCost || player.classResource.value < requiredResource) return;
+    const previewImpulse = clampImpulse(player.impulsoAtivo);
+    const discountedManaCost = previewImpulse >= 1
+      ? Math.max(1, Math.floor(skill.manaCost * (1 - IMPULSE_MANA_DISCOUNT)))
+      : skill.manaCost;
+    if (!enemy || turnState !== TurnState.PLAYER_INPUT || player.stats.mp < discountedManaCost || player.classResource.value < requiredResource) return;
     lastPlayerActionRef.current = 'skill';
 
+    const activeImpulse = consumeActiveImpulse();
     const talentBonuses = getTalentBonuses(player);
     const riposteActive = skill.type !== 'heal' && Boolean(player.buffs.riposteArmed);
+    const hasEmpowerBuff = player.buffs.skillEmpowerTurns > 0;
+    const boostedByImpulse = activeImpulse >= 2;
+    const skillEffectMultiplier = boostedByImpulse || hasEmpowerBuff ? (1 + IMPULSE_SKILL_EFFECT_BONUS) : 1;
+    const grantEmpowerTurns = activeImpulse >= 3 ? 2 : 0;
     const visual = getSkillVisualConfig(skill);
     const impactColor = skill.trailColor ?? visual.color;
     const resourceSpent = skill.resourceEffect?.consumeAll ? player.classResource.value : requiredResource;
@@ -528,20 +685,29 @@ export const useBattleController = ({
     setEnemyAnimationAction(enemy.isDefending ? 'defend' : 'battle-idle');
     setPlayer((prev) => ({
       ...prev,
-      stats: { ...prev.stats, mp: prev.stats.mp - skill.manaCost },
+      stats: { ...prev.stats, mp: prev.stats.mp - discountedManaCost },
       classResource: {
         ...prev.classResource,
         value: Math.max(0, prev.classResource.value - resourceSpent),
       },
-      buffs: riposteActive
-        ? {
-          ...prev.buffs,
-          riposteArmed: false,
-          riposteTurns: 0,
-        }
-        : prev.buffs,
+      buffs: {
+        ...(riposteActive
+          ? {
+            ...prev.buffs,
+            riposteArmed: false,
+            riposteTurns: 0,
+          }
+          : prev.buffs),
+        skillEmpowerTurns: grantEmpowerTurns > 0 ? Math.max(prev.buffs.skillEmpowerTurns, grantEmpowerTurns) : prev.buffs.skillEmpowerTurns,
+      },
     }));
     spawnFloatingText(skill.name.toUpperCase(), 'player', 'skill');
+    if (activeImpulse > 0) {
+      spawnFloatingText(`IMPULSO ${activeImpulse}`, 'player', 'buff', activeImpulse >= 3 ? '#3b82f6' : activeImpulse === 2 ? '#a855f7' : '#ef4444');
+    }
+    if (grantEmpowerTurns > 0) {
+      addLog(`${skill.name}: efeito ampliado por 2 turnos.`, 'buff');
+    }
 
     if (resourceSpent > 0) {
       spawnFloatingText(`-${resourceSpent} ${player.classResource.name}`, 'player', 'buff', player.classResource.color);
@@ -576,18 +742,18 @@ export const useBattleController = ({
 
     if (skill.type === 'heal') {
       const healPower = 1 + talentBonuses.healPower;
-      const healAmount = getHealingValue(Math.floor(player.stats.maxHp * skill.damageMult * healPower));
+      const healAmount = getHealingValue(Math.floor(player.stats.maxHp * skill.damageMult * healPower * skillEffectMultiplier));
       const resourceGain = (skill.resourceEffect?.gain ?? 0) + Math.max(0, Math.floor(talentBonuses.resourceOnSkill));
 
       setPlayer((prev) => {
         const nextBuffs = { ...prev.buffs };
         if (skill.buffEffect?.target === 'player') {
           if (skill.buffEffect.kind === 'atk') {
-            nextBuffs.atkMod = Math.max(nextBuffs.atkMod, skill.buffEffect.modifier);
+            nextBuffs.atkMod = Math.max(nextBuffs.atkMod, skill.buffEffect.modifier * skillEffectMultiplier);
             nextBuffs.atkTurns = Math.max(nextBuffs.atkTurns, skill.buffEffect.duration);
           }
           if (skill.buffEffect.kind === 'def') {
-            nextBuffs.defMod = Math.max(nextBuffs.defMod, skill.buffEffect.modifier);
+            nextBuffs.defMod = Math.max(nextBuffs.defMod, skill.buffEffect.modifier * skillEffectMultiplier);
             nextBuffs.defTurns = Math.max(nextBuffs.defTurns, skill.buffEffect.duration);
           }
         }
@@ -618,7 +784,13 @@ export const useBattleController = ({
       }
 
       window.setTimeout(() => {
-        setPlayer((prev) => ({ ...prev, buffs: consumeTurnBuffs(prev.buffs) }));
+        setPlayer((prev) => {
+          const consumedBuffs = consumeTurnBuffs(prev.buffs);
+          if (grantEmpowerTurns > 0) {
+            consumedBuffs.skillEmpowerTurns = prev.buffs.skillEmpowerTurns;
+          }
+          return { ...prev, buffs: consumedBuffs };
+        });
         setPlayerAnimationAction('idle');
         setTurnState(TurnState.ENEMY_TURN);
       }, 1500);
@@ -641,7 +813,7 @@ export const useBattleController = ({
           defenderDef: getEnemyDefWithBuff(enemy),
           attackerSpeed: player.stats.speed,
           defenderSpeed: enemy.stats.speed,
-          multiplier: (skill.damageMult + resourceBurst) * getBossDamageMultiplier() * (1 + schoolBonus + statusBonus) * riposteMultiplier,
+          multiplier: (skill.damageMult + resourceBurst) * getBossDamageMultiplier() * skillEffectMultiplier * (1 + schoolBonus + statusBonus) * riposteMultiplier,
           luck: player.stats.luck,
           attackKind: skill.type === 'magic' ? 'magic' : 'physical',
           defenderIsDefending: isFirstStrike ? enemy.isDefending : false,
@@ -649,6 +821,8 @@ export const useBattleController = ({
           applyAttackBuff: true,
           critChanceBonus: talentBonuses.critChance,
           critDamageBonus: talentBonuses.critDamage,
+          defenderDefenseIgnoreRatio: activeImpulse >= 2 ? IMPULSE_DEF_IGNORE_RATIO : 0,
+          forceCrit: activeImpulse >= 3,
         });
 
         if (attackResult.evaded) {
@@ -659,7 +833,13 @@ export const useBattleController = ({
           return { remainingHp, defeated: false };
         }
 
-        const appliedDamage = isFirstStrike && enemy.isDefending ? Math.floor(attackResult.damage * 0.5) : attackResult.damage;
+        const enemyGuardLevel = isFirstStrike && enemy.isDefending ? clampImpulse(enemy.impulseGuardLevel ?? 0) : 0;
+        const defendedDamage = isFirstStrike && enemy.isDefending ? Math.floor(attackResult.damage * 0.5) : attackResult.damage;
+        const appliedDamage = enemyGuardLevel >= 2
+          ? 0
+          : enemyGuardLevel === 1
+            ? Math.floor(defendedDamage * (1 - IMPULSE_DEFENSE_EXTRA_MITIGATION))
+            : defendedDamage;
         playAttackImpactSfx({
           attackKind: skill.type === 'magic' ? 'magic' : 'physical',
           attackerStyle: skill.type === 'magic' ? 'unarmed' : (player.equippedWeapon ? 'weapon' : 'unarmed'),
@@ -688,6 +868,7 @@ export const useBattleController = ({
             ...prev,
             stats: { ...prev.stats, hp: Math.max(0, prev.stats.hp - appliedDamage) },
             isDefending: false,
+            impulseGuardLevel: 0,
           };
         });
 
@@ -709,7 +890,13 @@ export const useBattleController = ({
 
       if (!doubleAttackActive) {
         window.setTimeout(() => {
-          setPlayer((prev) => ({ ...prev, buffs: consumeTurnBuffs(prev.buffs) }));
+          setPlayer((prev) => {
+            const consumedBuffs = consumeTurnBuffs(prev.buffs);
+            if (grantEmpowerTurns > 0) {
+              consumedBuffs.skillEmpowerTurns = prev.buffs.skillEmpowerTurns;
+            }
+            return { ...prev, buffs: consumedBuffs };
+          });
           setPlayerAnimationAction('idle');
           setTurnState(TurnState.ENEMY_TURN);
         }, 800);
@@ -720,12 +907,24 @@ export const useBattleController = ({
       window.setTimeout(() => {
         const secondStrike = resolveSkillStrike(firstStrike.remainingHp, false);
         if (secondStrike.defeated) {
-          setPlayer((prev) => ({ ...prev, buffs: consumeTurnBuffs(prev.buffs) }));
+          setPlayer((prev) => {
+            const consumedBuffs = consumeTurnBuffs(prev.buffs);
+            if (grantEmpowerTurns > 0) {
+              consumedBuffs.skillEmpowerTurns = prev.buffs.skillEmpowerTurns;
+            }
+            return { ...prev, buffs: consumedBuffs };
+          });
           void handleVictoryRef.current(900);
           return;
         }
         window.setTimeout(() => {
-          setPlayer((prev) => ({ ...prev, buffs: consumeTurnBuffs(prev.buffs) }));
+          setPlayer((prev) => {
+            const consumedBuffs = consumeTurnBuffs(prev.buffs);
+            if (grantEmpowerTurns > 0) {
+              consumedBuffs.skillEmpowerTurns = prev.buffs.skillEmpowerTurns;
+            }
+            return { ...prev, buffs: consumedBuffs };
+          });
           setPlayerAnimationAction('idle');
           setTurnState(TurnState.ENEMY_TURN);
         }, 700);
@@ -914,6 +1113,7 @@ export const useBattleController = ({
   const handleEnemyTurn = useCallback(() => {
     if (!enemy || gameState !== GameState.BATTLE) return;
 
+    setEnemyIntentPreview(null);
     setTurnState(TurnState.PROCESSING);
     const talentBonuses = getTalentBonuses(player);
 
@@ -925,6 +1125,7 @@ export const useBattleController = ({
     let simulatedEnemy: Enemy = {
       ...enemy,
       enemyClassId: enemy.enemyClassId ?? 'knight',
+      impulso: clampImpulse(enemy.impulso ?? 0),
       aiTurnCounter: (enemy.aiTurnCounter ?? 0) + 1,
       stealAttemptsUsed: enemy.stealAttemptsUsed ?? 0,
       maxStealAttempts: enemy.maxStealAttempts ?? 3,
@@ -952,23 +1153,116 @@ export const useBattleController = ({
 
     if (simulatedEnemy.stats.hp <= 0) {
       setEnemy(simulatedEnemy);
+      setEnemyIntentPreview(null);
       battleSfx.play('death');
       triggerEnemyAnimationAction('death', 900);
       void handleVictoryRef.current(900);
       return;
     }
 
-    const hpRatio = simulatedEnemy.stats.hp / Math.max(1, simulatedEnemy.stats.maxHp);
-    const mpRatio = simulatedEnemy.stats.maxMp > 0 ? simulatedEnemy.stats.mp / simulatedEnemy.stats.maxMp : 1;
-    const hasPotion = simulatedEnemy.potionCharges > 0;
-    const lowHp = hpRatio <= simulatedEnemy.aiProfile.lowHpThreshold;
-    const criticalHp = hpRatio <= simulatedEnemy.aiProfile.criticalHpThreshold;
-    const lowMana = simulatedEnemy.stats.maxMp > 0 && mpRatio <= simulatedEnemy.aiProfile.lowManaThreshold;
     const playerAggressive = lastPlayerActionRef.current === 'attack' || lastPlayerActionRef.current === 'skill';
     const playerDefensive = lastPlayerActionRef.current === 'defend';
-    const canDefend = simulatedEnemy.lastAction !== 'defend';
-    const enemyUsesManaSkills = simulatedEnemy.skillSet.some((skill) => skill.manaCost > 0);
+    const equippedItemIds = new Set([
+      player.equippedWeapon?.id,
+      player.equippedArmor?.id,
+      player.equippedHelmet?.id,
+      player.equippedLegs?.id,
+      player.equippedShield?.id,
+    ].filter((entry): entry is string => Boolean(entry)));
+    const stealableInventoryIds = Object.entries(player.inventory)
+      .filter(([itemId, quantity]) => quantity > 0 && !equippedItemIds.has(itemId))
+      .map(([itemId]) => itemId);
+    const getEnemyTurnContext = (enemyState: Enemy) => {
+      const hpRatio = enemyState.stats.hp / Math.max(1, enemyState.stats.maxHp);
+      const mpRatio = enemyState.stats.maxMp > 0 ? enemyState.stats.mp / enemyState.stats.maxMp : 1;
+      const hasPotion = enemyState.potionCharges > 0;
+      const lowHp = hpRatio <= enemyState.aiProfile.lowHpThreshold;
+      const criticalHp = hpRatio <= enemyState.aiProfile.criticalHpThreshold;
+      const lowMana = enemyState.stats.maxMp > 0 && mpRatio <= enemyState.aiProfile.lowManaThreshold;
+      const canDefend = enemyState.lastAction !== 'defend';
+      const canAttemptSteal = enemyState.enemyClassId === 'rogue'
+        && enemyState.stealAttemptsUsed < enemyState.maxStealAttempts
+        && enemyState.lastAction !== 'steal'
+        && (enemyState.aiTurnCounter - enemyState.lastStealTurn) > 1;
+      const usableSkills = enemyState.skillSet.filter((skill) => (
+        skill.currentCooldown <= 0 && enemyState.stats.mp >= skill.manaCost
+      ));
+      const enemyUsesManaSkills = enemyState.skillSet.some((skill) => skill.manaCost > 0);
+
+      return {
+        lowHp,
+        hasPotion,
+        criticalHp,
+        lowMana,
+        canDefend,
+        canAttemptSteal,
+        usableSkills,
+        enemyUsesManaSkills,
+      };
+    };
+
+    const chooseEnemyIntent = (enemyState: Enemy): EnemyIntentType => {
+      const context = getEnemyTurnContext(enemyState);
+      if (context.lowHp && context.hasPotion) return 'item';
+      if (context.criticalHp && !context.hasPotion && context.canDefend) return 'defend';
+      if (context.lowMana && context.canDefend) return 'defend';
+      if (context.canAttemptSteal) return 'item';
+      if (enemyState.impulso < 3 && Math.random() < clamp(0.14 + (enemyState.aiProfile.tier * 0.02), 0.14, 0.28)) return 'impulse';
+
+      const extraSkillBias = playerDefensive ? 0.15 : 0;
+      const classSkillBias = ENEMY_CLASS_SKILL_BIAS[enemyState.enemyClassId] ?? 0.06;
+      const skillChance = Math.min(0.9, 0.2 + (enemyState.aiProfile.tier * 0.05) + extraSkillBias + classSkillBias);
+      if (context.usableSkills.length > 0 && Math.random() < skillChance) return 'skill';
+
+      const defensiveReactionBoost = playerAggressive ? 0.08 : 0;
+      const shouldDefend = context.canDefend && Math.random() < Math.min(0.65, enemyState.aiProfile.defendBaseChance + defensiveReactionBoost);
+      return shouldDefend ? 'defend' : 'attack';
+    };
+
+    const turnContext = getEnemyTurnContext(simulatedEnemy);
+    const {
+      lowHp,
+      hasPotion,
+      canAttemptSteal,
+      canDefend,
+      usableSkills,
+      enemyUsesManaSkills,
+    } = turnContext;
+
+    const plannedIntent = enemyIntentPreview?.type ?? pendingEnemyIntentRef.current ?? chooseEnemyIntent(simulatedEnemy);
+    pendingEnemyIntentRef.current = null;
+    const isIntentFeasible = (intent: EnemyIntentType) => {
+      if (intent === 'attack') return true;
+      if (intent === 'defend') return canDefend;
+      if (intent === 'impulse') return simulatedEnemy.impulso < 3;
+      if (intent === 'skill') return usableSkills.length > 0;
+      return (lowHp && hasPotion) || canAttemptSteal;
+    };
+    const resolveFallbackIntent = (): EnemyIntentType => {
+      if (usableSkills.length > 0) return 'skill';
+      if (canDefend) return 'defend';
+      return 'attack';
+    };
+    const feasibleIntent = isIntentFeasible(plannedIntent) ? plannedIntent : resolveFallbackIntent();
+    const executedIntent = (feasibleIntent === 'attack' || feasibleIntent === 'defend')
+      ? (Math.random() < ENEMY_INTENT_ATTACK_OR_DEFEND_EXECUTION_CHANCE
+        ? feasibleIntent
+        : (feasibleIntent === 'attack' && canDefend ? 'defend' : 'attack'))
+      : feasibleIntent;
+    const consumeEnemyImpulseForAction = (actionLabel: string) => {
+      const activeImpulse = clampImpulse(simulatedEnemy.impulso);
+      if (activeImpulse <= 0) return 0;
+      simulatedEnemy = {
+        ...simulatedEnemy,
+        impulso: 0,
+      };
+      playImpulseVisual('enemy', activeImpulse, `IMPULSO ${activeImpulse}`);
+      addLog(`${simulatedEnemy.name} canalizou impulso nivel ${activeImpulse} em ${actionLabel}.`, 'buff');
+      return activeImpulse;
+    };
     const defendingActive = player.isDefending || player.buffs.autoGuardTurns > 0;
+    const perfectGuardActive = defendingActive && player.buffs.perfectGuardTurns > 0;
+    const extraImpulseMitigationActive = defendingActive && player.buffs.impulseDefenseBoostTurns > 0;
 
     if (defendingActive) {
       // Auto-guard mirrors defend posture while the enemy resolves actions.
@@ -983,8 +1277,14 @@ export const useBattleController = ({
         if (!nextBuffs.riposteArmed) {
           nextBuffs.riposteTurns = 0;
         }
+        nextBuffs.perfectGuardTurns = 0;
+        nextBuffs.impulseDefenseBoostTurns = 0;
+        nextBuffs.guaranteedCounterTurns = 0;
         return { ...prev, buffs: nextBuffs, isDefending: false };
       });
+      const nextIntent = chooseEnemyIntent(enemyAfterBuffTick);
+      pendingEnemyIntentRef.current = nextIntent;
+      setEnemyIntentPreview(createEnemyIntentPreview(nextIntent));
       setPlayerAnimationAction('idle');
       setTurnState(TurnState.PLAYER_INPUT);
     };
@@ -1006,7 +1306,8 @@ export const useBattleController = ({
         classCap,
         DEFEND_COUNTER_BASE_CHANCE + talentBonus + attributeBonus + cardBonus + openingBonus,
       );
-      if (Math.random() >= counterChance) {
+      const guaranteedCounter = player.buffs.guaranteedCounterTurns > 0;
+      if (!guaranteedCounter && Math.random() >= counterChance) {
         return { triggered: false as const, damage: 0, nextEnemy: targetEnemy };
       }
 
@@ -1077,7 +1378,7 @@ export const useBattleController = ({
       }, 40);
     };
 
-    const useDefendAction = (_reasonLabel: string) => {
+    const useDefendAction = (_reasonLabel: string, activeEnemyImpulse: number) => {
     battleSfx.play('defense_use', { source: 'enemy' });
       const recoveredMp = enemyUsesManaSkills
         ? Math.max(1, Math.min(simulatedEnemy.manaRegenOnDefend, simulatedEnemy.stats.maxMp - simulatedEnemy.stats.mp))
@@ -1086,6 +1387,7 @@ export const useBattleController = ({
         ...simulatedEnemy,
         lastAction: 'defend' as const,
         isDefending: true,
+        impulseGuardLevel: activeEnemyImpulse,
         stats: {
           ...simulatedEnemy.stats,
           mp: Math.min(simulatedEnemy.stats.maxMp, simulatedEnemy.stats.mp + recoveredMp),
@@ -1099,7 +1401,7 @@ export const useBattleController = ({
       finishEnemyActionToPlayerTurn(nextEnemy);
     };
 
-    if (lowHp && hasPotion) {
+    if (executedIntent === 'item' && lowHp && hasPotion) {
       const healAmount = Math.max(1, simulatedEnemy.potionHealValue);
       const nextEnemy = {
         ...simulatedEnemy,
@@ -1125,32 +1427,7 @@ export const useBattleController = ({
       return;
     }
 
-    if (criticalHp && !hasPotion && canDefend) {
-      useDefendAction('sobreviver');
-      return;
-    }
-
-    if (lowMana && canDefend) {
-      useDefendAction('recuperar mana');
-      return;
-    }
-
-    const equippedItemIds = new Set([
-      player.equippedWeapon?.id,
-      player.equippedArmor?.id,
-      player.equippedHelmet?.id,
-      player.equippedLegs?.id,
-      player.equippedShield?.id,
-    ].filter((entry): entry is string => Boolean(entry)));
-    const stealableInventoryIds = Object.entries(player.inventory)
-      .filter(([itemId, quantity]) => quantity > 0 && !equippedItemIds.has(itemId))
-      .map(([itemId]) => itemId);
-    const canAttemptSteal = simulatedEnemy.enemyClassId === 'rogue'
-      && simulatedEnemy.stealAttemptsUsed < simulatedEnemy.maxStealAttempts
-      && simulatedEnemy.lastAction !== 'steal'
-      && (simulatedEnemy.aiTurnCounter - simulatedEnemy.lastStealTurn) > 1;
-    const stealIntentChance = clamp(0.2 + (simulatedEnemy.aiProfile.tier * 0.025), 0.2, 0.55);
-    if (canAttemptSteal && Math.random() < stealIntentChance) {
+    if (executedIntent === 'item' && canAttemptSteal) {
       setIsEnemyAttacking(true);
       playMovementSfx(simulatedEnemy.attackStyle === 'armed' ? 'weapon' : 'unarmed');
       triggerEnemyAnimationAction('attack', 800);
@@ -1233,17 +1510,28 @@ export const useBattleController = ({
       return;
     }
 
-    const usableSkills = simulatedEnemy.skillSet.filter((skill) => (
-      skill.currentCooldown <= 0 && simulatedEnemy.stats.mp >= skill.manaCost
-    ));
+    if (executedIntent === 'impulse' && simulatedEnemy.impulso < 3) {
+      const nextImpulse = clampImpulse(simulatedEnemy.impulso + 1);
+      const nextEnemy = {
+        ...simulatedEnemy,
+        lastAction: 'none' as const,
+        impulso: nextImpulse,
+      };
+      battleSfx.play('defense_use', { source: 'enemy' });
+      triggerEnemyAnimationAction('defend', 760);
+      playImpulseVisual('enemy', nextImpulse, 'IMPULSO');
+      addLog(`${simulatedEnemy.name} carregou impulso.`, 'buff');
+      window.setTimeout(() => {
+        finishEnemyActionToPlayerTurn(nextEnemy);
+      }, ENEMY_ACTION_READ_DELAY_MS);
+      return;
+    }
 
-    const extraSkillBias = playerDefensive ? 0.15 : 0;
-    const classSkillBias = ENEMY_CLASS_SKILL_BIAS[simulatedEnemy.enemyClassId] ?? 0.06;
-    const skillChance = Math.min(0.9, 0.2 + (simulatedEnemy.aiProfile.tier * 0.05) + extraSkillBias + classSkillBias);
-    const shouldUseSkill = usableSkills.length > 0 && Math.random() < skillChance;
-
-    if (shouldUseSkill) {
+    if (executedIntent === 'skill' && usableSkills.length > 0) {
+      const activeEnemyImpulse = consumeEnemyImpulseForAction('habilidade');
       const chosenSkill = usableSkills[Math.floor(Math.random() * usableSkills.length)];
+      const effectiveSkillManaCost = activeEnemyImpulse >= 1 ? Math.max(1, Math.floor(chosenSkill.manaCost * (1 - IMPULSE_MANA_DISCOUNT))) : chosenSkill.manaCost;
+      const skillEffectMultiplier = activeEnemyImpulse >= 2 ? (1 + IMPULSE_SKILL_EFFECT_BONUS) : 1;
       const nextSkillSet = simulatedEnemy.skillSet.map((skill) => (
         skill.id === chosenSkill.id
           ? { ...skill, currentCooldown: skill.cooldown }
@@ -1255,7 +1543,7 @@ export const useBattleController = ({
         skillSet: nextSkillSet,
         stats: {
           ...simulatedEnemy.stats,
-          mp: simulatedEnemy.stats.mp - chosenSkill.manaCost,
+          mp: Math.max(0, simulatedEnemy.stats.mp - effectiveSkillManaCost),
         },
       };
 
@@ -1267,7 +1555,7 @@ export const useBattleController = ({
       spawnParticles([2, -0.5, 0], 16, castColor, 'spark');
       window.setTimeout(() => {
         if (chosenSkill.effect === 'heal') {
-          const healAmount = Math.max(1, Math.floor(simulatedEnemy.stats.maxHp * (chosenSkill.healMultiplier ?? 0.2)));
+          const healAmount = Math.max(1, Math.floor(simulatedEnemy.stats.maxHp * (chosenSkill.healMultiplier ?? 0.2) * skillEffectMultiplier));
           const healedEnemy = {
             ...simulatedEnemy,
             stats: {
@@ -1293,10 +1581,10 @@ export const useBattleController = ({
             ...simulatedEnemy,
             combatBuffs: {
               atkMod: chosenSkill.effect === 'buff_atk'
-                ? Math.max(simulatedEnemy.combatBuffs.atkMod, buffModifier)
+                ? Math.max(simulatedEnemy.combatBuffs.atkMod, buffModifier * skillEffectMultiplier)
                 : simulatedEnemy.combatBuffs.atkMod,
               defMod: chosenSkill.effect === 'buff_def'
-                ? Math.max(simulatedEnemy.combatBuffs.defMod, buffModifier)
+                ? Math.max(simulatedEnemy.combatBuffs.defMod, buffModifier * skillEffectMultiplier)
                 : simulatedEnemy.combatBuffs.defMod,
               turns: Math.max(simulatedEnemy.combatBuffs.turns, buffDuration),
             },
@@ -1318,7 +1606,7 @@ export const useBattleController = ({
           attackerSpeed: simulatedEnemy.stats.speed,
           defenderSpeed: player.stats.speed,
           defenderHasPerfectEvade: player.buffs.perfectEvadeTurns > 0,
-          multiplier: chosenSkill.damageMultiplier * getEnemyDamagePressure(simulatedEnemy, 'skill'),
+          multiplier: chosenSkill.damageMultiplier * getEnemyDamagePressure(simulatedEnemy, 'skill') * skillEffectMultiplier,
           luck: simulatedEnemy.stats.luck,
           attackKind: chosenSkill.attackKind,
           defenderIsDefending: defendingActive,
@@ -1339,7 +1627,9 @@ export const useBattleController = ({
           return;
         }
 
-        const finalDamage = defendingActive ? Math.floor(skillAttackResult.damage * 0.5) : skillAttackResult.damage;
+        const defendedDamage = defendingActive ? Math.floor(skillAttackResult.damage * 0.5) : skillAttackResult.damage;
+        const afterImpulseMitigation = extraImpulseMitigationActive ? Math.floor(defendedDamage * (1 - IMPULSE_DEFENSE_EXTRA_MITIGATION)) : defendedDamage;
+        const finalDamage = perfectGuardActive ? 0 : afterImpulseMitigation;
         const mitigatedDamage = defendingActive ? Math.max(0, skillAttackResult.damage - finalDamage) : 0;
         const remainingHpAfterHit = Math.max(0, player.stats.hp - finalDamage);
         playAttackImpactSfx({
@@ -1419,11 +1709,14 @@ export const useBattleController = ({
                 });
                 setDungeonRun(null);
                 setEnemy(null);
+                setEnemyIntentPreview(null);
                 setGameState(GameState.DUNGEON_RESULT);
               } else if (enemy.isBoss) {
                 setKillCount(0);
+                setEnemyIntentPreview(null);
                 setGameState(GameState.GAME_OVER);
               } else {
+                setEnemyIntentPreview(null);
                 setGameState(GameState.GAME_OVER);
               }
             }, 900);
@@ -1451,13 +1744,13 @@ export const useBattleController = ({
       return;
     }
 
-    const defensiveReactionBoost = playerAggressive ? 0.08 : 0;
-    const shouldDefend = canDefend && Math.random() < Math.min(0.65, simulatedEnemy.aiProfile.defendBaseChance + defensiveReactionBoost);
-    if (shouldDefend) {
-      useDefendAction('segurar a ofensiva');
+    if (executedIntent === 'defend' && canDefend) {
+      const activeEnemyImpulse = consumeEnemyImpulseForAction('defesa');
+      useDefendAction('segurar a ofensiva', activeEnemyImpulse);
       return;
     }
 
+    const activeEnemyImpulse = consumeEnemyImpulseForAction('ataque');
     simulatedEnemy = {
       ...simulatedEnemy,
       lastAction: 'attack',
@@ -1473,7 +1766,7 @@ export const useBattleController = ({
         attackerSpeed: simulatedEnemy.stats.speed,
         defenderSpeed: player.stats.speed,
         defenderHasPerfectEvade: player.buffs.perfectEvadeTurns > 0,
-        multiplier: getEnemyDamagePressure(simulatedEnemy, 'basic'),
+        multiplier: getEnemyDamagePressure(simulatedEnemy, 'basic') * (activeEnemyImpulse > 0 ? (1 + IMPULSE_ATTACK_DAMAGE_BONUS) : 1),
         luck: simulatedEnemy.stats.luck,
         attackKind: 'physical',
         defenderIsDefending: defendingActive,
@@ -1483,6 +1776,8 @@ export const useBattleController = ({
         critDamageBonus: simulatedEnemy.aiProfile.critDamageBonus,
         damageReduction: talentBonuses.damageReduction,
         defendMitigationBonus: talentBonuses.defendMitigation,
+        defenderDefenseIgnoreRatio: activeEnemyImpulse >= 2 ? IMPULSE_DEF_IGNORE_RATIO : 0,
+        forceCrit: activeEnemyImpulse >= 3,
       });
 
       if (attackResult.evaded) {
@@ -1498,7 +1793,9 @@ export const useBattleController = ({
         return;
       }
 
-      const finalDamage = defendingActive ? Math.floor(attackResult.damage * 0.5) : attackResult.damage;
+      const defendedDamage = defendingActive ? Math.floor(attackResult.damage * 0.5) : attackResult.damage;
+      const afterImpulseMitigation = extraImpulseMitigationActive ? Math.floor(defendedDamage * (1 - IMPULSE_DEFENSE_EXTRA_MITIGATION)) : defendedDamage;
+      const finalDamage = perfectGuardActive ? 0 : afterImpulseMitigation;
       const mitigatedDamage = defendingActive ? Math.max(0, attackResult.damage - finalDamage) : 0;
       const remainingHpAfterHit = Math.max(0, player.stats.hp - finalDamage);
       playAttackImpactSfx({
@@ -1581,11 +1878,14 @@ export const useBattleController = ({
               });
               setDungeonRun(null);
               setEnemy(null);
+              setEnemyIntentPreview(null);
               setGameState(GameState.DUNGEON_RESULT);
             } else if (enemy.isBoss) {
               setKillCount(0);
+              setEnemyIntentPreview(null);
               setGameState(GameState.GAME_OVER);
             } else {
+              setEnemyIntentPreview(null);
               setGameState(GameState.GAME_OVER);
             }
           }, 900);
@@ -1616,6 +1916,7 @@ export const useBattleController = ({
     clonePlayer,
     dungeonRun,
     enemy,
+    enemyIntentPreview,
     gameState,
     handleVictory,
     player,
@@ -1630,12 +1931,15 @@ export const useBattleController = ({
     setPlayerAnimationAction,
     setScreenShake,
     setTurnState,
+    playImpulseVisual,
     spawnFloatingText,
     spawnParticles,
     triggerEnemyAnimationAction,
   ]);
 
   return {
+    handleChargeImpulse,
+    handleAbsorbImpulse,
     handlePlayerAttack,
     handlePlayerDefense,
     handleSkill,

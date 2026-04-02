@@ -1,10 +1,11 @@
 import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Sword, Shield, Zap, Sparkles, FlaskConical } from 'lucide-react';
 import { Canvas, useFrame, useLoader, useThree } from '@react-three/fiber';
 import { ContactShadows, Html, PerspectiveCamera, useAnimations, useFBX, useTexture } from '@react-three/drei';
 import { Bloom, DepthOfField, EffectComposer, Vignette } from '@react-three/postprocessing';
 import * as THREE from 'three';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
-import { CardCategory, Enemy, FloatingText, Particle, Player, PlayerAnimationAction, PlayerClassAnimationMap, PlayerClassAssets, PlayerClassId, StatusEffect, TurnState } from '../types';
+import { CardCategory, Enemy, EnemyIntentPreview, FloatingText, Particle, Player, PlayerAnimationAction, PlayerClassAnimationMap, PlayerClassAssets, PlayerClassId, StatusEffect, TurnState } from '../types';
 import {
   RIGHT_HAND_BONE_CANDIDATES,
   RuntimeHeroAssets,
@@ -113,6 +114,8 @@ interface SceneProps {
   isEnemyHit?: boolean;
   hasPerfectEvadeAura?: boolean;
   hasDoubleAttackAura?: boolean;
+  impulseLevel?: number;
+  activeImpulseLevel?: number;
   screenShake?: number;
   isLevelingUp?: boolean;
   levelUpCardCategory?: CardCategory;
@@ -126,6 +129,7 @@ interface SceneProps {
   onMenuHeroClick?: () => void;
   playerState?: Player;
   enemyState?: Enemy | null;
+  enemyIntentPreview?: EnemyIntentPreview | null;
 }
 
 type AdaptiveQualityTier = 'desktop-like' | 'balanced' | 'performance';
@@ -853,13 +857,98 @@ const BattleActorStatusHud = ({
   </Html>
 );
 
-const HeroVoxel = ({ classId = 'knight', playerAnimationAction = 'idle', animationClipName, preferredAnimationBundle, onAvailableAnimationClipsChange, loadAllAnimationBundles = false, loadSecondaryAnimationBundles = true, previewLoopAllActions = false, isAttacking, isDefending, weaponId, armorId, helmetId, legsId, shieldId, isLevelingUp, levelUpCardCategory = 'especial', isMenuView = false, isHit, isPlayerCritHit, hasPerfectEvadeAura, hasDoubleAttackAura, contactShadowResolution = 256, idlePositionX = -2, attackPositionX = 0.5, defendPositionX = -1.5, originPosition = [-2, -1, 0], baseRotationY = 0.5, hiddenPartSlots, visiblePartSlots, runtimeAssetsOverride, calibrationOverride, debugRuntimeId, debugRuntimeLabel, onRuntimeDiagnosticChange, statusOverlay, onHeroClick }: any) => {
+const EnemyIntentOverlay = ({
+  intent,
+  isBoss,
+  show = true,
+}: {
+  intent?: EnemyIntentPreview | null;
+  isBoss?: boolean;
+  show?: boolean;
+}) => {
+  if (!intent || !show) return null;
+
+  const config = intent.type === 'attack'
+    ? { color: '#ef4444', Icon: Sword }
+    : intent.type === 'defend'
+      ? { color: '#60a5fa', Icon: Shield }
+      : intent.type === 'impulse'
+        ? { color: '#f59e0b', Icon: Zap }
+        : intent.type === 'skill'
+          ? { color: '#a855f7', Icon: Sparkles }
+          : { color: '#22c55e', Icon: FlaskConical };
+
+  return (
+    <Html center sprite distanceFactor={8.8} zIndexRange={[150, 0]} position={[2, isBoss ? 2.04 : 1.82, 0.1]}>
+      <div className="pointer-events-none flex items-center gap-1.5 select-none">
+        <span
+          className="inline-flex items-center justify-center rounded-full border-2 p-1.5"
+          style={{
+            backgroundColor: config.color,
+            borderColor: '#ffffff',
+            color: '#ffffff',
+            boxShadow: `0 0 16px ${config.color}cc`,
+          }}
+        >
+          <config.Icon size={15} strokeWidth={2.8} />
+        </span>
+        <span
+          className="text-sm font-black tracking-[0.14em]"
+          style={{
+            color: config.color,
+            WebkitTextStroke: '2.5px rgba(255,255,255,1)',
+            paintOrder: 'stroke fill',
+          }}
+        >
+          {intent.probability}%
+        </span>
+      </div>
+    </Html>
+  );
+};
+
+const EnemyImpulseAura = ({
+  level = 0,
+}: {
+  level?: number;
+}) => {
+  const groupRef = useRef<THREE.Group>(null);
+  const color = level >= 3 ? '#3b82f6' : level === 2 ? '#a855f7' : '#ef4444';
+
+  useFrame((state) => {
+    if (!groupRef.current) return;
+    groupRef.current.visible = level > 0;
+    groupRef.current.rotation.y -= 0.02 + (level * 0.003);
+    groupRef.current.position.y = -0.55 + Math.sin(state.clock.elapsedTime * 3.2) * 0.04;
+  });
+
+  if (level <= 0) return null;
+
+  return (
+    <group ref={groupRef} position={[2, -0.55, 0]}>
+      <mesh rotation={[Math.PI / 2, 0, 0]}>
+        <torusGeometry args={[0.9, 0.055, 8, 28]} />
+        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={1.1} transparent opacity={0.28} />
+      </mesh>
+      <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 0.16, 0]}>
+        <torusGeometry args={[0.72, 0.04, 8, 24]} />
+        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.95} transparent opacity={0.22} />
+      </mesh>
+      <pointLight color={color} intensity={0.95 + (level * 0.28)} distance={4.5} decay={2} position={[0, 0.62, 0.2]} />
+    </group>
+  );
+};
+
+const HeroVoxel = ({ classId = 'knight', playerAnimationAction = 'idle', animationClipName, preferredAnimationBundle, onAvailableAnimationClipsChange, loadAllAnimationBundles = false, loadSecondaryAnimationBundles = true, previewLoopAllActions = false, isAttacking, isDefending, weaponId, armorId, helmetId, legsId, shieldId, isLevelingUp, levelUpCardCategory = 'especial', isMenuView = false, isHit, isPlayerCritHit, hasPerfectEvadeAura, hasDoubleAttackAura, impulseLevel = 0, activeImpulseLevel = 0, contactShadowResolution = 256, idlePositionX = -2, attackPositionX = 0.5, defendPositionX = -1.5, originPosition = [-2, -1, 0], baseRotationY = 0.5, hiddenPartSlots, visiblePartSlots, runtimeAssetsOverride, calibrationOverride, debugRuntimeId, debugRuntimeLabel, onRuntimeDiagnosticChange, statusOverlay, onHeroClick }: any) => {
   const playerClass = getPlayerClassById(classId);
   const runtimeHeroAssets = runtimeAssetsOverride ?? (hasRuntimeFbxAssets(playerClass.assets) ? playerClass.assets : null);
   const group = useRef<THREE.Group>(null);
   const shieldRef = useRef<THREE.Group>(null);
   const phantomAuraRef = useRef<THREE.Group>(null);
   const twinAuraRef = useRef<THREE.Group>(null);
+  const impulseAuraRef = useRef<THREE.Group>(null);
+  const itemAuraRef = useRef<THREE.Group>(null);
+  const itemLightRef = useRef<THREE.PointLight>(null);
   const flashRef = useRef<number>(0);
   const wasHitRef = useRef(false);
   const flashMaterialsRef = useRef<THREE.Material[]>([]);
@@ -971,6 +1060,37 @@ const HeroVoxel = ({ classId = 'knight', playerAnimationAction = 'idle', animati
         child.rotation.z += 0.03 + index * 0.005;
       });
     }
+
+    if (impulseAuraRef.current) {
+      const auraVisible = activeImpulseLevel > 0;
+      const auraColor = activeImpulseLevel >= 3 ? '#3b82f6' : activeImpulseLevel === 2 ? '#a855f7' : '#ef4444';
+      impulseAuraRef.current.visible = auraVisible;
+      impulseAuraRef.current.rotation.y += 0.018 + (activeImpulseLevel * 0.004);
+      impulseAuraRef.current.position.y = 0.28 + Math.sin(state.clock.elapsedTime * 3.4) * 0.05;
+      impulseAuraRef.current.children.forEach((child) => {
+        if (child instanceof THREE.Mesh && child.material instanceof THREE.MeshStandardMaterial) {
+          child.material.color.set(auraColor);
+          child.material.emissive.set(auraColor);
+          child.material.opacity = 0.2 + (activeImpulseLevel * 0.08);
+        }
+      });
+    }
+
+    if (itemAuraRef.current) {
+      const activeItemAura = !isMenuView && playerAnimationAction === 'item';
+      itemAuraRef.current.visible = activeItemAura;
+      itemAuraRef.current.rotation.y += 0.14;
+      itemAuraRef.current.rotation.z += 0.028;
+      itemAuraRef.current.position.y = 0.38 + Math.sin(state.clock.elapsedTime * 5.8) * 0.06;
+      itemAuraRef.current.children.forEach((child, index) => {
+        child.rotation.x += 0.01 + (index * 0.004);
+        child.rotation.y += 0.016 + (index * 0.003);
+      });
+    }
+    if (itemLightRef.current) {
+      const target = !isMenuView && playerAnimationAction === 'item' ? 3.1 : 0;
+      itemLightRef.current.intensity = THREE.MathUtils.lerp(itemLightRef.current.intensity, target, 0.12);
+    }
   });
 
   const handleHeroClick = useCallback((event: any) => {
@@ -1044,9 +1164,35 @@ const HeroVoxel = ({ classId = 'knight', playerAnimationAction = 'idle', animati
           </mesh>
           <pointLight position={[0, 0.8, 0.25]} color="#fb923c" intensity={1.35} distance={4.2} decay={2} />
         </group>
+        <group ref={impulseAuraRef} position={[0, 0.28, 0]} visible={activeImpulseLevel > 0}>
+          <mesh rotation={[Math.PI / 2, 0, 0]}>
+            <torusGeometry args={[0.9, 0.06, 8, 28]} />
+            <meshStandardMaterial color="#ef4444" emissive="#ef4444" emissiveIntensity={1.0} transparent opacity={0.28} />
+          </mesh>
+          <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 0.18, 0]}>
+            <torusGeometry args={[0.7, 0.04, 8, 24]} />
+            <meshStandardMaterial color="#ef4444" emissive="#ef4444" emissiveIntensity={0.9} transparent opacity={0.2} />
+          </mesh>
+          <pointLight color="#ef4444" intensity={0.9 + (activeImpulseLevel * 0.4)} distance={4.6} decay={2} position={[0, 0.65, 0.2]} />
+        </group>
+        <group ref={itemAuraRef} position={[0, 0.35, 0]} visible={false}>
+          <mesh rotation={[Math.PI / 2, 0, 0]}>
+            <torusGeometry args={[1.02, 0.04, 10, 32]} />
+            <meshStandardMaterial color="#fbbf24" emissive="#f59e0b" emissiveIntensity={1.5} transparent opacity={0.44} />
+          </mesh>
+          <mesh rotation={[0.9, 0, 0]} position={[0, 0.22, 0]}>
+            <torusGeometry args={[0.86, 0.03, 8, 26]} />
+            <meshStandardMaterial color="#67e8f9" emissive="#22d3ee" emissiveIntensity={1.35} transparent opacity={0.34} />
+          </mesh>
+          <mesh rotation={[0.35, Math.PI / 2, 0]} position={[0, 0.42, 0]}>
+            <torusGeometry args={[0.74, 0.025, 8, 22]} />
+            <meshStandardMaterial color="#c4b5fd" emissive="#a855f7" emissiveIntensity={1.2} transparent opacity={0.3} />
+          </mesh>
+        </group>
         <ContactShadows opacity={0.35} scale={3} blur={1.8} far={2} resolution={contactShadowResolution} />
         <pointLight ref={damageLightRef} color="#ef4444" intensity={0} distance={8} decay={2.5} position={[0, 0.8, 0.3]} />
         <pointLight ref={healLightRef} color="#86efac" intensity={0} distance={9} decay={2.5} position={[0, 0.8, 0.3]} />
+        <pointLight ref={itemLightRef} color="#fbbf24" intensity={0} distance={6.2} decay={2} position={[0, 0.95, 0.25]} />
       </group>
       
       {/* Energy Shield Effect */}
@@ -1358,6 +1504,8 @@ export const GameScene: React.FC<SceneProps> = (props) => {
           isPlayerCritHit={props.isPlayerCritHit}
           hasPerfectEvadeAura={props.hasPerfectEvadeAura}
           hasDoubleAttackAura={props.hasDoubleAttackAura}
+          impulseLevel={props.impulseLevel}
+          activeImpulseLevel={props.activeImpulseLevel}
           contactShadowResolution={quality.contactShadowResolution}
           loadSecondaryAnimationBundles
           onHeroClick={props.isMenuView ? props.onMenuHeroClick : undefined}
@@ -1379,6 +1527,14 @@ export const GameScene: React.FC<SceneProps> = (props) => {
           contactShadowResolution={quality.contactShadowResolution}
           statusOverlay={enemyOverlay}
         />
+        )}
+        {!props.isMenuView && <EnemyImpulseAura level={props.enemyState?.impulso ?? 0} />}
+        {!props.isMenuView && (
+          <EnemyIntentOverlay
+            intent={props.enemyIntentPreview}
+            isBoss={props.isEnemyBoss}
+            show={props.turnState === TurnState.PLAYER_INPUT}
+          />
         )}
         {!props.isMenuView && (
         <CombatCinematicFX

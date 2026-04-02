@@ -37,6 +37,8 @@ export const INITIAL_PLAYER: Player = {
     mpRegenPerTurn: 0,
   },
   isDefending: false,
+  impulso: 0,
+  impulsoAtivo: 0,
   limitMeter: 0,
   buffs: {
     atkMod: 0,
@@ -50,5 +52,9 @@ export const INITIAL_PLAYER: Player = {
     riposteArmed: false,
     counterChanceBoost: 0,
     counterChanceBoostTurns: 0,
+    perfectGuardTurns: 0,
+    impulseDefenseBoostTurns: 0,
+    guaranteedCounterTurns: 0,
+    skillEmpowerTurns: 0,
   },
 };

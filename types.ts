@@ -450,6 +450,8 @@ export interface Player {
   chosenCards: string[];
   cardBonuses: PlayerCardBonuses;
   isDefending: boolean;
+  impulso: number; // 0-3 reserve charge
+  impulsoAtivo: number; // 0-3 consumed by next attack/defend/skill
   limitMeter: number; // 0 to 100
   buffs: {
     atkMod: number;
@@ -463,7 +465,18 @@ export interface Player {
     riposteArmed: boolean;
     counterChanceBoost: number;
     counterChanceBoostTurns: number;
+    perfectGuardTurns: number;
+    impulseDefenseBoostTurns: number;
+    guaranteedCounterTurns: number;
+    skillEmpowerTurns: number;
   };
+}
+
+export type EnemyIntentType = 'attack' | 'defend' | 'impulse' | 'skill' | 'item';
+
+export interface EnemyIntentPreview {
+  type: EnemyIntentType;
+  probability: number;
 }
 
 export interface Enemy {
@@ -480,6 +493,8 @@ export interface Enemy {
   isBoss: boolean;
   isSubBoss?: boolean;
   isDefending: boolean;
+  impulso: number;
+  impulseGuardLevel?: number;
   statusEffects?: StatusEffect[];
   assets?: PlayerClassAssets;
   attackStyle?: 'armed' | 'unarmed';

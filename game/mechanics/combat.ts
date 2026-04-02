@@ -20,6 +20,8 @@ interface CalculateDamageInput {
   critDamageBonus?: number;
   damageReduction?: number;
   defendMitigationBonus?: number;
+  defenderDefenseIgnoreRatio?: number;
+  forceCrit?: boolean;
 }
 
 export interface DamageResult {
@@ -46,6 +48,10 @@ export const createEmptyBuffState = (): Player['buffs'] => ({
   riposteArmed: false,
   counterChanceBoost: 0,
   counterChanceBoostTurns: 0,
+  perfectGuardTurns: 0,
+  impulseDefenseBoostTurns: 0,
+  guaranteedCounterTurns: 0,
+  skillEmpowerTurns: 0,
 });
 
 export const consumeTurnBuffs = (buffs: Player['buffs']): Player['buffs'] => {
@@ -56,6 +62,10 @@ export const consumeTurnBuffs = (buffs: Player['buffs']): Player['buffs'] => {
   if (nextBuffs.autoGuardTurns > 0) nextBuffs.autoGuardTurns--;
   if (nextBuffs.perfectEvadeTurns > 0) nextBuffs.perfectEvadeTurns--;
   if (nextBuffs.doubleAttackTurns > 0) nextBuffs.doubleAttackTurns--;
+  if (nextBuffs.perfectGuardTurns > 0) nextBuffs.perfectGuardTurns--;
+  if (nextBuffs.impulseDefenseBoostTurns > 0) nextBuffs.impulseDefenseBoostTurns--;
+  if (nextBuffs.guaranteedCounterTurns > 0) nextBuffs.guaranteedCounterTurns--;
+  if (nextBuffs.skillEmpowerTurns > 0) nextBuffs.skillEmpowerTurns--;
   if (nextBuffs.counterChanceBoostTurns > 0) {
     nextBuffs.counterChanceBoostTurns--;
     if (nextBuffs.counterChanceBoostTurns <= 0) {
@@ -110,6 +120,8 @@ export const calculateDamage = ({
   critDamageBonus = 0,
   damageReduction = 0,
   defendMitigationBonus = 0,
+  defenderDefenseIgnoreRatio = 0,
+  forceCrit = false,
 }: CalculateDamageInput): DamageResult => {
   let finalAtk = attackerAtk;
   let finalDef = defenderDef;
@@ -120,6 +132,11 @@ export const calculateDamage = ({
 
   if (applyDefenseBuff && defenderBuffs && defenderBuffs.defTurns > 0) {
     finalDef *= (1 + defenderBuffs.defMod);
+  }
+
+  if (defenderDefenseIgnoreRatio > 0) {
+    const normalizedIgnore = Math.max(0, Math.min(0.95, defenderDefenseIgnoreRatio));
+    finalDef *= (1 - normalizedIgnore);
   }
 
   const evadeChance = getEvadeChance(
@@ -142,7 +159,7 @@ export const calculateDamage = ({
   const base = Math.max(1, finalAtk - (finalDef * 0.3));
   const variance = Math.random() * 0.2 + 0.9;
   const critChance = Math.max(0.02, Math.min(0.45, 0.04 + (luck * 0.012) + critChanceBonus));
-  const isCrit = Math.random() < critChance;
+  const isCrit = forceCrit || Math.random() < critChance;
   const critMult = isCrit ? Math.min(2.6, 1.5 + critDamageBonus) : 1;
   const defenseMitigation = defenderIsDefending ? defendMitigationBonus : 0;
   const totalDamageReduction = Math.max(0, Math.min(0.8, damageReduction + defenseMitigation));

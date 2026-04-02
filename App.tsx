@@ -11,7 +11,7 @@ import { ARModeOverlay } from './components/ARModeOverlay';
 import { ARCameraFallbackOverlay } from './components/ARCameraFallbackOverlay';
 import { ARFallback3DOverlay } from './components/ARFallback3DOverlay';
 import { 
-    Player, Enemy, GameState, TurnState, BattleLog, Item, Skill, Stats, Particle, FloatingText, ProgressionCard, CardRewardOffer, AlchemistCardOffer, AlchemistItemOffer, DungeonRunState, DungeonResult, DungeonRewards, EnemyTemplate, DungeonEnemyTemplate, DungeonBossTemplate, PlayerAnimationAction, BossVictoryContext, CardCategory, ArEntryPoint
+    Player, Enemy, EnemyIntentPreview, GameState, TurnState, BattleLog, Item, Skill, Stats, Particle, FloatingText, ProgressionCard, CardRewardOffer, AlchemistCardOffer, AlchemistItemOffer, DungeonRunState, DungeonResult, DungeonRewards, EnemyTemplate, DungeonEnemyTemplate, DungeonBossTemplate, PlayerAnimationAction, BossVictoryContext, CardCategory, ArEntryPoint
 } from './types';
 import { 
     INITIAL_PLAYER, SHOP_ITEMS, ALL_ITEMS, MATERIALS, SKILLS, ENEMY_DATA, ENEMY_COLORS, DUNGEON_ENEMY_DATA, DUNGEON_BOSS, ALCHEMIST_ITEM_OFFERS 
@@ -128,7 +128,15 @@ export default function App() {
         statusEffects: [...source.statusEffects],
         chosenCards: [...source.chosenCards],
         cardBonuses: { ...source.cardBonuses },
-        buffs: { ...source.buffs },
+        impulso: Math.max(0, Math.min(3, source.impulso ?? 0)),
+        impulsoAtivo: Math.max(0, Math.min(3, source.impulsoAtivo ?? 0)),
+        buffs: {
+            ...source.buffs,
+            perfectGuardTurns: source.buffs.perfectGuardTurns ?? 0,
+            impulseDefenseBoostTurns: source.buffs.impulseDefenseBoostTurns ?? 0,
+            guaranteedCounterTurns: source.buffs.guaranteedCounterTurns ?? 0,
+            skillEmpowerTurns: source.buffs.skillEmpowerTurns ?? 0,
+        },
     });
 
     const cloneBattleLogs = (source: BattleLog[]): BattleLog[] => source.map((entry) => ({ ...entry }));
@@ -456,6 +464,7 @@ export default function App() {
   const [turnState, setTurnState] = useState<TurnState>(TurnState.PLAYER_INPUT);
     const [player, setPlayer] = useState<Player>(() => clonePlayer(INITIAL_PLAYER));
   const [enemy, setEnemy] = useState<Enemy | null>(null);
+  const [enemyIntentPreview, setEnemyIntentPreview] = useState<EnemyIntentPreview | null>(null);
   const [logs, setLogs] = useState<BattleLog[]>([]);
   const [narration, setNarration] = useState<string>("");
   
@@ -1523,6 +1532,8 @@ export default function App() {
       isBoss,
       isSubBoss: isSubBossEncounter,
             isDefending: false,
+            impulso: 0,
+            impulseGuardLevel: 0,
             statusEffects: [],
                 assets: enemyTemplate.assets,
       attackStyle: enemyTemplate.attackStyle,
@@ -1557,6 +1568,10 @@ export default function App() {
             },
     };
 
+    setEnemyIntentPreview({
+        type: Math.random() < Math.max(0.2, Math.min(0.8, combatProfile.defendBaseChance + 0.35)) ? 'defend' : 'attack',
+        probability: 80,
+    });
     setEnemy(newEnemy);
         setEnemyAnimationAction('battle-idle');
         if (newEnemy.combatBuffs.turns > 0) {
@@ -2114,7 +2129,15 @@ export default function App() {
           allowPotionDrops: hasPlayerDiedOnce,
   });
 
-  const { handlePlayerAttack, handlePlayerDefense, handleSkill, handleUseItem, handleEnemyTurn } = useBattleController({
+  const {
+    handleChargeImpulse,
+    handleAbsorbImpulse,
+    handlePlayerAttack,
+    handlePlayerDefense,
+    handleSkill,
+    handleUseItem,
+    handleEnemyTurn,
+  } = useBattleController({
     player,
     enemy,
     gameState,
@@ -2145,6 +2168,8 @@ export default function App() {
     setIsPlayerCritHit,
     setIsEnemyHit,
     setScreenShake,
+    setEnemyIntentPreview,
+    enemyIntentPreview,
         onPlayerDefeat: () => setHasPlayerDiedOnce(true),
   });
 
@@ -2153,6 +2178,12 @@ export default function App() {
       handleEnemyTurn();
     }
   }, [enemy, gameState, handleEnemyTurn, turnState]);
+
+  useEffect(() => {
+    if (!enemy) {
+      setEnemyIntentPreview(null);
+    }
+  }, [enemy]);
 
     useEffect(() => {
             const hasPendingCardChoice = Boolean(currentCardOffer) || currentCardChoices.length > 0 || cardRewardQueue.length > 0;
@@ -2900,6 +2931,8 @@ export default function App() {
                         isEnemyHit={isEnemyHit}
                         hasPerfectEvadeAura={player.buffs.perfectEvadeTurns > 0}
                         hasDoubleAttackAura={player.buffs.doubleAttackTurns > 0}
+                        impulseLevel={player.impulso}
+                        activeImpulseLevel={player.impulsoAtivo}
                         screenShake={screenShake}
                         isLevelingUp={isLevelingUp}
                         levelUpCardCategory={levelUpCardCategory}
@@ -2908,6 +2941,7 @@ export default function App() {
                         isDungeonRun={Boolean(dungeonRun)}
                         playerState={player}
                         enemyState={enemy}
+                        enemyIntentPreview={enemyIntentPreview}
                         isArCameraMode={isArCameraOpen}
                         isMenuView={resolvedGameState === GameState.TAVERN}
                         menuCameraFocus={shouldMenuCameraFocus}
@@ -3074,8 +3108,11 @@ export default function App() {
             logs={logs}
             onAttack={handlePlayerAttack}
             onDefend={handlePlayerDefense}
+            onChargeImpulse={handleChargeImpulse}
+            onAbsorbImpulse={handleAbsorbImpulse}
             onSkill={handleSkill}
             onUseItem={handleUseItem}
+            enemyIntentPreview={enemyIntentPreview}
             onUnlockTalent={handleUnlockTalent}
             onResetTalents={handleResetTalents}
             onStartBattle={(isBoss) => enterBattle(isBoss)}
