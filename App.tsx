@@ -1270,6 +1270,9 @@ export default function App() {
             }
 
             addLog(`Constelacao: ${result.node.title} ativada.`, 'buff');
+            if (hasUnlockedMusic) {
+                uiSfx.play('evolution_point');
+            }
             const unlockedAfter = result.player.unlockedTalentNodeIds.length;
             if (!constellationRespecPromptSeen && unlockedBefore < 2 && unlockedAfter >= 2) {
                 setConstellationRespecPromptSeen(true);
@@ -1286,6 +1289,9 @@ export default function App() {
                 return prev;
             }
             addLog('Pontos de constelacao redistribuidos.', 'info');
+            if (hasUnlockedMusic) {
+                uiSfx.play('evolution_point_redistribute');
+            }
             return nextPlayer;
         });
     };
@@ -1420,6 +1426,7 @@ export default function App() {
         const offerPhaseLevel = Math.max(1, nextOffer.phaseLevel ?? currentPlayer.level);
         setCurrentCardChoices(generateCardChoices(nextOffer.source, currentPlayer, offerPhaseLevel));
         setCardRewardQueue(remainingOffers);
+        uiSfx.play('open_cards_evolution');
         setGameState(GameState.CARD_REWARD);
         return true;
     };
@@ -2298,6 +2305,9 @@ export default function App() {
   const buyItem = (item: Item, quantity = 1) => {
       const safeQuantity = Math.max(1, Math.floor(quantity));
       setPlayer((p) => buyItemForPlayer(p, item, safeQuantity));
+      if (hasUnlockedMusic) {
+          uiSfx.play('shop_sold');
+      }
   };
 
   const buyAlchemistCard = (offer: AlchemistCardOffer) => {
@@ -2351,6 +2361,18 @@ export default function App() {
   const equipItem = (item: Item) => {
       if (gameState === GameState.BATTLE) {
           addLog('Durante a batalha voce nao pode trocar equipamento. Abra a mochila apenas para consultar.', 'info');
+          return;
+      }
+
+      const currentlyEquipped = (
+          item.type === 'weapon' ? player.equippedWeapon
+          : item.type === 'armor' ? player.equippedArmor
+          : item.type === 'helmet' ? player.equippedHelmet
+          : item.type === 'legs' ? player.equippedLegs
+          : item.type === 'shield' ? player.equippedShield
+          : null
+      );
+      if (currentlyEquipped?.id === item.id) {
           return;
       }
 
@@ -2417,11 +2439,26 @@ export default function App() {
               equippedShield: newShield
           };
       });
+
+      if (hasUnlockedMusic) {
+          uiSfx.play('item_equip');
+      }
   };
 
   const unequipItem = (item: Item) => {
       if (gameState === GameState.BATTLE) {
           addLog('Durante a batalha voce nao pode trocar equipamento. Abra a mochila apenas para consultar.', 'info');
+          return;
+      }
+
+      const isEquipped = (
+          (item.type === 'weapon' && player.equippedWeapon?.id === item.id)
+          || (item.type === 'armor' && player.equippedArmor?.id === item.id)
+          || (item.type === 'helmet' && player.equippedHelmet?.id === item.id)
+          || (item.type === 'legs' && player.equippedLegs?.id === item.id)
+          || (item.type === 'shield' && player.equippedShield?.id === item.id)
+      );
+      if (!isEquipped) {
           return;
       }
 
@@ -2464,11 +2501,18 @@ export default function App() {
               equippedShield: newShield,
           };
       });
+
+      if (hasUnlockedMusic) {
+          uiSfx.play('item_equip_off');
+      }
   };
 
   const sellItem = (item: Item, quantity = 1) => {
       const safeQuantity = Math.max(1, Math.floor(quantity));
       setPlayer((p) => sellItemFromPlayer(p, item, safeQuantity));
+      if (hasUnlockedMusic) {
+          uiSfx.play('shop_sell');
+      }
   };
 
     const resolvedGameState = (() => {
@@ -3049,14 +3093,25 @@ export default function App() {
                 setShopReturnToInventory(false);
                 setOpenInventoryFromShopToken(0);
                 setOpenInventoryFromShopFilter('all');
+                if (hasUnlockedMusic) {
+                    uiSfx.play('modal_open');
+                }
                 setGameState(GameState.SHOP);
             }}
             onShopFromInventory={(filter) => {
                 setShopReturnToInventory(true);
                 setShopReturnInventoryFilter(filter);
+                if (hasUnlockedMusic) {
+                    uiSfx.play('modal_open');
+                }
                 setGameState(GameState.SHOP);
             }}
-                        onAlchemist={() => setGameState(GameState.ALCHEMIST)}
+                        onAlchemist={() => {
+                            if (hasUnlockedMusic) {
+                                uiSfx.play('modal_open');
+                            }
+                            setGameState(GameState.ALCHEMIST);
+                        }}
             onOpenAr={() => handleOpenAr('tavern')}
             arSupport={arSupport}
             shopItems={ALL_ITEMS}
@@ -3125,6 +3180,9 @@ export default function App() {
                     setOpenInventoryFromShopToken((prev) => prev + 1);
                     setShopReturnToInventory(false);
                 }
+                if (hasUnlockedMusic) {
+                    uiSfx.play('modal_close');
+                }
                 setGameState(GameState.TAVERN);
             }} 
         />
@@ -3137,7 +3195,12 @@ export default function App() {
                     itemOffers={ALCHEMIST_ITEM_OFFERS}
                         onBuyCard={buyAlchemistCard}
                     onBuyItem={buyAlchemistItem}
-                        onLeave={() => setGameState(GameState.TAVERN)}
+                            onLeave={() => {
+                                if (hasUnlockedMusic) {
+                                    uiSfx.play('modal_close');
+                                }
+                                setGameState(GameState.TAVERN);
+                            }}
                 />
             )}
 

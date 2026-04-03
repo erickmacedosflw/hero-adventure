@@ -1,9 +1,20 @@
 import { Howl, Howler } from 'howler';
 
 const uiSfxConfig = {
-  click_in: { file: 'click_in.mp3', volume: 0.5, cooldownMs: 35 },
-  click_out: { file: 'click_out.mp3', volume: 0.5, cooldownMs: 50 },
-  new_mechanic_modal: { file: 'modal_nova_mecanica.wav', volume: 0.64, cooldownMs: 220 },
+  click_in: { src: new URL('./effects/click_in.mp3', import.meta.url).href, volume: 0.5, cooldownMs: 35 },
+  click_out: { src: new URL('./effects/click_out.mp3', import.meta.url).href, volume: 0.5, cooldownMs: 50 },
+  new_mechanic_modal: { src: new URL('./effects/modal_nova_mecanica.wav', import.meta.url).href, volume: 0.64, cooldownMs: 220 },
+  modal_open: { src: new URL('./system/menu_open.wav', import.meta.url).href, volume: 1, cooldownMs: 120 },
+  modal_close: { src: new URL('./system/menu_close.wav', import.meta.url).href, volume: 0.7, cooldownMs: 120 },
+  item_equip: { src: new URL('./system/item_equip.wav', import.meta.url).href, volume: 0.66, cooldownMs: 90 },
+  item_equip_off: { src: new URL('./system/item_equip_off.wav', import.meta.url).href, volume: 0.66, cooldownMs: 90 },
+  evolution_point: { src: new URL('./system/evolution_point.wav', import.meta.url).href, volume: 0.72, cooldownMs: 80 },
+  evolution_point_redistribute: { src: new URL('./system/evolution_point_redistribuir.wav', import.meta.url).href, volume: 0.72, cooldownMs: 100 },
+  open_cards_evolution: { src: new URL('./system/open_cartas_evolucao.wav', import.meta.url).href, volume: 0.72, cooldownMs: 150 },
+  card_select_evolution: { src: new URL('./system/card_select_evolution.wav', import.meta.url).href, volume: 0.74, cooldownMs: 120 },
+  shop_sold: { src: new URL('./system/shop_sold.wav', import.meta.url).href, volume: 0.66, cooldownMs: 70 },
+  shop_sell: { src: new URL('./system/shop_sell.wav', import.meta.url).href, volume: 0.66, cooldownMs: 70 },
+  confirm_hunt_dungeon: { src: new URL('./system/confirm_caca_dungeon.wav', import.meta.url).href, volume: 0.68, cooldownMs: 130 },
 } as const;
 
 export type UiSfxEvent = keyof typeof uiSfxConfig;
@@ -21,7 +32,7 @@ class UiSfxManager {
 
     const config = uiSfxConfig[event];
     const sound = new Howl({
-      src: [new URL(`./effects/${config.file}`, import.meta.url).href],
+      src: [config.src],
       preload: true,
       html5: false,
       volume: config.volume,

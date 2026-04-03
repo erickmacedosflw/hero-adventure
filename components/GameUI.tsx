@@ -12,6 +12,7 @@ import { ALL_CARDS } from '../game/data/cards';
 import { getPlayerClassById } from '../game/data/classes';
 import { getTalentBonuses } from '../game/mechanics/classProgression';
 import { getNewlyUnlockedShopRarityByStage } from '../game/mechanics/shopProgression';
+import { uiSfx } from '../game/audio/uiSfx';
 
 interface GameUIProps {
   player: Player;
@@ -1053,17 +1054,34 @@ export const TavernScreen: React.FC<{
     const availableConstellationPoints = Math.max(0, player.talentPoints);
     const openProfileModal = (initialTab?: 'overview' | 'cards' | 'skills' | 'constellation') => {
         setProfileInitialTab(initialTab);
+        if (!showProfile) {
+            uiSfx.play('modal_open');
+        }
         setShowProfile(true);
+    };
+    const closeProfileModal = () => {
+        if (!showProfile) {
+            return;
+        }
+        setShowProfile(false);
+        uiSfx.play('modal_close');
     };
     const openInventoryModal = (initialFilter: 'all' | 'equipment' | 'potion' | 'material' = 'all', fromProfile = false) => {
         setInventoryInitialFilter(initialFilter);
         setReturnToProfileOnInventoryClose(fromProfile);
+        if (!showInventory) {
+            uiSfx.play('modal_open');
+        }
         setShowInventory(true);
     };
     const closeInventoryModal = () => {
+        if (showInventory) {
+            uiSfx.play('modal_close');
+        }
         setShowInventory(false);
         if (returnToProfileOnInventoryClose) {
             setReturnToProfileOnInventoryClose(false);
+            uiSfx.play('modal_open');
             setShowProfile(true);
         }
     };
@@ -1195,7 +1213,7 @@ export const TavernScreen: React.FC<{
 
     const handleMenuTransition = (target: 'hunt' | 'dungeon') => {
         if (isClosing) return;
-        if (target === 'hunt' && campIntroOnly) {
+        if (target === 'hunt') {
             setShowHuntIntroConfirm(true);
             return;
         }
@@ -1212,12 +1230,14 @@ export const TavernScreen: React.FC<{
 
     const confirmEnterDungeon = () => {
         setShowDungeonConfirm(false);
+        uiSfx.play('confirm_hunt_dungeon');
         setIsClosing(true);
         setTimeout(() => { onDungeon(); }, 240);
     };
 
     const confirmEnterHunt = () => {
         setShowHuntIntroConfirm(false);
+        uiSfx.play('confirm_hunt_dungeon');
         setIsClosing(true);
         setTimeout(() => { onHunt(); }, 240);
     };
@@ -1227,6 +1247,9 @@ export const TavernScreen: React.FC<{
         setTimeout(() => { action(); }, 240);
     };
     const openShopFromInventory = () => {
+        if (showInventory) {
+            uiSfx.play('modal_close');
+        }
         setShowInventory(false);
         setReturnToProfileOnInventoryClose(false);
         if (onShopFromInventory) {
@@ -1427,7 +1450,7 @@ export const TavernScreen: React.FC<{
             </div>
     <AnimatedModal open={showProfile}>
         {(isClosing) => (
-            <CharacterSheetModal player={player} shopItems={shopItems} onClose={() => setShowProfile(false)} onOpenInventory={(initialFilter) => { setShowProfile(false); openInventoryModal(initialFilter ?? 'all', true); }} onUnlockTalent={onUnlockTalent} onResetTalents={onResetTalents} respecUnlockPromptActive={constellationRespecUnlockPromptActive} onAcknowledgeRespecUnlock={onAcknowledgeConstellationRespecUnlock} isClosing={isClosing} restrictToStatusOnly={restrictProfileToStatusOnly} allowInventory={inventoryUnlocked} allowCardsTab={allowCardsInProfile} allowSkillsTab={showSkillsAction} allowConstellationTab={hasConstellationUnlocked} initialTab={profileInitialTab} />
+            <CharacterSheetModal player={player} shopItems={shopItems} onClose={closeProfileModal} onOpenInventory={(initialFilter) => { closeProfileModal(); openInventoryModal(initialFilter ?? 'all', true); }} onUnlockTalent={onUnlockTalent} onResetTalents={onResetTalents} respecUnlockPromptActive={constellationRespecUnlockPromptActive} onAcknowledgeRespecUnlock={onAcknowledgeConstellationRespecUnlock} isClosing={isClosing} restrictToStatusOnly={restrictProfileToStatusOnly} allowInventory={inventoryUnlocked} allowCardsTab={allowCardsInProfile} allowSkillsTab={showSkillsAction} allowConstellationTab={hasConstellationUnlocked} initialTab={profileInitialTab} />
         )}
     </AnimatedModal>
     <AnimatedModal open={showInventory}>
@@ -1795,6 +1818,7 @@ export const CardChoiceScreen: React.FC<{ offer: CardRewardOffer, cards: Progres
 
     const handlePick = (card: ProgressionCard) => {
         if (selectedId) return;
+        uiSfx.play('card_select_evolution');
         setSelectedId(card.id);
         setTimeout(() => {
             setIsExiting(true);
@@ -2668,14 +2692,30 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
         const hasConstellationUnlocked = player.talentPoints > 0 || player.unlockedTalentNodeIds.length > 0;
     const openProfileModal = (initialTab?: 'overview' | 'cards' | 'skills' | 'constellation') => {
         setProfileInitialTab(initialTab);
+        if (!showProfile) {
+            uiSfx.play('modal_open');
+        }
         setShowProfile(true);
+    };
+    const closeProfileModal = () => {
+        if (!showProfile) {
+            return;
+        }
+        setShowProfile(false);
+        uiSfx.play('modal_close');
     };
     const openInventoryModal = (initialFilter: 'all' | 'equipment' | 'potion' | 'material' = 'all', fromProfile = false) => {
         setInventoryInitialFilter(initialFilter);
         setReturnToProfileOnInventoryClose(fromProfile);
+        if (!showInventory) {
+            uiSfx.play('modal_open');
+        }
         setShowInventory(true);
     };
     const closeInventoryModal = () => {
+        if (showInventory) {
+            uiSfx.play('modal_close');
+        }
         setShowInventory(false);
         if (resumeBattleAfterInventoryPrompt) {
             setResumeBattleAfterInventoryPrompt(false);
@@ -2683,6 +2723,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
         }
         if (returnToProfileOnInventoryClose) {
             setReturnToProfileOnInventoryClose(false);
+            uiSfx.play('modal_open');
             setShowProfile(true);
         }
     };
@@ -3910,7 +3951,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
 
         <AnimatedModal open={showProfile}>
           {(isClosing) => (
-            <CharacterSheetModal player={player} shopItems={shopItems} onClose={() => setShowProfile(false)} onOpenInventory={(initialFilter) => { setShowProfile(false); openInventoryModal(initialFilter ?? 'all', true); }} onUnlockTalent={onUnlockTalent} onResetTalents={onResetTalents} respecUnlockPromptActive={constellationRespecUnlockPromptActive} onAcknowledgeRespecUnlock={onAcknowledgeConstellationRespecUnlock} isClosing={isClosing} restrictToStatusOnly={restrictProfileToStatusOnly} allowInventory={inventoryUnlocked} allowCardsTab={allowCardsInProfile} allowSkillsTab={showSkillsAction} allowConstellationTab={hasConstellationUnlocked} initialTab={profileInitialTab} />
+                        <CharacterSheetModal player={player} shopItems={shopItems} onClose={closeProfileModal} onOpenInventory={(initialFilter) => { closeProfileModal(); openInventoryModal(initialFilter ?? 'all', true); }} onUnlockTalent={onUnlockTalent} onResetTalents={onResetTalents} respecUnlockPromptActive={constellationRespecUnlockPromptActive} onAcknowledgeRespecUnlock={onAcknowledgeConstellationRespecUnlock} isClosing={isClosing} restrictToStatusOnly={restrictProfileToStatusOnly} allowInventory={inventoryUnlocked} allowCardsTab={allowCardsInProfile} allowSkillsTab={showSkillsAction} allowConstellationTab={hasConstellationUnlocked} initialTab={profileInitialTab} />
           )}
         </AnimatedModal>
         <AnimatedModal open={showInventory}>

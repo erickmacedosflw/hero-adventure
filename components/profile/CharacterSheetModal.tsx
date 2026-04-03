@@ -268,9 +268,11 @@ const ConstellationNodeCard = ({
   player: Player;
   onUnlockTalent: (nodeId: string) => void;
 }) => {
+  const [unlockFlash, setUnlockFlash] = useState(false);
   const isUnlocked = player.unlockedTalentNodeIds.includes(node.id);
   const unlockState = canUnlockTalentNode(player, node.id);
   const isAvailable = unlockState.ok;
+  const classAccentColor = getPlayerClassById(player.classId).visualProfile.secondaryColor;
   const unlockedSkillId = node.effects.find((effect) => Boolean(effect.unlockSkillId))?.unlockSkillId;
   const unlockedSkill = unlockedSkillId ? SKILLS.find((skill) => skill.id === unlockedSkillId) : null;
   const resourceCost = unlockedSkill?.resourceEffect?.cost ?? 0;
@@ -283,17 +285,38 @@ const ConstellationNodeCard = ({
     color: player.classResource.color,
   };
 
+  const handleUnlockClick = () => {
+    if (!isAvailable) {
+      return;
+    }
+
+    setUnlockFlash(true);
+    window.setTimeout(() => {
+      setUnlockFlash(false);
+    }, 980);
+    onUnlockTalent(node.id);
+  };
+
   return (
     <button
-      onClick={() => isAvailable && onUnlockTalent(node.id)}
+      onClick={handleUnlockClick}
       disabled={!isAvailable}
-      className={`rounded-[20px] border p-3 text-left transition-all ${isUnlocked
+      className={`relative overflow-hidden rounded-[20px] border p-3 text-left transition-all ${isUnlocked
         ? 'border-transparent text-white shadow-[0_16px_34px_rgba(15,23,42,0.18)]'
         : isAvailable
-          ? 'border-[#cfab91] bg-[#fff7ed] text-[#6b3141] hover:-translate-y-0.5 hover:border-[#b98774]'
+          ? 'border-[#cfab91] bg-[#fff7ed] text-[#6b3141] hover:-translate-y-0.5 hover:border-[#b98774] hover:shadow-[0_10px_24px_rgba(239,189,93,0.28)]'
           : 'border-[#dcc0aa] bg-[#f4e7d5] text-[#8f6c67]'}`}
       style={isUnlocked ? { background: `linear-gradient(135deg, ${node.color}, #6b3141)` } : undefined}
     >
+      {unlockFlash && (
+        <span
+          className="pointer-events-none absolute inset-0 z-10"
+          style={{
+            animation: 'constellationUnlockFlash 980ms ease-out forwards',
+            background: `radial-gradient(circle at center, rgba(255,255,255,0.92) 0%, ${classAccentColor}bb 42%, transparent 84%)`,
+          }}
+        />
+      )}
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-3">
           <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border text-xl ${isUnlocked ? 'border-white/25 bg-white/10' : 'border-[#dcc0aa] bg-[#f8eddf]'}`}>
@@ -585,6 +608,20 @@ export const CharacterSheetModal = ({ player, shopItems: _shopItems, onClose, on
             100% {
               transform: scale(1);
               box-shadow: 0 10px 24px rgba(232, 168, 72, 0.34);
+            }
+          }
+          @keyframes constellationUnlockFlash {
+            0% {
+              opacity: 0;
+              transform: scale(0.72);
+            }
+            24% {
+              opacity: 0.95;
+              transform: scale(1.08);
+            }
+            100% {
+              opacity: 0;
+              transform: scale(1.32);
             }
           }
         `}</style>
