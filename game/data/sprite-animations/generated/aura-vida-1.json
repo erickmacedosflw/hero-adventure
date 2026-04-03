@@ -1,0 +1,370 @@
+{
+  "id": "sprite_anim_1775183434000",
+  "version": 1,
+  "name": "aura-vida-1",
+  "spriteSheetName": "aura2.png",
+  "spriteSheetUrl": "game/sprites/aura2.png",
+  "referencePreview": {
+    "previewReference": "hero",
+    "heroClassId": "knight",
+    "enemyIndex": 0
+  },
+  "sheetSize": {
+    "width": 960,
+    "height": 960
+  },
+  "frameSource": {
+    "rows": 5,
+    "cols": 5,
+    "frames": [
+      {
+        "x": 0,
+        "y": 768,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 192,
+        "y": 768,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 384,
+        "y": 768,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 576,
+        "y": 768,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 768,
+        "y": 768,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 0,
+        "y": 576,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 192,
+        "y": 576,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 384,
+        "y": 576,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 576,
+        "y": 576,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 768,
+        "y": 576,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 0,
+        "y": 384,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 192,
+        "y": 384,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 384,
+        "y": 384,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 576,
+        "y": 384,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 768,
+        "y": 384,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 0,
+        "y": 192,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 192,
+        "y": 192,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 384,
+        "y": 192,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 576,
+        "y": 192,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 768,
+        "y": 192,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 0,
+        "y": 0,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 192,
+        "y": 0,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 384,
+        "y": 0,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 576,
+        "y": 0,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 768,
+        "y": 0,
+        "width": 192,
+        "height": 192
+      }
+    ]
+  },
+  "spriteTracks": [
+    {
+      "id": "track_yo8w9mh",
+      "name": "Track 1",
+      "enabled": true,
+      "spriteRows": 5,
+      "spriteCols": 5,
+      "invertRows": true,
+      "preserveFrameAspect": true,
+      "useOriginalFrameSize": true,
+      "originalSizeScale": 0.018750794159778813,
+      "startEmptyFrame": true,
+      "endEmptyFrame": true,
+      "rotationDeg": -180.00007324218748,
+      "playbackMode": "one-shot",
+      "stopOnLastFrame": true,
+      "tailLoopEnabled": true,
+      "tailLoopFrameCount": 4,
+      "tailLoopRepeats": 1,
+      "tailLoopPattern": "ping-pong",
+      "timelineStartFrame": 0,
+      "fps": 12,
+      "frameIndices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "anchorTarget": "hero",
+      "anchorPoint": "feet",
+      "offset3d": [
+        -0.07199645996093765,
+        0.7360012817382813,
+        -0.10200012207031253
+      ],
+      "size": [
+        3.600152478677532,
+        3.600152478677532
+      ],
+      "renderPriority": 0,
+      "depthTest": true,
+      "depthWrite": false,
+      "motionPreset": "none",
+      "motionAmplitude": 0.55,
+      "motionSpeed": 1,
+      "blendMode": "normal",
+      "opacity": 1,
+      "tintColor": "#ffffff",
+      "spriteSheetName": "aura2.png",
+      "spriteSheetPath": "game/sprites/aura2.png",
+      "spriteSheetUrl": "game/sprites/aura2.png",
+      "spriteSheetSize": {
+        "width": 960,
+        "height": 960
+      }
+    },
+    {
+      "id": "track_piwjryc",
+      "name": "Track 3",
+      "enabled": true,
+      "spriteRows": 5,
+      "spriteCols": 5,
+      "invertRows": true,
+      "preserveFrameAspect": true,
+      "useOriginalFrameSize": true,
+      "originalSizeScale": 0.014112437170290069,
+      "startEmptyFrame": true,
+      "endEmptyFrame": true,
+      "rotationDeg": 0,
+      "playbackMode": "one-shot",
+      "stopOnLastFrame": true,
+      "tailLoopEnabled": false,
+      "tailLoopFrameCount": 5,
+      "tailLoopRepeats": 0,
+      "tailLoopPattern": "forward",
+      "timelineStartFrame": 0,
+      "fps": 16,
+      "frameIndices": [
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24
+      ],
+      "anchorTarget": "hero",
+      "anchorPoint": "chest",
+      "offset3d": [
+        0.6480010986328125,
+        -0.35999847412109376,
+        0.6340010070800779
+      ],
+      "size": [
+        2.7095879366956934,
+        2.7095879366956934
+      ],
+      "renderPriority": 0,
+      "depthTest": true,
+      "depthWrite": false,
+      "motionPreset": "none",
+      "motionAmplitude": 0.55,
+      "motionSpeed": 1,
+      "blendMode": "normal",
+      "opacity": 1,
+      "tintColor": "#ffffff",
+      "spriteSheetName": "aura2.png",
+      "spriteSheetPath": "game/sprites/aura2.png",
+      "spriteSheetUrl": "game/sprites/aura2.png",
+      "spriteSheetSize": {
+        "width": 960,
+        "height": 960
+      }
+    },
+    {
+      "id": "track_akr5slk",
+      "name": "Track 3 (copia 4)",
+      "enabled": true,
+      "spriteRows": 5,
+      "spriteCols": 5,
+      "invertRows": true,
+      "preserveFrameAspect": true,
+      "useOriginalFrameSize": true,
+      "originalSizeScale": 0.014630006039151669,
+      "startEmptyFrame": true,
+      "endEmptyFrame": true,
+      "rotationDeg": 0,
+      "playbackMode": "one-shot",
+      "stopOnLastFrame": true,
+      "tailLoopEnabled": false,
+      "tailLoopFrameCount": 5,
+      "tailLoopRepeats": 0,
+      "tailLoopPattern": "forward",
+      "timelineStartFrame": 0,
+      "fps": 16,
+      "frameIndices": [
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24
+      ],
+      "anchorTarget": "hero",
+      "anchorPoint": "chest",
+      "offset3d": [
+        -0.2959991455078125,
+        -0.3439984130859376,
+        0.31400115966796843
+      ],
+      "size": [
+        2.700924191843385,
+        2.700924191843385
+      ],
+      "renderPriority": 0,
+      "depthTest": true,
+      "depthWrite": false,
+      "motionPreset": "none",
+      "motionAmplitude": 0.55,
+      "motionSpeed": 1,
+      "blendMode": "normal",
+      "opacity": 1,
+      "tintColor": "#ffffff",
+      "spriteSheetName": "aura2.png",
+      "spriteSheetPath": "game/sprites/aura2.png",
+      "spriteSheetUrl": "game/sprites/aura2.png",
+      "spriteSheetSize": {
+        "width": 960,
+        "height": 960
+      }
+    }
+  ]
+}

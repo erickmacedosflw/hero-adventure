@@ -1,0 +1,97 @@
+﻿{
+  "id": "sprite_anim_1775170754198",
+  "version": 1,
+  "name": "hit",
+  "spriteSheetName": "hit.png",
+  "spriteSheetUrl": "game/sprites/hit.png",
+  "referencePreview": {
+    "previewReference": "hero",
+    "heroClassId": "knight",
+    "enemyIndex": 0
+  },
+  "sheetSize": {
+    "width": 768,
+    "height": 192
+  },
+  "frameSource": {
+    "rows": 1,
+    "cols": 4,
+    "frames": [
+      {
+        "x": 0,
+        "y": 0,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 192,
+        "y": 0,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 384,
+        "y": 0,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 576,
+        "y": 0,
+        "width": 192,
+        "height": 192
+      }
+    ]
+  },
+  "spriteTracks": [
+    {
+      "id": "track_nguy9y8",
+      "name": "Track 1",
+      "enabled": true,
+      "spriteRows": 1,
+      "spriteCols": 4,
+      "invertRows": false,
+      "preserveFrameAspect": true,
+      "useOriginalFrameSize": true,
+      "originalSizeScale": 0.007843363023109737,
+      "startEmptyFrame": false,
+      "endEmptyFrame": true,
+      "rotationDeg": 0,
+      "playbackMode": "one-shot",
+      "stopOnLastFrame": true,
+      "fps": 16,
+      "frameIndices": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "anchorTarget": "hero",
+      "anchorPoint": "chest",
+      "offset3d": [
+        0.215999755859375,
+        -0.6959994506835938,
+        0.7620001220703125
+      ],
+      "size": [
+        2.174515200000001,
+        2.174515200000001
+      ],
+      "renderPriority": 0,
+      "depthTest": true,
+      "depthWrite": false,
+      "motionPreset": "none",
+      "motionAmplitude": 0.55,
+      "motionSpeed": 1,
+      "blendMode": "normal",
+      "opacity": 1,
+      "spriteSheetName": "hit.png",
+      "spriteSheetPath": "game/sprites/hit.png",
+      "spriteSheetUrl": "game/sprites/hit.png",
+      "spriteSheetSize": {
+        "width": 768,
+        "height": 192
+      }
+    }
+  ]
+}

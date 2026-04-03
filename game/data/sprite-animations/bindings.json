@@ -1,0 +1,191 @@
+{
+  "version": 1,
+  "bindings": [
+    {
+      "id": "unarmed_hit_on_enemy",
+      "contextType": "combat_event",
+      "contextId": "unarmed_hit_on_enemy",
+      "playMode": "parallel",
+      "animations": [
+        {
+          "animationId": "hit",
+          "animationPath": "game/data/sprite-animations/generated/hit.json",
+          "trackFilter": null,
+          "delayMs": 0
+        }
+      ]
+    },
+    {
+      "id": "unarmed_hit_on_hero",
+      "contextType": "combat_event",
+      "contextId": "unarmed_hit_on_hero",
+      "playMode": "parallel",
+      "animations": [
+        {
+          "animationId": "hit",
+          "animationPath": "game/data/sprite-animations/generated/hit.json",
+          "trackFilter": null,
+          "delayMs": 0
+        }
+      ]
+    },
+    {
+      "id": "weapon_blade_hit_on_enemy",
+      "contextType": "combat_event",
+      "contextId": "weapon_blade_hit_on_enemy",
+      "playMode": "parallel",
+      "animations": [
+        {
+          "animationId": "slash",
+          "animationPath": "game/data/sprite-animations/generated/slash.json",
+          "trackFilter": null,
+          "delayMs": 0
+        }
+      ]
+    },
+    {
+      "id": "weapon_blade_hit_on_hero",
+      "contextType": "combat_event",
+      "contextId": "weapon_blade_hit_on_hero",
+      "playMode": "parallel",
+      "animations": [
+        {
+          "animationId": "slash",
+          "animationPath": "game/data/sprite-animations/generated/slash.json",
+          "trackFilter": null,
+          "delayMs": 0
+        }
+      ]
+    },
+    {
+      "id": "weapon_blade_wep_3d_sword_a",
+      "contextType": "weapon",
+      "contextId": "wep_3d_sword_a",
+      "playMode": "parallel",
+      "animations": [
+        {
+          "animationId": "slash",
+          "animationPath": "game/data/sprite-animations/generated/slash.json",
+          "trackFilter": null,
+          "delayMs": 0
+        }
+      ]
+    },
+    {
+      "id": "weapon_blade_wep_3d_sword_b",
+      "contextType": "weapon",
+      "contextId": "wep_3d_sword_b",
+      "playMode": "parallel",
+      "animations": [
+        {
+          "animationId": "slash",
+          "animationPath": "game/data/sprite-animations/generated/slash.json",
+          "trackFilter": null,
+          "delayMs": 0
+        }
+      ]
+    },
+    {
+      "id": "weapon_blade_wep_3d_sword_c",
+      "contextType": "weapon",
+      "contextId": "wep_3d_sword_c",
+      "playMode": "parallel",
+      "animations": [
+        {
+          "animationId": "slash",
+          "animationPath": "game/data/sprite-animations/generated/slash.json",
+          "trackFilter": null,
+          "delayMs": 0
+        }
+      ]
+    },
+    {
+      "id": "weapon_blade_wep_3d_sword_d",
+      "contextType": "weapon",
+      "contextId": "wep_3d_sword_d",
+      "playMode": "parallel",
+      "animations": [
+        {
+          "animationId": "slash",
+          "animationPath": "game/data/sprite-animations/generated/slash.json",
+          "trackFilter": null,
+          "delayMs": 0
+        }
+      ]
+    },
+    {
+      "id": "weapon_blade_wep_3d_sword_e",
+      "contextType": "weapon",
+      "contextId": "wep_3d_sword_e",
+      "playMode": "parallel",
+      "animations": [
+        {
+          "animationId": "slash",
+          "animationPath": "game/data/sprite-animations/generated/slash.json",
+          "trackFilter": null,
+          "delayMs": 0
+        }
+      ]
+    },
+    {
+      "id": "weapon_blade_wep_s1",
+      "contextType": "weapon",
+      "contextId": "wep_s1",
+      "playMode": "parallel",
+      "animations": [
+        {
+          "animationId": "slash",
+          "animationPath": "game/data/sprite-animations/generated/slash.json",
+          "trackFilter": null,
+          "delayMs": 0
+        }
+      ]
+    },
+    {
+      "id": "weapon_blade_wep_g1",
+      "contextType": "weapon",
+      "contextId": "wep_g1",
+      "playMode": "parallel",
+      "animations": [
+        {
+          "animationId": "slash",
+          "animationPath": "game/data/sprite-animations/generated/slash.json",
+          "trackFilter": null,
+          "delayMs": 0
+        }
+      ]
+    },
+    {
+      "id": "weapon_blade_wep_g2",
+      "contextType": "weapon",
+      "contextId": "wep_g2",
+      "playMode": "parallel",
+      "animations": [
+        {
+          "animationId": "slash",
+          "animationPath": "game/data/sprite-animations/generated/slash.json",
+          "trackFilter": null,
+          "delayMs": 0
+        }
+      ]
+    },
+    {
+      "id": "example_skill_slash_combo",
+      "contextType": "skill",
+      "contextId": "skill_slash_combo",
+      "playMode": "parallel",
+      "animations": [
+        {
+          "animationId": "sprite_anim_slash_main",
+          "trackFilter": null,
+          "delayMs": 0
+        },
+        {
+          "animationId": "sprite_anim_slash_trail",
+          "trackFilter": null,
+          "delayMs": 0
+        }
+      ]
+    }
+  ]
+}

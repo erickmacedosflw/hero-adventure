@@ -585,6 +585,18 @@ export default function App() {
     const [levelUpCardCategory, setLevelUpCardCategory] = useState<CardCategory>('especial');
     const [playerAnimationAction, setPlayerAnimationAction] = useState<PlayerAnimationAction>('idle');
     const [enemyAnimationAction, setEnemyAnimationAction] = useState<PlayerAnimationAction>('battle-idle');
+    const [playerExecutionAnimationId, setPlayerExecutionAnimationId] = useState<string | null>(null);
+    const [enemyExecutionAnimationId, setEnemyExecutionAnimationId] = useState<string | null>(null);
+    const [playerExecutionAnimationTintColor, setPlayerExecutionAnimationTintColor] = useState<string | null>(null);
+    const [enemyExecutionAnimationTintColor, setEnemyExecutionAnimationTintColor] = useState<string | null>(null);
+    const [playerImpactAnimationId, setPlayerImpactAnimationId] = useState<string | null>(null);
+    const [enemyImpactAnimationId, setEnemyImpactAnimationId] = useState<string | null>(null);
+    const [playerImpactAnimationTintColor, setPlayerImpactAnimationTintColor] = useState<string | null>(null);
+    const [enemyImpactAnimationTintColor, setEnemyImpactAnimationTintColor] = useState<string | null>(null);
+    const [playerImpactAnimationTarget, setPlayerImpactAnimationTarget] = useState<'self' | 'target'>('target');
+    const [enemyImpactAnimationTarget, setEnemyImpactAnimationTarget] = useState<'self' | 'target'>('target');
+    const [playerImpactAnimationTrigger, setPlayerImpactAnimationTrigger] = useState(0);
+    const [enemyImpactAnimationTrigger, setEnemyImpactAnimationTrigger] = useState(0);
     const [menuHeroAction, setMenuHeroAction] = useState<PlayerAnimationAction>('idle');
     const [menuCameraFocusOverride, setMenuCameraFocusOverride] = useState<boolean | null>(null);
     const [showTavernUi, setShowTavernUi] = useState(true);
@@ -1082,7 +1094,13 @@ export default function App() {
   ) => {
       const id = Math.random().toString(36);
       const isNamedActionText = type === 'skill' || type === 'item';
-      const durationMs = isNamedActionText ? 2100 : type === 'crit' ? 1500 : 1100;
+      const durationMs = type === 'item'
+        ? 1200
+        : isNamedActionText
+          ? 2100
+          : type === 'crit'
+            ? 1500
+            : 1100;
       setFloatingTexts(prev => [...prev, {
           id,
           text: value.toString(),
@@ -2169,6 +2187,18 @@ export default function App() {
     setIsEnemyHit,
     setScreenShake,
     setEnemyIntentPreview,
+    setPlayerExecutionAnimationId,
+    setEnemyExecutionAnimationId,
+    setPlayerExecutionAnimationTintColor,
+    setEnemyExecutionAnimationTintColor,
+    setPlayerImpactAnimationId,
+    setEnemyImpactAnimationId,
+    setPlayerImpactAnimationTintColor,
+    setEnemyImpactAnimationTintColor,
+    setPlayerImpactAnimationTarget,
+    setEnemyImpactAnimationTarget,
+    setPlayerImpactAnimationTrigger,
+    setEnemyImpactAnimationTrigger,
     enemyIntentPreview,
         onPlayerDefeat: () => setHasPlayerDiedOnce(true),
   });
@@ -2922,6 +2952,18 @@ export default function App() {
                         enemyAssets={enemy?.assets}
                         enemyAttackStyle={enemy?.attackStyle}
                         enemyAnimationAction={enemyAnimationAction}
+                        playerExecutionAnimationId={playerExecutionAnimationId}
+                        enemyExecutionAnimationId={enemyExecutionAnimationId}
+                        playerExecutionAnimationTintColor={playerExecutionAnimationTintColor}
+                        enemyExecutionAnimationTintColor={enemyExecutionAnimationTintColor}
+                        playerImpactAnimationId={playerImpactAnimationId}
+                        enemyImpactAnimationId={enemyImpactAnimationId}
+                        playerImpactAnimationTintColor={playerImpactAnimationTintColor}
+                        enemyImpactAnimationTintColor={enemyImpactAnimationTintColor}
+                        playerImpactAnimationTarget={playerImpactAnimationTarget}
+                        enemyImpactAnimationTarget={enemyImpactAnimationTarget}
+                        playerImpactAnimationTrigger={playerImpactAnimationTrigger}
+                        enemyImpactAnimationTrigger={enemyImpactAnimationTrigger}
                         enemyType={enemy?.type || 'beast'}
                         isEnemyBoss={enemy?.isBoss}
                         isPlayerDefending={isDefenseAnimationActive}

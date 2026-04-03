@@ -1,0 +1,237 @@
+{
+  "id": "sprite_anim_1775188063044",
+  "version": 1,
+  "name": "absorb",
+  "spriteSheetName": "absorb.png",
+  "spriteSheetUrl": "game/sprites/absorb.png",
+  "referencePreview": {
+    "previewReference": "hero",
+    "heroClassId": "knight",
+    "enemyIndex": 0
+  },
+  "sheetSize": {
+    "width": 960,
+    "height": 960
+  },
+  "frameSource": {
+    "rows": 5,
+    "cols": 5,
+    "frames": [
+      {
+        "x": 0,
+        "y": 768,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 192,
+        "y": 768,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 384,
+        "y": 768,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 576,
+        "y": 768,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 768,
+        "y": 768,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 0,
+        "y": 576,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 192,
+        "y": 576,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 384,
+        "y": 576,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 576,
+        "y": 576,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 768,
+        "y": 576,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 0,
+        "y": 384,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 192,
+        "y": 384,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 384,
+        "y": 384,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 576,
+        "y": 384,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 768,
+        "y": 384,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 0,
+        "y": 192,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 192,
+        "y": 192,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 384,
+        "y": 192,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 576,
+        "y": 192,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 768,
+        "y": 192,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 0,
+        "y": 0,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 192,
+        "y": 0,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 384,
+        "y": 0,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 576,
+        "y": 0,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 768,
+        "y": 0,
+        "width": 192,
+        "height": 192
+      }
+    ]
+  },
+  "spriteTracks": [
+    {
+      "id": "track_8y4aihg",
+      "name": "Track 1",
+      "enabled": true,
+      "spriteRows": 5,
+      "spriteCols": 5,
+      "invertRows": true,
+      "preserveFrameAspect": true,
+      "useOriginalFrameSize": true,
+      "originalSizeScale": 0.013066420224000001,
+      "startEmptyFrame": true,
+      "endEmptyFrame": true,
+      "rotationDeg": 0,
+      "playbackMode": "one-shot",
+      "stopOnLastFrame": true,
+      "tailLoopEnabled": false,
+      "tailLoopFrameCount": 4,
+      "tailLoopRepeats": 0,
+      "tailLoopPattern": "forward",
+      "timelineStartFrame": 0,
+      "fps": 15,
+      "frameIndices": [
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19
+      ],
+      "anchorTarget": "hero",
+      "anchorPoint": "chest",
+      "offset3d": [
+        0.1920001220703125,
+        -0.4640005493164063,
+        1.0019998168945314
+      ],
+      "size": [
+        1.8432,
+        1.8432
+      ],
+      "renderPriority": 0,
+      "depthTest": true,
+      "depthWrite": false,
+      "motionPreset": "none",
+      "motionAmplitude": 0.55,
+      "motionSpeed": 1,
+      "blendMode": "normal",
+      "opacity": 1,
+      "tintColor": "#ffffff",
+      "spriteSheetName": "absorb.png",
+      "spriteSheetPath": "game/sprites/absorb.png",
+      "spriteSheetUrl": "game/sprites/absorb.png",
+      "spriteSheetSize": {
+        "width": 960,
+        "height": 960
+      }
+    }
+  ]
+}

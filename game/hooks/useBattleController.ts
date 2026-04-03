@@ -1,6 +1,8 @@
 ﻿import { useCallback, useEffect, useRef } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
-import { ALL_ITEMS } from '../../constants';
+import { ALL_ITEMS, SKILLS } from '../../constants';
+import { COMBAT_SPRITE_ANIMATION_DEFAULTS, getSpriteAnimationRegistryEntry, SPRITE_ANIMATION_IDS } from '../data/sprite-animations/registry';
+import { estimateAnimationPlaybackDurationMs } from '../mechanics/spriteOverlayPlayback';
 import {
   applyStatusEffect,
   calculateDamage,
@@ -23,6 +25,33 @@ import {
   Skill,
   TurnState,
 } from '../../types';
+
+const GENERATED_ANIMATION_JSON_MODULES = import.meta.glob('../data/sprite-animations/generated/*.json', { eager: true }) as Record<string, { default?: unknown } | unknown>;
+
+const getPathBasename = (input?: string | null) => {
+  if (!input) return null;
+  const normalized = input.replace(/\\/g, '/');
+  const parts = normalized.split('/');
+  return parts[parts.length - 1] || null;
+};
+
+const BUILT_IN_ANIMATIONS_BY_FILE = Object.entries(GENERATED_ANIMATION_JSON_MODULES).reduce<Record<string, unknown>>((acc, [modulePath, moduleValue]) => {
+  const fileName = getPathBasename(modulePath);
+  if (!fileName) return acc;
+  const resolved = (moduleValue as { default?: unknown })?.default ?? moduleValue;
+  acc[fileName] = resolved;
+  return acc;
+}, {});
+
+const getAnimationDurationMsById = (animationId?: string | null) => {
+  if (!animationId) return 0;
+  const registryEntry = getSpriteAnimationRegistryEntry(animationId);
+  const fileName = getPathBasename(registryEntry?.arquivo);
+  if (!fileName) return 0;
+  const definition = BUILT_IN_ANIMATIONS_BY_FILE[fileName] as import('../../types').SpriteOverlayAnimationDefinition | undefined;
+  const duration = estimateAnimationPlaybackDurationMs(definition);
+  return Math.max(0, Math.round(duration));
+};
 
 interface SkillVisualConfig {
   color: string;
@@ -68,6 +97,18 @@ interface UseBattleControllerParams {
   setIsEnemyHit: Dispatch<SetStateAction<boolean>>;
   setScreenShake: Dispatch<SetStateAction<number>>;
   setEnemyIntentPreview: Dispatch<SetStateAction<EnemyIntentPreview | null>>;
+  setPlayerExecutionAnimationId: Dispatch<SetStateAction<string | null>>;
+  setEnemyExecutionAnimationId: Dispatch<SetStateAction<string | null>>;
+  setPlayerExecutionAnimationTintColor: Dispatch<SetStateAction<string | null>>;
+  setEnemyExecutionAnimationTintColor: Dispatch<SetStateAction<string | null>>;
+  setPlayerImpactAnimationId: Dispatch<SetStateAction<string | null>>;
+  setEnemyImpactAnimationId: Dispatch<SetStateAction<string | null>>;
+  setPlayerImpactAnimationTintColor: Dispatch<SetStateAction<string | null>>;
+  setEnemyImpactAnimationTintColor: Dispatch<SetStateAction<string | null>>;
+  setPlayerImpactAnimationTarget: Dispatch<SetStateAction<'self' | 'target'>>;
+  setEnemyImpactAnimationTarget: Dispatch<SetStateAction<'self' | 'target'>>;
+  setPlayerImpactAnimationTrigger: Dispatch<SetStateAction<number>>;
+  setEnemyImpactAnimationTrigger: Dispatch<SetStateAction<number>>;
   enemyIntentPreview?: EnemyIntentPreview | null;
   onPlayerDefeat?: () => void;
 }
@@ -119,7 +160,7 @@ const tickEnemyBuffs = (target: Enemy): Enemy => {
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 const clampImpulse = (value: number) => clamp(value, 0, 3);
 const IMPULSE_ATTACK_DAMAGE_BONUS = 0.5;
-const IMPULSE_DEF_IGNORE_RATIO = 0.3;
+const IMPULSE_DEF_IGNORE_RATIO = 0.5;
 const IMPULSE_MANA_DISCOUNT = 0.5;
 const IMPULSE_SKILL_EFFECT_BONUS = 0.5;
 const IMPULSE_DEFENSE_EXTRA_MITIGATION = 0.5;
@@ -194,10 +235,10 @@ const getSkillCastColor = (skill: Enemy['skillSet'][number]) => {
 };
 
 const getEnemyItemUseLabel = (healAmount: number) => {
-  if (healAmount >= 220) return '🌟 Ambrosia Dourada';
-  if (healAmount >= 100) return '💖 Elixir Rubro';
-  if (healAmount >= 50) return '❤ Pocao de Vida';
-  return '🧪 Pocao Menor';
+  if (healAmount >= 220) return '🌟';
+  if (healAmount >= 100) return '💖';
+  if (healAmount >= 50) return '❤️';
+  return '🧪';
 };
 
 const playAttackImpactSfx = ({
@@ -279,6 +320,18 @@ export const useBattleController = ({
   setIsEnemyHit,
   setScreenShake,
   setEnemyIntentPreview,
+  setPlayerExecutionAnimationId,
+  setEnemyExecutionAnimationId,
+  setPlayerExecutionAnimationTintColor,
+  setEnemyExecutionAnimationTintColor,
+  setPlayerImpactAnimationId,
+  setEnemyImpactAnimationId,
+  setPlayerImpactAnimationTintColor,
+  setEnemyImpactAnimationTintColor,
+  setPlayerImpactAnimationTarget,
+  setEnemyImpactAnimationTarget,
+  setPlayerImpactAnimationTrigger,
+  setEnemyImpactAnimationTrigger,
   enemyIntentPreview,
   onPlayerDefeat,
 }: UseBattleControllerParams) => {
@@ -309,8 +362,8 @@ export const useBattleController = ({
     probability: ENEMY_INTENT_PROBABILITY_BY_TYPE[type],
   }), []);
 
-  const playImpulseVisual = useCallback((target: 'player' | 'enemy', level: number, label: string) => {
-    const color = getImpulseColorByLevel(level);
+  const playImpulseVisual = useCallback((target: 'player' | 'enemy', level: number, label: string, overrideColor?: string | null) => {
+    const color = overrideColor ?? getImpulseColorByLevel(level);
     const basePosition: [number, number, number] = target === 'player' ? [-2, -0.45, 0] : [2, -0.45, 0];
     const corePosition: [number, number, number] = target === 'player' ? [-2, 0.1, 0] : [2, 0.1, 0];
     spawnParticles(basePosition, 22 + (level * 6), color, 'spark');
@@ -341,6 +394,10 @@ export const useBattleController = ({
     }));
 
     if (lifeSteal > 0) {
+      setPlayerImpactAnimationId(SPRITE_ANIMATION_IDS.execAbsorb2);
+      setPlayerImpactAnimationTintColor(null);
+      setPlayerImpactAnimationTarget('self');
+      setPlayerImpactAnimationTrigger((prev) => prev + 1);
       spawnFloatingText(`+${lifeSteal} HP`, 'player', 'heal');
       addLog(`Roubo de vida recuperou ${lifeSteal} HP.`, 'heal');
     }
@@ -353,7 +410,17 @@ export const useBattleController = ({
     if (resourceGain > 0 && player.classResource.max > 0) {
       spawnFloatingText(`+${resourceGain} ${player.classResource.name}`, 'player', 'buff', player.classResource.color);
     }
-  }, [addLog, player.classResource.max, player.classResource.name, setPlayer, spawnFloatingText]);
+  }, [
+    addLog,
+    player.classResource.max,
+    player.classResource.name,
+    setPlayer,
+    setPlayerImpactAnimationId,
+    setPlayerImpactAnimationTintColor,
+    setPlayerImpactAnimationTarget,
+    setPlayerImpactAnimationTrigger,
+    spawnFloatingText,
+  ]);
 
   const tryApplySkillStatus = useCallback((skill: Skill, talentBonuses: ReturnType<typeof getTalentBonuses>) => {
     if (!enemy || !skill.statusEffect) {
@@ -387,27 +454,41 @@ export const useBattleController = ({
     lastPlayerActionRef.current = 'item';
     setTurnState(TurnState.PLAYER_ANIMATION);
     battleSfx.play('defense_use', { source: 'hero' });
-    setPlayerAnimationAction('defend');
     const nextReserve = clampImpulse(player.impulso + 1);
+    const impulseTintColor = player.classResource.color || '#22d3ee';
+    const impulseAnimationDurationMs = getAnimationDurationMsById(SPRITE_ANIMATION_IDS.execImpulse);
+    const impulseFinishDelayMs = impulseAnimationDurationMs > 0 ? (impulseAnimationDurationMs + 80) : 520;
+    setPlayerAnimationAction('item');
+    setPlayerImpactAnimationId(SPRITE_ANIMATION_IDS.execImpulse);
+    setPlayerImpactAnimationTintColor(impulseTintColor);
+    setPlayerImpactAnimationTarget('self');
+    setPlayerImpactAnimationTrigger((prev) => prev + 1);
     setPlayer((prev) => ({
       ...prev,
       impulso: clampImpulse(prev.impulso + 1),
     }));
-    playImpulseVisual('player', nextReserve, '+1 IMPULSO');
+    playImpulseVisual('player', nextReserve, '+1 IMPULSO', impulseTintColor);
     addLog('Impulso carregado +1.', 'buff');
 
     window.setTimeout(() => {
       setPlayer((prev) => ({ ...prev, buffs: consumeTurnBuffs(prev.buffs) }));
+      setPlayerImpactAnimationId(null);
+      setPlayerImpactAnimationTintColor(null);
       setPlayerAnimationAction('idle');
       setTurnState(TurnState.ENEMY_TURN);
-    }, 520);
+    }, impulseFinishDelayMs);
   }, [
     addLog,
     enemy,
     playImpulseVisual,
+    player.classResource.color,
     player.impulso,
     setPlayer,
     setPlayerAnimationAction,
+    setPlayerImpactAnimationId,
+    setPlayerImpactAnimationTintColor,
+    setPlayerImpactAnimationTarget,
+    setPlayerImpactAnimationTrigger,
     setTurnState,
     turnState,
   ]);
@@ -435,6 +516,9 @@ export const useBattleController = ({
   const handlePlayerAttack = useCallback(() => {
     if (!enemy || turnState !== TurnState.PLAYER_INPUT) return;
     lastPlayerActionRef.current = 'attack';
+    setPlayerImpactAnimationId(null);
+    setPlayerImpactAnimationTintColor(null);
+    setPlayerImpactAnimationTarget('target');
 
     const talentBonuses = getTalentBonuses(player);
     const doubleAttackActive = player.buffs.doubleAttackTurns > 0;
@@ -496,6 +580,11 @@ export const useBattleController = ({
         : enemyGuardLevel === 1
           ? Math.floor(defendedDamage * (1 - IMPULSE_DEFENSE_EXTRA_MITIGATION))
           : defendedDamage;
+      const blockedByDefense = isFirstStrike && enemy.isDefending;
+      if (blockedByDefense) {
+        setPlayerImpactAnimationId(SPRITE_ANIMATION_IDS.hitBlock);
+        setPlayerImpactAnimationTintColor(null);
+      }
       playAttackImpactSfx({
         attackKind: 'physical',
         attackerStyle: player.equippedWeapon ? 'weapon' : 'unarmed',
@@ -659,7 +748,9 @@ export const useBattleController = ({
     turnState,
   ]);
 
-  const handleSkill = useCallback((skill: Skill) => {
+  const handleSkill = useCallback((inputSkill: Skill) => {
+    const catalogSkill = SKILLS.find((entry) => entry.id === inputSkill.id);
+    const skill: Skill = catalogSkill ? { ...inputSkill, ...catalogSkill } : inputSkill;
     const requiredResource = skill.resourceEffect?.cost ?? 0;
     const previewImpulse = clampImpulse(player.impulsoAtivo);
     const discountedManaCost = previewImpulse >= 1
@@ -676,11 +767,24 @@ export const useBattleController = ({
     const skillEffectMultiplier = boostedByImpulse || hasEmpowerBuff ? (1 + IMPULSE_SKILL_EFFECT_BONUS) : 1;
     const grantEmpowerTurns = activeImpulse >= 3 ? 2 : 0;
     const visual = getSkillVisualConfig(skill);
+    const skillAnimationType = skill.tipoAnimacao
+      ?? (skill.type === 'heal' ? 'cura_status' : skill.type === 'magic' ? 'magia' : 'ataque');
+    const skillImpactTarget = skill.animacaoImpactoAlvo
+      ?? (skillAnimationType === 'cura_status' ? 'self' : 'target');
+    const executionAnimationDurationMs = getAnimationDurationMsById(skill.animacaoExecucao);
+    const skillImpactDelayMs = executionAnimationDurationMs > 0 ? executionAnimationDurationMs + 40 : 0;
+    const skillImpactAnimationDurationMs = getAnimationDurationMsById(skill.animacaoImpacto);
+    const skillImpactPlaybackWindowMs = skillImpactAnimationDurationMs > 0 ? (skillImpactAnimationDurationMs + 80) : 520;
     const impactColor = skill.trailColor ?? visual.color;
     const resourceSpent = skill.resourceEffect?.consumeAll ? player.classResource.value : requiredResource;
     const isAutoGuardSkill = skill.id === 'skl_11';
 
     setTurnState(TurnState.PLAYER_ANIMATION);
+    setPlayerExecutionAnimationId(skill.animacaoExecucao ?? null);
+    setPlayerExecutionAnimationTintColor(skill.animacaoExecucaoCor ?? null);
+    setPlayerImpactAnimationId(null);
+    setPlayerImpactAnimationTintColor(null);
+    setPlayerImpactAnimationTarget(skillImpactTarget);
     setPlayerAnimationAction(isAutoGuardSkill ? 'defend' : skill.type === 'heal' ? 'heal' : skill.type === 'magic' ? 'skill' : 'attack');
     setEnemyAnimationAction(enemy.isDefending ? 'defend' : 'battle-idle');
     setPlayer((prev) => ({
@@ -734,6 +838,10 @@ export const useBattleController = ({
           consumedBuffs.autoGuardTurns = prev.buffs.autoGuardTurns;
           return { ...prev, buffs: consumedBuffs };
         });
+        setPlayerExecutionAnimationId(null);
+        setPlayerExecutionAnimationTintColor(null);
+        setPlayerImpactAnimationId(null);
+        setPlayerImpactAnimationTintColor(null);
         setPlayerAnimationAction('idle');
         setTurnState(TurnState.ENEMY_TURN);
       }, 1500);
@@ -744,44 +852,54 @@ export const useBattleController = ({
       const healPower = 1 + talentBonuses.healPower;
       const healAmount = getHealingValue(Math.floor(player.stats.maxHp * skill.damageMult * healPower * skillEffectMultiplier));
       const resourceGain = (skill.resourceEffect?.gain ?? 0) + Math.max(0, Math.floor(talentBonuses.resourceOnSkill));
+      const impactDelayMs = Math.max(120, skillImpactDelayMs);
+      const finishDelayMs = Math.max(impactDelayMs + skillImpactPlaybackWindowMs, impactDelayMs + 420);
 
-      setPlayer((prev) => {
-        const nextBuffs = { ...prev.buffs };
-        if (skill.buffEffect?.target === 'player') {
-          if (skill.buffEffect.kind === 'atk') {
-            nextBuffs.atkMod = Math.max(nextBuffs.atkMod, skill.buffEffect.modifier * skillEffectMultiplier);
-            nextBuffs.atkTurns = Math.max(nextBuffs.atkTurns, skill.buffEffect.duration);
-          }
-          if (skill.buffEffect.kind === 'def') {
-            nextBuffs.defMod = Math.max(nextBuffs.defMod, skill.buffEffect.modifier * skillEffectMultiplier);
-            nextBuffs.defTurns = Math.max(nextBuffs.defTurns, skill.buffEffect.duration);
-          }
+      window.setTimeout(() => {
+        if (skill.animacaoImpacto) {
+          setPlayerImpactAnimationId(skill.animacaoImpacto ?? null);
+          setPlayerImpactAnimationTintColor(skill.animacaoImpactoCor ?? null);
+          setPlayerImpactAnimationTarget(skillImpactTarget);
+          setPlayerImpactAnimationTrigger((prev) => prev + 1);
         }
 
-        return {
-          ...prev,
-          stats: { ...prev.stats, hp: Math.min(prev.stats.maxHp, prev.stats.hp + healAmount) },
-          buffs: nextBuffs,
-          classResource: {
-            ...prev.classResource,
-            value: Math.min(prev.classResource.max, prev.classResource.value + resourceGain),
-          },
-        };
-      });
+        setPlayer((prev) => {
+          const nextBuffs = { ...prev.buffs };
+          if (skill.buffEffect?.target === 'player') {
+            if (skill.buffEffect.kind === 'atk') {
+              nextBuffs.atkMod = Math.max(nextBuffs.atkMod, skill.buffEffect.modifier * skillEffectMultiplier);
+              nextBuffs.atkTurns = Math.max(nextBuffs.atkTurns, skill.buffEffect.duration);
+            }
+            if (skill.buffEffect.kind === 'def') {
+              nextBuffs.defMod = Math.max(nextBuffs.defMod, skill.buffEffect.modifier * skillEffectMultiplier);
+              nextBuffs.defTurns = Math.max(nextBuffs.defTurns, skill.buffEffect.duration);
+            }
+          }
 
-      if (resourceGain > 0 && player.classResource.max > 0) {
-        spawnFloatingText(`+${resourceGain} ${player.classResource.name}`, 'player', 'buff', player.classResource.color);
-      }
+          return {
+            ...prev,
+            stats: { ...prev.stats, hp: Math.min(prev.stats.maxHp, prev.stats.hp + healAmount) },
+            buffs: nextBuffs,
+            classResource: {
+              ...prev.classResource,
+              value: Math.min(prev.classResource.max, prev.classResource.value + resourceGain),
+            },
+          };
+        });
 
-      spawnParticles([-2, -1, 0], visual.particleCount + 14, visual.color, 'heal');
-      spawnFloatingText(`+${healAmount}`, 'player', 'heal');
-      battleSfx.play('heal');
-      addLog(`${skill.name}: curou ${healAmount} HP!`, 'heal');
+        spawnParticles([-2, -1, 0], visual.particleCount + 14, visual.color, 'heal');
+        spawnFloatingText(`+${healAmount}`, 'player', 'heal');
+        if (resourceGain > 0 && player.classResource.max > 0) {
+          spawnFloatingText(`+${resourceGain} ${player.classResource.name}`, 'player', 'buff', player.classResource.color);
+        }
+        battleSfx.play('heal');
+        addLog(`${skill.name}: curou ${healAmount} HP!`, 'heal');
 
-      if (skill.buffEffect?.target === 'player') {
-        spawnFloatingText(skill.buffEffect.kind === 'atk' ? 'ATAQUE UP!' : 'DEFESA UP!', 'player', 'buff');
-        addLog(`${skill.name} fortaleceu ${skill.buffEffect.kind === 'atk' ? 'o ataque' : 'a defesa'} por ${skill.buffEffect.duration} turnos.`, 'buff');
-      }
+        if (skill.buffEffect?.target === 'player') {
+          spawnFloatingText(skill.buffEffect.kind === 'atk' ? 'ATAQUE UP!' : 'DEFESA UP!', 'player', 'buff');
+          addLog(`${skill.name} fortaleceu ${skill.buffEffect.kind === 'atk' ? 'o ataque' : 'a defesa'} por ${skill.buffEffect.duration} turnos.`, 'buff');
+        }
+      }, impactDelayMs);
 
       window.setTimeout(() => {
         setPlayer((prev) => {
@@ -791,14 +909,21 @@ export const useBattleController = ({
           }
           return { ...prev, buffs: consumedBuffs };
         });
+        setPlayerExecutionAnimationId(null);
+        setPlayerExecutionAnimationTintColor(null);
+        setPlayerImpactAnimationId(null);
+        setPlayerImpactAnimationTintColor(null);
         setPlayerAnimationAction('idle');
         setTurnState(TurnState.ENEMY_TURN);
-      }, 1500);
+      }, finishDelayMs);
       return;
     }
 
-    setIsPlayerAttacking(true);
-    playMovementSfx(skill.type === 'magic' ? 'unarmed' : (player.equippedWeapon ? 'weapon' : 'unarmed'));
+    const shouldLungeForSkill = skillAnimationType === 'ataque';
+    setIsPlayerAttacking(shouldLungeForSkill);
+    if (shouldLungeForSkill) {
+      playMovementSfx(skill.type === 'magic' ? 'unarmed' : (player.equippedWeapon ? 'weapon' : 'unarmed'));
+    }
     const doubleAttackActive = player.buffs.doubleAttackTurns > 0 && skill.type === 'physical';
     window.setTimeout(() => {
       setIsPlayerAttacking(false);
@@ -840,6 +965,7 @@ export const useBattleController = ({
           : enemyGuardLevel === 1
             ? Math.floor(defendedDamage * (1 - IMPULSE_DEFENSE_EXTRA_MITIGATION))
             : defendedDamage;
+        const blockedByDefense = isFirstStrike && enemy.isDefending;
         playAttackImpactSfx({
           attackKind: skill.type === 'magic' ? 'magic' : 'physical',
           attackerStyle: skill.type === 'magic' ? 'unarmed' : (player.equippedWeapon ? 'weapon' : 'unarmed'),
@@ -852,6 +978,16 @@ export const useBattleController = ({
         spawnParticles(impactPosition, strikeBurstCount, impactColor, 'explode');
         spawnParticles(impactPosition, 14 + (attackResult.isCrit ? 6 : 0), impactColor, 'spark');
         spawnFloatingText(attackResult.isCrit ? `${strikePrefix}CRIT! ${appliedDamage}` : `${strikePrefix}${appliedDamage}`, 'enemy', attackResult.isCrit ? 'crit' : 'damage');
+        if (blockedByDefense) {
+          setPlayerImpactAnimationId(SPRITE_ANIMATION_IDS.hitBlock);
+          setPlayerImpactAnimationTintColor(null);
+          setPlayerImpactAnimationTarget('target');
+        } else {
+          setPlayerImpactAnimationId(skill.animacaoImpacto ?? null);
+          setPlayerImpactAnimationTintColor(skill.animacaoImpactoCor ?? null);
+          setPlayerImpactAnimationTarget(skillImpactTarget);
+        }
+        setPlayerImpactAnimationTrigger((prev) => prev + 1);
         setIsEnemyHit(true);
         window.setTimeout(() => setIsEnemyHit(false), 150);
         setScreenShake(attackResult.isCrit ? visual.shake + 0.18 : visual.shake);
@@ -884,7 +1020,11 @@ export const useBattleController = ({
       const firstStrike = resolveSkillStrike(enemy.stats.hp, true);
       if (firstStrike.defeated) {
         setPlayer((prev) => ({ ...prev, buffs: consumeTurnBuffs(prev.buffs) }));
-        void handleVictoryRef.current(900);
+        setPlayerExecutionAnimationId(null);
+        setPlayerExecutionAnimationTintColor(null);
+        setPlayerImpactAnimationId(null);
+        setPlayerImpactAnimationTintColor(null);
+        void handleVictoryRef.current(Math.max(900, skillImpactPlaybackWindowMs));
         return;
       }
 
@@ -897,9 +1037,13 @@ export const useBattleController = ({
             }
             return { ...prev, buffs: consumedBuffs };
           });
+          setPlayerExecutionAnimationId(null);
+          setPlayerExecutionAnimationTintColor(null);
+          setPlayerImpactAnimationId(null);
+          setPlayerImpactAnimationTintColor(null);
           setPlayerAnimationAction('idle');
           setTurnState(TurnState.ENEMY_TURN);
-        }, 800);
+        }, Math.max(420, skillImpactPlaybackWindowMs));
         return;
       }
 
@@ -914,7 +1058,11 @@ export const useBattleController = ({
             }
             return { ...prev, buffs: consumedBuffs };
           });
-          void handleVictoryRef.current(900);
+          setPlayerExecutionAnimationId(null);
+          setPlayerExecutionAnimationTintColor(null);
+          setPlayerImpactAnimationId(null);
+          setPlayerImpactAnimationTintColor(null);
+          void handleVictoryRef.current(Math.max(900, skillImpactPlaybackWindowMs));
           return;
         }
         window.setTimeout(() => {
@@ -925,11 +1073,15 @@ export const useBattleController = ({
             }
             return { ...prev, buffs: consumedBuffs };
           });
+          setPlayerExecutionAnimationId(null);
+          setPlayerExecutionAnimationTintColor(null);
+          setPlayerImpactAnimationId(null);
+          setPlayerImpactAnimationTintColor(null);
           setPlayerAnimationAction('idle');
           setTurnState(TurnState.ENEMY_TURN);
-        }, 700);
+        }, Math.max(420, skillImpactPlaybackWindowMs));
       }, 260);
-    }, visual.castDelay);
+    }, Math.max(visual.castDelay, skillImpactDelayMs));
   }, [
     addLog,
     awardCombatBenefits,
@@ -944,6 +1096,7 @@ export const useBattleController = ({
     setIsPlayerAttacking,
     setPlayer,
     setPlayerAnimationAction,
+    setPlayerExecutionAnimationId,
     setScreenShake,
     setIsEnemyHit,
     setTurnState,
@@ -978,8 +1131,20 @@ export const useBattleController = ({
     if (gameState === GameState.BATTLE) {
       setTurnState(TurnState.PLAYER_ANIMATION);
       setPlayerAnimationAction('item');
-      spawnFloatingText(`${item.icon} ${item.name}`, 'player', 'item');
+      setPlayerExecutionAnimationId(item.animacaoExecucao ?? COMBAT_SPRITE_ANIMATION_DEFAULTS.unarmedExecutionAnimationId);
+      setPlayerExecutionAnimationTintColor(item.animacaoExecucaoCor ?? null);
+      setPlayerImpactAnimationId(null);
+      setPlayerImpactAnimationTintColor(null);
+      setPlayerImpactAnimationTarget('self');
+      spawnFloatingText(item.icon, 'player', 'item');
     }
+
+    const itemExecutionAnimationId = item.animacaoExecucao ?? COMBAT_SPRITE_ANIMATION_DEFAULTS.unarmedExecutionAnimationId;
+    const itemExecutionDurationMs = getAnimationDurationMsById(itemExecutionAnimationId);
+    const itemImpactDurationMs = getAnimationDurationMsById(item.animacaoImpacto);
+    const itemImpactDelayMs = Math.max(120, itemExecutionDurationMs > 0 ? itemExecutionDurationMs + 40 : 120);
+    const itemImpactPlaybackWindowMs = itemImpactDurationMs > 0 ? (itemImpactDurationMs + 80) : 520;
+    const itemFinishDelayMs = itemImpactDelayMs + itemImpactPlaybackWindowMs;
 
     const mixedRecovery = MIXED_POTION_RECOVERY[item.id];
     const recoveredHp = mixedRecovery
@@ -1070,6 +1235,15 @@ export const useBattleController = ({
     });
 
     if (gameState === GameState.BATTLE) {
+      if (item.animacaoImpacto) {
+        window.setTimeout(() => {
+          setPlayerImpactAnimationId(item.animacaoImpacto ?? null);
+          setPlayerImpactAnimationTintColor(item.animacaoImpactoCor ?? null);
+          setPlayerImpactAnimationTarget('self');
+          setPlayerImpactAnimationTrigger((prev) => prev + 1);
+        }, itemImpactDelayMs);
+      }
+
       window.setTimeout(() => {
         setPlayer((prev) => {
           const consumedBuffs = consumeTurnBuffs(prev.buffs);
@@ -1092,8 +1266,12 @@ export const useBattleController = ({
           return { ...prev, buffs: consumedBuffs };
         });
         setPlayerAnimationAction('idle');
+        setPlayerExecutionAnimationId(null);
+        setPlayerExecutionAnimationTintColor(null);
+        setPlayerImpactAnimationId(null);
+        setPlayerImpactAnimationTintColor(null);
         setTurnState(TurnState.ENEMY_TURN);
-      }, 1500);
+      }, itemFinishDelayMs);
     }
   }, [
     addLog,
@@ -1114,6 +1292,9 @@ export const useBattleController = ({
     if (!enemy || gameState !== GameState.BATTLE) return;
 
     setEnemyIntentPreview(null);
+    setEnemyImpactAnimationId(null);
+    setEnemyImpactAnimationTintColor(null);
+    setEnemyImpactAnimationTarget('target');
     setTurnState(TurnState.PROCESSING);
     const talentBonuses = getTalentBonuses(player);
 
@@ -1185,7 +1366,10 @@ export const useBattleController = ({
         && enemyState.lastAction !== 'steal'
         && (enemyState.aiTurnCounter - enemyState.lastStealTurn) > 1;
       const usableSkills = enemyState.skillSet.filter((skill) => (
-        skill.currentCooldown <= 0 && enemyState.stats.mp >= skill.manaCost
+        skill.currentCooldown <= 0
+          && enemyState.stats.mp >= (enemyState.impulso >= 1
+            ? Math.max(1, Math.floor(skill.manaCost * (1 - IMPULSE_MANA_DISCOUNT)))
+            : skill.manaCost)
       ));
       const enemyUsesManaSkills = enemyState.skillSet.some((skill) => skill.manaCost > 0);
 
@@ -1272,6 +1456,10 @@ export const useBattleController = ({
     const finishEnemyActionToPlayerTurn = (nextEnemy: Enemy) => {
       const enemyAfterBuffTick = tickEnemyBuffs(nextEnemy);
       setEnemy(enemyAfterBuffTick);
+      setEnemyExecutionAnimationId(null);
+      setEnemyExecutionAnimationTintColor(null);
+      setEnemyImpactAnimationId(null);
+      setEnemyImpactAnimationTintColor(null);
       setPlayer((prev) => {
         const nextBuffs = { ...prev.buffs };
         if (!nextBuffs.riposteArmed) {
@@ -1413,6 +1601,8 @@ export const useBattleController = ({
         },
       };
       setIsEnemyAttacking(false);
+      setEnemyExecutionAnimationId(COMBAT_SPRITE_ANIMATION_DEFAULTS.unarmedExecutionAnimationId);
+      setEnemyExecutionAnimationTintColor(null);
       triggerEnemyAnimationAction('item', 900);
       window.setTimeout(() => {
         addLog(`${simulatedEnemy.name} usou pocao e curou ${healAmount} HP.`, 'heal');
@@ -1547,8 +1737,14 @@ export const useBattleController = ({
         },
       };
 
-      setIsEnemyAttacking(true);
-      playMovementSfx(chosenSkill.attackKind === 'magic' ? 'unarmed' : (simulatedEnemy.attackStyle === 'armed' ? 'weapon' : 'unarmed'));
+      const enemySkillAnimationType: 'cura_status' | 'ataque' | 'magia' = chosenSkill.effect === 'damage'
+        ? (chosenSkill.attackKind === 'magic' ? 'magia' : 'ataque')
+        : 'cura_status';
+      const enemyShouldLungeForSkill = enemySkillAnimationType === 'ataque';
+      setIsEnemyAttacking(enemyShouldLungeForSkill);
+      if (enemyShouldLungeForSkill) {
+        playMovementSfx(chosenSkill.attackKind === 'magic' ? 'unarmed' : (simulatedEnemy.attackStyle === 'armed' ? 'weapon' : 'unarmed'));
+      }
       triggerEnemyAnimationAction('skill', 760);
       const castColor = getSkillCastColor(chosenSkill);
       spawnFloatingText(chosenSkill.name.toUpperCase(), 'enemy', 'skill');
@@ -1652,6 +1848,13 @@ export const useBattleController = ({
         spawnParticles([-2, -1, 0], 14, castColor, 'explode');
         spawnParticles([-2, -1, 0], 10, chosenSkill.attackKind === 'magic' ? '#7dd3fc' : '#fb7185', 'spark');
         spawnFloatingText(skillAttackResult.isCrit ? `CRIT ${finalDamage}` : finalDamage, 'player', skillAttackResult.isCrit ? 'crit' : 'damage');
+        if (defendingActive) {
+          setEnemyImpactAnimationId(SPRITE_ANIMATION_IDS.hitBlock);
+          setEnemyImpactAnimationTintColor(null);
+        } else {
+          setEnemyImpactAnimationId(null);
+          setEnemyImpactAnimationTintColor(null);
+        }
         setScreenShake(skillAttackResult.isCrit ? 0.34 : 0.22);
         setIsPlayerHit(true);
         setIsPlayerCritHit(skillAttackResult.isCrit);
@@ -1817,6 +2020,13 @@ export const useBattleController = ({
 
       spawnParticles([-2, -1, 0], 5, '#dc2626', 'spark');
       spawnFloatingText(finalDamage, 'player', attackResult.isCrit ? 'crit' : 'damage');
+      if (defendingActive) {
+        setEnemyImpactAnimationId(SPRITE_ANIMATION_IDS.hitBlock);
+        setEnemyImpactAnimationTintColor(null);
+      } else {
+        setEnemyImpactAnimationId(null);
+        setEnemyImpactAnimationTintColor(null);
+      }
       setScreenShake(0.22);
       setIsPlayerHit(true);
       setIsPlayerCritHit(attackResult.isCrit);
@@ -1923,6 +2133,7 @@ export const useBattleController = ({
     setDungeonResult,
     setDungeonRun,
     setEnemy,
+    setEnemyExecutionAnimationId,
     setGameState,
     setIsEnemyAttacking,
     setIsPlayerCritHit,

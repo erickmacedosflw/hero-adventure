@@ -1,13 +1,14 @@
 import { Item } from '../../types';
 import { REGISTERED_WEAPON_ITEMS } from './weaponCatalog';
+import { SPRITE_ANIMATION_IDS } from './sprite-animations/registry';
 
 export const SHOP_ITEMS: Item[] = [
-  { id: 'pot_1', name: 'Pocao Menor', description: 'Cura ferimentos leves. +50 HP', cost: 30, type: 'potion', value: 50, icon: '🧪', rarity: 'bronze', minLevel: 1 },
-  { id: 'pot_2', name: 'Pocao de Mana', description: 'Restaura energia magica. +30 MP', cost: 40, type: 'potion', value: 30, icon: '⚗️', rarity: 'bronze', minLevel: 1 },
+  { id: 'pot_1', name: 'Pocao Menor', description: 'Cura ferimentos leves. +50 HP', cost: 30, type: 'potion', value: 50, icon: '🧪', rarity: 'bronze', minLevel: 1, animacaoExecucao: SPRITE_ANIMATION_IDS.execAuraVida2 },
+  { id: 'pot_2', name: 'Pocao de Mana', description: 'Restaura energia magica. +30 MP', cost: 40, type: 'potion', value: 30, icon: '⚗️', rarity: 'bronze', minLevel: 1, animacaoExecucao: SPRITE_ANIMATION_IDS.execAuraMana1 },
   { id: 'pot_atk', name: 'Pocao da Furia', description: '+50% de Ataque por 3 turnos.', cost: 120, type: 'potion', value: 0.5, icon: '🔥', rarity: 'silver', minLevel: 3, duration: 3 },
   { id: 'pot_def', name: 'Tonico de Ferro', description: '+50% de Defesa por 3 turnos.', cost: 120, type: 'potion', value: 0.5, icon: '🛡️', rarity: 'silver', minLevel: 3, duration: 3 },
-  { id: 'pot_3', name: 'Elixir Prateado', description: 'Cura potente. +150 HP', cost: 150, type: 'potion', value: 150, icon: '💖', rarity: 'silver', minLevel: 3 },
-  { id: 'pot_4', name: 'Ambrosia Dourada', description: 'Restauracao total. +500 HP', cost: 600, type: 'potion', value: 500, icon: '🌟', rarity: 'gold', minLevel: 8 },
+  { id: 'pot_3', name: 'Elixir Prateado', description: 'Cura potente. +150 HP', cost: 150, type: 'potion', value: 150, icon: '💖', rarity: 'silver', minLevel: 3, animacaoExecucao: SPRITE_ANIMATION_IDS.execAuraVida2 },
+  { id: 'pot_4', name: 'Ambrosia Dourada', description: 'Restauracao total. +500 HP', cost: 600, type: 'potion', value: 500, icon: '🌟', rarity: 'gold', minLevel: 8, animacaoExecucao: SPRITE_ANIMATION_IDS.execAuraVida2 },
   { id: 'wep_b1', name: 'Adaga de Cobre', description: 'Simples mas afiada. +6 ATK', cost: 100, type: 'weapon', value: 6, icon: '🗡️', rarity: 'bronze', minLevel: 1 },
   { id: 'wep_b2', name: 'Machadinha Velha', description: 'Pesada e brutal. +10 ATK', cost: 250, type: 'weapon', value: 10, icon: '🪓', rarity: 'bronze', minLevel: 2 },
   { id: 'wep_s1', name: 'Espada de Aco', description: 'Forjada por ferreiros reais. +18 ATK', cost: 600, type: 'weapon', value: 18, icon: '⚔️', rarity: 'silver', minLevel: 4 },

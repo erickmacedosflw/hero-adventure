@@ -2,21 +2,22 @@
 import { Item, Skill, EnemyTemplate, DungeonEnemyTemplate, DungeonBossTemplate, AlchemistItemOffer } from './types';
 import { REGISTERED_WEAPON_ITEMS } from './game/data/weaponCatalog';
 import { CONSTELLATION_SKILLS } from './game/data/classTalents';
+import { SPRITE_ANIMATION_IDS } from './game/data/sprite-animations/registry';
 export { INITIAL_PLAYER } from './game/data/player';
 
 export const SHOP_ITEMS: Item[] = [
   // --- POTIONS & CONSUMABLES ---
-  { id: 'pot_1', name: 'Poção Menor', description: 'Cura ferimentos leves. +25 HP', cost: 40, type: 'potion', value: 25, icon: '🧪', rarity: 'bronze', minLevel: 1 },
-  { id: 'pot_3', name: 'Poção de Vida', description: 'Recuperação moderada. +50 HP', cost: 70, type: 'potion', value: 50, icon: '❤️', rarity: 'bronze', minLevel: 2 },
-  { id: 'pot_5', name: 'Elixir Rubro', description: 'Cura poderosa. +100 HP', cost: 120, type: 'potion', value: 100, icon: '💖', rarity: 'silver', minLevel: 8 },
-  { id: 'pot_4', name: 'Ambrosia Dourada', description: 'Restauração superior. +220 HP', cost: 300, type: 'potion', value: 220, icon: '🌟', rarity: 'gold', minLevel: 15 },
+  { id: 'pot_1', name: 'Poção Menor', description: 'Cura ferimentos leves. +25 HP', cost: 40, type: 'potion', value: 25, icon: '🧪', rarity: 'bronze', minLevel: 1, animacaoExecucao: SPRITE_ANIMATION_IDS.execAuraVida2 },
+  { id: 'pot_3', name: 'Poção de Vida', description: 'Recuperação moderada. +50 HP', cost: 70, type: 'potion', value: 50, icon: '❤️', rarity: 'bronze', minLevel: 2, animacaoExecucao: SPRITE_ANIMATION_IDS.execAuraVida2 },
+  { id: 'pot_5', name: 'Elixir Rubro', description: 'Cura poderosa. +100 HP', cost: 120, type: 'potion', value: 100, icon: '💖', rarity: 'silver', minLevel: 8, animacaoExecucao: SPRITE_ANIMATION_IDS.execAuraVida2 },
+  { id: 'pot_4', name: 'Ambrosia Dourada', description: 'Restauração superior. +220 HP', cost: 300, type: 'potion', value: 220, icon: '🌟', rarity: 'gold', minLevel: 15, animacaoExecucao: SPRITE_ANIMATION_IDS.execAuraVida2 },
 
-  { id: 'pot_2', name: 'Essência de Mana Menor', description: 'Recupera energia arcana. +20 MP', cost: 40, type: 'potion', value: 20, icon: '⚗️', rarity: 'bronze', minLevel: 1 },
-  { id: 'pot_mana_2', name: 'Tônico Arcano', description: 'Recuperação de mana intermediária. +45 MP', cost: 75, type: 'potion', value: 45, icon: '🔵', rarity: 'silver', minLevel: 3 },
-  { id: 'pot_mana_3', name: 'Néctar Astral', description: 'Recuperação de mana avançada. +90 MP', cost: 140, type: 'potion', value: 90, icon: '🔷', rarity: 'gold', minLevel: 6 },
+  { id: 'pot_2', name: 'Essência de Mana Menor', description: 'Recupera energia arcana. +20 MP', cost: 40, type: 'potion', value: 20, icon: '⚗️', rarity: 'bronze', minLevel: 1, animacaoExecucao: SPRITE_ANIMATION_IDS.execAuraMana1 },
+  { id: 'pot_mana_2', name: 'Tônico Arcano', description: 'Recuperação de mana intermediária. +45 MP', cost: 75, type: 'potion', value: 45, icon: '🔵', rarity: 'silver', minLevel: 3, animacaoExecucao: SPRITE_ANIMATION_IDS.execAuraMana1 },
+  { id: 'pot_mana_3', name: 'Néctar Astral', description: 'Recuperação de mana avançada. +90 MP', cost: 140, type: 'potion', value: 90, icon: '🔷', rarity: 'gold', minLevel: 6, animacaoExecucao: SPRITE_ANIMATION_IDS.execAuraMana1 },
 
-  { id: 'pot_mix_1', name: 'Tônico Balanceado', description: 'Recupera 35 HP e 20 MP.', cost: 95, type: 'potion', value: 35, icon: '🧬', rarity: 'silver', minLevel: 3 },
-  { id: 'pot_mix_2', name: 'Elixir Dual', description: 'Recupera 80 HP e 50 MP.', cost: 190, type: 'potion', value: 80, icon: '💠', rarity: 'gold', minLevel: 6 },
+  { id: 'pot_mix_1', name: 'Tônico Balanceado', description: 'Recupera 35 HP e 20 MP.', cost: 95, type: 'potion', value: 35, icon: '🧬', rarity: 'silver', minLevel: 3, animacaoExecucao: SPRITE_ANIMATION_IDS.execAuraVida2 },
+  { id: 'pot_mix_2', name: 'Elixir Dual', description: 'Recupera 80 HP e 50 MP.', cost: 190, type: 'potion', value: 80, icon: '💠', rarity: 'gold', minLevel: 6, animacaoExecucao: SPRITE_ANIMATION_IDS.execAuraVida2 },
   
   // Buff Items
   { id: 'pot_atk', name: 'Poção da Fúria', description: '+50% de Ataque por 3 turnos.', cost: 150, type: 'potion', value: 0.5, icon: '🔥', rarity: 'silver', minLevel: 3, duration: 3 },
@@ -112,9 +113,9 @@ export const DUNGEON_ITEMS: Item[] = [
   { id: 'pot_dg_recall', name: 'Âncora de Retorno', description: 'Abre uma saída estável da dungeon e permite levar todo o espólio acumulado.', cost: 0, type: 'potion', value: 0, icon: '🧭', rarity: 'gold', minLevel: 1, source: 'dungeon' },
   { id: 'pot_alc_phantom_veil', name: 'Véu Fantasma', description: 'Reveste o corpo com névoa alquímica e garante evasão perfeita por 4 turnos em qualquer batalha.', cost: 0, type: 'potion', value: 1, icon: '👻', rarity: 'gold', minLevel: 1, source: 'alchemist', duration: 4 },
   { id: 'pot_alc_twin_fang', name: 'Presa Gêmea', description: 'Desperta um ritmo feroz e faz o comando Atacar acertar duas vezes por 6 turnos.', cost: 0, type: 'potion', value: 1, icon: '🦷', rarity: 'gold', minLevel: 1, source: 'alchemist', duration: 6 },
-  { id: 'pot_dg_mana', name: 'Reserva de Mana Abissal', description: 'Energia condensada da dungeon. +80 MP', cost: 0, type: 'potion', value: 80, icon: '🔷', rarity: 'silver', minLevel: 6, source: 'dungeon' },
-  { id: 'pot_dg_elixir', name: 'Elixir Abissal', description: 'Restauração reforçada da dungeon. +260 HP', cost: 0, type: 'potion', value: 260, icon: '🩸', rarity: 'gold', minLevel: 8, source: 'dungeon' },
-  { id: 'pot_dg_ambrosia', name: 'Ambrosia do Nexus', description: 'Essência rara guardada no fundo da dungeon. +650 HP', cost: 0, type: 'potion', value: 650, icon: '🫧', rarity: 'gold', minLevel: 15, source: 'dungeon' },
+  { id: 'pot_dg_mana', name: 'Reserva de Mana Abissal', description: 'Energia condensada da dungeon. +80 MP', cost: 0, type: 'potion', value: 80, icon: '🔷', rarity: 'silver', minLevel: 6, source: 'dungeon', animacaoExecucao: SPRITE_ANIMATION_IDS.execAuraMana1 },
+  { id: 'pot_dg_elixir', name: 'Elixir Abissal', description: 'Restauração reforçada da dungeon. +260 HP', cost: 0, type: 'potion', value: 260, icon: '🩸', rarity: 'gold', minLevel: 8, source: 'dungeon', animacaoExecucao: SPRITE_ANIMATION_IDS.execAuraVida2 },
+  { id: 'pot_dg_ambrosia', name: 'Ambrosia do Nexus', description: 'Essência rara guardada no fundo da dungeon. +650 HP', cost: 0, type: 'potion', value: 650, icon: '🫧', rarity: 'gold', minLevel: 15, source: 'dungeon', animacaoExecucao: SPRITE_ANIMATION_IDS.execAuraVida2 },
   { id: 'wep_dg_nexus', name: 'Lâmina do Nexus', description: 'Arma exclusiva forjada com energia da dungeon. +58 ATK', cost: 0, type: 'weapon', value: 58, icon: '🗡️', rarity: 'gold', minLevel: 10, source: 'dungeon' },
   { id: 'arm_dg_abyss', name: 'Armadura do Abismo', description: 'Placas pesadas feitas para sobreviver aos ciclos profundos. +38 DEF e +54 MP', cost: 0, type: 'armor', value: 38, mpBonus: 54, icon: '🥋', rarity: 'gold', minLevel: 10, source: 'dungeon' },
   { id: 'shd_dg_eclipse', name: 'Escudo Eclipse', description: 'Barreira exclusiva da dungeon que segura impactos do chefão. +32 DEF', cost: 0, type: 'shield', value: 32, icon: '🌘', rarity: 'gold', minLevel: 11, source: 'dungeon' },
@@ -151,8 +152,36 @@ export const ALCHEMIST_ITEM_OFFERS: AlchemistItemOffer[] = [
 
 const BASE_SKILLS: Skill[] = [
   { id: 'skl_1', name: 'Corte Voxel', cost: 0, damageMult: 1.5, minLevel: 1, description: 'Golpe físico preciso. 8 MP', manaCost: 8, type: 'physical' },
-  { id: 'skl_2', name: 'Luz Sagrada', cost: 0, damageMult: 0.4, minLevel: 1, description: 'Cura 40% da vida maxima. 15 MP', manaCost: 15, type: 'heal' },
-  { id: 'skl_3', name: 'Bola de Fogo', cost: 0, damageMult: 2.2, minLevel: 3, description: 'Projétil arcano em chamas. 20 MP', manaCost: 20, type: 'magic' },
+  {
+    id: 'skl_2',
+    name: 'Luz Sagrada',
+    cost: 0,
+    damageMult: 0.4,
+    minLevel: 1,
+    description: 'Cura 40% da vida maxima. 15 MP',
+    manaCost: 15,
+    type: 'heal',
+    tipoAnimacao: 'cura_status',
+    animacaoExecucao: SPRITE_ANIMATION_IDS.execFlash,
+    animacaoExecucaoCor: '#fff476',
+    animacaoImpacto: SPRITE_ANIMATION_IDS.execAuraVida1,
+    animacaoImpactoAlvo: 'self',
+  },
+  {
+    id: 'skl_3',
+    name: 'Bola de Fogo',
+    cost: 0,
+    damageMult: 2.2,
+    minLevel: 3,
+    description: 'Projétil arcano em chamas. 20 MP',
+    manaCost: 20,
+    type: 'magic',
+    tipoAnimacao: 'magia',
+    animacaoExecucao: SPRITE_ANIMATION_IDS.execFlash,
+    animacaoExecucaoCor: '#ff8f45',
+    animacaoImpacto: SPRITE_ANIMATION_IDS.execFire,
+    animacaoImpactoAlvo: 'target',
+  },
   { id: 'skl_4', name: 'Lâmina do Dragão', cost: 0, damageMult: 3.5, minLevel: 8, description: 'Investida lendária devastadora. 45 MP', manaCost: 45, type: 'physical' },
   { id: 'skl_5', name: 'Tempestade Arcana', cost: 0, damageMult: 2.8, minLevel: 4, description: 'Explosão violeta que estilhaça o alvo. 24 MP', manaCost: 24, type: 'magic' },
   { id: 'skl_6', name: 'Quebraterra', cost: 0, damageMult: 2.9, minLevel: 5, description: 'Golpe bruto que faz a arena tremer. 26 MP', manaCost: 26, type: 'physical' },
@@ -185,8 +214,8 @@ const skeletonAnimationMap = {
   defendHit: 'Rig_Medium_CombatMelee:Melee_Block_Hit',
   hit: 'Rig_Medium_General:Hit_A',
   criticalHit: 'Rig_Medium_General:Hit_B',
-  item: 'Rig_Medium_CombatRanged:Ranged_Magic_Raise',
-  heal: 'Rig_Medium_General:Use_Item',
+  item: 'Rig_Medium_General:Use_Item',
+  heal: 'Rig_Medium_CombatRanged:Ranged_Magic_Raise',
   skill: 'Rig_Medium_CombatRanged:Ranged_Magic_Raise',
   evadeLeft: 'Rig_Medium_MovementAdvanced:Dodge_Left',
   evadeRight: 'Rig_Medium_MovementAdvanced:Dodge_Right',

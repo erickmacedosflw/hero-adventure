@@ -134,12 +134,14 @@ const WorldFloatingText = ({
   stackIndex: number;
 }) => {
   const groupRef = useRef<THREE.Group>(null);
+  const textRef = useRef<HTMLDivElement>(null);
   const startTimeRef = useRef<number | null>(null);
   const basePosition = useMemo<[number, number, number]>(() => (
     target === 'player'
       ? [-2, 1.48 - stackIndex * 0.24, 0.15]
       : [2, 1.62 - stackIndex * 0.24, 0.15]
   ), [stackIndex, target]);
+  const durationSeconds = Math.max(0.2, (text.durationMs ?? 1100) / 1000);
 
   useFrame((state) => {
     if (!groupRef.current) {
@@ -151,7 +153,17 @@ const WorldFloatingText = ({
     }
 
     const elapsed = state.clock.elapsedTime - startTimeRef.current;
+    const progress = Math.max(0, Math.min(1, elapsed / durationSeconds));
     const lift = Math.min(elapsed * 0.34, 0.28);
+    const fadeStart = 0.42;
+    const linearFade = progress <= fadeStart ? 0 : (progress - fadeStart) / (1 - fadeStart);
+    const fadeProgress = Math.max(0, Math.min(1, linearFade));
+    const smoothFade = fadeProgress * fadeProgress * (3 - (2 * fadeProgress));
+    const opacity = 1 - smoothFade;
+    if (textRef.current) {
+      textRef.current.style.opacity = opacity.toString();
+      textRef.current.style.transform = `translateY(${-8 * smoothFade}px) scale(${1 - (smoothFade * 0.07)})`;
+    }
     groupRef.current.position.set(basePosition[0], basePosition[1] + lift, basePosition[2]);
   });
 
@@ -167,12 +179,27 @@ const WorldFloatingText = ({
             ? 'text-yellow-300'
             : 'text-sky-400';
   const customToneStyle = text.color ? { color: text.color } : undefined;
+  const itemOutlineStyle = type === 'item'
+    ? {
+      filter: [
+        'drop-shadow(0 0 2px rgba(255,255,255,1))',
+        'drop-shadow(0 0 6px rgba(255,255,255,0.95))',
+        'drop-shadow(0 0 10px rgba(255,255,255,0.9))',
+      ].join(' '),
+      textShadow: [
+        '0 0 2px rgba(255,255,255,1)',
+        '0 0 6px rgba(255,255,255,0.9)',
+      ].join(', '),
+    }
+    : undefined;
 
   const textSize = type === 'crit'
     ? 'text-3xl'
     : type === 'buff'
       ? 'text-lg'
-      : type === 'skill' || type === 'item'
+      : type === 'item'
+        ? 'text-5xl'
+        : type === 'skill'
         ? 'text-xl'
         : 'text-2xl';
 
@@ -180,12 +207,15 @@ const WorldFloatingText = ({
     <group ref={groupRef} position={basePosition}>
       <Html center sprite distanceFactor={10} zIndexRange={[120, 0]}>
         <div
+          ref={textRef}
           className={`px-1 text-center font-black whitespace-nowrap leading-none ${tone} ${textSize} select-none`}
           style={{
             WebkitTextStroke: '4px rgba(255,255,255,1)',
             paintOrder: 'stroke fill',
             opacity: 0.94,
+            transition: 'opacity 80ms linear, transform 80ms linear',
             ...customToneStyle,
+            ...itemOutlineStyle,
           }}
         >
           {text.text}

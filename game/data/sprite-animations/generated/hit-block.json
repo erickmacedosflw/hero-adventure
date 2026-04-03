@@ -1,0 +1,110 @@
+{
+  "id": "sprite_anim_1775189597329",
+  "version": 1,
+  "name": "hit-block",
+  "spriteSheetName": "hit3.png",
+  "spriteSheetUrl": "game/sprites/hit3.png",
+  "referencePreview": {
+    "previewReference": "hero",
+    "heroClassId": "knight",
+    "enemyIndex": 0
+  },
+  "sheetSize": {
+    "width": 960,
+    "height": 192
+  },
+  "frameSource": {
+    "rows": 1,
+    "cols": 5,
+    "frames": [
+      {
+        "x": 0,
+        "y": 0,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 192,
+        "y": 0,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 384,
+        "y": 0,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 576,
+        "y": 0,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 768,
+        "y": 0,
+        "width": 192,
+        "height": 192
+      }
+    ]
+  },
+  "spriteTracks": [
+    {
+      "id": "track_1hwq9mz",
+      "name": "Track 1",
+      "enabled": true,
+      "spriteRows": 1,
+      "spriteCols": 5,
+      "invertRows": true,
+      "preserveFrameAspect": true,
+      "useOriginalFrameSize": true,
+      "originalSizeScale": 0.015561529198509484,
+      "startEmptyFrame": true,
+      "endEmptyFrame": true,
+      "rotationDeg": 0,
+      "playbackMode": "one-shot",
+      "stopOnLastFrame": true,
+      "tailLoopEnabled": false,
+      "tailLoopFrameCount": 4,
+      "tailLoopRepeats": 0,
+      "tailLoopPattern": "forward",
+      "timelineStartFrame": 0,
+      "fps": 12,
+      "frameIndices": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "anchorTarget": "hero",
+      "anchorPoint": "chest",
+      "offset3d": [
+        0.24000061035156248,
+        -0.4080010986328125,
+        1.37
+      ],
+      "size": [
+        2.7249069137384647,
+        2.7249069137384647
+      ],
+      "renderPriority": 0,
+      "depthTest": true,
+      "depthWrite": false,
+      "motionPreset": "none",
+      "motionAmplitude": 0.55,
+      "motionSpeed": 1,
+      "blendMode": "normal",
+      "opacity": 1,
+      "tintColor": "#2e89ff",
+      "spriteSheetName": "hit3.png",
+      "spriteSheetPath": "game/sprites/hit3.png",
+      "spriteSheetUrl": "game/sprites/hit3.png",
+      "spriteSheetSize": {
+        "width": 960,
+        "height": 192
+      }
+    }
+  ]
+}

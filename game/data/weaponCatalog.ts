@@ -1,4 +1,5 @@
-import { Item } from '../../types';
+﻿import { Item } from '../../types';
+import { COMBAT_SPRITE_ANIMATION_DEFAULTS, SPRITE_ANIMATION_IDS } from './sprite-animations/registry';
 
 export type RegisteredWeaponGrip = 'dagger' | 'sword' | 'axe' | 'hammer' | 'wand' | 'staff' | 'spear' | 'halberd' | 'bow' | 'fist';
 
@@ -50,6 +51,10 @@ const createRegisteredWeapon = ({
   gripPoint,
   handTransform,
   previewTransform,
+  animacaoExecucao,
+  animacaoImpacto,
+  animacaoExecucaoCor,
+  animacaoImpactoCor,
 }: {
   id: string;
   name: string;
@@ -64,6 +69,10 @@ const createRegisteredWeapon = ({
   gripPoint?: RegisteredWeaponGripPoint;
   handTransform: RegisteredWeapon3DDefinition['handTransform'];
   previewTransform: RegisteredWeapon3DDefinition['previewTransform'];
+  animacaoExecucao?: string;
+  animacaoImpacto?: string;
+  animacaoExecucaoCor?: string;
+  animacaoImpactoCor?: string;
 }): RegisteredWeapon3DDefinition => ({
   item: {
     id,
@@ -76,6 +85,10 @@ const createRegisteredWeapon = ({
     rarity,
     minLevel,
     source: 'shop',
+    animacaoExecucao,
+    animacaoImpacto: animacaoImpacto ?? COMBAT_SPRITE_ANIMATION_DEFAULTS.unarmedImpactAnimationId,
+    animacaoExecucaoCor,
+    animacaoImpactoCor,
   },
   modelPath: `game/assets/Characters/Weapons/another/${modelFile}`,
   modelUrl: new URL(`../assets/Characters/Weapons/another/${modelFile}`, import.meta.url).href,
@@ -123,6 +136,7 @@ export const REGISTERED_WEAPON_3D_CATALOG: RegisteredWeapon3DDefinition[] = [
     icon: '🗡️',
     modelFile: 'dagger_A.fbx',
     grip: 'dagger',
+    animacaoImpacto: SPRITE_ANIMATION_IDS.hitBladeSlash,
     handTransform: { position: daggerPos, rotation: daggerRot, scale: 0.600 },
     previewTransform: { rotation: [0.12, 0.42, -1.0], scaleMultiplier: 1.04, positionY: 0.05 },
   }),
@@ -137,6 +151,7 @@ export const REGISTERED_WEAPON_3D_CATALOG: RegisteredWeapon3DDefinition[] = [
     icon: '🗡️',
     modelFile: 'dagger_B.fbx',
     grip: 'dagger',
+    animacaoImpacto: SPRITE_ANIMATION_IDS.hitBladeSlash,
     handTransform: { position: daggerPos, rotation: daggerRot, scale: 0.600 },
     previewTransform: { rotation: [0.12, 0.42, -1.0], scaleMultiplier: 1.08, positionY: 0.05 },
   }),
@@ -151,6 +166,7 @@ export const REGISTERED_WEAPON_3D_CATALOG: RegisteredWeapon3DDefinition[] = [
     icon: '⚔️',
     modelFile: 'sword_A.fbx',
     grip: 'sword',
+    animacaoImpacto: SPRITE_ANIMATION_IDS.hitBladeSlash,
     handTransform: { position: swordPos, rotation: swordRot, scale: 1.079 },
     previewTransform: { rotation: [0.14, 0.36, -0.9], scaleMultiplier: 1.08, positionY: 0.06 },
   }),
@@ -165,6 +181,7 @@ export const REGISTERED_WEAPON_3D_CATALOG: RegisteredWeapon3DDefinition[] = [
     icon: '⚔️',
     modelFile: 'sword_B.fbx',
     grip: 'sword',
+    animacaoImpacto: SPRITE_ANIMATION_IDS.hitBladeSlash,
     handTransform: { position: swordPos, rotation: swordRot, scale: 1.079 },
     previewTransform: { rotation: [0.14, 0.34, -0.88], scaleMultiplier: 1.1, positionY: 0.06 },
   }),
@@ -179,6 +196,7 @@ export const REGISTERED_WEAPON_3D_CATALOG: RegisteredWeapon3DDefinition[] = [
     icon: '⚔️',
     modelFile: 'sword_C.fbx',
     grip: 'sword',
+    animacaoImpacto: SPRITE_ANIMATION_IDS.hitBladeSlash,
     handTransform: { position: swordPos, rotation: swordRot, scale: 1.079 },
     previewTransform: { rotation: [0.14, 0.32, -0.84], scaleMultiplier: 1.14, positionY: 0.08 },
   }),
@@ -193,6 +211,7 @@ export const REGISTERED_WEAPON_3D_CATALOG: RegisteredWeapon3DDefinition[] = [
     icon: '⚔️',
     modelFile: 'sword_D.fbx',
     grip: 'sword',
+    animacaoImpacto: SPRITE_ANIMATION_IDS.hitBladeSlash,
     handTransform: { position: swordPos, rotation: swordRot, scale: 1.079 },
     previewTransform: { rotation: [0.14, 0.3, -0.82], scaleMultiplier: 1.18, positionY: 0.1 },
   }),
@@ -207,6 +226,7 @@ export const REGISTERED_WEAPON_3D_CATALOG: RegisteredWeapon3DDefinition[] = [
     icon: '✨',
     modelFile: 'sword_E.fbx',
     grip: 'sword',
+    animacaoImpacto: SPRITE_ANIMATION_IDS.hitBladeSlash,
     handTransform: { position: swordPos, rotation: swordRot, scale: 1.079 },
     previewTransform: { rotation: [0.14, 0.28, -0.8], scaleMultiplier: 1.22, positionY: 0.12 },
   }),
@@ -221,6 +241,7 @@ export const REGISTERED_WEAPON_3D_CATALOG: RegisteredWeapon3DDefinition[] = [
     icon: '🪓',
     modelFile: 'axe_A.fbx',
     grip: 'axe',
+    animacaoImpacto: SPRITE_ANIMATION_IDS.hitPesado,
     handTransform: { position: axePos, rotation: axeRot, scale: 0.753 },
     previewTransform: { rotation: [0.12, 0.3, -0.82], scaleMultiplier: 1.08, positionY: 0.08 },
   }),
@@ -235,6 +256,7 @@ export const REGISTERED_WEAPON_3D_CATALOG: RegisteredWeapon3DDefinition[] = [
     icon: '🪓',
     modelFile: 'axe_B.fbx',
     grip: 'axe',
+    animacaoImpacto: SPRITE_ANIMATION_IDS.hitPesado,
     handTransform: { position: axePos, rotation: axeRot, scale: 0.753 },
     previewTransform: { rotation: [0.14, 0.28, -0.78], scaleMultiplier: 1.12, positionY: 0.09 },
   }),
@@ -249,6 +271,7 @@ export const REGISTERED_WEAPON_3D_CATALOG: RegisteredWeapon3DDefinition[] = [
     icon: '🪓',
     modelFile: 'axe_C.fbx',
     grip: 'axe',
+    animacaoImpacto: SPRITE_ANIMATION_IDS.hitPesado,
     handTransform: { position: [-0.132, 0.093, -0.166], rotation: [0.268, -0.882, 0.172], scale: 0.723 },
     previewTransform: { rotation: [0.14, 0.26, -0.74], scaleMultiplier: 1.14, positionY: 0.1 },
   }),
@@ -263,6 +286,7 @@ export const REGISTERED_WEAPON_3D_CATALOG: RegisteredWeapon3DDefinition[] = [
     icon: '🔨',
     modelFile: 'hammer_A.fbx',
     grip: 'hammer',
+    animacaoImpacto: SPRITE_ANIMATION_IDS.hitPesado,
     handTransform: { position: hammerPos, rotation: hammerRot, scale: 0.684 },
     previewTransform: { rotation: [0.18, 0.28, -0.76], scaleMultiplier: 1.04, positionY: 0.08 },
   }),
@@ -277,6 +301,7 @@ export const REGISTERED_WEAPON_3D_CATALOG: RegisteredWeapon3DDefinition[] = [
     icon: '🔨',
     modelFile: 'hammer_B.fbx',
     grip: 'hammer',
+    animacaoImpacto: SPRITE_ANIMATION_IDS.hitPesado,
     handTransform: { position: hammerPos, rotation: hammerRot, scale: 0.684 },
     previewTransform: { rotation: [0.18, 0.26, -0.74], scaleMultiplier: 1.08, positionY: 0.08 },
   }),
@@ -291,6 +316,7 @@ export const REGISTERED_WEAPON_3D_CATALOG: RegisteredWeapon3DDefinition[] = [
     icon: '🔨',
     modelFile: 'hammer_C.fbx',
     grip: 'hammer',
+    animacaoImpacto: SPRITE_ANIMATION_IDS.hitPesado,
     handTransform: { position: hammerPos, rotation: hammerRot, scale: 0.684 },
     previewTransform: { rotation: [0.18, 0.24, -0.7], scaleMultiplier: 1.12, positionY: 0.1 },
   }),
@@ -305,6 +331,7 @@ export const REGISTERED_WEAPON_3D_CATALOG: RegisteredWeapon3DDefinition[] = [
     icon: '🪄',
     modelFile: 'wand_A.fbx',
     grip: 'wand',
+    animacaoImpacto: COMBAT_SPRITE_ANIMATION_DEFAULTS.unarmedImpactAnimationId,
     handTransform: { position: wandPos, rotation: wandRot, scale: 0.918 },
     previewTransform: { rotation: [0.06, 0.5, -0.54], scaleMultiplier: 1.02, positionY: 0.02 },
   }),
@@ -319,6 +346,7 @@ export const REGISTERED_WEAPON_3D_CATALOG: RegisteredWeapon3DDefinition[] = [
     icon: '🪄',
     modelFile: 'staff_A.fbx',
     grip: 'staff',
+    animacaoImpacto: COMBAT_SPRITE_ANIMATION_DEFAULTS.unarmedImpactAnimationId,
     handTransform: { position: staffPos, rotation: staffRot, scale: 1.203 },
     previewTransform: { rotation: [0.1, 0.26, -0.68], scaleMultiplier: 0.94, positionY: 0.12 },
   }),
@@ -333,6 +361,7 @@ export const REGISTERED_WEAPON_3D_CATALOG: RegisteredWeapon3DDefinition[] = [
     icon: '🪄',
     modelFile: 'staff_B.fbx',
     grip: 'staff',
+    animacaoImpacto: COMBAT_SPRITE_ANIMATION_DEFAULTS.unarmedImpactAnimationId,
     handTransform: { position: staffPos, rotation: staffRot, scale: 1.203 },
     previewTransform: { rotation: [0.1, 0.24, -0.64], scaleMultiplier: 1.0, positionY: 0.12 },
   }),
@@ -347,6 +376,7 @@ export const REGISTERED_WEAPON_3D_CATALOG: RegisteredWeapon3DDefinition[] = [
     icon: '🔱',
     modelFile: 'spear_A.fbx',
     grip: 'spear',
+    animacaoImpacto: COMBAT_SPRITE_ANIMATION_DEFAULTS.unarmedImpactAnimationId,
     handTransform: { position: spearPos, rotation: spearRot, scale: 1.454 },
     previewTransform: { rotation: [0.1, 0.26, -0.68], scaleMultiplier: 0.94, positionY: 0.12 },
   }),
@@ -361,6 +391,7 @@ export const REGISTERED_WEAPON_3D_CATALOG: RegisteredWeapon3DDefinition[] = [
     icon: '🔱',
     modelFile: 'halberd.fbx',
     grip: 'halberd',
+    animacaoImpacto: SPRITE_ANIMATION_IDS.hitPesado,
     handTransform: { position: halberdPos, rotation: halberdRot, scale: 1.454 },
     previewTransform: { rotation: [0.12, 0.2, -0.58], scaleMultiplier: 0.92, positionY: 0.16 },
   }),
@@ -375,6 +406,7 @@ export const REGISTERED_WEAPON_3D_CATALOG: RegisteredWeapon3DDefinition[] = [
     icon: '🏹',
     modelFile: 'bow_A_withString.fbx',
     grip: 'bow',
+    animacaoImpacto: COMBAT_SPRITE_ANIMATION_DEFAULTS.unarmedImpactAnimationId,
     handTransform: { position: bowPos, rotation: bowRot, scale: 1.803 },
     previewTransform: { rotation: [0.1, 0.4, -0.36], scaleMultiplier: 0.92, positionY: 0.08 },
   }),
@@ -389,6 +421,7 @@ export const REGISTERED_WEAPON_3D_CATALOG: RegisteredWeapon3DDefinition[] = [
     icon: '🏹',
     modelFile: 'bow_B_withString.fbx',
     grip: 'bow',
+    animacaoImpacto: COMBAT_SPRITE_ANIMATION_DEFAULTS.unarmedImpactAnimationId,
     handTransform: { position: bowPos, rotation: bowRot, scale: 1.803 },
     previewTransform: { rotation: [0.1, 0.38, -0.32], scaleMultiplier: 0.96, positionY: 0.1 },
   }),
@@ -403,6 +436,7 @@ export const REGISTERED_WEAPON_3D_CATALOG: RegisteredWeapon3DDefinition[] = [
     icon: '🥊',
     modelFile: 'fistweapon_A.fbx',
     grip: 'fist',
+    animacaoImpacto: COMBAT_SPRITE_ANIMATION_DEFAULTS.unarmedImpactAnimationId,
     handTransform: { position: fistAPos, rotation: fistARot, scale: 0.376 },
     previewTransform: { rotation: [0.2, 0.52, -0.3], scaleMultiplier: 1.08, positionY: 0.02 },
   }),
@@ -417,6 +451,7 @@ export const REGISTERED_WEAPON_3D_CATALOG: RegisteredWeapon3DDefinition[] = [
     icon: '🥊',
     modelFile: 'fistweapon_A_stacked.fbx',
     grip: 'fist',
+    animacaoImpacto: COMBAT_SPRITE_ANIMATION_DEFAULTS.unarmedImpactAnimationId,
     handTransform: { position: fistAPos, rotation: fistARot, scale: 0.376 },
     previewTransform: { rotation: [0.2, 0.5, -0.28], scaleMultiplier: 1.12, positionY: 0.02 },
   }),
@@ -431,6 +466,7 @@ export const REGISTERED_WEAPON_3D_CATALOG: RegisteredWeapon3DDefinition[] = [
     icon: '🥊',
     modelFile: 'fistweapon_B.fbx',
     grip: 'fist',
+    animacaoImpacto: COMBAT_SPRITE_ANIMATION_DEFAULTS.unarmedImpactAnimationId,
     handTransform: { position: fistBPos, rotation: fistBRot, scale: 0.536 },
     previewTransform: { rotation: [0.18, 0.48, -0.24], scaleMultiplier: 1.14, positionY: 0.02 },
   }),
@@ -445,6 +481,7 @@ export const REGISTERED_WEAPON_3D_CATALOG: RegisteredWeapon3DDefinition[] = [
     icon: '🥊',
     modelFile: 'fistweapon_B_stacked.fbx',
     grip: 'fist',
+    animacaoImpacto: COMBAT_SPRITE_ANIMATION_DEFAULTS.unarmedImpactAnimationId,
     handTransform: { position: fistBPos, rotation: fistBRot, scale: 0.536 },
     previewTransform: { rotation: [0.18, 0.46, -0.22], scaleMultiplier: 1.18, positionY: 0.02 },
   }),
@@ -479,3 +516,4 @@ export const GRIP_TO_ANIMATION_ACTION: Record<RegisteredWeaponGrip, 'attack' | '
 /** Return the grip of an equipped weapon, or undefined if the item ID has no 3D entry. */
 export const getEquippedWeaponGrip = (itemId?: string | null): RegisteredWeaponGrip | undefined =>
   getRegisteredWeapon3DByItemId(itemId)?.grip;
+

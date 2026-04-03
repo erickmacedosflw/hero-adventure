@@ -1,0 +1,380 @@
+{
+  "id": "sprite_anim_1775187435559",
+  "version": 1,
+  "name": "nova_animacao",
+  "spriteSheetName": "fire.png",
+  "spriteSheetUrl": "game/sprites/fire.png",
+  "referencePreview": {
+    "previewReference": "hero",
+    "heroClassId": "knight",
+    "enemyIndex": 0
+  },
+  "sheetSize": {
+    "width": 960,
+    "height": 1152
+  },
+  "frameSource": {
+    "rows": 6,
+    "cols": 5,
+    "frames": [
+      {
+        "x": 0,
+        "y": 960,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 192,
+        "y": 960,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 384,
+        "y": 960,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 576,
+        "y": 960,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 768,
+        "y": 960,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 0,
+        "y": 768,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 192,
+        "y": 768,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 384,
+        "y": 768,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 576,
+        "y": 768,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 768,
+        "y": 768,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 0,
+        "y": 576,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 192,
+        "y": 576,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 384,
+        "y": 576,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 576,
+        "y": 576,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 768,
+        "y": 576,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 0,
+        "y": 384,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 192,
+        "y": 384,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 384,
+        "y": 384,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 576,
+        "y": 384,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 768,
+        "y": 384,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 0,
+        "y": 192,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 192,
+        "y": 192,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 384,
+        "y": 192,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 576,
+        "y": 192,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 768,
+        "y": 192,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 0,
+        "y": 0,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 192,
+        "y": 0,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 384,
+        "y": 0,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 576,
+        "y": 0,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 768,
+        "y": 0,
+        "width": 192,
+        "height": 192
+      }
+    ]
+  },
+  "spriteTracks": [
+    {
+      "id": "track_t4r87l4",
+      "name": "Track 1",
+      "enabled": true,
+      "spriteRows": 6,
+      "spriteCols": 5,
+      "invertRows": true,
+      "preserveFrameAspect": true,
+      "useOriginalFrameSize": true,
+      "originalSizeScale": 0.024177503817136327,
+      "startEmptyFrame": false,
+      "endEmptyFrame": true,
+      "rotationDeg": 180.96002197265625,
+      "playbackMode": "one-shot",
+      "stopOnLastFrame": true,
+      "tailLoopEnabled": false,
+      "tailLoopFrameCount": 4,
+      "tailLoopRepeats": 0,
+      "tailLoopPattern": "forward",
+      "timelineStartFrame": 0,
+      "fps": 12,
+      "frameIndices": [
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22
+      ],
+      "anchorTarget": "hero",
+      "anchorPoint": "chest",
+      "offset3d": [
+        -0.08800109863281247,
+        -0.11200103759765621,
+        0.3779995727539063
+      ],
+      "size": [
+        4.463539166240553,
+        4.463539166240553
+      ],
+      "renderPriority": 0,
+      "depthTest": true,
+      "depthWrite": false,
+      "motionPreset": "none",
+      "motionAmplitude": 0.55,
+      "motionSpeed": 1,
+      "blendMode": "normal",
+      "opacity": 1,
+      "tintColor": "#ffffff",
+      "spriteSheetName": "fire.png",
+      "spriteSheetPath": "game/sprites/fire.png",
+      "spriteSheetUrl": "game/sprites/fire.png",
+      "spriteSheetSize": {
+        "width": 960,
+        "height": 1152
+      }
+    },
+    {
+      "id": "track_fu12mks",
+      "name": "Track 1 (copia 3)",
+      "enabled": true,
+      "spriteRows": 6,
+      "spriteCols": 5,
+      "invertRows": true,
+      "preserveFrameAspect": true,
+      "useOriginalFrameSize": true,
+      "originalSizeScale": 0.02149371285518634,
+      "startEmptyFrame": true,
+      "endEmptyFrame": true,
+      "rotationDeg": 180.96002197265625,
+      "playbackMode": "one-shot",
+      "stopOnLastFrame": true,
+      "tailLoopEnabled": false,
+      "tailLoopFrameCount": 4,
+      "tailLoopRepeats": 0,
+      "tailLoopPattern": "forward",
+      "timelineStartFrame": 0,
+      "fps": 12,
+      "frameIndices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "anchorTarget": "hero",
+      "anchorPoint": "chest",
+      "offset3d": [
+        0.12799987792968753,
+        -0.0880014038085938,
+        0.8419998168945313
+      ],
+      "size": [
+        3.9680700655728627,
+        3.9680700655728627
+      ],
+      "renderPriority": 0,
+      "depthTest": true,
+      "depthWrite": false,
+      "motionPreset": "none",
+      "motionAmplitude": 0.55,
+      "motionSpeed": 1,
+      "blendMode": "normal",
+      "opacity": 1,
+      "tintColor": "#ffffff",
+      "spriteSheetName": "fire.png",
+      "spriteSheetPath": "game/sprites/fire.png",
+      "spriteSheetUrl": "game/sprites/fire.png",
+      "spriteSheetSize": {
+        "width": 960,
+        "height": 1152
+      }
+    },
+    {
+      "id": "track_bu2m4hq",
+      "name": "Track 1 (copia 6)",
+      "enabled": true,
+      "spriteRows": 6,
+      "spriteCols": 5,
+      "invertRows": true,
+      "preserveFrameAspect": true,
+      "useOriginalFrameSize": true,
+      "originalSizeScale": 0.02514460396982178,
+      "startEmptyFrame": false,
+      "endEmptyFrame": true,
+      "rotationDeg": 180.96002197265625,
+      "playbackMode": "one-shot",
+      "stopOnLastFrame": true,
+      "tailLoopEnabled": false,
+      "tailLoopFrameCount": 4,
+      "tailLoopRepeats": 0,
+      "tailLoopPattern": "forward",
+      "timelineStartFrame": 0,
+      "fps": 12,
+      "frameIndices": [
+        23,
+        24,
+        25,
+        26,
+        27,
+        28
+      ],
+      "anchorTarget": "hero",
+      "anchorPoint": "chest",
+      "offset3d": [
+        0.03199890136718753,
+        -0.14400115966796873,
+        0.3779995727539063
+      ],
+      "size": [
+        4.827763962205782,
+        4.827763962205782
+      ],
+      "renderPriority": 0,
+      "depthTest": true,
+      "depthWrite": false,
+      "motionPreset": "none",
+      "motionAmplitude": 0.55,
+      "motionSpeed": 1,
+      "blendMode": "normal",
+      "opacity": 1,
+      "tintColor": "#ffffff",
+      "spriteSheetName": "fire.png",
+      "spriteSheetPath": "game/sprites/fire.png",
+      "spriteSheetUrl": "game/sprites/fire.png",
+      "spriteSheetSize": {
+        "width": 960,
+        "height": 1152
+      }
+    }
+  ]
+}

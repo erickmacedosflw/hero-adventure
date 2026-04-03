@@ -245,6 +245,7 @@ const ActionTile = ({
   variant,
   glowColor,
   forceClassName,
+  forceStyle,
   glowStrength = 16,
   energized = false,
   sparkleColor = '#ffffff',
@@ -256,6 +257,7 @@ const ActionTile = ({
   variant: 'attack' | 'defense' | 'item' | 'neutral' | 'danger' | 'skill';
   glowColor?: string;
   forceClassName?: string;
+  forceStyle?: React.CSSProperties;
   glowStrength?: number;
   energized?: boolean;
   sparkleColor?: string;
@@ -269,12 +271,19 @@ const ActionTile = ({
         skill: 'bg-[#7c4c76] border-[#664060] text-white hover:bg-[#8d5d87] shadow-lg shadow-[#7c4c76]/20',
     }[variant];
 
+    const tileStyle = !disabled
+        ? {
+            ...(forceStyle ?? {}),
+            ...(glowColor ? { boxShadow: `0 0 0 1px ${glowColor}88, 0 0 ${glowStrength}px ${glowColor}88` } : {}),
+        }
+        : undefined;
+
     return (
         <button
             onClick={onClick}
             disabled={disabled}
             className={`relative overflow-hidden col-span-1 w-full rounded-[12px] sm:rounded-[14px] aspect-square flex flex-col items-center justify-center gap-1 sm:gap-1.5 border-b-2 sm:border-b-3 transition-all active:translate-y-0.5 active:border-b-0 ${disabled ? 'bg-[#e9d7c2] border-[#dcc0aa] text-[#8f6c67] cursor-not-allowed' : (forceClassName ?? variantClass)}`}
-            style={!disabled && glowColor ? { boxShadow: `0 0 0 1px ${glowColor}88, 0 0 ${glowStrength}px ${glowColor}88` } : undefined}
+            style={tileStyle}
         >
             {energized && !disabled && (
                 <span className="pointer-events-none absolute inset-0 overflow-hidden rounded-[12px] sm:rounded-[14px]">
@@ -2652,7 +2661,10 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
     const battleActionsRef = useRef<HTMLDivElement | null>(null);
     const previousResourceRef = useRef(player.classResource.value);
     const showDiamondOnBattleHud = showDiamondHud;
-    const classAccentColor = getPlayerClassById(player.classId).visualProfile.secondaryColor;
+    const currentPlayerClass = getPlayerClassById(player.classId);
+    const classAccentColor = currentPlayerClass.visualProfile.secondaryColor;
+    const classImpulseBaseColor = currentPlayerClass.visualProfile.auraColor ?? classAccentColor;
+    const classImpulseBorderColor = currentPlayerClass.visualProfile.secondaryColor ?? classAccentColor;
         const hasConstellationUnlocked = player.talentPoints > 0 || player.unlockedTalentNodeIds.length > 0;
     const openProfileModal = (initialTab?: 'overview' | 'cards' | 'skills' | 'constellation') => {
         setProfileInitialTab(initialTab);
@@ -2701,7 +2713,13 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
     };
     void enemyIntentPreview;
     void intentMetaByType;
-    const impulseButtonGlowColor = player.impulsoAtivo >= 3 ? '#3b82f6' : player.impulsoAtivo === 2 ? '#a855f7' : player.impulsoAtivo === 1 ? '#ef4444' : undefined;
+    const impulseButtonGlowColor = player.impulsoAtivo >= 3
+        ? '#3b82f6'
+        : player.impulsoAtivo === 2
+            ? '#a855f7'
+            : player.impulsoAtivo === 1
+                ? '#ef4444'
+                : classImpulseBaseColor;
     const absorbGlowColor = player.impulsoAtivo >= 3 ? '#3b82f6' : player.impulsoAtivo === 2 ? '#a855f7' : '#ef4444';
     const currentImpulseFxColor = player.impulsoAtivo >= 3
         ? '#3b82f6'
@@ -2709,18 +2727,9 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
             ? '#a855f7'
             : player.impulsoAtivo === 1
                 ? '#ef4444'
-                : player.impulso >= 3
-                    ? '#3b82f6'
-                    : player.impulso === 2
-                        ? '#a855f7'
-                        : '#ef4444';
-    const impulseReserveColors = ['#ef4444', '#a855f7', '#3b82f6'];
+                : classImpulseBaseColor;
+    const impulseReserveColors = [classImpulseBaseColor, classImpulseBaseColor, classImpulseBaseColor];
     const buttonsEnergized = player.impulsoAtivo > 0;
-    const impulsoButtonClass = player.impulso >= 2
-        ? 'bg-[#3b82f6] border-[#2563eb] text-white hover:bg-[#4f8ff8] shadow-lg shadow-[#3b82f6]/30'
-        : player.impulso >= 1
-            ? 'bg-[#a855f7] border-[#9333ea] text-white hover:bg-[#b76af8] shadow-lg shadow-[#a855f7]/30'
-            : 'bg-[#ef4444] border-[#dc2626] text-white hover:bg-[#f35a5a] shadow-lg shadow-[#ef4444]/30';
     const enemyCardToneClass = enemy?.isBoss
         ? 'border-[3px] border-rose-400 bg-[linear-gradient(135deg,rgba(255,238,238,0.96),rgba(255,226,226,0.92))] shadow-[0_12px_30px_rgba(190,24,93,0.28)] ring-1 ring-rose-300/60'
         : enemy?.isSubBoss
@@ -3754,8 +3763,12 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                           onClick={() => { setActiveBattleMenu(null); onChargeImpulse(); }}
                           disabled={!isPlayerTurn || player.impulso >= 3}
                           variant="skill"
-                          forceClassName={impulsoButtonClass}
-                          glowColor={player.impulso >= 2 ? '#3b82f6' : player.impulso >= 1 ? '#a855f7' : '#ef4444'}
+                          forceStyle={{
+                              backgroundColor: classImpulseBaseColor,
+                              borderColor: classImpulseBorderColor,
+                              color: '#ffffff',
+                          }}
+                          glowColor={classImpulseBaseColor}
                           glowStrength={26}
                           energized={player.impulso > 0}
                           sparkleColor={currentImpulseFxColor}

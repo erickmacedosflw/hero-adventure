@@ -1,0 +1,210 @@
+{
+  "id": "sprite_anim_1775178661437",
+  "version": 1,
+  "name": "aura-up-1",
+  "spriteSheetName": "aura4.png",
+  "spriteSheetUrl": "game/sprites/aura4.png",
+  "referencePreview": {
+    "previewReference": "hero",
+    "heroClassId": "mage",
+    "enemyIndex": 0
+  },
+  "sheetSize": {
+    "width": 960,
+    "height": 768
+  },
+  "frameSource": {
+    "rows": 4,
+    "cols": 5,
+    "frames": [
+      {
+        "x": 0,
+        "y": 576,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 192,
+        "y": 576,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 384,
+        "y": 576,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 576,
+        "y": 576,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 768,
+        "y": 576,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 0,
+        "y": 384,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 192,
+        "y": 384,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 384,
+        "y": 384,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 576,
+        "y": 384,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 768,
+        "y": 384,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 0,
+        "y": 192,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 192,
+        "y": 192,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 384,
+        "y": 192,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 576,
+        "y": 192,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 768,
+        "y": 192,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 0,
+        "y": 0,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 192,
+        "y": 0,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 384,
+        "y": 0,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 576,
+        "y": 0,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 768,
+        "y": 0,
+        "width": 192,
+        "height": 192
+      }
+    ]
+  },
+  "spriteTracks": [
+    {
+      "id": "track_juesgki",
+      "name": "Track 1",
+      "enabled": true,
+      "spriteRows": 4,
+      "spriteCols": 5,
+      "invertRows": true,
+      "preserveFrameAspect": true,
+      "useOriginalFrameSize": true,
+      "originalSizeScale": 0.02181536737658669,
+      "startEmptyFrame": true,
+      "endEmptyFrame": true,
+      "rotationDeg": 179.519970703125,
+      "playbackMode": "one-shot",
+      "stopOnLastFrame": true,
+      "tailLoopEnabled": false,
+      "tailLoopFrameCount": 4,
+      "tailLoopRepeats": 0,
+      "tailLoopPattern": "forward",
+      "fps": 12,
+      "frameIndices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16
+      ],
+      "anchorTarget": "hero",
+      "anchorPoint": "chest",
+      "offset3d": [
+        -0.02400085449218757,
+        -0.1439994812011717,
+        -0.12599945068359367
+      ],
+      "size": [
+        4.1885505363046445,
+        4.1885505363046445
+      ],
+      "renderPriority": 0,
+      "depthTest": true,
+      "depthWrite": false,
+      "motionPreset": "none",
+      "motionAmplitude": 0.55,
+      "motionSpeed": 1,
+      "blendMode": "normal",
+      "opacity": 1,
+      "spriteSheetName": "aura4.png",
+      "spriteSheetPath": "game/sprites/aura4.png",
+      "spriteSheetUrl": "game/sprites/aura4.png",
+      "spriteSheetSize": {
+        "width": 960,
+        "height": 768
+      }
+    }
+  ]
+}

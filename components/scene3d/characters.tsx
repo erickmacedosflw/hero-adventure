@@ -400,6 +400,7 @@ interface EnemyCharacterProps {
   scale: number;
   isAttacking?: boolean;
   isDefending?: boolean;
+  defendImpulseLevel?: number;
   type?: 'beast' | 'humanoid' | 'undead';
   enemyName?: string;
   isBoss?: boolean;
@@ -422,6 +423,7 @@ export const EnemyCharacter = ({
   scale,
   isAttacking,
   isDefending,
+  defendImpulseLevel = 0,
   type = 'undead',
   enemyName,
   isBoss,
@@ -444,6 +446,7 @@ export const EnemyCharacter = ({
 
   const group = useRef<THREE.Group>(null);
   const enemyShieldRef = useRef<THREE.Group>(null);
+  const enemyDefendImpulseAuraRef = useRef<THREE.Group>(null);
   const enemyDamageLightRef = useRef<THREE.PointLight>(null);
   const flashRef = useRef<number>(0);
   const wasHitRef = useRef(false);
@@ -490,6 +493,20 @@ export const EnemyCharacter = ({
       enemyShieldRef.current.visible = Boolean(isDefending);
       enemyShieldRef.current.rotation.y -= 0.05;
       enemyShieldRef.current.scale.setScalar(1 + Math.sin(state.clock.elapsedTime * 8) * 0.05);
+    }
+
+    if (enemyDefendImpulseAuraRef.current) {
+      const auraVisible = Boolean(isDefending) && defendImpulseLevel > 0;
+      const defendImpulseColor = defendImpulseLevel >= 3 ? '#7dd3fc' : defendImpulseLevel === 2 ? '#a855f7' : '#ef4444';
+      enemyDefendImpulseAuraRef.current.visible = auraVisible;
+      enemyDefendImpulseAuraRef.current.rotation.y -= 0.07 + (defendImpulseLevel * 0.01);
+      enemyDefendImpulseAuraRef.current.position.y = 0.9 + Math.sin(state.clock.elapsedTime * 5.5) * 0.04;
+      enemyDefendImpulseAuraRef.current.children.forEach((child) => {
+        if (child instanceof THREE.Mesh && child.material instanceof THREE.MeshStandardMaterial) {
+          child.material.color.set(defendImpulseColor);
+          child.material.emissive.set(defendImpulseColor);
+        }
+      });
     }
 
     if (group.current) {
@@ -567,6 +584,23 @@ export const EnemyCharacter = ({
           <meshStandardMaterial color="#bfdbfe" emissive="#93c5fd" emissiveIntensity={1.0} transparent opacity={0.38} />
         </mesh>
         <pointLight color="#60a5fa" intensity={1.6} distance={5} decay={2} />
+      </group>
+      <group ref={enemyDefendImpulseAuraRef} position={[0, 0.9, 0]} visible={Boolean(isDefending) && defendImpulseLevel > 0}>
+        <mesh rotation={[Math.PI / 2, 0, 0]}>
+          <torusGeometry args={[1.52, 0.045, 10, 42]} />
+          <meshStandardMaterial color="#ef4444" emissive="#ef4444" emissiveIntensity={1.35} transparent opacity={0.5} />
+        </mesh>
+        <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 0.08, 0]}>
+          <torusGeometry args={[1.34, 0.03, 10, 36]} />
+          <meshStandardMaterial color="#ef4444" emissive="#ef4444" emissiveIntensity={1.15} transparent opacity={0.36} />
+        </mesh>
+        <pointLight
+          color={defendImpulseLevel >= 3 ? '#7dd3fc' : defendImpulseLevel === 2 ? '#a855f7' : '#ef4444'}
+          intensity={1.45 + (defendImpulseLevel * 0.32)}
+          distance={5.8}
+          decay={2}
+          position={[0, 0.42, -0.28]}
+        />
       </group>
     </group>
   );

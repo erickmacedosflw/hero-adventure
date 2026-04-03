@@ -5,7 +5,9 @@ import { ContactShadows, Html, PerspectiveCamera, useAnimations, useFBX, useText
 import { Bloom, DepthOfField, EffectComposer, Vignette } from '@react-three/postprocessing';
 import * as THREE from 'three';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
-import { CardCategory, Enemy, EnemyIntentPreview, FloatingText, Particle, Player, PlayerAnimationAction, PlayerClassAnimationMap, PlayerClassAssets, PlayerClassId, StatusEffect, TurnState } from '../types';
+import { COMBAT_SPRITE_ANIMATION_DEFAULTS, SPRITE_ANIMATION_IDS, SPRITE_ANIMATION_REGISTRY } from '../game/data/sprite-animations/registry';
+import { resolveTrackPlaybackSnapshot } from '../game/mechanics/spriteOverlayPlayback';
+import { CardCategory, Enemy, EnemyIntentPreview, FloatingText, Particle, Player, PlayerAnimationAction, PlayerClassAnimationMap, PlayerClassAssets, PlayerClassId, SpriteOverlayAnimationDefinition, SpriteTrackDefinition, StatusEffect, TurnState } from '../types';
 import {
   RIGHT_HAND_BONE_CANDIDATES,
   RuntimeHeroAssets,
@@ -96,6 +98,18 @@ interface SceneProps {
   floatingTexts?: FloatingText[];
   playerClassId?: PlayerClassId;
   playerAnimationAction?: PlayerAnimationAction;
+  playerExecutionAnimationId?: string | null;
+  enemyExecutionAnimationId?: string | null;
+  playerExecutionAnimationTintColor?: string | null;
+  enemyExecutionAnimationTintColor?: string | null;
+  playerImpactAnimationId?: string | null;
+  enemyImpactAnimationId?: string | null;
+  playerImpactAnimationTintColor?: string | null;
+  enemyImpactAnimationTintColor?: string | null;
+  playerImpactAnimationTarget?: 'self' | 'target';
+  enemyImpactAnimationTarget?: 'self' | 'target';
+  playerImpactAnimationTrigger?: number;
+  enemyImpactAnimationTrigger?: number;
   turnState: TurnState;
   isPlayerAttacking: boolean;
   isEnemyAttacking: boolean;
@@ -452,23 +466,496 @@ const COMBAT_TRAIL_SEEDS = Array.from({ length: COMBAT_TRAIL_COUNT }, (_, i) => 
   size: 0.08 + (i % 4) * 0.026,
 }));
 
+const GENERATED_ANIMATION_JSON_MODULES = import.meta.glob('../game/data/sprite-animations/generated/*.json', { eager: true });
+const GENERATED_SPRITE_SHEET_URL_MODULES = import.meta.glob('../game/sprites/*', { eager: true, import: 'default', query: '?url' }) as Record<string, string>;
+
+const getPathBasename = (input?: string | null) => {
+  if (!input) return null;
+  const normalized = input.replace(/\\/g, '/');
+  const parts = normalized.split('/');
+  return parts[parts.length - 1] || null;
+};
+
+const LevelUpSpriteExecution = ({ isLevelingUp }: { isLevelingUp?: boolean }) => {
+  const spriteRefs = useRef<(THREE.Sprite | null)[]>([]);
+  const wasLevelingUpRef = useRef(false);
+  const startMsRef = useRef<number | null>(null);
+  const [definition, setDefinition] = useState<SpriteOverlayAnimationDefinition | null>(null);
+  const [trackTextures, setTrackTextures] = useState<THREE.Texture[]>([]);
+  const [trackLuminanceTextures, setTrackLuminanceTextures] = useState<THREE.Texture[]>([]);
+
+  const enabledTracks = useMemo(
+    () => (definition?.spriteTracks ?? []).filter((track) => track.enabled !== false),
+    [definition],
+  );
+
+  useEffect(() => {
+    let active = true;
+    const createdTextures: THREE.Texture[] = [];
+    const textureLoader = new THREE.TextureLoader();
+
+    const configureTexture = (nextTexture: THREE.Texture) => {
+      nextTexture.flipY = false;
+      nextTexture.wrapS = THREE.ClampToEdgeWrapping;
+      nextTexture.wrapT = THREE.ClampToEdgeWrapping;
+      nextTexture.minFilter = THREE.LinearMipmapLinearFilter;
+      nextTexture.magFilter = THREE.LinearFilter;
+      nextTexture.generateMipmaps = true;
+      nextTexture.needsUpdate = true;
+    };
+
+    const loadTextureByCandidates = async (candidates: string[]): Promise<THREE.Texture | null> => {
+      for (const candidate of candidates) {
+        try {
+          const loaded = await new Promise<THREE.Texture>((resolve, reject) => {
+            textureLoader.load(candidate, resolve, undefined, reject);
+          });
+          return loaded;
+        } catch {
+          // try next candidate
+        }
+      }
+      return null;
+    };
+
+    const loadExecutionAnimation = async () => {
+      const entry = SPRITE_ANIMATION_REGISTRY.find((item) => item.id === SPRITE_ANIMATION_IDS.execAuraUp1);
+      if (!entry) {
+        return;
+      }
+
+      const loadedDefinition = resolveBundledAnimationDefinitionByPath(entry.arquivo);
+      if (!loadedDefinition) {
+        return;
+      }
+
+      const firstTrack = loadedDefinition.spriteTracks?.find((track) => track.enabled !== false)
+        ?? loadedDefinition.spriteTracks?.[0];
+      const spriteSheetRef = firstTrack?.spriteSheetPath
+        ?? firstTrack?.spriteSheetUrl
+        ?? loadedDefinition.spriteSheetUrl
+        ?? loadedDefinition.spriteSheetName;
+
+      const textureCandidates = [
+        resolveSpriteAssetUrl(spriteSheetRef),
+        resolveBundledSpriteSheetUrl(spriteSheetRef),
+        resolveBundledSpriteSheetUrl(loadedDefinition.spriteSheetName),
+      ].filter((candidate, index, self): candidate is string => Boolean(candidate) && self.indexOf(candidate) === index);
+
+      const loadedTexture = await loadTextureByCandidates(textureCandidates);
+      if (!loadedTexture || !active) {
+        loadedTexture?.dispose();
+        return;
+      }
+
+      const keyed = buildChromaKeyTexture(loadedTexture);
+      const luminance = buildLuminanceTexture(keyed);
+      const trackCount = Math.max(1, (loadedDefinition.spriteTracks ?? []).length);
+      const perTrackTextures: THREE.Texture[] = [];
+      const perTrackLuminanceTextures: THREE.Texture[] = [];
+      for (let i = 0; i < trackCount; i += 1) {
+        const texture = keyed.clone();
+        const luminanceTexture = luminance.clone();
+        configureTexture(texture);
+        configureTexture(luminanceTexture);
+        perTrackTextures.push(texture);
+        perTrackLuminanceTextures.push(luminanceTexture);
+      }
+
+      createdTextures.push(...perTrackTextures, ...perTrackLuminanceTextures);
+      keyed.dispose();
+      luminance.dispose();
+      loadedTexture.dispose();
+
+      if (!active) {
+        return;
+      }
+
+      setDefinition(loadedDefinition);
+      setTrackTextures(perTrackTextures);
+      setTrackLuminanceTextures(perTrackLuminanceTextures);
+    };
+
+    void loadExecutionAnimation();
+
+    return () => {
+      active = false;
+      createdTextures.forEach((texture) => texture.dispose());
+    };
+  }, []);
+
+  useFrame((state) => {
+    const risingEdge = Boolean(isLevelingUp) && !wasLevelingUpRef.current;
+    if (risingEdge) {
+      startMsRef.current = state.clock.elapsedTime * 1000;
+    }
+    wasLevelingUpRef.current = Boolean(isLevelingUp);
+
+    const startMs = startMsRef.current;
+    if (!definition || enabledTracks.length === 0 || startMs == null) {
+      spriteRefs.current.forEach((sprite) => {
+        if (!sprite) return;
+        (sprite.material as THREE.SpriteMaterial).opacity = 0;
+      });
+      return;
+    }
+
+    const elapsedMs = Math.max(0, (state.clock.elapsedTime * 1000) - startMs);
+    let hasActiveTrack = false;
+    const fallbackSheet = definition.sheetSize ?? { width: 1, height: 1 };
+
+    enabledTracks.forEach((track, trackIndex) => {
+      const sprite = spriteRefs.current[trackIndex];
+      const texture = trackTextures[trackIndex];
+      const luminanceTexture = trackLuminanceTextures[trackIndex];
+      if (!sprite) return;
+      const material = sprite.material as THREE.SpriteMaterial;
+
+      if (!texture) {
+        material.opacity = 0;
+        return;
+      }
+
+      const snapshot = resolveTrackPlaybackSnapshot({
+        track,
+        elapsedMs,
+        isPlaying: true,
+      });
+
+      if (snapshot.status !== 'finished') {
+        hasActiveTrack = true;
+      }
+
+      if (snapshot.frameIndex < 0) {
+        material.opacity = 0;
+        return;
+      }
+
+      const rect = getTrackFrameRect(track, snapshot.frameIndex, fallbackSheet);
+      if (!rect) {
+        material.opacity = 0;
+        return;
+      }
+
+      const aspect = rect.height > 0 ? rect.width / rect.height : 1;
+      const baseSize: [number, number] = track.useOriginalFrameSize
+        ? [
+          Math.max(0.1, rect.width * (track.originalSizeScale ?? 0.01)),
+          Math.max(0.1, rect.height * (track.originalSizeScale ?? 0.01)),
+        ]
+        : [
+          track.size?.[0] ?? 1.2,
+          track.size?.[1] ?? 1.2,
+        ];
+      const finalSize: [number, number] = (track.preserveFrameAspect ?? true)
+        ? [baseSize[1] * aspect, baseSize[1]]
+        : baseSize;
+
+      const anchorBase: [number, number, number] = [0, 1.1 + getAnchorY(track.anchorPoint), 0];
+      const offset = track.offset3d ?? [0, 0, 0];
+      sprite.position.set(anchorBase[0] + offset[0], anchorBase[1] + offset[1], anchorBase[2] + offset[2]);
+      sprite.scale.set(finalSize[0], finalSize[1], 1);
+      sprite.renderOrder = (track.renderPriority ?? 0) + 12;
+
+      const tintColor = track.tintColor ?? '#ffffff';
+      const selectedTexture = shouldUseLuminanceTint(tintColor) ? (luminanceTexture ?? texture) : texture;
+      selectedTexture.repeat.set(rect.width / rect.sheet.width, rect.height / rect.sheet.height);
+      selectedTexture.offset.set(rect.x / rect.sheet.width, 1 - ((rect.y + rect.height) / rect.sheet.height));
+      selectedTexture.needsUpdate = true;
+      material.map = selectedTexture;
+      material.rotation = THREE.MathUtils.degToRad(track.rotationDeg ?? 0);
+      material.color.set(tintColor);
+      material.opacity = Math.max(0, Math.min(1, track.opacity ?? 1));
+      material.alphaTest = 0.02;
+      material.depthTest = track.depthTest ?? true;
+      material.depthWrite = track.depthWrite ?? false;
+      material.blending = track.blendMode === 'additive' ? THREE.AdditiveBlending : THREE.NormalBlending;
+    });
+
+    for (let index = enabledTracks.length; index < spriteRefs.current.length; index += 1) {
+      const sprite = spriteRefs.current[index];
+      if (!sprite) continue;
+      (sprite.material as THREE.SpriteMaterial).opacity = 0;
+    }
+
+    if (!hasActiveTrack && !isLevelingUp) {
+      startMsRef.current = null;
+    }
+  });
+
+  if (enabledTracks.length === 0) {
+    return null;
+  }
+
+  return (
+    <group>
+      {enabledTracks.map((track, trackIndex) => (
+        <sprite key={track.id ?? `level_up_track_${trackIndex}`} ref={(element) => { spriteRefs.current[trackIndex] = element; }} renderOrder={12}>
+          <spriteMaterial
+            transparent
+            opacity={0}
+            depthWrite={false}
+            depthTest={track.depthTest ?? true}
+            toneMapped={false}
+          />
+        </sprite>
+      ))}
+    </group>
+  );
+};
+
+const resolveSpriteAssetUrl = (input?: string): string | null => {
+  if (!input) return null;
+  if (/^(https?:|data:|blob:|\/)/i.test(input)) return input;
+  return new URL(`../${input.replace(/^\.?\//, '')}`, import.meta.url).href;
+};
+
+const resolveBundledSpriteSheetUrl = (input?: string | null) => {
+  const base = getPathBasename(input)?.toLowerCase();
+  if (!base) return null;
+  const match = Object.entries(GENERATED_SPRITE_SHEET_URL_MODULES)
+    .find(([modulePath]) => modulePath.toLowerCase().endsWith(`/${base}`));
+  return match?.[1] ?? null;
+};
+
+const resolveBundledAnimationDefinitionByPath = (input?: string | null): SpriteOverlayAnimationDefinition | null => {
+  const base = getPathBasename(input)?.toLowerCase();
+  if (!base) return null;
+  const match = Object.entries(GENERATED_ANIMATION_JSON_MODULES)
+    .find(([modulePath]) => modulePath.toLowerCase().endsWith(`/${base}`));
+  if (!match) return null;
+  const loaded = match[1] as { default?: unknown } | SpriteOverlayAnimationDefinition;
+  const json = (typeof loaded === 'object' && loaded && 'default' in loaded)
+    ? (loaded as { default: SpriteOverlayAnimationDefinition }).default
+    : loaded as SpriteOverlayAnimationDefinition;
+  return json ?? null;
+};
+
+const buildChromaKeyTexture = (sourceTexture: THREE.Texture): THREE.Texture => {
+  const sourceImage = sourceTexture.image as
+    | HTMLImageElement
+    | HTMLCanvasElement
+    | ImageBitmap
+    | null
+    | undefined;
+  if (!sourceImage || typeof document === 'undefined') {
+    return sourceTexture.clone();
+  }
+
+  const width = (sourceImage as HTMLImageElement).naturalWidth
+    || (sourceImage as HTMLCanvasElement).width
+    || (sourceImage as ImageBitmap).width
+    || 0;
+  const height = (sourceImage as HTMLImageElement).naturalHeight
+    || (sourceImage as HTMLCanvasElement).height
+    || (sourceImage as ImageBitmap).height
+    || 0;
+  if (width <= 0 || height <= 0) {
+    return sourceTexture.clone();
+  }
+
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext('2d', { willReadFrequently: true });
+  if (!context) {
+    return sourceTexture.clone();
+  }
+
+  context.drawImage(sourceImage as CanvasImageSource, 0, 0, width, height);
+  const imageData = context.getImageData(0, 0, width, height);
+  const pixels = imageData.data;
+
+  const samplePixel = (x: number, y: number) => {
+    const ix = Math.max(0, Math.min(width - 1, x));
+    const iy = Math.max(0, Math.min(height - 1, y));
+    const index = ((iy * width) + ix) * 4;
+    return {
+      r: pixels[index],
+      g: pixels[index + 1],
+      b: pixels[index + 2],
+    };
+  };
+
+  const topLeft = samplePixel(0, 0);
+  const topRight = samplePixel(width - 1, 0);
+  const bottomLeft = samplePixel(0, height - 1);
+  const bg = {
+    r: Math.round((topLeft.r + topRight.r + bottomLeft.r) / 3),
+    g: Math.round((topLeft.g + topRight.g + bottomLeft.g) / 3),
+    b: Math.round((topLeft.b + topRight.b + bottomLeft.b) / 3),
+  };
+
+  const hardThreshold = 26;
+  const softThreshold = 62;
+  for (let index = 0; index < pixels.length; index += 4) {
+    const dr = pixels[index] - bg.r;
+    const dg = pixels[index + 1] - bg.g;
+    const db = pixels[index + 2] - bg.b;
+    const distance = Math.sqrt((dr * dr) + (dg * dg) + (db * db));
+    if (distance <= hardThreshold) {
+      pixels[index + 3] = 0;
+    } else if (distance < softThreshold) {
+      const alphaFactor = (distance - hardThreshold) / (softThreshold - hardThreshold);
+      pixels[index + 3] = Math.min(pixels[index + 3], Math.round(255 * alphaFactor));
+    }
+  }
+
+  context.putImageData(imageData, 0, 0);
+  const keyedTexture = new THREE.CanvasTexture(canvas);
+  keyedTexture.colorSpace = sourceTexture.colorSpace;
+  keyedTexture.needsUpdate = true;
+  return keyedTexture;
+};
+
+const buildLuminanceTexture = (sourceTexture: THREE.Texture): THREE.Texture => {
+  const sourceImage = sourceTexture.image as
+    | HTMLImageElement
+    | HTMLCanvasElement
+    | ImageBitmap
+    | null
+    | undefined;
+  if (!sourceImage || typeof document === 'undefined') {
+    return sourceTexture.clone();
+  }
+
+  const width = (sourceImage as HTMLImageElement).naturalWidth
+    || (sourceImage as HTMLCanvasElement).width
+    || (sourceImage as ImageBitmap).width
+    || 0;
+  const height = (sourceImage as HTMLImageElement).naturalHeight
+    || (sourceImage as HTMLCanvasElement).height
+    || (sourceImage as ImageBitmap).height
+    || 0;
+  if (width <= 0 || height <= 0) {
+    return sourceTexture.clone();
+  }
+
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext('2d', { willReadFrequently: true });
+  if (!context) {
+    return sourceTexture.clone();
+  }
+
+  context.drawImage(sourceImage as CanvasImageSource, 0, 0, width, height);
+  const imageData = context.getImageData(0, 0, width, height);
+  const pixels = imageData.data;
+  for (let index = 0; index < pixels.length; index += 4) {
+    const r = pixels[index];
+    const g = pixels[index + 1];
+    const b = pixels[index + 2];
+    const luminance = Math.round((0.2126 * r) + (0.7152 * g) + (0.0722 * b));
+    pixels[index] = luminance;
+    pixels[index + 1] = luminance;
+    pixels[index + 2] = luminance;
+  }
+  context.putImageData(imageData, 0, 0);
+
+  const grayscaleTexture = new THREE.CanvasTexture(canvas);
+  grayscaleTexture.colorSpace = sourceTexture.colorSpace;
+  grayscaleTexture.needsUpdate = true;
+  return grayscaleTexture;
+};
+
+const shouldUseLuminanceTint = (tintColor?: string) => (
+  (tintColor ?? '#ffffff').toLowerCase() !== '#ffffff'
+);
+
+const isUnarmedAttackStyle = (attackStyle?: 'armed' | 'unarmed') => attackStyle !== 'armed';
+const MAX_SPRITE_ANIMATION_TRACKS = 8;
+const getImpulseAuraColor = (level: number) => (
+  level >= 3 ? '#3b82f6' : level === 2 ? '#a855f7' : '#ef4444'
+);
+
+const resolveImpactAnimationForWeapon = (weaponId?: string): { animationId: string; tintColor: string | null } => {
+  if (!weaponId) {
+    return {
+      animationId: COMBAT_SPRITE_ANIMATION_DEFAULTS.unarmedImpactAnimationId,
+      tintColor: null,
+    };
+  }
+
+  const weapon3d = getRegisteredWeapon3DByItemId(weaponId);
+  return {
+    animationId: weapon3d?.item.animacaoImpacto ?? COMBAT_SPRITE_ANIMATION_DEFAULTS.unarmedImpactAnimationId,
+    tintColor: weapon3d?.item.animacaoImpactoCor ?? null,
+  };
+};
+
+const getTrackFrameRect = (track: SpriteTrackDefinition, frameIndex: number, fallbackSheet: { width: number; height: number }) => {
+  const rows = Math.max(1, track.spriteRows ?? 1);
+  const cols = Math.max(1, track.spriteCols ?? 1);
+  const sheet = track.spriteSheetSize ?? fallbackSheet;
+  if (frameIndex < 0 || frameIndex >= rows * cols || sheet.width <= 0 || sheet.height <= 0) return null;
+  const frameWidth = sheet.width / cols;
+  const frameHeight = sheet.height / rows;
+  const row = Math.floor(frameIndex / cols);
+  const col = frameIndex % cols;
+  const sourceRow = (track.invertRows ?? false) ? (rows - 1 - row) : row;
+  return {
+    sheet,
+    width: frameWidth,
+    height: frameHeight,
+    x: col * frameWidth,
+    y: sourceRow * frameHeight,
+  };
+};
+
+const getAnchorY = (point?: SpriteTrackDefinition['anchorPoint']) => (
+  point === 'head' ? 0.95 : point === 'chest' ? 0.45 : point === 'feet' ? -0.8 : 0
+);
+
 const CombatCinematicFX = ({
   playerAnimationAction,
   enemyAnimationAction,
+  playerExecutionAnimationId,
+  enemyExecutionAnimationId,
+  playerExecutionAnimationTintColor,
+  enemyExecutionAnimationTintColor,
+  playerImpactAnimationId,
+  enemyImpactAnimationId,
+  playerImpactAnimationTintColor,
+  enemyImpactAnimationTintColor,
+  playerImpactAnimationTarget,
+  enemyImpactAnimationTarget,
+  playerImpactAnimationTrigger,
+  enemyImpactAnimationTrigger,
   isPlayerAttacking,
   isEnemyAttacking,
   isEnemyHit,
   isPlayerHit,
+  equippedWeaponId,
+  enemyAttackStyle,
   latestEnemyImpactColor,
+  activeImpulseLevel,
+  enemyImpulseLevel,
   particleLoad,
 }: {
   playerAnimationAction?: PlayerAnimationAction;
   enemyAnimationAction?: PlayerAnimationAction;
+  playerExecutionAnimationId?: string | null;
+  enemyExecutionAnimationId?: string | null;
+  playerExecutionAnimationTintColor?: string | null;
+  enemyExecutionAnimationTintColor?: string | null;
+  playerImpactAnimationId?: string | null;
+  enemyImpactAnimationId?: string | null;
+  playerImpactAnimationTintColor?: string | null;
+  enemyImpactAnimationTintColor?: string | null;
+  playerImpactAnimationTarget?: 'self' | 'target';
+  enemyImpactAnimationTarget?: 'self' | 'target';
+  playerImpactAnimationTrigger?: number;
+  enemyImpactAnimationTrigger?: number;
   isPlayerAttacking?: boolean;
   isEnemyAttacking?: boolean;
   isEnemyHit?: boolean;
   isPlayerHit?: boolean;
+  equippedWeaponId?: string;
+  enemyAttackStyle?: 'armed' | 'unarmed';
   latestEnemyImpactColor?: string;
+  activeImpulseLevel?: number;
+  enemyImpulseLevel?: number;
   particleLoad: number;
 }) => {
   const playerRefs = useRef<(THREE.Sprite | null)[]>([]);
@@ -479,18 +966,259 @@ const CombatCinematicFX = ({
   const enemyCastCoreRef = useRef<THREE.Sprite>(null);
   const hitBurstEnemyRef = useRef<THREE.Sprite>(null);
   const hitBurstPlayerRef = useRef<THREE.Sprite>(null);
+  const unarmedHitEnemyRefs = useRef<(THREE.Sprite | null)[]>([]);
+  const unarmedHitPlayerRefs = useRef<(THREE.Sprite | null)[]>([]);
+  const executionEnemyRefs = useRef<(THREE.Sprite | null)[]>([]);
+  const executionPlayerRefs = useRef<(THREE.Sprite | null)[]>([]);
+  const impulseAuraEnemyRefs = useRef<(THREE.Sprite | null)[]>([]);
+  const impulseAuraPlayerRefs = useRef<(THREE.Sprite | null)[]>([]);
+  const unarmedHitEnemyStartMsRef = useRef<number | null>(null);
+  const unarmedHitPlayerStartMsRef = useRef<number | null>(null);
+  const enemyExecutionStartMsRef = useRef<number | null>(null);
+  const playerExecutionStartMsRef = useRef<number | null>(null);
+  const enemyImpulseAuraStartMsRef = useRef<number | null>(null);
+  const playerImpulseAuraStartMsRef = useRef<number | null>(null);
+  const enemyHitAnimationIdRef = useRef<string | null>(null);
+  const playerHitAnimationIdRef = useRef<string | null>(null);
+  const enemyExecutionAnimationIdRef = useRef<string | null>(null);
+  const playerExecutionAnimationIdRef = useRef<string | null>(null);
+  const enemyHitTintColorRef = useRef<string | null>(null);
+  const playerHitTintColorRef = useRef<string | null>(null);
+  const enemyExecutionTintColorRef = useRef<string | null>(null);
+  const playerExecutionTintColorRef = useRef<string | null>(null);
+  const enemyImpulseAuraTintColorRef = useRef<string | null>(null);
+  const playerImpulseAuraTintColorRef = useRef<string | null>(null);
+  const processedPlayerImpactTriggerRef = useRef<number>(-1);
+  const processedEnemyImpactTriggerRef = useRef<number>(-1);
+  const playerAnchorXRef = useRef(-2);
+  const enemyAnchorXRef = useRef(2);
+  const playerAnchorYRef = useRef(-1);
+  const enemyAnchorYRef = useRef(-1);
   const hitEnemyLightRef = useRef<THREE.PointLight>(null);
+  const impulseEnemyLightRef = useRef<THREE.PointLight>(null);
+  const impulsePlayerLightRef = useRef<THREE.PointLight>(null);
+  const impulseChargePlayerLightRef = useRef<THREE.PointLight>(null);
+  const lastSeenPlayerAbsorbedImpulseLevelRef = useRef(0);
+  const lastSeenEnemyAbsorbedImpulseLevelRef = useRef(0);
+  const lastSeenPlayerAbsorbedImpulseMsRef = useRef(0);
+  const lastSeenEnemyAbsorbedImpulseMsRef = useRef(0);
+  const playerActionImpulseHoldLevelRef = useRef(0);
+  const enemyActionImpulseHoldLevelRef = useRef(0);
+  const wasPlayerImpulseActionActiveRef = useRef(false);
+  const wasEnemyImpulseActionActiveRef = useRef(false);
   const hitEnemyPulseRef = useRef(0);
   const hitPlayerPulseRef = useRef(0);
   const wasEnemyHitRef = useRef(false);
   const wasPlayerHitRef = useRef(false);
   const hadSkillFxRef = useRef(false);
+  const wasPlayerExecutionActionRef = useRef(false);
+  const wasEnemyExecutionActionRef = useRef(false);
+  const [hitDefinitionsById, setHitDefinitionsById] = useState<Record<string, SpriteOverlayAnimationDefinition>>({});
+  const [hitEnemyTexturesById, setHitEnemyTexturesById] = useState<Record<string, THREE.Texture>>({});
+  const [hitPlayerTexturesById, setHitPlayerTexturesById] = useState<Record<string, THREE.Texture>>({});
+  const [hitEnemyLuminanceTexturesById, setHitEnemyLuminanceTexturesById] = useState<Record<string, THREE.Texture>>({});
+  const [hitPlayerLuminanceTexturesById, setHitPlayerLuminanceTexturesById] = useState<Record<string, THREE.Texture>>({});
+  const [hitEnemyTrackTexturesById, setHitEnemyTrackTexturesById] = useState<Record<string, Array<THREE.Texture | null>>>({});
+  const [hitPlayerTrackTexturesById, setHitPlayerTrackTexturesById] = useState<Record<string, Array<THREE.Texture | null>>>({});
+  const [hitEnemyTrackLuminanceTexturesById, setHitEnemyTrackLuminanceTexturesById] = useState<Record<string, Array<THREE.Texture | null>>>({});
+  const [hitPlayerTrackLuminanceTexturesById, setHitPlayerTrackLuminanceTexturesById] = useState<Record<string, Array<THREE.Texture | null>>>({});
+  const defaultUnarmedHitEnemyTexture = hitEnemyTexturesById[COMBAT_SPRITE_ANIMATION_DEFAULTS.unarmedImpactAnimationId] ?? null;
+  const defaultUnarmedHitPlayerTexture = hitPlayerTexturesById[COMBAT_SPRITE_ANIMATION_DEFAULTS.unarmedImpactAnimationId] ?? null;
+  const defaultExecutionEnemyTexture = hitEnemyTexturesById[COMBAT_SPRITE_ANIMATION_DEFAULTS.unarmedExecutionAnimationId] ?? null;
+  const defaultExecutionPlayerTexture = hitPlayerTexturesById[COMBAT_SPRITE_ANIMATION_DEFAULTS.unarmedExecutionAnimationId] ?? null;
+
+  useEffect(() => {
+    let active = true;
+    const createdTextures: THREE.Texture[] = [];
+    const textureLoader = new THREE.TextureLoader();
+
+    const configureTexture = (nextTexture: THREE.Texture) => {
+      nextTexture.flipY = false;
+      nextTexture.wrapS = THREE.ClampToEdgeWrapping;
+      nextTexture.wrapT = THREE.ClampToEdgeWrapping;
+      nextTexture.minFilter = THREE.LinearMipmapLinearFilter;
+      nextTexture.magFilter = THREE.LinearFilter;
+      nextTexture.generateMipmaps = true;
+      nextTexture.needsUpdate = true;
+    };
+
+    const loadTextureByCandidates = async (candidates: string[]): Promise<THREE.Texture | null> => {
+      for (const candidate of candidates) {
+        try {
+          const loaded = await new Promise<THREE.Texture>((resolve, reject) => {
+            textureLoader.load(candidate, resolve, undefined, reject);
+          });
+          return loaded;
+        } catch {
+          // try next candidate
+        }
+      }
+      return null;
+    };
+
+    const loadDefinitionByRegistryPath = async (path: string): Promise<SpriteOverlayAnimationDefinition | null> => {
+      const bundled = resolveBundledAnimationDefinitionByPath(path);
+      if (bundled) {
+        return bundled;
+      }
+
+      const url = resolveSpriteAssetUrl(path);
+      if (!url) {
+        return null;
+      }
+
+      try {
+        const response = await fetch(url);
+        if (!response.ok) return null;
+        return await response.json() as SpriteOverlayAnimationDefinition;
+      } catch {
+        return null;
+      }
+    };
+
+    const loadAllHitAnimations = async () => {
+      const nextDefinitions: Record<string, SpriteOverlayAnimationDefinition> = {};
+      const nextEnemyTextures: Record<string, THREE.Texture> = {};
+      const nextPlayerTextures: Record<string, THREE.Texture> = {};
+      const nextEnemyLuminanceTextures: Record<string, THREE.Texture> = {};
+      const nextPlayerLuminanceTextures: Record<string, THREE.Texture> = {};
+      const nextEnemyTrackTextures: Record<string, Array<THREE.Texture | null>> = {};
+      const nextPlayerTrackTextures: Record<string, Array<THREE.Texture | null>> = {};
+      const nextEnemyTrackLuminanceTextures: Record<string, Array<THREE.Texture | null>> = {};
+      const nextPlayerTrackLuminanceTextures: Record<string, Array<THREE.Texture | null>> = {};
+      const textureSetByRef = new Map<string, {
+        enemyTex: THREE.Texture;
+        playerTex: THREE.Texture;
+        enemyLuminanceTex: THREE.Texture;
+        playerLuminanceTex: THREE.Texture;
+      }>();
+
+      const loadTextureSetForRef = async (spriteSheetRef?: string | null, fallbackSheetName?: string | null) => {
+        const refKey = spriteSheetRef ?? fallbackSheetName ?? '';
+        if (textureSetByRef.has(refKey)) {
+          return textureSetByRef.get(refKey) ?? null;
+        }
+
+        const textureCandidates = [
+          resolveSpriteAssetUrl(spriteSheetRef),
+          resolveBundledSpriteSheetUrl(spriteSheetRef),
+          resolveBundledSpriteSheetUrl(fallbackSheetName),
+        ].filter((candidate, index, self): candidate is string => Boolean(candidate) && self.indexOf(candidate) === index);
+
+        const loadedTexture = await loadTextureByCandidates(textureCandidates);
+        if (!loadedTexture) {
+          return null;
+        }
+        if (!active) {
+          loadedTexture.dispose();
+          return null;
+        }
+
+        const keyed = buildChromaKeyTexture(loadedTexture);
+        const luminance = buildLuminanceTexture(keyed);
+        const enemyTex = keyed.clone();
+        const playerTex = keyed.clone();
+        const enemyLuminanceTex = luminance.clone();
+        const playerLuminanceTex = luminance.clone();
+        configureTexture(enemyTex);
+        configureTexture(playerTex);
+        configureTexture(enemyLuminanceTex);
+        configureTexture(playerLuminanceTex);
+        createdTextures.push(enemyTex, playerTex, enemyLuminanceTex, playerLuminanceTex);
+        keyed.dispose();
+        luminance.dispose();
+        loadedTexture.dispose();
+
+        const textureSet = { enemyTex, playerTex, enemyLuminanceTex, playerLuminanceTex };
+        textureSetByRef.set(refKey, textureSet);
+        return textureSet;
+      };
+
+      for (const entry of SPRITE_ANIMATION_REGISTRY) {
+        const definition = await loadDefinitionByRegistryPath(entry.arquivo);
+        if (!definition) continue;
+        nextDefinitions[entry.id] = definition;
+
+        const enabledTracks = definition.spriteTracks?.filter((track) => track.enabled !== false)
+          ?? [];
+        const firstTrack = enabledTracks[0] ?? definition.spriteTracks?.[0];
+        const firstTrackRef = firstTrack?.spriteSheetPath
+          ?? firstTrack?.spriteSheetUrl
+          ?? firstTrack?.spriteSheetName
+          ?? definition.spriteSheetUrl
+          ?? definition.spriteSheetName;
+        const baseTextureSet = await loadTextureSetForRef(firstTrackRef, definition.spriteSheetName);
+        if (!baseTextureSet) continue;
+
+        nextEnemyTextures[entry.id] = baseTextureSet.enemyTex;
+        nextPlayerTextures[entry.id] = baseTextureSet.playerTex;
+        nextEnemyLuminanceTextures[entry.id] = baseTextureSet.enemyLuminanceTex;
+        nextPlayerLuminanceTextures[entry.id] = baseTextureSet.playerLuminanceTex;
+
+        const perTrackEnemyTextures: Array<THREE.Texture | null> = [];
+        const perTrackPlayerTextures: Array<THREE.Texture | null> = [];
+        const perTrackEnemyLuminanceTextures: Array<THREE.Texture | null> = [];
+        const perTrackPlayerLuminanceTextures: Array<THREE.Texture | null> = [];
+
+        for (const track of enabledTracks) {
+          const trackRef = track.spriteSheetPath
+            ?? track.spriteSheetUrl
+            ?? track.spriteSheetName
+            ?? definition.spriteSheetUrl
+            ?? definition.spriteSheetName;
+          const trackTextureSet = await loadTextureSetForRef(trackRef, definition.spriteSheetName);
+          const resolvedTrackTextureSet = trackTextureSet ?? baseTextureSet;
+          perTrackEnemyTextures.push(resolvedTrackTextureSet.enemyTex);
+          perTrackPlayerTextures.push(resolvedTrackTextureSet.playerTex);
+          perTrackEnemyLuminanceTextures.push(resolvedTrackTextureSet.enemyLuminanceTex);
+          perTrackPlayerLuminanceTextures.push(resolvedTrackTextureSet.playerLuminanceTex);
+        }
+
+        nextEnemyTrackTextures[entry.id] = perTrackEnemyTextures;
+        nextPlayerTrackTextures[entry.id] = perTrackPlayerTextures;
+        nextEnemyTrackLuminanceTextures[entry.id] = perTrackEnemyLuminanceTextures;
+        nextPlayerTrackLuminanceTextures[entry.id] = perTrackPlayerLuminanceTextures;
+      }
+
+      if (!active) return;
+      setHitDefinitionsById(nextDefinitions);
+      setHitEnemyTexturesById(nextEnemyTextures);
+      setHitPlayerTexturesById(nextPlayerTextures);
+      setHitEnemyLuminanceTexturesById(nextEnemyLuminanceTextures);
+      setHitPlayerLuminanceTexturesById(nextPlayerLuminanceTextures);
+      setHitEnemyTrackTexturesById(nextEnemyTrackTextures);
+      setHitPlayerTrackTexturesById(nextPlayerTrackTextures);
+      setHitEnemyTrackLuminanceTexturesById(nextEnemyTrackLuminanceTextures);
+      setHitPlayerTrackLuminanceTexturesById(nextPlayerTrackLuminanceTextures);
+    };
+
+    void loadAllHitAnimations();
+
+    return () => {
+      active = false;
+      const disposeSpriteMaps = (sprites: (THREE.Sprite | null)[]) => {
+        sprites.forEach((sprite) => {
+          const material = sprite?.material as THREE.SpriteMaterial | undefined;
+          if (!material?.map) return;
+          material.map.dispose();
+          material.map = null;
+        });
+      };
+      disposeSpriteMaps(unarmedHitEnemyRefs.current);
+      disposeSpriteMaps(unarmedHitPlayerRefs.current);
+      disposeSpriteMaps(executionEnemyRefs.current);
+      disposeSpriteMaps(executionPlayerRefs.current);
+      disposeSpriteMaps(impulseAuraEnemyRefs.current);
+      disposeSpriteMaps(impulseAuraPlayerRefs.current);
+      createdTextures.forEach((texture) => texture.dispose());
+    };
+  }, []);
 
   useFrame((state, delta) => {
     const t = state.clock.elapsedTime;
-    const playerSkillActive = playerAnimationAction === 'skill';
-    const enemySkillActive = enemyAnimationAction === 'skill';
-    const hasSkillFx = playerSkillActive || enemySkillActive || Boolean(isPlayerAttacking) || Boolean(isEnemyAttacking);
+    const playerSkillActive = false;
+    const enemySkillActive = false;
+    const hasSkillFx = false;
     const loadScale = particleLoad > 84 ? 0.65 : particleLoad > 64 ? 0.82 : 1;
     const activeTrailCount = Math.max(8, Math.floor(COMBAT_TRAIL_SEEDS.length * loadScale));
 
@@ -583,12 +1311,161 @@ const CombatCinematicFX = ({
 
     if (isEnemyHit && !wasEnemyHitRef.current) {
       hitEnemyPulseRef.current = 1;
+      const impactFromWeapon = resolveImpactAnimationForWeapon(equippedWeaponId);
+      enemyHitAnimationIdRef.current = playerImpactAnimationId ?? impactFromWeapon.animationId;
+      enemyHitTintColorRef.current = playerImpactAnimationTintColor ?? impactFromWeapon.tintColor;
+      unarmedHitEnemyStartMsRef.current = state.clock.elapsedTime * 1000;
     }
     if (isPlayerHit && !wasPlayerHitRef.current) {
       hitPlayerPulseRef.current = 1;
+      playerHitAnimationIdRef.current = enemyImpactAnimationId ?? (
+        isUnarmedAttackStyle(enemyAttackStyle)
+          ? COMBAT_SPRITE_ANIMATION_DEFAULTS.unarmedImpactAnimationId
+          : COMBAT_SPRITE_ANIMATION_DEFAULTS.armedImpactAnimationId
+      );
+      playerHitTintColorRef.current = enemyImpactAnimationTintColor ?? null;
+      unarmedHitPlayerStartMsRef.current = state.clock.elapsedTime * 1000;
     }
     wasEnemyHitRef.current = Boolean(isEnemyHit);
     wasPlayerHitRef.current = Boolean(isPlayerHit);
+
+    const normalizedPlayerImpulseLevel = Math.max(0, Math.min(3, Math.floor(activeImpulseLevel ?? 0)));
+    const normalizedEnemyImpulseLevel = Math.max(0, Math.min(3, Math.floor(enemyImpulseLevel ?? 0)));
+    const nowMs = state.clock.elapsedTime * 1000;
+    if (normalizedPlayerImpulseLevel > 0) {
+      lastSeenPlayerAbsorbedImpulseLevelRef.current = normalizedPlayerImpulseLevel;
+      lastSeenPlayerAbsorbedImpulseMsRef.current = nowMs;
+    }
+    if (normalizedEnemyImpulseLevel > 0) {
+      lastSeenEnemyAbsorbedImpulseLevelRef.current = normalizedEnemyImpulseLevel;
+      lastSeenEnemyAbsorbedImpulseMsRef.current = nowMs;
+    }
+
+    const playerImpulseActionActive = (
+      playerAnimationAction === 'attack'
+      || playerAnimationAction === 'defend'
+      || playerAnimationAction === 'skill'
+      || playerAnimationAction === 'heal'
+    );
+    const enemyImpulseActionActive = (
+      enemyAnimationAction === 'attack'
+      || enemyAnimationAction === 'defend'
+      || enemyAnimationAction === 'skill'
+      || enemyAnimationAction === 'heal'
+    );
+
+    if (playerImpulseActionActive && !wasPlayerImpulseActionActiveRef.current) {
+      let holdLevel = normalizedPlayerImpulseLevel;
+      if (holdLevel <= 0 && (nowMs - lastSeenPlayerAbsorbedImpulseMsRef.current) <= 1800) {
+        holdLevel = lastSeenPlayerAbsorbedImpulseLevelRef.current;
+      }
+      playerActionImpulseHoldLevelRef.current = holdLevel;
+    }
+    if (!playerImpulseActionActive && wasPlayerImpulseActionActiveRef.current) {
+      playerActionImpulseHoldLevelRef.current = 0;
+    }
+    wasPlayerImpulseActionActiveRef.current = playerImpulseActionActive;
+
+    if (enemyImpulseActionActive && !wasEnemyImpulseActionActiveRef.current) {
+      let holdLevel = normalizedEnemyImpulseLevel;
+      if (holdLevel <= 0 && (nowMs - lastSeenEnemyAbsorbedImpulseMsRef.current) <= 1800) {
+        holdLevel = lastSeenEnemyAbsorbedImpulseLevelRef.current;
+      }
+      enemyActionImpulseHoldLevelRef.current = holdLevel;
+    }
+    if (!enemyImpulseActionActive && wasEnemyImpulseActionActiveRef.current) {
+      enemyActionImpulseHoldLevelRef.current = 0;
+    }
+    wasEnemyImpulseActionActiveRef.current = enemyImpulseActionActive;
+
+    const effectivePlayerImpulseLightLevel = playerImpulseActionActive
+      ? Math.max(normalizedPlayerImpulseLevel, playerActionImpulseHoldLevelRef.current)
+      : normalizedPlayerImpulseLevel;
+    const effectiveEnemyImpulseLightLevel = enemyImpulseActionActive
+      ? Math.max(normalizedEnemyImpulseLevel, enemyActionImpulseHoldLevelRef.current)
+      : normalizedEnemyImpulseLevel;
+    const playerImpulseColor = getImpulseAuraColor(effectivePlayerImpulseLightLevel);
+    const enemyImpulseColor = getImpulseAuraColor(effectiveEnemyImpulseLightLevel);
+
+    if (normalizedPlayerImpulseLevel > 0) {
+      if (playerImpulseAuraStartMsRef.current == null) {
+        playerImpulseAuraStartMsRef.current = state.clock.elapsedTime * 1000;
+      }
+      playerImpulseAuraTintColorRef.current = playerImpulseColor;
+    } else {
+      playerImpulseAuraStartMsRef.current = null;
+      playerImpulseAuraTintColorRef.current = null;
+    }
+
+    if (normalizedEnemyImpulseLevel > 0) {
+      if (enemyImpulseAuraStartMsRef.current == null) {
+        enemyImpulseAuraStartMsRef.current = state.clock.elapsedTime * 1000;
+      }
+      enemyImpulseAuraTintColorRef.current = enemyImpulseColor;
+    } else {
+      enemyImpulseAuraStartMsRef.current = null;
+      enemyImpulseAuraTintColorRef.current = null;
+    }
+
+    if (
+      typeof playerImpactAnimationTrigger === 'number'
+      && playerImpactAnimationTrigger !== processedPlayerImpactTriggerRef.current
+      && playerImpactAnimationId
+      && !isEnemyHit
+    ) {
+      processedPlayerImpactTriggerRef.current = playerImpactAnimationTrigger;
+      if (playerImpactAnimationTarget === 'self') {
+        playerHitAnimationIdRef.current = playerImpactAnimationId;
+        playerHitTintColorRef.current = playerImpactAnimationTintColor ?? null;
+        unarmedHitPlayerStartMsRef.current = state.clock.elapsedTime * 1000;
+      } else {
+        enemyHitAnimationIdRef.current = playerImpactAnimationId;
+        enemyHitTintColorRef.current = playerImpactAnimationTintColor ?? null;
+        unarmedHitEnemyStartMsRef.current = state.clock.elapsedTime * 1000;
+      }
+    }
+
+    if (
+      typeof enemyImpactAnimationTrigger === 'number'
+      && enemyImpactAnimationTrigger !== processedEnemyImpactTriggerRef.current
+      && enemyImpactAnimationId
+      && !isPlayerHit
+    ) {
+      processedEnemyImpactTriggerRef.current = enemyImpactAnimationTrigger;
+      if (enemyImpactAnimationTarget === 'self') {
+        enemyHitAnimationIdRef.current = enemyImpactAnimationId;
+        enemyHitTintColorRef.current = enemyImpactAnimationTintColor ?? null;
+        unarmedHitEnemyStartMsRef.current = state.clock.elapsedTime * 1000;
+      } else {
+        playerHitAnimationIdRef.current = enemyImpactAnimationId;
+        playerHitTintColorRef.current = enemyImpactAnimationTintColor ?? null;
+        unarmedHitPlayerStartMsRef.current = state.clock.elapsedTime * 1000;
+      }
+    }
+
+    const playerExecutionActionActive = (
+      playerAnimationAction === 'item'
+      || playerAnimationAction === 'skill'
+      || playerAnimationAction === 'heal'
+    ) && Boolean(playerExecutionAnimationId);
+    if (playerExecutionActionActive && !wasPlayerExecutionActionRef.current) {
+      playerExecutionAnimationIdRef.current = playerExecutionAnimationId ?? null;
+      playerExecutionTintColorRef.current = playerExecutionAnimationTintColor ?? null;
+      playerExecutionStartMsRef.current = state.clock.elapsedTime * 1000;
+    }
+    wasPlayerExecutionActionRef.current = playerExecutionActionActive;
+
+    const enemyExecutionActionActive = (
+      enemyAnimationAction === 'item'
+      || enemyAnimationAction === 'skill'
+      || enemyAnimationAction === 'heal'
+    ) && Boolean(enemyExecutionAnimationId);
+    if (enemyExecutionActionActive && !wasEnemyExecutionActionRef.current) {
+      enemyExecutionAnimationIdRef.current = enemyExecutionAnimationId ?? null;
+      enemyExecutionTintColorRef.current = enemyExecutionAnimationTintColor ?? null;
+      enemyExecutionStartMsRef.current = state.clock.elapsedTime * 1000;
+    }
+    wasEnemyExecutionActionRef.current = enemyExecutionActionActive;
 
     hitEnemyPulseRef.current = THREE.MathUtils.lerp(hitEnemyPulseRef.current, 0, 0.2 + delta * 2.2);
     hitPlayerPulseRef.current = THREE.MathUtils.lerp(hitPlayerPulseRef.current, 0, 0.2 + delta * 2.2);
@@ -615,6 +1492,300 @@ const CombatCinematicFX = ({
       hitBurstPlayerRef.current.scale.setScalar(0.24 + pulse * 1.6);
       (hitBurstPlayerRef.current.material as THREE.SpriteMaterial).opacity = pulse * 0.62;
     }
+
+    if (impulsePlayerLightRef.current) {
+      const intensityPulse = effectivePlayerImpulseLightLevel > 0
+        ? (0.62 + Math.sin((t * 5.4) + 0.2) * 0.2)
+        : 0;
+      impulsePlayerLightRef.current.color.set(playerImpulseColor);
+      impulsePlayerLightRef.current.intensity = effectivePlayerImpulseLightLevel > 0
+        ? (intensityPulse * (0.75 + effectivePlayerImpulseLightLevel * 0.28))
+        : 0;
+      impulsePlayerLightRef.current.position.set(playerAnchorXRef.current, playerAnchorYRef.current + 0.75, 0.24);
+    }
+
+    if (impulseEnemyLightRef.current) {
+      const intensityPulse = effectiveEnemyImpulseLightLevel > 0
+        ? (0.62 + Math.sin((t * 5.1) + 0.8) * 0.2)
+        : 0;
+      impulseEnemyLightRef.current.color.set(enemyImpulseColor);
+      impulseEnemyLightRef.current.intensity = effectiveEnemyImpulseLightLevel > 0
+        ? (intensityPulse * (0.75 + effectiveEnemyImpulseLightLevel * 0.28))
+        : 0;
+      impulseEnemyLightRef.current.position.set(enemyAnchorXRef.current, enemyAnchorYRef.current + 0.75, 0.24);
+    }
+
+    if (impulseChargePlayerLightRef.current) {
+      const isChargingImpulse = (
+        playerAnimationAction === 'item'
+        && playerImpactAnimationId === SPRITE_ANIMATION_IDS.execImpulse
+      );
+      const chargeColor = playerImpactAnimationTintColor ?? '#22d3ee';
+      const chargePulse = 0.75 + Math.sin((t * 6.8) + 0.4) * 0.22;
+      impulseChargePlayerLightRef.current.color.set(chargeColor);
+      impulseChargePlayerLightRef.current.intensity = isChargingImpulse ? (chargePulse * 1.45) : 0;
+      impulseChargePlayerLightRef.current.position.set(playerAnchorXRef.current, playerAnchorYRef.current + 0.8, 0.28);
+    }
+
+    const heroTargetX = (isPlayerAttacking || playerAnimationAction === 'attack')
+      ? 0.5
+      : (playerAnimationAction === 'defend' || playerAnimationAction === 'defend-hit')
+        ? -1.5
+        : -2;
+    const heroTargetY = -1;
+    const enemyShouldLunge = Boolean(isEnemyAttacking) && enemyAnimationAction !== 'item';
+    const enemyTargetX = enemyShouldLunge
+      ? -0.35
+      : enemyAnimationAction === 'defend'
+        ? 1.5
+        : 2;
+    const enemyTargetY = -1;
+    playerAnchorXRef.current = THREE.MathUtils.lerp(playerAnchorXRef.current, heroTargetX, 0.2);
+    playerAnchorYRef.current = THREE.MathUtils.lerp(playerAnchorYRef.current, heroTargetY, 0.18);
+    enemyAnchorXRef.current = THREE.MathUtils.lerp(enemyAnchorXRef.current, enemyTargetX, 0.2);
+    enemyAnchorYRef.current = THREE.MathUtils.lerp(enemyAnchorYRef.current, enemyTargetY, 0.18);
+
+    const resolveResources = ({
+      side,
+      requestedAnimationId,
+      fallbackAnimationId,
+    }: {
+      side: 'enemy' | 'player';
+      requestedAnimationId: string | null;
+      fallbackAnimationId: string;
+    }) => {
+      const effectiveAnimationId = (requestedAnimationId && hitDefinitionsById[requestedAnimationId])
+        ? requestedAnimationId
+        : fallbackAnimationId;
+      const definition = hitDefinitionsById[effectiveAnimationId] ?? null;
+      const texture = side === 'enemy'
+        ? hitEnemyTexturesById[effectiveAnimationId] ?? null
+        : hitPlayerTexturesById[effectiveAnimationId] ?? null;
+      const luminanceTexture = side === 'enemy'
+        ? hitEnemyLuminanceTexturesById[effectiveAnimationId] ?? null
+        : hitPlayerLuminanceTexturesById[effectiveAnimationId] ?? null;
+      const trackTextures = side === 'enemy'
+        ? hitEnemyTrackTexturesById[effectiveAnimationId] ?? []
+        : hitPlayerTrackTexturesById[effectiveAnimationId] ?? [];
+      const trackLuminanceTextures = side === 'enemy'
+        ? hitEnemyTrackLuminanceTexturesById[effectiveAnimationId] ?? []
+        : hitPlayerTrackLuminanceTexturesById[effectiveAnimationId] ?? [];
+      const useBlade = effectiveAnimationId === SPRITE_ANIMATION_IDS.hitBladeSlash;
+      return { definition, texture, luminanceTexture, trackTextures, trackLuminanceTextures, useBlade };
+    };
+
+    const setSpriteHidden = (sprite: THREE.Sprite | null) => {
+      if (!sprite) return;
+      const material = sprite.material as THREE.SpriteMaterial;
+      material.opacity = 0;
+    };
+
+    const ensureMaterialTexture = (material: THREE.SpriteMaterial, sourceTexture: THREE.Texture) => {
+      const materialData = material.userData as { sourceTextureUuid?: string };
+      if (!material.map || materialData.sourceTextureUuid !== sourceTexture.uuid) {
+        if (material.map) {
+          material.map.dispose();
+        }
+        const clonedTexture = sourceTexture.clone();
+        clonedTexture.needsUpdate = true;
+        material.map = clonedTexture;
+        materialData.sourceTextureUuid = sourceTexture.uuid;
+        material.userData = materialData;
+      }
+      return material.map as THREE.Texture;
+    };
+
+    const renderTrackAnimationSet = ({
+      sprites,
+      startMs,
+      side,
+      requestedAnimationId,
+      fallbackAnimationId,
+      onFinished,
+      tintColorOverride,
+      forceLoop = false,
+    }: {
+      sprites: (THREE.Sprite | null)[];
+      startMs: number | null;
+      side: 'enemy' | 'player';
+      requestedAnimationId: string | null;
+      fallbackAnimationId: string;
+      onFinished: () => void;
+      tintColorOverride?: string | null;
+      forceLoop?: boolean;
+    }) => {
+      const { definition, texture, luminanceTexture, trackTextures, trackLuminanceTextures, useBlade } = resolveResources({
+        side,
+        requestedAnimationId,
+        fallbackAnimationId,
+      });
+      const tracks = definition?.spriteTracks?.filter((candidate) => candidate.enabled !== false)
+        ?? [];
+      const availableTracks = tracks.slice(0, MAX_SPRITE_ANIMATION_TRACKS);
+      const hideRemaining = (fromIndex: number) => {
+        for (let index = fromIndex; index < MAX_SPRITE_ANIMATION_TRACKS; index += 1) {
+          setSpriteHidden(sprites[index] ?? null);
+        }
+      };
+
+      if (availableTracks.length === 0 || !texture || startMs == null) {
+        hideRemaining(0);
+        return;
+      }
+      const sheetSize = definition?.sheetSize ?? { width: 1, height: 1 };
+      const elapsedRaw = Math.max(0, (state.clock.elapsedTime * 1000) - startMs);
+      let finishedCount = 0;
+
+      for (let index = 0; index < availableTracks.length; index += 1) {
+        const sprite = sprites[index] ?? null;
+        if (!sprite) continue;
+        const material = sprite.material as THREE.SpriteMaterial;
+        const track = availableTracks[index];
+        const snapshot = resolveTrackPlaybackSnapshot({
+          track,
+          elapsedMs: elapsedRaw,
+          isPlaying: true,
+          forcePreviewLoop: forceLoop,
+        });
+
+        if (snapshot.status === 'finished') {
+          finishedCount += 1;
+          setSpriteHidden(sprite);
+          continue;
+        }
+
+        const frameIndex = snapshot.frameIndex;
+        if (frameIndex < 0) {
+          setSpriteHidden(sprite);
+          continue;
+        }
+
+        const rect = getTrackFrameRect(track, frameIndex, sheetSize);
+        if (!rect) {
+          setSpriteHidden(sprite);
+          continue;
+        }
+
+        const aspect = rect.height > 0 ? rect.width / rect.height : 1;
+        const baseSize: [number, number] = track.useOriginalFrameSize
+          ? [
+            Math.max(0.1, rect.width * (track.originalSizeScale ?? 0.01)),
+            Math.max(0.1, rect.height * (track.originalSizeScale ?? 0.01)),
+          ]
+          : [
+            track.size?.[0] ?? 1.2,
+            track.size?.[1] ?? 1.2,
+          ];
+        const finalSize: [number, number] = (track.preserveFrameAspect ?? true)
+          ? [baseSize[1] * aspect, baseSize[1]]
+          : baseSize;
+        const anchorBaseX = side === 'enemy' ? enemyAnchorXRef.current : playerAnchorXRef.current;
+        const anchorBaseY = side === 'enemy' ? enemyAnchorYRef.current : playerAnchorYRef.current;
+        const anchorBase: [number, number, number] = [anchorBaseX, anchorBaseY + 1.1 + getAnchorY(track.anchorPoint), 0];
+        const offset = track.offset3d ?? [0, 0, 0];
+        const mirroredOffsetX = side === 'enemy' ? -offset[0] : offset[0];
+        sprite.position.set(anchorBase[0] + mirroredOffsetX, anchorBase[1] + offset[1], anchorBase[2] + offset[2]);
+        sprite.scale.set(side === 'enemy' ? -finalSize[0] : finalSize[0], finalSize[1], 1);
+        sprite.renderOrder = (track.renderPriority ?? 0) + 10 + index;
+
+        const tintColor = tintColorOverride ?? track.tintColor ?? '#ffffff';
+        const baseTrackTexture = trackTextures[index] ?? texture;
+        const baseTrackLuminanceTexture = trackLuminanceTextures[index] ?? luminanceTexture ?? baseTrackTexture;
+        const selectedTexture = shouldUseLuminanceTint(tintColor) ? baseTrackLuminanceTexture : baseTrackTexture;
+        const materialTexture = ensureMaterialTexture(material, selectedTexture);
+        materialTexture.repeat.set(rect.width / rect.sheet.width, rect.height / rect.sheet.height);
+        materialTexture.offset.set(rect.x / rect.sheet.width, 1 - ((rect.y + rect.height) / rect.sheet.height));
+        materialTexture.needsUpdate = true;
+        material.rotation = THREE.MathUtils.degToRad(track.rotationDeg ?? 0);
+        material.color.set(tintColor);
+        material.opacity = Math.max(0, Math.min(1, track.opacity ?? 1));
+        material.alphaTest = 0.02;
+        material.depthTest = track.depthTest ?? true;
+        material.depthWrite = track.depthWrite ?? false;
+        material.blending = track.blendMode === 'additive' ? THREE.AdditiveBlending : THREE.NormalBlending;
+        if (useBlade && track.blendMode !== 'additive') {
+          material.blending = THREE.AdditiveBlending;
+        }
+      }
+
+      hideRemaining(availableTracks.length);
+      if (finishedCount === availableTracks.length) {
+        onFinished();
+      }
+    };
+
+    renderTrackAnimationSet({
+      sprites: unarmedHitEnemyRefs.current,
+      startMs: unarmedHitEnemyStartMsRef.current,
+      side: 'enemy',
+      requestedAnimationId: enemyHitAnimationIdRef.current,
+      fallbackAnimationId: COMBAT_SPRITE_ANIMATION_DEFAULTS.unarmedImpactAnimationId,
+      tintColorOverride: enemyHitTintColorRef.current,
+      onFinished: () => {
+        unarmedHitEnemyStartMsRef.current = null;
+        enemyHitAnimationIdRef.current = null;
+        enemyHitTintColorRef.current = null;
+      },
+    });
+    renderTrackAnimationSet({
+      sprites: unarmedHitPlayerRefs.current,
+      startMs: unarmedHitPlayerStartMsRef.current,
+      side: 'player',
+      requestedAnimationId: playerHitAnimationIdRef.current,
+      fallbackAnimationId: COMBAT_SPRITE_ANIMATION_DEFAULTS.unarmedImpactAnimationId,
+      tintColorOverride: playerHitTintColorRef.current,
+      onFinished: () => {
+        unarmedHitPlayerStartMsRef.current = null;
+        playerHitAnimationIdRef.current = null;
+        playerHitTintColorRef.current = null;
+      },
+    });
+    renderTrackAnimationSet({
+      sprites: executionEnemyRefs.current,
+      startMs: enemyExecutionStartMsRef.current,
+      side: 'enemy',
+      requestedAnimationId: enemyExecutionAnimationIdRef.current,
+      fallbackAnimationId: COMBAT_SPRITE_ANIMATION_DEFAULTS.unarmedExecutionAnimationId,
+      tintColorOverride: enemyExecutionTintColorRef.current,
+      onFinished: () => {
+        enemyExecutionStartMsRef.current = null;
+        enemyExecutionAnimationIdRef.current = null;
+        enemyExecutionTintColorRef.current = null;
+      },
+    });
+    renderTrackAnimationSet({
+      sprites: executionPlayerRefs.current,
+      startMs: playerExecutionStartMsRef.current,
+      side: 'player',
+      requestedAnimationId: playerExecutionAnimationIdRef.current,
+      fallbackAnimationId: COMBAT_SPRITE_ANIMATION_DEFAULTS.unarmedExecutionAnimationId,
+      tintColorOverride: playerExecutionTintColorRef.current,
+      onFinished: () => {
+        playerExecutionStartMsRef.current = null;
+        playerExecutionAnimationIdRef.current = null;
+        playerExecutionTintColorRef.current = null;
+      },
+    });
+    renderTrackAnimationSet({
+      sprites: impulseAuraPlayerRefs.current,
+      startMs: playerImpulseAuraStartMsRef.current,
+      side: 'player',
+      requestedAnimationId: SPRITE_ANIMATION_IDS.execImpulsePulse,
+      fallbackAnimationId: SPRITE_ANIMATION_IDS.execImpulsePulse,
+      tintColorOverride: playerImpulseAuraTintColorRef.current,
+      forceLoop: true,
+      onFinished: () => {},
+    });
+    renderTrackAnimationSet({
+      sprites: impulseAuraEnemyRefs.current,
+      startMs: enemyImpulseAuraStartMsRef.current,
+      side: 'enemy',
+      requestedAnimationId: SPRITE_ANIMATION_IDS.execImpulsePulse,
+      fallbackAnimationId: SPRITE_ANIMATION_IDS.execImpulsePulse,
+      tintColorOverride: enemyImpulseAuraTintColorRef.current,
+      forceLoop: true,
+      onFinished: () => {},
+    });
   });
 
   return (
@@ -711,7 +1882,76 @@ const CombatCinematicFX = ({
           toneMapped={false}
         />
       </sprite>
+      {Array.from({ length: MAX_SPRITE_ANIMATION_TRACKS }).map((_, index) => (
+        <sprite key={`impact_enemy_track_${index}`} ref={(el) => { unarmedHitEnemyRefs.current[index] = el; }}>
+          <spriteMaterial
+            map={defaultUnarmedHitEnemyTexture ?? undefined}
+            transparent
+            opacity={0}
+            depthWrite={false}
+            toneMapped={false}
+          />
+        </sprite>
+      ))}
+      {Array.from({ length: MAX_SPRITE_ANIMATION_TRACKS }).map((_, index) => (
+        <sprite key={`impact_player_track_${index}`} ref={(el) => { unarmedHitPlayerRefs.current[index] = el; }}>
+          <spriteMaterial
+            map={defaultUnarmedHitPlayerTexture ?? undefined}
+            transparent
+            opacity={0}
+            depthWrite={false}
+            toneMapped={false}
+          />
+        </sprite>
+      ))}
+      {Array.from({ length: MAX_SPRITE_ANIMATION_TRACKS }).map((_, index) => (
+        <sprite key={`execution_enemy_track_${index}`} ref={(el) => { executionEnemyRefs.current[index] = el; }}>
+          <spriteMaterial
+            map={defaultExecutionEnemyTexture ?? undefined}
+            transparent
+            opacity={0}
+            depthWrite={false}
+            toneMapped={false}
+          />
+        </sprite>
+      ))}
+      {Array.from({ length: MAX_SPRITE_ANIMATION_TRACKS }).map((_, index) => (
+        <sprite key={`execution_player_track_${index}`} ref={(el) => { executionPlayerRefs.current[index] = el; }}>
+          <spriteMaterial
+            map={defaultExecutionPlayerTexture ?? undefined}
+            transparent
+            opacity={0}
+            depthWrite={false}
+            toneMapped={false}
+          />
+        </sprite>
+      ))}
+      {Array.from({ length: MAX_SPRITE_ANIMATION_TRACKS }).map((_, index) => (
+        <sprite key={`impulse_player_track_${index}`} ref={(el) => { impulseAuraPlayerRefs.current[index] = el; }}>
+          <spriteMaterial
+            map={defaultExecutionPlayerTexture ?? undefined}
+            transparent
+            opacity={0}
+            depthWrite={false}
+            toneMapped={false}
+          />
+        </sprite>
+      ))}
+      {Array.from({ length: MAX_SPRITE_ANIMATION_TRACKS }).map((_, index) => (
+        <sprite key={`impulse_enemy_track_${index}`} ref={(el) => { impulseAuraEnemyRefs.current[index] = el; }}>
+          <spriteMaterial
+            map={defaultExecutionEnemyTexture ?? undefined}
+            transparent
+            opacity={0}
+            depthWrite={false}
+            toneMapped={false}
+          />
+        </sprite>
+      ))}
       <pointLight ref={hitEnemyLightRef} color="#fef08a" intensity={0} distance={3.2} decay={2} />
+      <pointLight ref={impulsePlayerLightRef} color="#ef4444" intensity={0} distance={4.8} decay={2} />
+      <pointLight ref={impulseEnemyLightRef} color="#ef4444" intensity={0} distance={4.8} decay={2} />
+      <pointLight ref={impulseChargePlayerLightRef} color="#22d3ee" intensity={0} distance={5.4} decay={2} />
     </group>
   );
 };
@@ -907,53 +2147,27 @@ const EnemyIntentOverlay = ({
   );
 };
 
-const EnemyImpulseAura = ({
-  level = 0,
-}: {
-  level?: number;
-}) => {
-  const groupRef = useRef<THREE.Group>(null);
-  const color = level >= 3 ? '#3b82f6' : level === 2 ? '#a855f7' : '#ef4444';
-
-  useFrame((state) => {
-    if (!groupRef.current) return;
-    groupRef.current.visible = level > 0;
-    groupRef.current.rotation.y -= 0.02 + (level * 0.003);
-    groupRef.current.position.y = -0.55 + Math.sin(state.clock.elapsedTime * 3.2) * 0.04;
-  });
-
-  if (level <= 0) return null;
-
-  return (
-    <group ref={groupRef} position={[2, -0.55, 0]}>
-      <mesh rotation={[Math.PI / 2, 0, 0]}>
-        <torusGeometry args={[0.9, 0.055, 8, 28]} />
-        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={1.1} transparent opacity={0.28} />
-      </mesh>
-      <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 0.16, 0]}>
-        <torusGeometry args={[0.72, 0.04, 8, 24]} />
-        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.95} transparent opacity={0.22} />
-      </mesh>
-      <pointLight color={color} intensity={0.95 + (level * 0.28)} distance={4.5} decay={2} position={[0, 0.62, 0.2]} />
-    </group>
-  );
-};
-
-const HeroVoxel = ({ classId = 'knight', playerAnimationAction = 'idle', animationClipName, preferredAnimationBundle, onAvailableAnimationClipsChange, loadAllAnimationBundles = false, loadSecondaryAnimationBundles = true, previewLoopAllActions = false, isAttacking, isDefending, weaponId, armorId, helmetId, legsId, shieldId, isLevelingUp, levelUpCardCategory = 'especial', isMenuView = false, isHit, isPlayerCritHit, hasPerfectEvadeAura, hasDoubleAttackAura, impulseLevel = 0, activeImpulseLevel = 0, contactShadowResolution = 256, idlePositionX = -2, attackPositionX = 0.5, defendPositionX = -1.5, originPosition = [-2, -1, 0], baseRotationY = 0.5, hiddenPartSlots, visiblePartSlots, runtimeAssetsOverride, calibrationOverride, debugRuntimeId, debugRuntimeLabel, onRuntimeDiagnosticChange, statusOverlay, onHeroClick }: any) => {
+const HeroVoxel = ({ classId = 'knight', playerAnimationAction = 'idle', animationClipName, preferredAnimationBundle, onAvailableAnimationClipsChange, loadAllAnimationBundles = false, loadSecondaryAnimationBundles = true, previewLoopAllActions = false, isAttacking, isDefending, weaponId, armorId, helmetId, legsId, shieldId, isLevelingUp, levelUpCardCategory = 'especial', isMenuView = false, isHit, isPlayerCritHit, hasPerfectEvadeAura, hasDoubleAttackAura, impulseLevel = 0, activeImpulseLevel = 0, contactShadowResolution = 256, idlePositionX = -2, attackPositionX = 0.5, defendPositionX = -1.5, originPosition = [-2, -1, 0], baseRotationY = 0.5, hiddenPartSlots, visiblePartSlots, runtimeAssetsOverride, calibrationOverride, debugRuntimeId, debugRuntimeLabel, onRuntimeDiagnosticChange, statusOverlay, onHeroClick, playerState }: any) => {
   const playerClass = getPlayerClassById(classId);
   const runtimeHeroAssets = runtimeAssetsOverride ?? (hasRuntimeFbxAssets(playerClass.assets) ? playerClass.assets : null);
   const group = useRef<THREE.Group>(null);
   const shieldRef = useRef<THREE.Group>(null);
+  const defendImpulseAuraRef = useRef<THREE.Group>(null);
   const phantomAuraRef = useRef<THREE.Group>(null);
   const twinAuraRef = useRef<THREE.Group>(null);
-  const impulseAuraRef = useRef<THREE.Group>(null);
-  const itemAuraRef = useRef<THREE.Group>(null);
-  const itemLightRef = useRef<THREE.PointLight>(null);
   const flashRef = useRef<number>(0);
   const wasHitRef = useRef(false);
   const flashMaterialsRef = useRef<THREE.Material[]>([]);
   const damageLightRef = useRef<THREE.PointLight>(null);
   const healLightRef = useRef<THREE.PointLight>(null);
+  const defendImpulseLevel = useMemo(() => {
+    if (!playerState?.buffs) return 0;
+    if ((playerState.buffs.guaranteedCounterTurns ?? 0) > 0) return 3;
+    if ((playerState.buffs.perfectGuardTurns ?? 0) > 0) return 2;
+    if ((playerState.buffs.impulseDefenseBoostTurns ?? 0) > 0) return 1;
+    return 0;
+  }, [playerState?.buffs]);
+  const defendImpulseColor = defendImpulseLevel >= 3 ? '#7dd3fc' : defendImpulseLevel === 2 ? '#a855f7' : '#ef4444';
 
   const refreshFlashMaterials = useCallback(() => {
     if (!group.current) {
@@ -991,7 +2205,7 @@ const HeroVoxel = ({ classId = 'knight', playerAnimationAction = 'idle', animati
       damageLightRef.current.color.set(isPlayerCritHit ? '#facc15' : '#ef4444');
     }
     if (healLightRef.current) {
-      const shouldShowHealLight = !isMenuView && (playerAnimationAction === 'heal' || playerAnimationAction === 'item');
+      const shouldShowHealLight = !isMenuView && playerAnimationAction === 'heal';
       if (shouldShowHealLight) {
         healLightRef.current.intensity = THREE.MathUtils.lerp(healLightRef.current.intensity, 2.5, 0.07);
       } else {
@@ -1043,6 +2257,19 @@ const HeroVoxel = ({ classId = 'knight', playerAnimationAction = 'idle', animati
       shieldRef.current.scale.setScalar(1 + Math.sin(state.clock.elapsedTime * 8) * 0.05);
     }
 
+    if (defendImpulseAuraRef.current) {
+      const auraVisible = Boolean(isDefending) && defendImpulseLevel > 0;
+      defendImpulseAuraRef.current.visible = auraVisible;
+      defendImpulseAuraRef.current.rotation.y += 0.07 + (defendImpulseLevel * 0.01);
+      defendImpulseAuraRef.current.position.y = -0.18 + Math.sin(state.clock.elapsedTime * 5.5) * 0.04;
+      defendImpulseAuraRef.current.children.forEach((child) => {
+        if (child instanceof THREE.Mesh && child.material instanceof THREE.MeshStandardMaterial) {
+          child.material.color.set(defendImpulseColor);
+          child.material.emissive.set(defendImpulseColor);
+        }
+      });
+    }
+
     if (phantomAuraRef.current) {
       phantomAuraRef.current.visible = Boolean(hasPerfectEvadeAura);
       phantomAuraRef.current.rotation.y += 0.025;
@@ -1061,36 +2288,6 @@ const HeroVoxel = ({ classId = 'knight', playerAnimationAction = 'idle', animati
       });
     }
 
-    if (impulseAuraRef.current) {
-      const auraVisible = activeImpulseLevel > 0;
-      const auraColor = activeImpulseLevel >= 3 ? '#3b82f6' : activeImpulseLevel === 2 ? '#a855f7' : '#ef4444';
-      impulseAuraRef.current.visible = auraVisible;
-      impulseAuraRef.current.rotation.y += 0.018 + (activeImpulseLevel * 0.004);
-      impulseAuraRef.current.position.y = 0.28 + Math.sin(state.clock.elapsedTime * 3.4) * 0.05;
-      impulseAuraRef.current.children.forEach((child) => {
-        if (child instanceof THREE.Mesh && child.material instanceof THREE.MeshStandardMaterial) {
-          child.material.color.set(auraColor);
-          child.material.emissive.set(auraColor);
-          child.material.opacity = 0.2 + (activeImpulseLevel * 0.08);
-        }
-      });
-    }
-
-    if (itemAuraRef.current) {
-      const activeItemAura = !isMenuView && playerAnimationAction === 'item';
-      itemAuraRef.current.visible = activeItemAura;
-      itemAuraRef.current.rotation.y += 0.14;
-      itemAuraRef.current.rotation.z += 0.028;
-      itemAuraRef.current.position.y = 0.38 + Math.sin(state.clock.elapsedTime * 5.8) * 0.06;
-      itemAuraRef.current.children.forEach((child, index) => {
-        child.rotation.x += 0.01 + (index * 0.004);
-        child.rotation.y += 0.016 + (index * 0.003);
-      });
-    }
-    if (itemLightRef.current) {
-      const target = !isMenuView && playerAnimationAction === 'item' ? 3.1 : 0;
-      itemLightRef.current.intensity = THREE.MathUtils.lerp(itemLightRef.current.intensity, target, 0.12);
-    }
   });
 
   const handleHeroClick = useCallback((event: any) => {
@@ -1129,6 +2326,7 @@ const HeroVoxel = ({ classId = 'knight', playerAnimationAction = 'idle', animati
           </Suspense>
         ) : null}
         {isLevelingUp && <LevelUpEffect category={levelUpCardCategory} />}
+        <LevelUpSpriteExecution isLevelingUp={isLevelingUp} />
         {statusOverlay}
         <group ref={phantomAuraRef} position={[0, 0.2, 0]} visible={Boolean(hasPerfectEvadeAura)}>
           <mesh rotation={[Math.PI / 2, 0, 0]}>
@@ -1164,35 +2362,9 @@ const HeroVoxel = ({ classId = 'knight', playerAnimationAction = 'idle', animati
           </mesh>
           <pointLight position={[0, 0.8, 0.25]} color="#fb923c" intensity={1.35} distance={4.2} decay={2} />
         </group>
-        <group ref={impulseAuraRef} position={[0, 0.28, 0]} visible={activeImpulseLevel > 0}>
-          <mesh rotation={[Math.PI / 2, 0, 0]}>
-            <torusGeometry args={[0.9, 0.06, 8, 28]} />
-            <meshStandardMaterial color="#ef4444" emissive="#ef4444" emissiveIntensity={1.0} transparent opacity={0.28} />
-          </mesh>
-          <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 0.18, 0]}>
-            <torusGeometry args={[0.7, 0.04, 8, 24]} />
-            <meshStandardMaterial color="#ef4444" emissive="#ef4444" emissiveIntensity={0.9} transparent opacity={0.2} />
-          </mesh>
-          <pointLight color="#ef4444" intensity={0.9 + (activeImpulseLevel * 0.4)} distance={4.6} decay={2} position={[0, 0.65, 0.2]} />
-        </group>
-        <group ref={itemAuraRef} position={[0, 0.35, 0]} visible={false}>
-          <mesh rotation={[Math.PI / 2, 0, 0]}>
-            <torusGeometry args={[1.02, 0.04, 10, 32]} />
-            <meshStandardMaterial color="#fbbf24" emissive="#f59e0b" emissiveIntensity={1.5} transparent opacity={0.44} />
-          </mesh>
-          <mesh rotation={[0.9, 0, 0]} position={[0, 0.22, 0]}>
-            <torusGeometry args={[0.86, 0.03, 8, 26]} />
-            <meshStandardMaterial color="#67e8f9" emissive="#22d3ee" emissiveIntensity={1.35} transparent opacity={0.34} />
-          </mesh>
-          <mesh rotation={[0.35, Math.PI / 2, 0]} position={[0, 0.42, 0]}>
-            <torusGeometry args={[0.74, 0.025, 8, 22]} />
-            <meshStandardMaterial color="#c4b5fd" emissive="#a855f7" emissiveIntensity={1.2} transparent opacity={0.3} />
-          </mesh>
-        </group>
         <ContactShadows opacity={0.35} scale={3} blur={1.8} far={2} resolution={contactShadowResolution} />
         <pointLight ref={damageLightRef} color="#ef4444" intensity={0} distance={8} decay={2.5} position={[0, 0.8, 0.3]} />
         <pointLight ref={healLightRef} color="#86efac" intensity={0} distance={9} decay={2.5} position={[0, 0.8, 0.3]} />
-        <pointLight ref={itemLightRef} color="#fbbf24" intensity={0} distance={6.2} decay={2} position={[0, 0.95, 0.25]} />
       </group>
       
       {/* Energy Shield Effect */}
@@ -1214,6 +2386,17 @@ const HeroVoxel = ({ classId = 'knight', playerAnimationAction = 'idle', animati
           <meshStandardMaterial color="#bfdbfe" emissive="#93c5fd" emissiveIntensity={1.0} transparent opacity={0.38} />
         </mesh>
         <pointLight color="#60a5fa" intensity={1.6} distance={5} decay={2} />
+      </group>
+      <group ref={defendImpulseAuraRef} position={[idlePositionX + 0.5, -0.18, 0]} visible={Boolean(isDefending) && defendImpulseLevel > 0}>
+        <mesh rotation={[Math.PI / 2, 0, 0]}>
+          <torusGeometry args={[1.52, 0.045, 10, 42]} />
+          <meshStandardMaterial color={defendImpulseColor} emissive={defendImpulseColor} emissiveIntensity={1.35} transparent opacity={0.5} />
+        </mesh>
+        <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 0.08, 0]}>
+          <torusGeometry args={[1.34, 0.03, 10, 36]} />
+          <meshStandardMaterial color={defendImpulseColor} emissive={defendImpulseColor} emissiveIntensity={1.15} transparent opacity={0.36} />
+        </mesh>
+        <pointLight color={defendImpulseColor} intensity={1.45 + (defendImpulseLevel * 0.32)} distance={5.8} decay={2} position={[0, 0.42, 0.28]} />
       </group>
     </group>
   );
@@ -1506,6 +2689,7 @@ export const GameScene: React.FC<SceneProps> = (props) => {
           hasDoubleAttackAura={props.hasDoubleAttackAura}
           impulseLevel={props.impulseLevel}
           activeImpulseLevel={props.activeImpulseLevel}
+          playerState={props.playerState}
           contactShadowResolution={quality.contactShadowResolution}
           loadSecondaryAnimationBundles
           onHeroClick={props.isMenuView ? props.onMenuHeroClick : undefined}
@@ -1518,6 +2702,7 @@ export const GameScene: React.FC<SceneProps> = (props) => {
           scale={props.enemyScale}
           isAttacking={props.isEnemyAttacking}
           isDefending={props.isEnemyDefending}
+          defendImpulseLevel={props.enemyState?.impulseGuardLevel ?? 0}
           animationActionOverride={props.enemyAnimationAction}
           type={props.enemyType}
           enemyName={props.enemyName}
@@ -1528,7 +2713,6 @@ export const GameScene: React.FC<SceneProps> = (props) => {
           statusOverlay={enemyOverlay}
         />
         )}
-        {!props.isMenuView && <EnemyImpulseAura level={props.enemyState?.impulso ?? 0} />}
         {!props.isMenuView && (
           <EnemyIntentOverlay
             intent={props.enemyIntentPreview}
@@ -1540,11 +2724,27 @@ export const GameScene: React.FC<SceneProps> = (props) => {
         <CombatCinematicFX
           playerAnimationAction={props.playerAnimationAction}
           enemyAnimationAction={props.enemyAnimationAction}
+          playerExecutionAnimationId={props.playerExecutionAnimationId}
+          enemyExecutionAnimationId={props.enemyExecutionAnimationId}
+          playerExecutionAnimationTintColor={props.playerExecutionAnimationTintColor}
+          enemyExecutionAnimationTintColor={props.enemyExecutionAnimationTintColor}
+          playerImpactAnimationId={props.playerImpactAnimationId}
+          enemyImpactAnimationId={props.enemyImpactAnimationId}
+          playerImpactAnimationTintColor={props.playerImpactAnimationTintColor}
+          enemyImpactAnimationTintColor={props.enemyImpactAnimationTintColor}
+          playerImpactAnimationTarget={props.playerImpactAnimationTarget}
+          enemyImpactAnimationTarget={props.enemyImpactAnimationTarget}
+          playerImpactAnimationTrigger={props.playerImpactAnimationTrigger}
+          enemyImpactAnimationTrigger={props.enemyImpactAnimationTrigger}
           isPlayerAttacking={props.isPlayerAttacking}
           isEnemyAttacking={props.isEnemyAttacking}
           isEnemyHit={props.isEnemyHit}
           isPlayerHit={props.isPlayerHit}
+          equippedWeaponId={props.equippedWeaponId}
+          enemyAttackStyle={props.enemyAttackStyle}
           latestEnemyImpactColor={latestEnemyImpactColor}
+          activeImpulseLevel={props.activeImpulseLevel}
+          enemyImpulseLevel={props.enemyState?.impulso ?? 0}
           particleLoad={props.particles.length}
         />
         )}

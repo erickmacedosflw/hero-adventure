@@ -1,0 +1,182 @@
+{
+  "id": "sprite_anim_1775176391433",
+  "version": 1,
+  "name": "hit-pesado",
+  "spriteSheetName": "hit2.png",
+  "spriteSheetUrl": "game/sprites/hit2.png",
+  "referencePreview": {
+    "previewReference": "hero",
+    "heroClassId": "knight",
+    "enemyIndex": 0
+  },
+  "sheetSize": {
+    "width": 960,
+    "height": 384
+  },
+  "frameSource": {
+    "rows": 2,
+    "cols": 5,
+    "frames": [
+      {
+        "x": 0,
+        "y": 192,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 192,
+        "y": 192,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 384,
+        "y": 192,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 576,
+        "y": 192,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 768,
+        "y": 192,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 0,
+        "y": 0,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 192,
+        "y": 0,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 384,
+        "y": 0,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 576,
+        "y": 0,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 768,
+        "y": 0,
+        "width": 192,
+        "height": 192
+      }
+    ]
+  },
+  "spriteTracks": [
+    {
+      "id": "track_v42jctz",
+      "name": "Track 1",
+      "enabled": true,
+      "spriteRows": 2,
+      "spriteCols": 5,
+      "invertRows": true,
+      "preserveFrameAspect": true,
+      "useOriginalFrameSize": true,
+      "originalSizeScale": 0.018057592135440014,
+      "startEmptyFrame": false,
+      "endEmptyFrame": true,
+      "rotationDeg": 0,
+      "playbackMode": "one-shot",
+      "stopOnLastFrame": true,
+      "fps": 12,
+      "frameIndices": [
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "anchorTarget": "hero",
+      "anchorPoint": "chest",
+      "offset3d": [
+        0.12799987792968756,
+        -0.735999755859375,
+        0.81800048828125
+      ],
+      "size": [
+        2.894279731200002,
+        2.894279731200002
+      ],
+      "renderPriority": 0,
+      "depthTest": true,
+      "depthWrite": false,
+      "motionPreset": "none",
+      "motionAmplitude": 0.55,
+      "motionSpeed": 1,
+      "blendMode": "normal",
+      "opacity": 1,
+      "spriteSheetName": "hit2.png",
+      "spriteSheetPath": "game/sprites/hit2.png",
+      "spriteSheetUrl": "game/sprites/hit2.png",
+      "spriteSheetSize": {
+        "width": 960,
+        "height": 384
+      }
+    },
+    {
+      "id": "track_m1gzjv4",
+      "name": "Track 2",
+      "enabled": true,
+      "spriteRows": 2,
+      "spriteCols": 5,
+      "invertRows": true,
+      "preserveFrameAspect": true,
+      "useOriginalFrameSize": true,
+      "originalSizeScale": 0.009048940208848518,
+      "startEmptyFrame": false,
+      "endEmptyFrame": true,
+      "rotationDeg": 168.96002197265625,
+      "playbackMode": "one-shot",
+      "stopOnLastFrame": true,
+      "fps": 9,
+      "frameIndices": [
+        0,
+        1,
+        2
+      ],
+      "anchorTarget": "hero",
+      "anchorPoint": "chest",
+      "offset3d": [
+        0.655999755859375,
+        -0.584000244140625,
+        1.2660006713867187
+      ],
+      "size": [
+        1.9107987377356797,
+        1.9107987377356797
+      ],
+      "renderPriority": 0,
+      "depthTest": true,
+      "depthWrite": false,
+      "motionPreset": "none",
+      "motionAmplitude": 0.55,
+      "motionSpeed": 1,
+      "blendMode": "normal",
+      "opacity": 1,
+      "spriteSheetName": "hit2.png",
+      "spriteSheetPath": "game/sprites/hit2.png",
+      "spriteSheetUrl": "game/sprites/hit2.png",
+      "spriteSheetSize": {
+        "width": 960,
+        "height": 384
+      }
+    }
+  ]
+}

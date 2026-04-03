@@ -146,6 +146,10 @@ export interface Item {
   minLevel: number;
   source?: 'shop' | 'dungeon' | 'alchemist';
   duration?: number; // For buffs
+  animacaoExecucao?: string;
+  animacaoImpacto?: string;
+  animacaoExecucaoCor?: string;
+  animacaoImpactoCor?: string;
 }
 
 export interface LootChance {
@@ -275,6 +279,12 @@ export interface Skill {
   buffEffect?: SkillBuffEffect;
   resourceEffect?: SkillResourceEffect;
   resourceLabel?: string;
+  animacaoExecucao?: string;
+  animacaoImpacto?: string;
+  animacaoExecucaoCor?: string;
+  animacaoImpactoCor?: string;
+  animacaoImpactoAlvo?: 'self' | 'target';
+  tipoAnimacao?: 'cura_status' | 'ataque' | 'magia';
 }
 
 export interface TalentNodeEffect {
@@ -567,4 +577,81 @@ export interface FloatingText {
   yOffset: number;
   durationMs?: number;
   color?: string;
+}
+
+export type SpritePlaybackMode = 'one-shot' | 'loop';
+export type SpriteTrackPlaybackStatus = 'idle' | 'playing' | 'finished';
+export type SpriteTailLoopPattern = 'forward' | 'ping-pong';
+export type SpriteMotionPreset = 'none' | 'rise' | 'orbit' | 'forward' | 'follow-target' | 'zigzag';
+export type SpriteTrackAnchorTarget = 'hero' | 'enemy';
+export type SpriteTrackAnchorPoint = 'root' | 'chest' | 'head' | 'feet';
+
+export interface SpriteFrameRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface SpriteTrackDefinition {
+  id: string;
+  name: string;
+  enabled: boolean;
+  spriteSheetName?: string;
+  spriteSheetPath?: string;
+  spriteSheetUrl?: string;
+  spriteSheetSize?: { width: number; height: number };
+  spriteRows?: number;
+  spriteCols?: number;
+  invertRows?: boolean;
+  preserveFrameAspect?: boolean;
+  useOriginalFrameSize?: boolean;
+  originalSizeScale?: number;
+  rotationDeg?: number;
+  playbackMode: SpritePlaybackMode;
+  startEmptyFrame?: boolean;
+  endEmptyFrame?: boolean;
+  stopOnLastFrame?: boolean;
+  tailLoopEnabled?: boolean;
+  tailLoopFrameCount?: number;
+  tailLoopRepeats?: number;
+  tailLoopPattern?: SpriteTailLoopPattern;
+  timelineStartFrame?: number;
+  timelineEndFrame?: number;
+  fps: number;
+  frameIndices: number[];
+  frameDurationOverridesMs?: Partial<Record<number, number>>;
+  anchorTarget: SpriteTrackAnchorTarget;
+  anchorPoint?: SpriteTrackAnchorPoint;
+  offset3d: [number, number, number];
+  size: [number, number];
+  opacity?: number;
+  tintColor?: string;
+  blendMode?: 'normal' | 'additive';
+  depthTest?: boolean;
+  depthWrite?: boolean;
+  renderPriority?: number;
+  motionPreset?: SpriteMotionPreset;
+  motionAmplitude?: number;
+  motionSpeed?: number;
+}
+
+export interface SpriteOverlayAnimationDefinition {
+  id: string;
+  version: 1;
+  name: string;
+  spriteSheetName: string;
+  spriteSheetUrl?: string;
+  referencePreview?: {
+    previewReference?: 'hero' | 'enemy';
+    heroClassId?: PlayerClassId;
+    enemyIndex?: number;
+  };
+  sheetSize: { width: number; height: number };
+  frameSource: {
+    rows: number;
+    cols: number;
+    frames: SpriteFrameRect[];
+  };
+  spriteTracks: SpriteTrackDefinition[];
 }

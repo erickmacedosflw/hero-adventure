@@ -1,0 +1,104 @@
+﻿{
+  "id": "sprite_anim_1775173567692",
+  "version": 1,
+  "name": "slash",
+  "spriteSheetName": "slash.png",
+  "spriteSheetUrl": "game/sprites/slash.png",
+  "referencePreview": {
+    "previewReference": "hero",
+    "heroClassId": "knight",
+    "enemyIndex": 0
+  },
+  "sheetSize": {
+    "width": 960,
+    "height": 192
+  },
+  "frameSource": {
+    "rows": 1,
+    "cols": 5,
+    "frames": [
+      {
+        "x": 0,
+        "y": 0,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 192,
+        "y": 0,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 384,
+        "y": 0,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 576,
+        "y": 0,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 768,
+        "y": 0,
+        "width": 192,
+        "height": 192
+      }
+    ]
+  },
+  "spriteTracks": [
+    {
+      "id": "track_774o8rx",
+      "name": "Track 1",
+      "enabled": true,
+      "spriteRows": 1,
+      "spriteCols": 5,
+      "invertRows": false,
+      "preserveFrameAspect": true,
+      "useOriginalFrameSize": true,
+      "originalSizeScale": 0.012657677564169006,
+      "startEmptyFrame": false,
+      "endEmptyFrame": true,
+      "rotationDeg": 90,
+      "playbackMode": "one-shot",
+      "stopOnLastFrame": true,
+      "fps": 12,
+      "frameIndices": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "anchorTarget": "hero",
+      "anchorPoint": "chest",
+      "offset3d": [
+        0.36800048828125004,
+        -0.3600003051757813,
+        0.9540002441406249
+      ],
+      "size": [
+        2.430274092320449,
+        2.430274092320449
+      ],
+      "renderPriority": 0,
+      "depthTest": true,
+      "depthWrite": false,
+      "motionPreset": "none",
+      "motionAmplitude": 0.55,
+      "motionSpeed": 1,
+      "blendMode": "normal",
+      "opacity": 1,
+      "spriteSheetName": "slash.png",
+      "spriteSheetPath": "game/sprites/slash.png",
+      "spriteSheetUrl": "game/sprites/slash.png",
+      "spriteSheetSize": {
+        "width": 960,
+        "height": 192
+      }
+    }
+  ]
+}

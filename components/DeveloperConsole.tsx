@@ -5,6 +5,7 @@ import { getRegisteredWeapon3DByItemId, REGISTERED_WEAPON_ITEMS } from '../game/
 import { getPlayerClassById, PLAYER_CLASSES } from '../game/data/classes';
 import { DungeonBossTemplate, DungeonEnemyTemplate, EnemyTemplate, PlayerAnimationAction, PlayerClassId, Rarity } from '../types';
 import { DeveloperClassBuilderScene, DeveloperKitbashScene, DeveloperMonsterScene, DeveloperWeaponCalibrationScene } from './Scene3D';
+import { SpriteAnimationLab } from './SpriteAnimationLab';
 import type {
   DeveloperAnimationRuntimeDiagnostic,
   DeveloperKitbashAnalysis,
@@ -16,7 +17,7 @@ import type {
 } from './scene3d/types';
 import { ItemPreviewThree } from './items/ItemPreviewThree';
 
-type DeveloperTab = 'overview' | 'animation-lab' | 'monster-lab' | 'item-lab' | 'kitbash-lab';
+type DeveloperTab = 'overview' | 'animation-lab' | 'monster-lab' | 'item-lab' | 'kitbash-lab' | 'sprite-lab';
 type WeaponCalibrationViewMode = 'sandbox' | 'attached';
 
 const animationActions: PlayerAnimationAction[] = ['idle', 'battle-idle', 'attack', 'defend', 'defend-hit', 'hit', 'critical-hit', 'item', 'heal', 'skill', 'evade', 'death'];
@@ -379,6 +380,7 @@ export const DeveloperConsole: React.FC = () => {
   const tabs: Array<{ id: DeveloperTab; label: string; icon: React.ReactNode }> = [
     { id: 'overview', label: 'Hub', icon: <Bug size={16} /> },
     { id: 'animation-lab', label: 'Animacao', icon: <WandSparkles size={16} /> },
+    { id: 'sprite-lab', label: 'Sprite Lab', icon: <WandSparkles size={16} /> },
     { id: 'monster-lab', label: 'Monstros 3D', icon: <Swords size={16} /> },
     { id: 'item-lab', label: 'Itens 3D', icon: <Boxes size={16} /> },
     { id: 'kitbash-lab', label: 'Kitbash', icon: <Layers3 size={16} /> },
@@ -421,6 +423,11 @@ export const DeveloperConsole: React.FC = () => {
               <p className="mt-3 text-sm text-slate-400">Teste `idle`, `attack`, `defend`, `item`, `heal` e `skill` com o modelo real da classe e combinações de equipamento.</p>
             </button>
 
+            <button onClick={() => setTab('sprite-lab')} className="game-surface rounded-[1.75rem] border border-cyan-400/15 p-6 text-left transition-transform hover:-translate-y-1">
+              <div className="game-icon-badge h-12 w-12 text-cyan-300"><WandSparkles size={22} /></div>
+              <h2 className="mt-4 font-gamer text-2xl font-black text-white">Sprite Animation Lab</h2>
+              <p className="mt-3 text-sm text-slate-400">Monte animacoes por sprite sheet com varias tracks em paralelo, preview normal/loop e exportacao JSON.</p>
+            </button>
             <button onClick={() => setTab('item-lab')} className="game-surface rounded-[1.75rem] border border-emerald-400/15 p-6 text-left transition-transform hover:-translate-y-1">
               <div className="game-icon-badge h-12 w-12 text-emerald-300"><Boxes size={22} /></div>
               <h2 className="mt-4 font-gamer text-2xl font-black text-white">Inspecao de Itens 3D</h2>
@@ -873,6 +880,10 @@ export const DeveloperConsole: React.FC = () => {
           </section>
         )}
 
+        {tab === 'sprite-lab' && (
+          <SpriteAnimationLab />
+        )}
+
         {tab === 'item-lab' && selectedItem && (
           <section className="mt-6 grid gap-6 2xl:grid-cols-[340px_minmax(0,1fr)]">
             <div className="game-surface rounded-[1.75rem] border border-slate-700 p-5 sm:p-6">
@@ -991,3 +1002,4 @@ export const DeveloperConsole: React.FC = () => {
     </div>
   );
 };
+
