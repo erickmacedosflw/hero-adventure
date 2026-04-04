@@ -32,7 +32,7 @@ interface GameUIProps {
   onStartBattle: (isBoss: boolean) => void;
   onEnterShop: () => void;
   onBuyItem: (item: Item) => void;
-  onSellItem: (item: Item) => void;
+    onSellItem: (item: Item, quantity?: number) => void;
   onEquipItem: (item: Item) => void;
   onUnequipItem: (item: Item) => void;
   onContinue: () => void; // Used for Level Up or Victory -> Tavern
@@ -992,6 +992,7 @@ export const TavernScreen: React.FC<{
   onEquipItem: (item: Item) => void,
   onUnequipItem: (item: Item) => void,
   onUseItem: (itemId: string) => void,
+    onSellItem: (item: Item, quantity?: number) => void,
     onUnlockTalent: (nodeId: string) => void,
     onResetTalents: () => void,
     campIntroOnly?: boolean,
@@ -1022,7 +1023,7 @@ export const TavernScreen: React.FC<{
   autoOpenInventoryToken?: number,
   autoOpenInventoryFilter?: 'all' | 'equipment' | 'potion' | 'material',
   showDiamondHud?: boolean,
-}> = ({ player, killCount, onHunt, onBoss, onDungeon, onShop, onShopFromInventory, onAlchemist, onOpenAr, arSupport, shopItems, autoOpenConstellationToken = 0, onEquipItem, onUnequipItem, onUseItem, onUnlockTalent, onResetTalents, campIntroOnly = false, restrictProfileToStatusOnly = false, inventoryUnlocked = false, inventoryUnlockPromptActive = false, onAcknowledgeInventoryUnlock, cardsUnlockPromptActive = false, onAcknowledgeCardsUnlock, skillsUnlockPromptActive = false, onAcknowledgeSkillsUnlock, constellationUnlockPromptActive = false, onAcknowledgeConstellationUnlock, constellationRespecUnlockPromptActive = false, onAcknowledgeConstellationRespecUnlock, allowCardsInProfile = false, fleeUnlocked = false, merchantUnlockPromptActive = false, onAcknowledgeMerchantUnlock, dungeonUnlockPromptActive = false, onAcknowledgeDungeonUnlock, alchemistUnlockPromptActive = false, onAcknowledgeAlchemistUnlock, merchantUnlocked = false, dungeonUnlocked = false, alchemistUnlocked = false, showSkillsAction = false, autoOpenInventoryToken = 0, autoOpenInventoryFilter = 'all', showDiamondHud = false }) => {
+}> = ({ player, killCount, onHunt, onBoss, onDungeon, onShop, onShopFromInventory, onAlchemist, onOpenAr, arSupport, shopItems, autoOpenConstellationToken = 0, onEquipItem, onUnequipItem, onUseItem, onSellItem, onUnlockTalent, onResetTalents, campIntroOnly = false, restrictProfileToStatusOnly = false, inventoryUnlocked = false, inventoryUnlockPromptActive = false, onAcknowledgeInventoryUnlock, cardsUnlockPromptActive = false, onAcknowledgeCardsUnlock, skillsUnlockPromptActive = false, onAcknowledgeSkillsUnlock, constellationUnlockPromptActive = false, onAcknowledgeConstellationUnlock, constellationRespecUnlockPromptActive = false, onAcknowledgeConstellationRespecUnlock, allowCardsInProfile = false, fleeUnlocked = false, merchantUnlockPromptActive = false, onAcknowledgeMerchantUnlock, dungeonUnlockPromptActive = false, onAcknowledgeDungeonUnlock, alchemistUnlockPromptActive = false, onAcknowledgeAlchemistUnlock, merchantUnlocked = false, dungeonUnlocked = false, alchemistUnlocked = false, showSkillsAction = false, autoOpenInventoryToken = 0, autoOpenInventoryFilter = 'all', showDiamondHud = false }) => {
   const [showProfile, setShowProfile] = useState(false);
   const [showInventory, setShowInventory] = useState(false);
     const [returnToProfileOnInventoryClose, setReturnToProfileOnInventoryClose] = useState(false);
@@ -1455,7 +1456,7 @@ export const TavernScreen: React.FC<{
     </AnimatedModal>
     <AnimatedModal open={showInventory}>
         {(isClosing) => (
-            <InventoryModal player={player} shopItems={shopItems} onClose={closeInventoryModal} onOpenShop={merchantUnlocked ? openShopFromInventory : undefined} onEquip={onEquipItem} onUnequip={onUnequipItem} onUse={onUseItem} isBattleContext={false} initialFilter={inventoryInitialFilter} isClosing={isClosing} />
+            <InventoryModal player={player} shopItems={shopItems} onClose={closeInventoryModal} onOpenShop={merchantUnlocked ? openShopFromInventory : undefined} onEquip={onEquipItem} onUnequip={onUnequipItem} onUse={onUseItem} onSell={onSellItem} isBattleContext={false} initialFilter={inventoryInitialFilter} isClosing={isClosing} />
         )}
     </AnimatedModal>
 

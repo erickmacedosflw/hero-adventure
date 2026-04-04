@@ -3121,6 +3121,7 @@ export default function App() {
             onEquipItem={equipItem}
             onUnequipItem={unequipItem}
             onUseItem={handleUseItem}
+            onSellItem={sellItem}
             onUnlockTalent={handleUnlockTalent}
             onResetTalents={handleResetTalents}
                         campIntroOnly={isCampIntroRestricted}
