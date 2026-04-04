@@ -25,7 +25,7 @@ import { createEmptyBuffState } from './game/mechanics/combat';
 import { createClassResourceState, getTalentBonuses, getUnlockedResourceMax, resetTalentNodes, syncPlayerConstellationSkills, unlockTalentNode } from './game/mechanics/classProgression';
 import { buyItemForPlayer, sellItemFromPlayer } from './game/mechanics/inventory';
 import { applyEquipmentBonusesToStats } from './game/mechanics/equipmentBonuses';
-import { WeaponProficiencyAppliedBonuses, applyWeaponProficiencyBonusesToStats, getWeaponProficiencyAppliedBonuses, isWeaponProficientForClass } from './game/mechanics/weaponProficiency';
+import { WeaponProficiencyAppliedBonuses, applyWeaponProficiencyBonusesToStats, getWeaponProficiencyAppliedBonuses } from './game/mechanics/weaponProficiency';
 import { SavePayload, SaveSlotId, SaveSlotSummary, getActiveSaveSlotId, listSaveSlots, loadSaveFromSlot, saveToActiveSlot, setActiveSaveSlotId, clearSlot } from './game/mechanics/saveSystem';
 import { useBattleController } from './game/hooks/useBattleController';
 import { useBattleResolution } from './game/hooks/useBattleResolution';
@@ -142,11 +142,6 @@ const normalizeSavedPlayerForCurrentBuild = (source: Player): Player => {
         ...source.stats,
         magic: Number.isFinite(source.stats.magic) ? source.stats.magic : playerClass.baseStats.magic,
     };
-
-    if (equippedWeapon && !isWeaponProficientForClass(source.classId, equippedWeapon)) {
-        normalizedStats = applyEquipmentBonusesToStats(normalizedStats, equippedWeapon, -1);
-        equippedWeapon = null;
-    }
 
     if (shouldBackfillMagic && equippedWeapon) {
         const proficiencyBonuses = getWeaponProficiencyAppliedBonuses(source.classId, equippedWeapon);
@@ -1979,8 +1974,6 @@ export default function App() {
   };
 
     const handleChangePlayerClass = (classId: Player['classId']) => {
-        const shouldDropWeapon = Boolean(player.equippedWeapon && !isWeaponProficientForClass(classId, player.equippedWeapon));
-
         setPlayer(prev => syncPlayerConstellationSkills({
             ...(() => {
                 let adjustedStats = { ...prev.stats };
@@ -1992,14 +1985,7 @@ export default function App() {
                     adjustedStats = applyWeaponProficiencyBonusesToStats(adjustedStats, previousClassBonuses, -1);
                 }
 
-                let nextEquippedWeapon = equippedWeapon;
-                if (equippedWeapon && !isWeaponProficientForClass(classId, equippedWeapon)) {
-                    adjustedStats = applyEquipmentBonusesToStats(adjustedStats, equippedWeapon, -1);
-                    if ((adjustedInventory[equippedWeapon.id] ?? 0) <= 0) {
-                        adjustedInventory[equippedWeapon.id] = 1;
-                    }
-                    nextEquippedWeapon = null;
-                }
+                const nextEquippedWeapon = equippedWeapon;
 
                 const classApplied = applyPlayerClass({ ...prev, inventory: adjustedInventory, stats: adjustedStats, equippedWeapon: nextEquippedWeapon }, classId);
                 let classAppliedStats = { ...classApplied.stats };
@@ -2018,10 +2004,6 @@ export default function App() {
             classResource: createClassResourceState(classId),
             statusEffects: [],
         }, SKILLS));
-
-        if (shouldDropWeapon) {
-            addLog('Sua nova classe nao tem proficiencia com a arma equipada. A arma foi removida automaticamente.', 'info');
-        }
     };
 
   const handleLimitBreak = () => {
@@ -2577,11 +2559,6 @@ export default function App() {
   const equipItem = (item: Item) => {
       if (gameState === GameState.BATTLE) {
           addLog('Durante a batalha voce nao pode trocar equipamento. Abra a mochila apenas para consultar.', 'info');
-          return;
-      }
-
-      if (item.type === 'weapon' && !isWeaponProficientForClass(player.classId, item)) {
-          addLog(`Sua classe nao tem proficiencia com ${item.name}.`, 'info');
           return;
       }
 

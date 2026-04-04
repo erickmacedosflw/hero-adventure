@@ -5,7 +5,7 @@ import { CONSTELLATION_SKILLS } from './game/data/classTalents';
 import { SPRITE_ANIMATION_IDS } from './game/data/sprite-animations/registry';
 export { INITIAL_PLAYER } from './game/data/player';
 
-export const SHOP_ITEMS: Item[] = [
+const BASE_SHOP_ITEMS: Item[] = [
   // --- POTIONS & CONSUMABLES ---
   { id: 'pot_1', name: 'Poção Menor', description: 'Cura ferimentos leves. +25 HP', cost: 40, type: 'potion', value: 25, icon: '🧪', rarity: 'bronze', minLevel: 1, animacaoExecucao: SPRITE_ANIMATION_IDS.execAuraVida2 },
   { id: 'pot_3', name: 'Poção de Vida', description: 'Recuperação moderada. +50 HP', cost: 70, type: 'potion', value: 50, icon: '❤️', rarity: 'bronze', minLevel: 2, animacaoExecucao: SPRITE_ANIMATION_IDS.execAuraVida2 },
@@ -48,15 +48,15 @@ export const SHOP_ITEMS: Item[] = [
   { id: 'hlm_g3', name: 'Coroa de Aço Celeste', description: 'Proteção régia para mestres de guerra. +26 DEF e +90 HP', cost: 4700, type: 'helmet', value: 26, hpBonus: 90, icon: '✨', rarity: 'gold', minLevel: 12 },
 
   // --- LEGS ---
-  { id: 'leg_b1', name: 'Botas de Pano', description: 'Confortáveis. +1 VEL', cost: 140, type: 'legs', value: 1, icon: '🧦', rarity: 'bronze', minLevel: 1 },
-  { id: 'leg_b2', name: 'Botas de Couro', description: 'Firmes para marcha e esquiva. +2 VEL', cost: 170, type: 'legs', value: 2, icon: '👢', rarity: 'bronze', minLevel: 2 },
-  { id: 'leg_b3', name: 'Grevas Curtas', description: 'Leves e ágeis para reposicionamento. +3 VEL', cost: 230, type: 'legs', value: 3, icon: '🥾', rarity: 'bronze', minLevel: 3 },
-  { id: 'leg_s1', name: 'Grevas de Ferro', description: 'Ajustadas para corrida de combate. +4 VEL', cost: 1200, type: 'legs', value: 4, icon: '👢', rarity: 'silver', minLevel: 4 },
-  { id: 'leg_s2', name: 'Botas de Sentinela', description: 'Passo sólido e resposta rápida. +5 VEL', cost: 1380, type: 'legs', value: 5, icon: '🥾', rarity: 'silver', minLevel: 5 },
-  { id: 'leg_s3', name: 'Grevas de Patrulha', description: 'Mobilidade avançada para lutas longas. +6 VEL', cost: 1560, type: 'legs', value: 6, icon: '🦿', rarity: 'silver', minLevel: 6 },
-  { id: 'leg_g1', name: 'Grevas Dracônicas', description: 'Ligas raras para arrancadas explosivas. +7 VEL', cost: 3400, type: 'legs', value: 7, icon: '🐉', rarity: 'gold', minLevel: 9 },
-  { id: 'leg_g2', name: 'Botas do Guardião Solar', description: 'Impulso lendário com passada firme. +8 VEL', cost: 4100, type: 'legs', value: 8, icon: '☀️', rarity: 'gold', minLevel: 10 },
-  { id: 'leg_g3', name: 'Passos do Colosso', description: 'Conjunto de elite para mobilidade máxima. +9 VEL', cost: 4900, type: 'legs', value: 9, icon: '🏛️', rarity: 'gold', minLevel: 12 },
+  { id: 'leg_b1', name: 'Botas de Pano', description: 'Confortáveis. +1 VEL', cost: 180, type: 'legs', value: 1, icon: '🧦', rarity: 'bronze', minLevel: 1 },
+  { id: 'leg_b2', name: 'Botas de Couro', description: 'Firmes para marcha e esquiva. +2 VEL', cost: 260, type: 'legs', value: 2, icon: '👢', rarity: 'bronze', minLevel: 2 },
+  { id: 'leg_b3', name: 'Grevas Curtas', description: 'Leves e ágeis para reposicionamento. +3 VEL', cost: 360, type: 'legs', value: 3, icon: '🥾', rarity: 'bronze', minLevel: 3 },
+  { id: 'leg_s1', name: 'Grevas de Ferro', description: 'Ajustadas para corrida de combate. +4 VEL', cost: 1500, type: 'legs', value: 4, icon: '👢', rarity: 'silver', minLevel: 4 },
+  { id: 'leg_s2', name: 'Botas de Sentinela', description: 'Passo sólido e resposta rápida. +5 VEL', cost: 1950, type: 'legs', value: 5, icon: '🥾', rarity: 'silver', minLevel: 5 },
+  { id: 'leg_s3', name: 'Grevas de Patrulha', description: 'Mobilidade avançada para lutas longas. +6 VEL', cost: 2450, type: 'legs', value: 6, icon: '🦿', rarity: 'silver', minLevel: 6 },
+  { id: 'leg_g1', name: 'Grevas Dracônicas', description: 'Ligas raras para arrancadas explosivas. +7 VEL', cost: 4300, type: 'legs', value: 7, icon: '🐉', rarity: 'gold', minLevel: 9 },
+  { id: 'leg_g2', name: 'Botas do Guardião Solar', description: 'Impulso lendário com passada firme. +8 VEL', cost: 5600, type: 'legs', value: 8, icon: '☀️', rarity: 'gold', minLevel: 10 },
+  { id: 'leg_g3', name: 'Passos do Colosso', description: 'Conjunto de elite para mobilidade máxima. +9 VEL', cost: 7200, type: 'legs', value: 9, icon: '🏛️', rarity: 'gold', minLevel: 12 },
   
   // --- SHIELDS ---
   { id: 'shd_b1', name: 'Tábua de Madeira', description: 'Melhor que nada. +3 DEF', cost: 140, type: 'shield', value: 3, icon: '🪵', rarity: 'bronze', minLevel: 1 },
@@ -69,6 +69,28 @@ export const SHOP_ITEMS: Item[] = [
   { id: 'shd_g2', name: 'Égide do Crepúsculo', description: 'Barreira mística para segurar explosões de dano. +28 DEF', cost: 4200, type: 'shield', value: 28, icon: '🌒', rarity: 'gold', minLevel: 10 },
   { id: 'shd_g3', name: 'Escudo do Trono', description: 'Defesa suprema usada por campeões veteranos. +31 DEF', cost: 5000, type: 'shield', value: 31, icon: '👑', rarity: 'gold', minLevel: 12 },
 ];
+
+const EQUIPMENT_TYPES = new Set<Item['type']>(['armor', 'helmet', 'legs', 'shield']);
+const EQUIPMENT_COST_MULTIPLIER_BY_RARITY: Record<Item['rarity'], number> = {
+  bronze: 1.6,
+  silver: 1.35,
+  gold: 1.22,
+};
+const roundShopCost = (value: number) => Math.ceil(value / 10) * 10;
+const rebalanceShopEquipmentPrice = (item: Item): Item => {
+  if (!EQUIPMENT_TYPES.has(item.type)) {
+    return item;
+  }
+
+  const multiplier = EQUIPMENT_COST_MULTIPLIER_BY_RARITY[item.rarity] ?? 1;
+  const rebalancedCost = roundShopCost(item.cost * multiplier);
+  return {
+    ...item,
+    cost: rebalancedCost,
+  };
+};
+
+export const SHOP_ITEMS: Item[] = BASE_SHOP_ITEMS.map(rebalanceShopEquipmentPrice);
 
 export const MATERIALS: Item[] = [
   { id: 'mat_wood', name: 'Madeira', description: 'Um pedaço de madeira comum.', cost: 10, type: 'material', value: 0, icon: '🪵', rarity: 'bronze', minLevel: 1 },

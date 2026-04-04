@@ -32,10 +32,16 @@ export interface RegisteredWeapon3DDefinition {
 const sharedTexturePath = 'game/assets/Characters/Weapons/another/weapons_bits_texture.png';
 const sharedTextureUrl = new URL('../assets/Characters/Weapons/another/weapons_bits_texture.png', import.meta.url).href;
 const MIN_WEAPON_COST_BY_RARITY: Record<Item['rarity'], number> = {
-  bronze: 240,
-  silver: 1200,
-  gold: 3600,
+  bronze: 340,
+  silver: 1550,
+  gold: 4400,
 };
+const WEAPON_COST_MULTIPLIER_BY_RARITY: Record<Item['rarity'], number> = {
+  bronze: 1.55,
+  silver: 1.35,
+  gold: 1.22,
+};
+const roundWeaponCost = (value: number) => Math.ceil(value / 10) * 10;
 
 const createRegisteredWeapon = ({
   id,
@@ -75,12 +81,16 @@ const createRegisteredWeapon = ({
   animacaoImpacto?: string;
   animacaoExecucaoCor?: string;
   animacaoImpactoCor?: string;
-}): RegisteredWeapon3DDefinition => ({
+}): RegisteredWeapon3DDefinition => {
+  const multiplier = WEAPON_COST_MULTIPLIER_BY_RARITY[rarity] ?? 1;
+  const adjustedCost = roundWeaponCost(cost * multiplier);
+
+  return {
   item: {
     id,
     name,
     description,
-    cost: Math.max(cost, MIN_WEAPON_COST_BY_RARITY[rarity]),
+    cost: Math.max(adjustedCost, MIN_WEAPON_COST_BY_RARITY[rarity]),
     type: 'weapon',
     value,
     magicBonus,
@@ -101,7 +111,8 @@ const createRegisteredWeapon = ({
   gripPoint,
   handTransform,
   previewTransform,
-});
+  };
+};
 
 // Per-category calibrated hand transforms
 const daggerPos: [number, number, number] = [0.006, 0.119, -0.059];
