@@ -2,10 +2,10 @@ import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } fr
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { ContactShadows, Html, PerspectiveCamera, useProgress } from '@react-three/drei';
 import * as THREE from 'three';
-import { ArrowLeft, ArrowRight, Heart, Shield, Star, Swords, WandSparkles, X, Zap } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Crosshair, Heart, Shield, Star, Swords, WandSparkles, X, Zap } from 'lucide-react';
 import { getConstellationByClassId } from '../game/data/classTalents';
 import { getScenario } from '../game/data/scenarios';
-import { PlayerAnimationAction, PlayerClassDefinition, PlayerClassId } from '../types';
+import { PlayerAnimationAction, PlayerClassDefinition, PlayerClassId, WeaponGripType } from '../types';
 import { hasRuntimeFbxAssets } from './scene3d/animation';
 import { AnimatedClassHero } from './scene3d/characters';
 import { BattleScenario } from './scene3d/scenarios';
@@ -70,10 +70,32 @@ const CLASS_COPY: Record<PlayerClassId, { role: string; summary: string; highlig
   },
 };
 
+const CLASS_NAME_PT: Record<PlayerClassId, string> = {
+  knight: 'Cavaleiro',
+  barbarian: 'Barbaro',
+  mage: 'Mago',
+  ranger: 'Arqueiro',
+  rogue: 'Ladino',
+};
+
+const WEAPON_PROFICIENCY_META: Record<WeaponGripType, { label: string; icon: string }> = {
+  dagger: { label: 'Punhal', icon: '🗡️' },
+  sword: { label: 'Espada', icon: '⚔️' },
+  axe: { label: 'Machado', icon: '🪓' },
+  hammer: { label: 'Martelo', icon: '🔨' },
+  wand: { label: 'Varinha', icon: '🪄' },
+  staff: { label: 'Cajado', icon: '🔮' },
+  spear: { label: 'Lanca', icon: '🔱' },
+  halberd: { label: 'Alabarda', icon: '🛡️' },
+  bow: { label: 'Arco', icon: '🏹' },
+  fist: { label: 'Manopla', icon: '🥊' },
+};
+
 const STAT_ITEMS = [
   { key: 'maxHp', label: 'HP', icon: Heart, color: '#b83a4b', bg: 'rgba(184,58,75,0.14)' },
   { key: 'maxMp', label: 'MP', icon: WandSparkles, color: '#346c7f', bg: 'rgba(52,108,127,0.14)' },
   { key: 'atk', label: 'ATK', icon: Swords, color: '#a35324', bg: 'rgba(163,83,36,0.14)' },
+  { key: 'magic', label: 'MAG', icon: WandSparkles, color: '#5f4ab3', bg: 'rgba(95,74,179,0.14)' },
   { key: 'def', label: 'DEF', icon: Shield, color: '#4d6780', bg: 'rgba(77,103,128,0.14)' },
   { key: 'speed', label: 'VEL', icon: Zap, color: '#7c4c76', bg: 'rgba(124,76,118,0.14)' },
   { key: 'luck', label: 'SRT', icon: Star, color: '#b26a2e', bg: 'rgba(178,106,46,0.14)' },
@@ -83,7 +105,7 @@ const CLASS_ROLE_ICONS: Record<PlayerClassId, React.ComponentType<{ size?: numbe
   knight: Shield,
   barbarian: Swords,
   mage: WandSparkles,
-  ranger: Star,
+  ranger: Crosshair,
   rogue: Zap,
 };
 
@@ -219,6 +241,7 @@ const StageHero = ({
   const groupRef = useRef<THREE.Group>(null);
   const heroRef = useRef<THREE.Group>(null);
   const runtimeAssets = hasRuntimeFbxAssets(playerClass.assets) ? playerClass.assets : null;
+  const classNamePt = CLASS_NAME_PT[playerClass.id] ?? playerClass.name;
   const stageSlot = HERO_STAGE_LAYOUT[playerClass.id];
   const auraColor = playerClass.visualProfile.auraColor;
   const RoleIcon = CLASS_ROLE_ICONS[playerClass.id];
@@ -439,7 +462,7 @@ const StageHero = ({
                 <RoleIcon size={15} />
               </span>
               <div className="min-w-0">
-                <div className="font-gamer text-[17px] font-black leading-none">{playerClass.name}</div>
+                <div className="font-gamer text-[17px] font-black leading-none">{classNamePt}</div>
                 <div className="mt-1 text-[9px] font-black uppercase tracking-[0.22em] text-white/72">
                   {CLASS_COPY[playerClass.id].role}
                 </div>
@@ -549,7 +572,9 @@ const QuickHeroCard = ({
   const constellation = getConstellationByClassId(playerClass.id);
   const RoleIcon = CLASS_ROLE_ICONS[playerClass.id];
   const actionColor = playerClass.visualProfile.auraColor;
-  const actionBorderColor = playerClass.visualProfile.secondaryColor;
+  const actionBorderColor = playerClass.visualProfile.primaryColor;
+  const classNamePt = CLASS_NAME_PT[playerClass.id] ?? playerClass.name;
+  const proficiencyBadges = playerClass.weaponProficiencies.map((grip) => WEAPON_PROFICIENCY_META[grip]);
 
   return (
     <>
@@ -568,12 +593,12 @@ const QuickHeroCard = ({
                   className="flex h-11 w-11 items-center justify-center rounded-[14px] border text-white shadow-[0_10px_20px_rgba(107,49,65,0.12)]"
                   style={{
                     borderColor: `${playerClass.visualProfile.auraColor}55`,
-                    background: `linear-gradient(180deg, ${playerClass.visualProfile.auraColor} 0%, ${playerClass.visualProfile.secondaryColor} 100%)`,
+                    background: `linear-gradient(180deg, ${playerClass.visualProfile.auraColor} 0%, ${playerClass.visualProfile.primaryColor} 100%)`,
                   }}
                 >
                   <RoleIcon size={20} />
                 </span>
-                <div className="font-gamer text-2xl font-black text-[#6b3141]">{playerClass.name}</div>
+                <div className="font-gamer text-2xl font-black text-[#6b3141]">{classNamePt}</div>
               </div>
               <div className="mt-1 text-xs font-black uppercase tracking-[0.18em] text-[#8a5a57]">{repairGameText(playerClass.title)}</div>
             </div>
@@ -638,6 +663,18 @@ const QuickHeroCard = ({
               {repairGameText(playerClass.description)}
             </div>
 
+            <div className="mt-3 rounded-[22px] border border-[#dcc0aa] bg-[#fffdf9] px-4 py-3">
+              <div className="text-[10px] font-black uppercase tracking-[0.2em] text-[#9a7068]">Proficiencias de arma</div>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {proficiencyBadges.map((badge) => (
+                  <span key={`${playerClass.id}-${badge.label}`} className="inline-flex items-center gap-1.5 rounded-full border border-[#d6b9a3] bg-[#fff8f1] px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.12em] text-[#6b3141]">
+                    <span className="text-sm leading-none">{badge.icon}</span>
+                    {badge.label}
+                  </span>
+                ))}
+              </div>
+            </div>
+
             <div
               className="mt-3 rounded-[24px] border px-4 py-4"
               style={{
@@ -697,12 +734,12 @@ const QuickHeroCard = ({
                 className="flex h-11 w-11 items-center justify-center rounded-[14px] border text-white shadow-[0_10px_20px_rgba(107,49,65,0.12)]"
                 style={{
                   borderColor: `${playerClass.visualProfile.auraColor}55`,
-                  background: `linear-gradient(180deg, ${playerClass.visualProfile.auraColor} 0%, ${playerClass.visualProfile.secondaryColor} 100%)`,
+                  background: `linear-gradient(180deg, ${playerClass.visualProfile.auraColor} 0%, ${playerClass.visualProfile.primaryColor} 100%)`,
                 }}
               >
                 <RoleIcon size={20} />
               </span>
-              <div className="font-gamer text-2xl font-black text-[#6b3141]">{playerClass.name}</div>
+              <div className="font-gamer text-2xl font-black text-[#6b3141]">{classNamePt}</div>
             </div>
             <div className="mt-1 text-xs font-black uppercase tracking-[0.18em] text-[#8a5a57]">{repairGameText(playerClass.title)}</div>
           </div>
@@ -766,6 +803,18 @@ const QuickHeroCard = ({
 
             <div className="mt-3 rounded-[22px] border border-[#dcc0aa] bg-[#fff8f1] px-4 py-3 text-sm text-[#7f5b56]">
               {repairGameText(playerClass.description)}
+            </div>
+
+            <div className="mt-3 rounded-[22px] border border-[#dcc0aa] bg-[#fffdf9] px-4 py-3">
+              <div className="text-[10px] font-black uppercase tracking-[0.2em] text-[#9a7068]">Proficiencias de arma</div>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {proficiencyBadges.map((badge) => (
+                  <span key={`${playerClass.id}-${badge.label}`} className="inline-flex items-center gap-1.5 rounded-full border border-[#d6b9a3] bg-[#fff8f1] px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.12em] text-[#6b3141]">
+                    <span className="text-sm leading-none">{badge.icon}</span>
+                    {badge.label}
+                  </span>
+                ))}
+              </div>
             </div>
 
             <div

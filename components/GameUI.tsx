@@ -59,6 +59,8 @@ interface GameUIProps {
     onAcknowledgeCardsUnlock?: () => void;
     skillsUnlockPromptActive?: boolean;
     onAcknowledgeSkillsUnlock?: () => void;
+    impulseUnlockPromptActive?: number | null;
+    onAcknowledgeImpulseUnlock?: () => void;
     constellationUnlockPromptActive?: boolean;
     onAcknowledgeConstellationUnlock?: () => void;
     constellationRespecUnlockPromptActive?: boolean;
@@ -85,6 +87,10 @@ const getRarityColor = (rarity: Rarity) => {
         default: return 'border-slate-700 text-white';
     }
 }
+
+const getImpulseCapacityByLevel = (level: number) => (
+    level >= 12 ? 3 : level >= 8 ? 2 : level >= 4 ? 1 : 0
+);
 
 const ItemTypeIcon = ({ type, size = 14 }: { type: Item['type'], size?: number }) => {
     if (type === 'weapon') return <Sword size={size} />;
@@ -117,6 +123,38 @@ const getCardRarityLabel = (rarity: Rarity) => {
     if (rarity === 'bronze') return 'Comum';
     if (rarity === 'silver') return 'Rara';
     return 'Lendaria';
+};
+
+const darkenHexColor = (hex: string, amount = 0.2): string => {
+    const normalized = hex.trim().replace('#', '');
+    if (!/^[0-9a-fA-F]{6}$/.test(normalized)) {
+        return hex;
+    }
+
+    const toChannel = (start: number) => parseInt(normalized.slice(start, start + 2), 16);
+    const darken = (channel: number) => Math.max(0, Math.min(255, Math.round(channel * (1 - amount))));
+    const toHex = (value: number) => value.toString(16).padStart(2, '0');
+
+    const r = darken(toChannel(0));
+    const g = darken(toChannel(2));
+    const b = darken(toChannel(4));
+    return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+};
+
+const HERO_CLASS_ICON: Record<Player['classId'], React.ComponentType<{ size?: number; className?: string }>> = {
+    knight: Shield,
+    barbarian: Sword,
+    mage: Sparkles,
+    ranger: Crosshair,
+    rogue: Zap,
+};
+
+const CLASS_NAME_PT: Record<Player['classId'], string> = {
+    knight: 'Cavaleiro',
+    barbarian: 'Barbaro',
+    mage: 'Mago',
+    ranger: 'Arqueiro',
+    rogue: 'Ladino',
 };
 
 const PERCENT_CARD_EFFECT_TYPES = new Set([
@@ -174,6 +212,7 @@ const getCardEffectPreview = (card: ProgressionCard) => {
         case 'max_hp': return `+${value} vida máxima`;
         case 'max_mp': return `+${value} mana máxima`;
         case 'atk': return `+${value} ataque`;
+        case 'magic': return `+${value} magia`;
         case 'def': return `+${value} defesa`;
         case 'speed': return `+${value} velocidade`;
         case 'luck': return `+${value} sorte`;
@@ -1737,6 +1776,7 @@ const describeCardEffect = (card: ProgressionCard) => {
             case 'max_hp': return `+${value} Vida maxima`;
             case 'max_mp': return `+${value} Mana maxima`;
             case 'atk': return `+${value} Ataque`;
+            case 'magic': return `+${value} Magia`;
             case 'def': return `+${value} Defesa`;
             case 'speed': return `+${value} Velocidade`;
             case 'luck': return `+${value} Sorte`;
@@ -2660,7 +2700,7 @@ export const ShopScreen: React.FC<{ player: Player, items: Item[], huntStage: nu
 };
 
 export const BattleHUD: React.FC<GameUIProps> = (props) => {
-    const { player, enemy, turnState, logs, onAttack, onDefend, onChargeImpulse, onAbsorbImpulse, onSkill, onUseItem, enemyIntentPreview = null, onUnlockTalent, onResetTalents, currentNarration, gameState, shopItems, floatingTexts, onFlee, onOpenAr, arSupport, onStartBattle, stage, dungeonPhase = 1, killCount, onEquipItem, onUnequipItem, isDungeonRun, dungeonRewards, dungeonCleared = 0, dungeonTotal = 30, gameTime, restrictProfileToStatusOnly = false, limitBattleActionsToBasics = false, inventoryUnlocked = false, inventoryUnlockPromptActive = false, onAcknowledgeInventoryUnlock, cardsUnlockPromptActive = false, onAcknowledgeCardsUnlock, skillsUnlockPromptActive = false, onAcknowledgeSkillsUnlock, constellationUnlockPromptActive = false, onAcknowledgeConstellationUnlock, constellationRespecUnlockPromptActive = false, onAcknowledgeConstellationRespecUnlock, allowCardsInProfile = false, fleeUnlocked = false, showItemsAction = false, showSkillsAction = false, itemsUnlockPromptActive = false, onAcknowledgeItemsUnlock, fleeUnlockPromptActive = false, onAcknowledgeFleeUnlock, showDiamondHud = false, diamondUnlockPromptActive = false, onAcknowledgeDiamondUnlock } = props;
+    const { player, enemy, turnState, logs, onAttack, onDefend, onChargeImpulse, onAbsorbImpulse, onSkill, onUseItem, enemyIntentPreview = null, onUnlockTalent, onResetTalents, currentNarration, gameState, shopItems, floatingTexts, onFlee, onOpenAr, arSupport, onStartBattle, stage, dungeonPhase = 1, killCount, onEquipItem, onUnequipItem, isDungeonRun, dungeonRewards, dungeonCleared = 0, dungeonTotal = 30, gameTime, restrictProfileToStatusOnly = false, limitBattleActionsToBasics = false, inventoryUnlocked = false, inventoryUnlockPromptActive = false, onAcknowledgeInventoryUnlock, cardsUnlockPromptActive = false, onAcknowledgeCardsUnlock, skillsUnlockPromptActive = false, onAcknowledgeSkillsUnlock, impulseUnlockPromptActive = null, onAcknowledgeImpulseUnlock, constellationUnlockPromptActive = false, onAcknowledgeConstellationUnlock, constellationRespecUnlockPromptActive = false, onAcknowledgeConstellationRespecUnlock, allowCardsInProfile = false, fleeUnlocked = false, showItemsAction = false, showSkillsAction = false, itemsUnlockPromptActive = false, onAcknowledgeItemsUnlock, fleeUnlockPromptActive = false, onAcknowledgeFleeUnlock, showDiamondHud = false, diamondUnlockPromptActive = false, onAcknowledgeDiamondUnlock } = props;
   const [activeBattleMenu, setActiveBattleMenu] = useState<'skills' | 'items' | null>(null);
   const [showProfile, setShowProfile] = useState(false);
     const [profileInitialTab, setProfileInitialTab] = useState<'overview' | 'cards' | 'skills' | 'constellation' | undefined>(undefined);
@@ -2674,6 +2714,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
         const [showItemsUnlockPrompt, setShowItemsUnlockPrompt] = useState(false);
         const [showFleeUnlockPrompt, setShowFleeUnlockPrompt] = useState(false);
     const [showDiamondUnlockPrompt, setShowDiamondUnlockPrompt] = useState(false);
+        const [showImpulseUnlockPromptLevel, setShowImpulseUnlockPromptLevel] = useState<number | null>(null);
     const [resumeBattleAfterInventoryPrompt, setResumeBattleAfterInventoryPrompt] = useState(false);
     const [showFleeConfirm, setShowFleeConfirm] = useState(false);
     const [showDungeonExtractConfirm, setShowDungeonExtractConfirm] = useState(false);
@@ -2688,8 +2729,15 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
     const showDiamondOnBattleHud = showDiamondHud;
     const currentPlayerClass = getPlayerClassById(player.classId);
     const classAccentColor = currentPlayerClass.visualProfile.secondaryColor;
+    const classAccentDarkColor = darkenHexColor(classAccentColor, 0.24);
+    const classHeaderColor = currentPlayerClass.visualProfile.secondaryColor;
+    const classHeaderDarkColor = darkenHexColor(classHeaderColor, 0.24);
+    const HeroClassIcon = HERO_CLASS_ICON[player.classId];
+    const playerClassNamePt = CLASS_NAME_PT[player.classId] ?? currentPlayerClass.name;
     const classImpulseBaseColor = currentPlayerClass.visualProfile.auraColor ?? classAccentColor;
     const classImpulseBorderColor = currentPlayerClass.visualProfile.secondaryColor ?? classAccentColor;
+    const impulseCapacity = getImpulseCapacityByLevel(player.level);
+    const impulseUnlocked = impulseCapacity > 0;
         const hasConstellationUnlocked = player.talentPoints > 0 || player.unlockedTalentNodeIds.length > 0;
     const openProfileModal = (initialTab?: 'overview' | 'cards' | 'skills' | 'constellation') => {
         setProfileInitialTab(initialTab);
@@ -2697,6 +2745,15 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
             uiSfx.play('modal_open');
         }
         setShowProfile(true);
+    };
+    const openHeroStatusFromCard = () => {
+        openProfileModal('overview');
+    };
+    const handleHeroCardKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            openHeroStatusFromCard();
+        }
     };
     const closeProfileModal = () => {
         if (!showProfile) {
@@ -2729,23 +2786,8 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
         }
     };
   const isPlayerTurn = turnState === TurnState.PLAYER_INPUT;
-    const enemyClassLabelMap: Record<Player['classId'], string> = {
-        knight: 'Knight',
-        mage: 'Mage',
-        rogue: 'Rogue',
-        barbarian: 'Barbarian',
-        ranger: 'Ranger',
-    };
-    const enemyClassToneMap: Record<Player['classId'], string> = {
-        knight: 'border-slate-300 bg-slate-100 text-slate-700',
-        mage: 'border-cyan-300 bg-cyan-100 text-cyan-700',
-        rogue: 'border-amber-300 bg-amber-100 text-amber-700',
-        barbarian: 'border-rose-300 bg-rose-100 text-rose-700',
-        ranger: 'border-emerald-300 bg-emerald-100 text-emerald-700',
-    };
     const enemyClassId = enemy?.enemyClassId ?? 'knight';
-    const enemyClassLabel = enemyClassLabelMap[enemyClassId];
-    const enemyClassTone = enemyClassToneMap[enemyClassId];
+    const EnemyClassIcon = HERO_CLASS_ICON[enemyClassId];
     const intentMetaByType: Record<NonNullable<GameUIProps['enemyIntentPreview']>['type'], { icon: string; color: string; label: string }> = {
         attack: { icon: '⚔', color: '#ef4444', label: 'Ataque' },
         defend: { icon: '🛡', color: '#60a5fa', label: 'Defesa' },
@@ -2982,6 +3024,12 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
   }, [skillsUnlockPromptActive]);
 
   useEffect(() => {
+      if (impulseUnlockPromptActive !== null) {
+          setShowImpulseUnlockPromptLevel(impulseUnlockPromptActive);
+      }
+  }, [impulseUnlockPromptActive]);
+
+  useEffect(() => {
       if (constellationUnlockPromptActive) {
           setShowConstellationUnlockPrompt(true);
       }
@@ -3006,7 +3054,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
   }, [diamondUnlockPromptActive]);
 
   useEffect(() => {
-      if (!showInventoryUnlockPrompt && !showCardsUnlockPrompt && !showSkillsUnlockPrompt && !showConstellationUnlockPrompt && !showItemsUnlockPrompt && !showFleeUnlockPrompt && !showDiamondUnlockPrompt) {
+      if (!showInventoryUnlockPrompt && !showCardsUnlockPrompt && !showSkillsUnlockPrompt && !showImpulseUnlockPromptLevel && !showConstellationUnlockPrompt && !showItemsUnlockPrompt && !showFleeUnlockPrompt && !showDiamondUnlockPrompt) {
           return;
       }
 
@@ -3019,7 +3067,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
 
       window.addEventListener('keydown', handleBlockEscape, true);
       return () => window.removeEventListener('keydown', handleBlockEscape, true);
-    }, [showCardsUnlockPrompt, showConstellationUnlockPrompt, showInventoryUnlockPrompt, showSkillsUnlockPrompt, showItemsUnlockPrompt, showFleeUnlockPrompt, showDiamondUnlockPrompt]);
+    }, [showCardsUnlockPrompt, showConstellationUnlockPrompt, showInventoryUnlockPrompt, showSkillsUnlockPrompt, showImpulseUnlockPromptLevel, showItemsUnlockPrompt, showFleeUnlockPrompt, showDiamondUnlockPrompt]);
 
     return (
         <div className="battle-hud-root absolute inset-0 z-10 flex flex-col justify-between p-2 sm:p-4 pointer-events-none safe-bottom">
@@ -3216,6 +3264,37 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
           </div>
       )}
 
+      {showImpulseUnlockPromptLevel !== null && (
+          <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/55 backdrop-blur-[2px] pointer-events-auto p-4">
+              <div className="w-full max-w-sm rounded-[24px] border border-[#cfab91] bg-[#f7ecdd] shadow-[0_24px_80px_rgba(107,49,65,0.22)] overflow-hidden animate-fade-in-down" onClick={event => event.stopPropagation()}>
+                  <div className="bg-[#6b3141] px-5 py-4 text-center">
+                      <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.28em] text-[#f6eadc]">
+                          <Zap size={14} /> Impulso
+                      </div>
+                      <h3 className="mt-2 text-2xl font-black text-white">
+                          {showImpulseUnlockPromptLevel === 4 ? 'Impulso desbloqueado' : 'Nova barra de impulso'}
+                      </h3>
+                      <p className="mt-2 text-sm text-[#dcc0aa]">
+                          {showImpulseUnlockPromptLevel === 4
+                              ? 'Agora voce pode carregar impulso e absorver para fortalecer suas acoes em batalha. A primeira barra de impulso foi liberada.'
+                              : 'Seu poder cresceu. Uma nova barra de impulso foi desbloqueada para ampliar seu potencial nas batalhas.'}
+                      </p>
+                  </div>
+                  <div className="p-4">
+                      <button
+                          onClick={() => {
+                              setShowImpulseUnlockPromptLevel(null);
+                              onAcknowledgeImpulseUnlock?.();
+                          }}
+                          className="w-full rounded-xl bg-[#4d7a96] px-4 py-3 font-black text-white shadow-[0_8px_24px_rgba(77,122,150,0.28)] transition-all hover:bg-[#5a8aa6]"
+                      >
+                          Entendi
+                      </button>
+                  </div>
+              </div>
+          </div>
+      )}
+
       {showConstellationUnlockPrompt && (
           <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/55 backdrop-blur-[2px] pointer-events-auto p-4">
               <div className="w-full max-w-sm rounded-[24px] border border-[#cfab91] bg-[#f7ecdd] shadow-[0_24px_80px_rgba(107,49,65,0.22)] overflow-hidden animate-fade-in-down" onClick={event => event.stopPropagation()}>
@@ -3363,74 +3442,205 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
               </div>
 
               <div className={`grid items-start gap-2 ${enemy ? 'grid-cols-2' : 'grid-cols-1'}`}>
-                  <div className="rounded-[18px] border border-[#cfab91] bg-[#f7ecdd]/94 px-3 py-2.5 shadow-xl backdrop-blur-md animate-fade-in-down">
-                      <div className="space-y-2">
-                          <div>
-                              <div className="flex items-center justify-between mb-1">
-                                  <span className="text-[10px] font-black uppercase tracking-[0.24em] text-[#9a4151]">HP</span>
-                                  <span className="text-[12px] font-black text-[#6b3141]">{player.stats.hp}/{player.stats.maxHp}</span>
+                  <div className="flex min-w-0 flex-col items-stretch gap-1.5">
+                      <div
+                          className="pointer-events-auto w-full cursor-pointer overflow-hidden rounded-[18px] border border-[#cfab91] bg-[#f7ecdd]/94 px-3 py-2.5 shadow-xl backdrop-blur-md animate-fade-in-down transition-transform hover:-translate-y-[1px] active:scale-[0.995]"
+                          role="button"
+                          tabIndex={0}
+                          onClick={openHeroStatusFromCard}
+                          onKeyDown={handleHeroCardKeyDown}
+                          title="Abrir status do heroi"
+                      >
+                          <div className="space-y-2">
+                              <div
+                                  className="-mx-3 -mt-2.5 mb-1.5 flex items-center justify-between gap-2 px-3 py-2"
+                                  style={{
+                                      background: `linear-gradient(135deg, ${classHeaderDarkColor} 0%, ${classHeaderColor} 100%)`,
+                                      boxShadow: `0 6px 14px ${classHeaderDarkColor}44`,
+                                  }}
+                              >
+                                  <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-[0.12em] text-white">
+                                      <HeroClassIcon size={11} />
+                                      {playerClassNamePt}
+                                  </span>
+                                  <span
+                                      className="inline-flex items-center gap-1 rounded-full border border-white/70 bg-white px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.12em]"
+                                      style={{
+                                          color: classHeaderDarkColor,
+                                          boxShadow: `0 4px 10px ${classHeaderDarkColor}33`,
+                                      }}
+                                  >
+                                      Nv {player.level}
+                                  </span>
                               </div>
-                              <div className="h-3 bg-[#e9d7c2] rounded-full overflow-hidden"><div className="h-full rounded-full bg-[linear-gradient(90deg,#8d2f46,#d17482)] transition-all duration-300" style={{width: `${(player.stats.hp/player.stats.maxHp)*100}%`}}></div></div>
-                          </div>
-                          <div>
-                              <div className="flex items-center justify-between mb-1">
-                                  <span className="text-[10px] font-black uppercase tracking-[0.24em] text-[#346c7f]">Mana</span>
-                                  <span className="text-[12px] font-black text-[#6b3141]">{player.stats.mp}/{player.stats.maxMp}</span>
-                              </div>
-                              <div className="h-2.5 bg-[#e9d7c2] rounded-full overflow-hidden"><div className="h-full rounded-full bg-[linear-gradient(90deg,#2b6878,#66b8d2)] transition-all duration-300" style={{width: `${(player.stats.mp/player.stats.maxMp)*100}%`}}></div></div>
-                          </div>
-                          {player.classResource.max > 0 && (
-                              <div className={`relative rounded-md px-1.5 py-1 transition-all duration-300 ${resourcePulse === 'gain' ? 'bg-emerald-200/35 ring-1 ring-emerald-500/35' : resourcePulse === 'spend' ? 'bg-rose-200/35 ring-1 ring-rose-500/35' : ''}`}>
-                                  <div className="flex items-center justify-between mb-0.5">
-                                      <span className="text-[10px] font-black uppercase tracking-[0.18em] text-[#7c4c76]">{player.classResource.name}</span>
-                                      <span className="text-[11px] font-black text-[#6b3141]">{player.classResource.value}/{player.classResource.max}</span>
+                              <div>
+                                  <div className="flex items-center justify-between mb-1">
+                                      <span className="text-[10px] font-black uppercase tracking-[0.24em] text-[#9a4151]">HP</span>
+                                      <span className="text-[12px] font-black text-[#6b3141]">{player.stats.hp}/{player.stats.maxHp}</span>
                                   </div>
-                                  <div className="h-2 bg-[#e9d7c2] rounded-full overflow-hidden">
-                                      <div
-                                          className={`h-full rounded-full transition-all duration-300 ${resourcePulse ? 'animate-pulse' : ''}`}
-                                          style={{
-                                              width: `${player.classResource.max > 0 ? (player.classResource.value / player.classResource.max) * 100 : 0}%`,
-                                              background: `linear-gradient(90deg, ${player.classResource.color}, #f5e6ff)`,
-                                          }}
-                                      />
-                                  </div>
+                                  <div className="h-3 bg-[#e9d7c2] rounded-full overflow-hidden"><div className="h-full rounded-full bg-[linear-gradient(90deg,#8d2f46,#d17482)] transition-all duration-300" style={{width: `${(player.stats.hp/player.stats.maxHp)*100}%`}}></div></div>
                               </div>
-                          )}
-                          <div className="pt-1 border-t border-[#dcc0aa]">
-                              <div className="flex items-center gap-1.5">
-                                  <span className="text-[9px] font-black uppercase tracking-[0.14em] text-[#9a7068]">XP</span>
-                                  <div className="flex-1 h-1.5 bg-[#e9d7c2] rounded-full overflow-hidden">
-                                      <div className="h-full rounded-full bg-[linear-gradient(90deg,#7d3d4d,#c89a66)] transition-all duration-500" style={{width: `${(player.xp/player.xpToNext)*100}%`}}></div>
+                              <div>
+                                  <div className="flex items-center justify-between mb-1">
+                                      <span className="text-[10px] font-black uppercase tracking-[0.24em] text-[#346c7f]">Mana</span>
+                                      <span className="text-[12px] font-black text-[#6b3141]">{player.stats.mp}/{player.stats.maxMp}</span>
                                   </div>
-                                  <span className="text-[9px] font-black text-[#6b3141]">{player.xp}/{player.xpToNext}</span>
+                                  <div className="h-2.5 bg-[#e9d7c2] rounded-full overflow-hidden"><div className="h-full rounded-full bg-[linear-gradient(90deg,#2b6878,#66b8d2)] transition-all duration-300" style={{width: `${(player.stats.mp/player.stats.maxMp)*100}%`}}></div></div>
                               </div>
-                          </div>
-                          {heroBuffEntries.length > 0 && (
+                              {player.classResource.max > 0 && (
+                                  <div className={`relative rounded-md px-1.5 py-1 transition-all duration-300 ${resourcePulse === 'gain' ? 'bg-emerald-200/35 ring-1 ring-emerald-500/35' : resourcePulse === 'spend' ? 'bg-rose-200/35 ring-1 ring-rose-500/35' : ''}`}>
+                                      <div className="flex items-center justify-between mb-0.5">
+                                          <span className="text-[10px] font-black uppercase tracking-[0.18em] text-[#7c4c76]">{player.classResource.name}</span>
+                                          <span className="text-[11px] font-black text-[#6b3141]">{player.classResource.value}/{player.classResource.max}</span>
+                                      </div>
+                                      <div className="h-2 bg-[#e9d7c2] rounded-full overflow-hidden">
+                                          <div
+                                              className={`h-full rounded-full transition-all duration-300 ${resourcePulse ? 'animate-pulse' : ''}`}
+                                              style={{
+                                                  width: `${player.classResource.max > 0 ? (player.classResource.value / player.classResource.max) * 100 : 0}%`,
+                                                  background: `linear-gradient(90deg, ${player.classResource.color}, #f5e6ff)`,
+                                              }}
+                                          />
+                                      </div>
+                                  </div>
+                              )}
                               <div className="pt-1 border-t border-[#dcc0aa]">
-                                  <div className="flex flex-wrap gap-1.5">
-                                      {heroBuffEntries.map((buff) => (
-                                          <div key={buff.key} className={`inline-flex items-center gap-1 rounded-[8px] border px-2 py-1 text-[11px] font-black leading-none shadow-sm ${buff.chipClass}`}>
-                                              {buff.icon}
-                                              <span>{buff.label}</span>
-                                          </div>
-                                      ))}
+                                  <div className="flex items-center gap-1.5">
+                                      <span className="text-[9px] font-black uppercase tracking-[0.14em] text-[#9a7068]">XP</span>
+                                      <div className="flex-1 h-1.5 bg-[#e9d7c2] rounded-full overflow-hidden">
+                                          <div className="h-full rounded-full bg-[linear-gradient(90deg,#7d3d4d,#c89a66)] transition-all duration-500" style={{width: `${(player.xp/player.xpToNext)*100}%`}}></div>
+                                      </div>
+                                      <span className="text-[9px] font-black text-[#6b3141]">{player.xp}/{player.xpToNext}</span>
                                   </div>
                               </div>
+                              {heroBuffEntries.length > 0 && (
+                                  <div className="pt-1 border-t border-[#dcc0aa]">
+                                      <div className="flex flex-wrap gap-1.5">
+                                          {heroBuffEntries.map((buff) => (
+                                              <div key={buff.key} className={`inline-flex items-center gap-1 rounded-[8px] border px-2 py-1 text-[11px] font-black leading-none shadow-sm ${buff.chipClass}`}>
+                                                  {buff.icon}
+                                                  <span>{buff.label}</span>
+                                              </div>
+                                          ))}
+                                      </div>
+                                  </div>
+                              )}
+                          </div>
+                      </div>
+
+                      <div className="pointer-events-auto self-start flex flex-col gap-1">
+                          <button
+                              onClick={() => openProfileModal(undefined)}
+                              className="group relative flex h-14 w-14 items-center justify-center transition-all duration-200 hover:-translate-y-0.5 hover:scale-105 active:scale-95 sm:h-16 sm:w-16"
+                              title="Perfil"
+                              aria-label="Perfil"
+                          >
+                              <span
+                                  className="inline-flex"
+                                  style={{
+                                      filter: 'drop-shadow(1px 0 0 rgba(255,255,255,0.95)) drop-shadow(-1px 0 0 rgba(255,255,255,0.95)) drop-shadow(0 1px 0 rgba(255,255,255,0.95)) drop-shadow(0 -1px 0 rgba(255,255,255,0.95)) drop-shadow(0 4px 10px rgba(0,0,0,0.28))',
+                                  }}
+                              >
+                                  <GameAssetIcon name="book" size={34} />
+                              </span>
+                          </button>
+
+                          {(!restrictProfileToStatusOnly || inventoryUnlocked) && (
+                              <button
+                                  onClick={() => openInventoryModal('all')}
+                                  className="group relative flex h-14 w-14 items-center justify-center transition-all duration-200 hover:-translate-y-0.5 hover:scale-105 active:scale-95 sm:h-16 sm:w-16"
+                                  title="Mochila"
+                                  aria-label="Mochila"
+                              >
+                                  <span
+                                      className="inline-flex"
+                                      style={{
+                                          filter: 'drop-shadow(1px 0 0 rgba(255,255,255,0.95)) drop-shadow(-1px 0 0 rgba(255,255,255,0.95)) drop-shadow(0 1px 0 rgba(255,255,255,0.95)) drop-shadow(0 -1px 0 rgba(255,255,255,0.95)) drop-shadow(0 4px 10px rgba(0,0,0,0.28))',
+                                      }}
+                                  >
+                                      <GameAssetIcon name="bag" size={34} />
+                                  </span>
+                              </button>
+                          )}
+
+                          {hasConstellationUnlocked && (
+                              <button
+                                  onClick={() => openProfileModal('constellation')}
+                                  className="group relative flex h-14 w-14 items-center justify-center transition-all duration-200 hover:-translate-y-0.5 hover:scale-105 active:scale-95 sm:h-16 sm:w-16"
+                                  title="Constelacao"
+                                  aria-label="Constelacao"
+                              >
+                                  <span
+                                      className="inline-flex text-white"
+                                      style={{
+                                          filter: 'drop-shadow(1px 0 0 rgba(255,255,255,0.95)) drop-shadow(-1px 0 0 rgba(255,255,255,0.95)) drop-shadow(0 1px 0 rgba(255,255,255,0.95)) drop-shadow(0 -1px 0 rgba(255,255,255,0.95)) drop-shadow(0 4px 10px rgba(0,0,0,0.28))',
+                                      }}
+                                  >
+                                      <Orbit size={32} />
+                                  </span>
+                                  {player.talentPoints > 0 && (
+                                      <span
+                                          className="absolute -top-1.5 -right-1.5 inline-flex min-w-[18px] h-[18px] items-center justify-center rounded-full border-2 border-white px-1 text-[10px] font-black text-white"
+                                          style={{ backgroundColor: classAccentColor, boxShadow: `0 4px 10px ${classAccentColor}66, 0 0 0 1px rgba(255,255,255,0.6)` }}
+                                      >
+                                          {player.talentPoints}
+                                      </span>
+                                  )}
+                              </button>
+                          )}
+
+                          {fleeUnlocked && !isDungeonRun && !enemy?.isBoss && killCount < 10 && (
+                              <button
+                                  onClick={() => setShowFleeConfirm(true)}
+                                  disabled={!isPlayerTurn}
+                                  className={`group relative flex h-14 w-14 items-center justify-center transition-all duration-200 hover:-translate-y-0.5 hover:scale-105 active:scale-95 sm:h-16 sm:w-16 ${!isPlayerTurn ? 'cursor-not-allowed opacity-60' : ''}`}
+                                  title="Fugir"
+                                  aria-label="Fugir"
+                              >
+                                  <span
+                                      className="inline-flex text-rose-600"
+                                      style={{
+                                          filter: 'drop-shadow(1px 0 0 rgba(255,255,255,0.95)) drop-shadow(-1px 0 0 rgba(255,255,255,0.95)) drop-shadow(0 1px 0 rgba(255,255,255,0.95)) drop-shadow(0 -1px 0 rgba(255,255,255,0.95)) drop-shadow(0 4px 10px rgba(190,24,93,0.35))',
+                                      }}
+                                  >
+                                      <LogOut size={31} />
+                                  </span>
+                              </button>
                           )}
                       </div>
                   </div>
 
                   {enemy && (
-                      <div className={`rounded-[18px] border px-3 py-2.5 backdrop-blur-md animate-fade-in-down ${enemyCardToneClass}`}>
+                      <div className="flex flex-col gap-2">
+                      <div className={`overflow-hidden rounded-[18px] border px-3 py-2.5 backdrop-blur-md animate-fade-in-down ${enemyCardToneClass}`}>
                           <div className="mb-1.5">
-                              <div className="flex items-start justify-between gap-2">
-                                  <div className="min-w-0">
-                                      <div className="truncate text-[13px] font-black text-[#6b3141]">{enemy.name}</div>
-                                  </div>
-                                  <span className={`shrink-0 rounded-full border px-2.5 py-0.5 text-[11px] font-black uppercase tracking-[0.14em] ${enemyLevelBadgeToneClass}`}>NV {enemy.level}</span>
+                              <div
+                                  className="-mx-3 -mt-2.5 mb-1.5 flex items-center justify-between gap-2 px-3 py-2"
+                                  style={{
+                                      background: 'linear-gradient(135deg, #9f1239 0%, #e11d48 100%)',
+                                      boxShadow: '0 6px 14px rgba(190,24,93,0.35)',
+                                  }}
+                              >
+                                  <span className="min-w-0 truncate text-[11px] font-black uppercase tracking-[0.12em] text-white">{enemy.name}</span>
+                                  <span className="inline-flex items-center gap-1">
+                                      <span
+                                          className="inline-flex items-center justify-center rounded-full border border-white/75 bg-white px-1.5 py-0.5 text-[#9f1239]"
+                                          style={{ boxShadow: '0 4px 10px rgba(190,24,93,0.3)' }}
+                                      >
+                                          <EnemyClassIcon size={11} />
+                                      </span>
+                                      <span
+                                          className="inline-flex items-center gap-1 rounded-full border border-white/75 bg-white px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.12em]"
+                                          style={{
+                                              color: '#9f1239',
+                                              boxShadow: '0 4px 10px rgba(190,24,93,0.3)',
+                                          }}
+                                      >
+                                          Nv {enemy.level}
+                                      </span>
+                                  </span>
                               </div>
-                              <div className="mt-1 flex items-center gap-1.5">
-                                  <span className={`rounded-full border px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.14em] ${enemyClassTone}`}>{enemyClassLabel}</span>
+                              <div className="flex items-center gap-1.5">
                                   {enemy.isBoss && (
                                       <span className="rounded-full border border-rose-300 bg-rose-100 px-2 py-0.5 text-[9px] font-black uppercase text-rose-600">Chefão</span>
                                   )}
@@ -3485,70 +3695,202 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                               </div>
                           )}
                       </div>
+                      {!isDungeonRun && killCount >= 10 && !enemy.isBoss && (
+                          <button
+                              onClick={() => onStartBattle(true)}
+                              className="pointer-events-auto w-full rounded-[14px] border border-rose-300 bg-[linear-gradient(135deg,#e11d48_0%,#f43f5e_100%)] px-3 py-2 text-[11px] font-black uppercase tracking-[0.12em] text-white shadow-[0_12px_24px_rgba(225,29,72,0.36)] transition-all active:scale-[0.98] animate-pulse flex items-center justify-center gap-2"
+                          >
+                              <Skull size={16} /> ENFRENTAR CHEFÃO
+                          </button>
+                      )}
+                      </div>
                   )}
               </div>
           </div>
 
           <div className="hidden sm:flex items-start justify-between gap-1.5 sm:gap-3">
               {/* Player vitals — left */}
-              <div className="rounded-[16px] border border-[#cfab91] bg-[#f7ecdd]/94 px-2.5 py-2 shadow-xl backdrop-blur-md flex-1 max-w-[48%] sm:max-w-[280px] animate-fade-in-down">
-                  <div className="space-y-1.5">
-                      <div>
-                          <div className="flex items-center justify-between mb-0.5">
-                              <span className="text-[11px] font-black uppercase tracking-[0.2em] text-[#9a4151]">HP</span>
-                              <span className="text-sm font-black text-[#6b3141]">{player.stats.hp}/{player.stats.maxHp}</span>
+              <div className="flex flex-1 max-w-[48%] sm:max-w-[280px] flex-col items-start gap-1.5">
+                  <div
+                      className="pointer-events-auto cursor-pointer overflow-hidden rounded-[16px] border border-[#cfab91] bg-[#f7ecdd]/94 px-2.5 py-2 shadow-xl backdrop-blur-md w-full animate-fade-in-down transition-transform hover:-translate-y-[1px] active:scale-[0.995]"
+                      role="button"
+                      tabIndex={0}
+                      onClick={openHeroStatusFromCard}
+                      onKeyDown={handleHeroCardKeyDown}
+                      title="Abrir status do heroi"
+                  >
+                      <div className="space-y-1.5">
+                          <div
+                              className="-mx-2.5 -mt-2 mb-1.5 flex items-center justify-between gap-2 px-2.5 py-1.5"
+                              style={{
+                                  background: `linear-gradient(135deg, ${classHeaderDarkColor} 0%, ${classHeaderColor} 100%)`,
+                                  boxShadow: `0 6px 14px ${classHeaderDarkColor}44`,
+                              }}
+                          >
+                              <span className="inline-flex items-center gap-1 text-[11px] font-black uppercase tracking-[0.12em] text-white">
+                                  <HeroClassIcon size={12} />
+                                  {playerClassNamePt}
+                              </span>
+                              <span
+                                  className="inline-flex items-center gap-1 rounded-full border border-white/70 bg-white px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.12em]"
+                                  style={{
+                                      color: classHeaderDarkColor,
+                                      boxShadow: `0 4px 10px ${classHeaderDarkColor}33`,
+                                  }}
+                              >
+                                  Nv {player.level}
+                              </span>
                           </div>
-                          <div className="h-2.5 bg-[#e9d7c2] rounded-full overflow-hidden"><div className="h-full rounded-full bg-[linear-gradient(90deg,#8d2f46,#d17482)] transition-all duration-300" style={{width: `${(player.stats.hp/player.stats.maxHp)*100}%`}}></div></div>
-                      </div>
-                      <div>
-                          <div className="flex items-center justify-between mb-0.5">
-                              <span className="text-[11px] font-black uppercase tracking-[0.2em] text-[#346c7f]">Mana</span>
-                              <span className="text-sm font-black text-[#6b3141]">{player.stats.mp}/{player.stats.maxMp}</span>
-                          </div>
-                          <div className="h-2 bg-[#e9d7c2] rounded-full overflow-hidden"><div className="h-full rounded-full bg-[linear-gradient(90deg,#2b6878,#66b8d2)] transition-all duration-300" style={{width: `${(player.stats.mp/player.stats.maxMp)*100}%`}}></div></div>
-                      </div>
-                      {player.classResource.max > 0 && (
-                          <div className={`relative rounded-md px-1 py-0.5 transition-all duration-300 ${resourcePulse === 'gain' ? 'bg-emerald-200/35 ring-1 ring-emerald-500/35' : resourcePulse === 'spend' ? 'bg-rose-200/35 ring-1 ring-rose-500/35' : ''}`}>
+                          <div>
                               <div className="flex items-center justify-between mb-0.5">
-                                  <span className="text-[11px] font-black uppercase tracking-[0.18em] text-[#7c4c76]">{player.classResource.name}</span>
-                                  <span className="text-sm font-black text-[#6b3141]">{player.classResource.value}/{player.classResource.max}</span>
+                                  <span className="text-[11px] font-black uppercase tracking-[0.2em] text-[#9a4151]">HP</span>
+                                  <span className="text-sm font-black text-[#6b3141]">{player.stats.hp}/{player.stats.maxHp}</span>
                               </div>
-                              <div className="h-1.5 bg-[#e9d7c2] rounded-full overflow-hidden">
-                                  <div
-                                      className={`h-full rounded-full transition-all duration-300 ${resourcePulse ? 'animate-pulse' : ''}`}
-                                      style={{
-                                          width: `${player.classResource.max > 0 ? (player.classResource.value / player.classResource.max) * 100 : 0}%`,
-                                          background: `linear-gradient(90deg, ${player.classResource.color}, #f5e6ff)`,
-                                      }}
-                                  />
+                              <div className="h-2.5 bg-[#e9d7c2] rounded-full overflow-hidden"><div className="h-full rounded-full bg-[linear-gradient(90deg,#8d2f46,#d17482)] transition-all duration-300" style={{width: `${(player.stats.hp/player.stats.maxHp)*100}%`}}></div></div>
+                          </div>
+                          <div>
+                              <div className="flex items-center justify-between mb-0.5">
+                                  <span className="text-[11px] font-black uppercase tracking-[0.2em] text-[#346c7f]">Mana</span>
+                                  <span className="text-sm font-black text-[#6b3141]">{player.stats.mp}/{player.stats.maxMp}</span>
                               </div>
-                              {resourceDelta !== 0 && (
-                                  <div className={`pointer-events-none absolute -right-1 -top-2 rounded-full border px-1.5 py-0.5 text-[8px] font-black ${resourceDelta > 0 ? 'border-emerald-500/40 bg-emerald-500/20 text-emerald-700' : 'border-rose-500/40 bg-rose-500/20 text-rose-700'}`}>
-                                      {resourceDelta > 0 ? `+${resourceDelta}` : resourceDelta}
+                              <div className="h-2 bg-[#e9d7c2] rounded-full overflow-hidden"><div className="h-full rounded-full bg-[linear-gradient(90deg,#2b6878,#66b8d2)] transition-all duration-300" style={{width: `${(player.stats.mp/player.stats.maxMp)*100}%`}}></div></div>
+                          </div>
+                          {player.classResource.max > 0 && (
+                              <div className={`relative rounded-md px-1 py-0.5 transition-all duration-300 ${resourcePulse === 'gain' ? 'bg-emerald-200/35 ring-1 ring-emerald-500/35' : resourcePulse === 'spend' ? 'bg-rose-200/35 ring-1 ring-rose-500/35' : ''}`}>
+                                  <div className="flex items-center justify-between mb-0.5">
+                                      <span className="text-[11px] font-black uppercase tracking-[0.18em] text-[#7c4c76]">{player.classResource.name}</span>
+                                      <span className="text-sm font-black text-[#6b3141]">{player.classResource.value}/{player.classResource.max}</span>
                                   </div>
-                              )}
+                                  <div className="h-1.5 bg-[#e9d7c2] rounded-full overflow-hidden">
+                                      <div
+                                          className={`h-full rounded-full transition-all duration-300 ${resourcePulse ? 'animate-pulse' : ''}`}
+                                          style={{
+                                              width: `${player.classResource.max > 0 ? (player.classResource.value / player.classResource.max) * 100 : 0}%`,
+                                              background: `linear-gradient(90deg, ${player.classResource.color}, #f5e6ff)`,
+                                          }}
+                                      />
+                                  </div>
+                                  {resourceDelta !== 0 && (
+                                      <div className={`pointer-events-none absolute -right-1 -top-2 rounded-full border px-1.5 py-0.5 text-[8px] font-black ${resourceDelta > 0 ? 'border-emerald-500/40 bg-emerald-500/20 text-emerald-700' : 'border-rose-500/40 bg-rose-500/20 text-rose-700'}`}>
+                                          {resourceDelta > 0 ? `+${resourceDelta}` : resourceDelta}
+                                      </div>
+                                  )}
+                              </div>
+                          )}
+                      </div>
+                      {/* XP compact */}
+                      <div className="mt-1.5 pt-1 border-t border-[#dcc0aa]">
+                          <div className="flex items-center gap-1.5">
+                              <span className="text-[12px] font-black uppercase tracking-[0.14em] text-[#9a7068]">XP</span>
+                              <div className="flex-1 h-2 bg-[#e9d7c2] rounded-full overflow-hidden"><div className="h-full rounded-full bg-[linear-gradient(90deg,#7d3d4d,#c89a66)] transition-all duration-500" style={{width: `${(player.xp/player.xpToNext)*100}%`}}></div></div>
+                              <span className="text-sm font-black text-[#6b3141]">{player.xp}/{player.xpToNext}</span>
+                          </div>
+                      </div>
+                      {/* Buffs */}
+                      {heroBuffEntries.length > 0 && (
+                          <div className="mt-1.5 flex flex-wrap gap-1.5 max-h-[66px] overflow-hidden">
+                              {heroBuffEntries.map((buff) => (
+                                  <div key={buff.key} className={`inline-flex items-center gap-1 rounded-[8px] border px-2 py-1 text-[11px] font-black leading-none shadow-sm ${buff.chipClass}`}>
+                                      {buff.icon}
+                                      <span>{buff.label}</span>
+                                  </div>
+                              ))}
                           </div>
                       )}
                   </div>
-                  {/* XP compact */}
-                  <div className="mt-1.5 pt-1 border-t border-[#dcc0aa]">
-                      <div className="flex items-center gap-1.5">
-                          <span className="text-[12px] font-black uppercase tracking-[0.14em] text-[#9a7068]">XP</span>
-                          <div className="flex-1 h-2 bg-[#e9d7c2] rounded-full overflow-hidden"><div className="h-full rounded-full bg-[linear-gradient(90deg,#7d3d4d,#c89a66)] transition-all duration-500" style={{width: `${(player.xp/player.xpToNext)*100}%`}}></div></div>
-                          <span className="text-sm font-black text-[#6b3141]">{player.xp}/{player.xpToNext}</span>
-                      </div>
+
+                  <div className="pointer-events-auto flex flex-col gap-1 sm:gap-1">
+                      <button
+                          onClick={() => openProfileModal(undefined)}
+                          className="group relative flex h-14 w-14 items-center justify-center transition-all duration-200 hover:-translate-y-0.5 hover:scale-105 active:scale-95 sm:h-11 sm:w-11"
+                          title="Perfil"
+                          aria-label="Perfil"
+                      >
+                          <span
+                              className="inline-flex"
+                              style={{
+                                  filter: 'drop-shadow(1px 0 0 rgba(255,255,255,0.95)) drop-shadow(-1px 0 0 rgba(255,255,255,0.95)) drop-shadow(0 1px 0 rgba(255,255,255,0.95)) drop-shadow(0 -1px 0 rgba(255,255,255,0.95)) drop-shadow(0 4px 10px rgba(0,0,0,0.28))',
+                              }}
+                          >
+                              <GameAssetIcon name="book" size={34} />
+                          </span>
+                          <span className="pointer-events-none absolute left-full ml-2 whitespace-nowrap rounded-full border border-[#cfab91] bg-[#f7ecdd]/95 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.1em] text-[#6b3141] opacity-0 translate-x-1 transition-all duration-150 group-hover:translate-x-0 group-hover:opacity-100 group-focus-visible:translate-x-0 group-focus-visible:opacity-100">
+                              Perfil
+                          </span>
+                      </button>
+
+                      {(!restrictProfileToStatusOnly || inventoryUnlocked) && (
+                          <button
+                              onClick={() => openInventoryModal('all')}
+                              className="group relative flex h-14 w-14 items-center justify-center transition-all duration-200 hover:-translate-y-0.5 hover:scale-105 active:scale-95 sm:h-11 sm:w-11"
+                              title="Mochila"
+                              aria-label="Mochila"
+                          >
+                              <span
+                                  className="inline-flex"
+                                  style={{
+                                      filter: 'drop-shadow(1px 0 0 rgba(255,255,255,0.95)) drop-shadow(-1px 0 0 rgba(255,255,255,0.95)) drop-shadow(0 1px 0 rgba(255,255,255,0.95)) drop-shadow(0 -1px 0 rgba(255,255,255,0.95)) drop-shadow(0 4px 10px rgba(0,0,0,0.28))',
+                                  }}
+                              >
+                                  <GameAssetIcon name="bag" size={34} />
+                              </span>
+                              <span className="pointer-events-none absolute left-full ml-2 whitespace-nowrap rounded-full border border-[#cfab91] bg-[#f7ecdd]/95 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.1em] text-[#6b3141] opacity-0 translate-x-1 transition-all duration-150 group-hover:translate-x-0 group-hover:opacity-100 group-focus-visible:translate-x-0 group-focus-visible:opacity-100">
+                                  Mochila
+                              </span>
+                          </button>
+                      )}
+
+                      {hasConstellationUnlocked && (
+                          <button
+                              onClick={() => openProfileModal('constellation')}
+                              className="group relative flex h-14 w-14 items-center justify-center transition-all duration-200 hover:-translate-y-0.5 hover:scale-105 active:scale-95 sm:h-11 sm:w-11"
+                              title="Constelacao"
+                              aria-label="Constelacao"
+                          >
+                              <span
+                                  className="inline-flex text-white"
+                                  style={{
+                                      filter: 'drop-shadow(1px 0 0 rgba(255,255,255,0.95)) drop-shadow(-1px 0 0 rgba(255,255,255,0.95)) drop-shadow(0 1px 0 rgba(255,255,255,0.95)) drop-shadow(0 -1px 0 rgba(255,255,255,0.95)) drop-shadow(0 4px 10px rgba(0,0,0,0.28))',
+                                  }}
+                              >
+                                  <Orbit size={32} />
+                              </span>
+                              <span className="pointer-events-none absolute left-full ml-2 whitespace-nowrap rounded-full border border-[#cfab91] bg-[#f7ecdd]/95 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.1em] text-[#6b3141] opacity-0 translate-x-1 transition-all duration-150 group-hover:translate-x-0 group-hover:opacity-100 group-focus-visible:translate-x-0 group-focus-visible:opacity-100">
+                                  Constelacao
+                              </span>
+                              {player.talentPoints > 0 && (
+                                  <span
+                                      className="absolute -top-1.5 -right-1.5 inline-flex min-w-[18px] h-[18px] items-center justify-center rounded-full border-2 border-white px-1 text-[10px] font-black text-white"
+                                      style={{ backgroundColor: classAccentColor, boxShadow: `0 4px 10px ${classAccentColor}66, 0 0 0 1px rgba(255,255,255,0.6)` }}
+                                  >
+                                      {player.talentPoints}
+                                  </span>
+                              )}
+                          </button>
+                      )}
+
+                      {fleeUnlocked && !isDungeonRun && !enemy?.isBoss && killCount < 10 && (
+                          <button
+                              onClick={() => setShowFleeConfirm(true)}
+                              disabled={!isPlayerTurn}
+                              className={`group relative flex h-14 w-14 items-center justify-center transition-all duration-200 hover:-translate-y-0.5 hover:scale-105 active:scale-95 sm:h-11 sm:w-11 ${!isPlayerTurn ? 'cursor-not-allowed opacity-60' : ''}`}
+                              title="Fugir"
+                              aria-label="Fugir"
+                          >
+                              <span
+                                  className="inline-flex text-rose-600"
+                                  style={{
+                                      filter: 'drop-shadow(1px 0 0 rgba(255,255,255,0.95)) drop-shadow(-1px 0 0 rgba(255,255,255,0.95)) drop-shadow(0 1px 0 rgba(255,255,255,0.95)) drop-shadow(0 -1px 0 rgba(255,255,255,0.95)) drop-shadow(0 4px 10px rgba(190,24,93,0.35))',
+                                  }}
+                              >
+                                  <LogOut size={32} />
+                              </span>
+                              <span className="pointer-events-none absolute left-full ml-2 whitespace-nowrap rounded-full border border-rose-400 bg-rose-100/95 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.1em] text-rose-700 opacity-0 translate-x-1 transition-all duration-150 group-hover:translate-x-0 group-hover:opacity-100 group-focus-visible:translate-x-0 group-focus-visible:opacity-100">
+                                  Fugir
+                              </span>
+                          </button>
+                      )}
                   </div>
-                  {/* Buffs */}
-                  {heroBuffEntries.length > 0 && (
-                      <div className="mt-1.5 flex flex-wrap gap-1.5 max-h-[66px] overflow-hidden">
-                          {heroBuffEntries.map((buff) => (
-                              <div key={buff.key} className={`inline-flex items-center gap-1 rounded-[8px] border px-2 py-1 text-[11px] font-black leading-none shadow-sm ${buff.chipClass}`}>
-                                  {buff.icon}
-                                  <span>{buff.label}</span>
-                              </div>
-                          ))}
-                      </div>
-                  )}
               </div>
 
               {/* Stage progress — center pill */}
@@ -3595,16 +3937,36 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
 
               {/* Enemy HP — right */}
               {enemy && (
-                  <div className={`rounded-[16px] border px-2.5 py-2 backdrop-blur-md flex-1 max-w-[48%] sm:max-w-[250px] animate-fade-in-down ${enemyCardToneClass}`}>
-                      <div className="mb-1">
-                          <div className="flex items-start justify-between gap-1.5">
-                              <div className="min-w-0">
-                                  <div className="truncate text-base font-black text-[#6b3141]">{enemy.name}</div>
-                              </div>
-                              <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[12px] font-black uppercase tracking-[0.14em] ${enemyLevelBadgeToneClass}`}>NV {enemy.level}</span>
+                  <div className="flex flex-1 max-w-[48%] flex-col items-end gap-1.5 sm:max-w-[250px]">
+                      <div className={`w-full overflow-hidden rounded-[16px] border px-2.5 py-2 backdrop-blur-md animate-fade-in-down ${enemyCardToneClass}`}>
+                          <div className="mb-1">
+                          <div
+                              className="-mx-2.5 -mt-2 mb-1.5 flex items-center justify-between gap-2 px-2.5 py-1.5"
+                              style={{
+                                  background: 'linear-gradient(135deg, #9f1239 0%, #e11d48 100%)',
+                                  boxShadow: '0 6px 14px rgba(190,24,93,0.35)',
+                              }}
+                          >
+                              <span className="min-w-0 truncate text-[11px] font-black uppercase tracking-[0.12em] text-white">{enemy.name}</span>
+                              <span className="inline-flex items-center gap-1">
+                                  <span
+                                      className="inline-flex items-center justify-center rounded-full border border-white/75 bg-white px-1.5 py-0.5 text-[#9f1239]"
+                                      style={{ boxShadow: '0 4px 10px rgba(190,24,93,0.3)' }}
+                                  >
+                                      <EnemyClassIcon size={11} />
+                                  </span>
+                                  <span
+                                      className="inline-flex items-center gap-1 rounded-full border border-white/75 bg-white px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.12em]"
+                                      style={{
+                                          color: '#9f1239',
+                                          boxShadow: '0 4px 10px rgba(190,24,93,0.3)',
+                                      }}
+                                  >
+                                      Nv {enemy.level}
+                                  </span>
+                              </span>
                           </div>
-                          <div className="mt-1 flex items-center gap-1.5">
-                              <span className={`rounded-full border px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.14em] ${enemyClassTone}`}>{enemyClassLabel}</span>
+                          <div className="flex items-center gap-1.5">
                               {enemy.isBoss && (
                                   <span className="rounded-full border border-rose-300 bg-rose-100 px-1.5 py-0.5 text-[10px] font-black uppercase text-rose-600">Chefão</span>
                               )}
@@ -3658,6 +4020,12 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                               })}
                           </div>
                       )}
+                      </div>
+                      {!isDungeonRun && killCount >= 10 && !enemy.isBoss && (
+                          <button onClick={() => onStartBattle(true)} className="pointer-events-auto w-full rounded-[14px] border border-rose-300 bg-[linear-gradient(135deg,#e11d48_0%,#f43f5e_100%)] px-3 py-2 text-[10px] sm:text-sm font-black uppercase tracking-[0.12em] text-white transition-all hover:brightness-105 hover:scale-[1.01] animate-pulse shadow-[0_12px_24px_rgba(225,29,72,0.36)] flex items-center justify-center gap-2">
+                              <Skull size={16} /> ENFRENTAR CHEFÃO
+                          </button>
+                      )}
                   </div>
               )}
           </div>
@@ -3670,16 +4038,6 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
               {/* Left: hero identity + quick buttons */}
               <div className="flex flex-col gap-2 shrink-0">
                   {/* Special buttons — above the card */}
-                  {!isDungeonRun && killCount >= 10 && !enemy?.isBoss && (
-                      <button onClick={() => onStartBattle(true)} className="rounded-[12px] border border-rose-400 bg-rose-500 px-3 py-1.5 text-[9px] sm:text-xs font-black uppercase tracking-[0.12em] text-white transition-all hover:bg-rose-600 hover:scale-105 animate-pulse shadow-lg shadow-rose-500/30 flex items-center justify-center gap-1.5">
-                          <Skull size={14} /> ENFRENTAR CHEFÃO
-                      </button>
-                  )}
-                  {fleeUnlocked && !isDungeonRun && !enemy?.isBoss && killCount < 10 && (
-                      <button onClick={() => setShowFleeConfirm(true)} disabled={!isPlayerTurn} className={`self-start rounded-[10px] border px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.15em] transition-colors ${!isPlayerTurn ? 'border-[#dcc0aa] bg-[#e9d7c2] text-[#8f6c67] cursor-not-allowed' : 'border-[#cfab91] bg-[#f4e5d4] text-[#6b3141] hover:bg-[#e9d7c2]'}`}>
-                          {canLeaveFreely ? 'Sair' : 'Fugir'}
-                      </button>
-                  )}
                   {isDungeonRun && dungeonRewards && (
                       <button onClick={() => setShowDungeonLootPreview(true)} className="self-start rounded-[10px] border border-[#cfab91] bg-[#f4e5d4] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.15em] text-[#6b3141] transition-colors hover:bg-[#e9d7c2]">
                           Espólio
@@ -3690,64 +4048,14 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                           <span className="inline-flex items-center gap-1.5"><Camera size={12} /> Ver em AR</span>
                       </button>
                   )}
-                  <div className="rounded-[18px] border border-[#cfab91] bg-[#f7ecdd]/94 px-4 py-3.5 shadow-xl backdrop-blur-md max-w-[280px] sm:max-w-[320px]">
-                      <div className="flex items-center gap-3">
-                          <div className="min-w-0">
-                              <div className="truncate text-base sm:text-lg font-black text-[#6b3141]">{player.name}</div>
-                              <div className="flex items-center gap-1.5">
-                                  <span className="truncate text-[11px] sm:text-sm font-bold uppercase tracking-[0.12em] text-[#8a5a57]">{getPlayerClassById(player.classId).name}</span>
-                                  <span className="rounded-full border border-[#d6b9a3] bg-[#f4e5d4] px-2 py-0.5 text-[11px] sm:text-sm font-black text-[#8d5e29]">Nv.{player.level}</span>
-                              </div>
-                          </div>
-                      </div>
-                      <div className="mt-2.5 flex items-center gap-2">
-                          {!restrictProfileToStatusOnly && (
-                              <button onClick={() => setShowBattleStats(s => !s)} className={`flex h-10 w-10 items-center justify-center rounded-[12px] border transition-colors ${showBattleStats ? 'bg-[#c59d82] border-[#c59d82] text-white' : 'bg-[#f4e5d4] border-[#dcc0aa] text-[#6b3141] hover:bg-[#e9d7c2]'}`} title="Atributos">
-                                  <LayoutGrid size={20} />
-                              </button>
-                          )}
-                          {(!restrictProfileToStatusOnly || inventoryUnlocked) && (
-                              <button onClick={() => openInventoryModal('all')} className="flex h-10 w-10 items-center justify-center rounded-[12px] border border-[#dcc0aa] bg-[#f4e5d4] text-[#6b3141] transition-colors hover:bg-[#e9d7c2]" title="Mochila">
-                                  <GameAssetIcon name="bag" size={22} />
-                              </button>
-                          )}
-                              {hasConstellationUnlocked && (
-                                  <button onClick={() => openProfileModal('constellation')} className="relative flex h-10 w-10 items-center justify-center rounded-[12px] border border-[#dcc0aa] bg-[#f4e5d4] text-[#6b3141] transition-colors hover:bg-[#e9d7c2]" title="Constelacao">
-                                      <Orbit size={20} />
-                                      {player.talentPoints > 0 && (
-                                          <span
-                                              className="absolute -top-1.5 -right-1.5 inline-flex min-w-[18px] h-[18px] items-center justify-center rounded-full border px-1 text-[10px] font-black text-white"
-                                              style={{ borderColor: `${classAccentColor}cc`, backgroundColor: classAccentColor, boxShadow: `0 4px 10px ${classAccentColor}55` }}
-                                          >
-                                              {player.talentPoints}
-                                          </span>
-                                      )}
-                                  </button>
-                              )}
-                          <button onClick={() => openProfileModal(undefined)} className="flex h-10 w-10 items-center justify-center rounded-[12px] border border-[#dcc0aa] bg-[#f4e5d4] text-[#6b3141] transition-colors hover:bg-[#e9d7c2]" title="Perfil">
-                              <GameAssetIcon name="book" size={22} />
-                          </button>
-                      </div>
-                  </div>
-                  {/* Stats popup */}
-                  {showBattleStats && (
-                      <div className="rounded-[12px] border border-[#cfab91] bg-[#f7ecdd]/96 p-1.5 shadow-lg backdrop-blur-md max-w-[200px]">
-                          <div className="grid grid-cols-4 gap-1">
-                              <div className="text-center"><Sword size={11} className="mx-auto text-[#b83a4b]" /><div className="text-[7px] font-black text-[#9a7068]">ATK</div><div className="text-[11px] font-black text-[#b83a4b]">{player.stats.atk}</div></div>
-                              <div className="text-center"><Shield size={11} className="mx-auto text-[#4d6780]" /><div className="text-[7px] font-black text-[#9a7068]">DEF</div><div className="text-[11px] font-black text-[#4d6780]">{player.stats.def}</div></div>
-                              <div className="text-center"><Zap size={11} className="mx-auto text-[#7c4c76]" /><div className="text-[7px] font-black text-[#9a7068]">VEL</div><div className="text-[11px] font-black text-[#7c4c76]">{player.stats.speed}</div></div>
-                              <div className="text-center"><Star size={11} className="mx-auto text-[#b26a2e]" /><div className="text-[7px] font-black text-[#9a7068]">SRT</div><div className="text-[11px] font-black text-[#b26a2e]">{player.stats.luck}</div></div>
-                          </div>
-                      </div>
-                  )}
-
               </div>
 
               {/* Right: action grid */}
-              <div ref={battleActionsRef} className="relative flex flex-col items-end gap-2 shrink-0">
-                  <div className="flex w-[198px] items-center justify-end gap-2 sm:w-[310px]">
-                      <div className="flex flex-1 items-center justify-end gap-1.5 sm:gap-2">
-                          {[0, 1, 2].map((slot) => {
+              <div ref={battleActionsRef} className="relative flex min-w-0 flex-1 flex-col items-end gap-2 sm:absolute sm:bottom-0 sm:left-1/2 sm:w-auto sm:-translate-x-1/2 sm:items-center">
+                  {impulseUnlocked && (
+                      <div className="grid w-full max-w-[360px] grid-cols-5 items-center gap-1 sm:flex sm:w-[360px] sm:justify-start sm:gap-2">
+                      <div className="col-span-1 flex items-center justify-center gap-1.5 sm:w-[68px] sm:flex-none sm:justify-center sm:gap-2">
+                          {Array.from({ length: impulseCapacity }, (_, slot) => {
                               const isFilled = player.impulso > slot;
                               const blockColor = impulseReserveColors[slot];
                               return (
@@ -3771,9 +4079,9 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                       {player.impulso > 0 && (
                           <button
                               onClick={() => { setActiveBattleMenu(null); onAbsorbImpulse(); }}
-                              disabled={!isPlayerTurn || player.impulsoAtivo >= 3}
-                              className={`relative overflow-hidden inline-flex h-9 items-center gap-1.5 rounded-[10px] border-2 px-2.5 text-[10px] font-black uppercase tracking-[0.08em] transition-all sm:h-10 sm:text-[11px] ${
-                                  !isPlayerTurn || player.impulsoAtivo >= 3
+                              disabled={!isPlayerTurn || player.impulsoAtivo >= impulseCapacity}
+                              className={`relative col-span-2 overflow-hidden inline-flex h-7 items-center justify-center rounded-[8px] border-2 px-2 text-[9px] font-black uppercase tracking-[0.08em] transition-all sm:h-8 sm:px-2.5 sm:text-[10px] ${
+                                  !isPlayerTurn || player.impulsoAtivo >= impulseCapacity
                                       ? 'cursor-not-allowed border-[#dcc0aa] bg-[#e9d7c2] text-[#8f6c67]'
                                       : 'border-[#f59e0b] bg-[#fff4de] text-[#6b3141] hover:bg-[#ffefcf] hover:shadow-[0_0_26px_rgba(245,158,11,0.55)]'
                               }`}
@@ -3783,10 +4091,8 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                                       boxShadow: `0 0 0 1px ${absorbGlowColor}88, 0 0 24px ${absorbGlowColor}aa`,
                                     }}
                           >
-                              <Sparkles size={13} />
                               <span>Absorver</span>
-                              <span className="rounded-full border border-[#e4c7a7] bg-white/80 px-1.5 py-0.5 text-[9px] text-[#7a4a43]">{player.impulso}</span>
-                              {isPlayerTurn && player.impulsoAtivo < 3 && (
+                              {isPlayerTurn && player.impulsoAtivo < impulseCapacity && (
                                   <span className="pointer-events-none absolute inset-0 rounded-[10px]">
                                       <span className="absolute left-[16%] top-[28%] h-1.5 w-1.5 rounded-full animate-ping" style={{ backgroundColor: currentImpulseFxColor }} />
                                       <span className="absolute right-[18%] top-[35%] h-1 w-1 rounded-full animate-ping" style={{ backgroundColor: currentImpulseFxColor }} />
@@ -3796,25 +4102,28 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                           </button>
                       )}
                   </div>
-                  <div className="grid grid-cols-3 gap-1.5 w-[198px] sm:gap-2 sm:w-[310px]">
+                  )}
+                  <div className="grid w-full max-w-[360px] grid-cols-5 gap-1 sm:gap-1.5 sm:w-[360px]">
+                      {impulseUnlocked && (
+                          <ActionTile
+                              icon={<Zap size={18} />}
+                              label="IMPULSO"
+                              onClick={() => { setActiveBattleMenu(null); onChargeImpulse(); }}
+                              disabled={!isPlayerTurn || player.impulso >= impulseCapacity}
+                              variant="skill"
+                              forceStyle={{
+                                  backgroundColor: classImpulseBaseColor,
+                                  borderColor: classImpulseBorderColor,
+                                  color: '#ffffff',
+                              }}
+                              glowColor={classImpulseBaseColor}
+                              glowStrength={26}
+                              energized={player.impulso > 0}
+                              sparkleColor={currentImpulseFxColor}
+                          />
+                      )}
                       <ActionTile icon={<Sword size={18} />} label="ATACAR" onClick={() => { setActiveBattleMenu(null); onAttack(); }} disabled={!isPlayerTurn} variant="attack" glowColor={impulseButtonGlowColor} glowStrength={24} energized={buttonsEnergized} sparkleColor={currentImpulseFxColor} />
                       <ActionTile icon={<Shield size={18} />} label="DEFENDER" onClick={() => { setActiveBattleMenu(null); onDefend(); }} disabled={!isPlayerTurn} variant="defense" glowColor={impulseButtonGlowColor} glowStrength={24} energized={buttonsEnergized} sparkleColor={currentImpulseFxColor} />
-                      <ActionTile
-                          icon={<Zap size={18} />}
-                          label="IMPULSO"
-                          onClick={() => { setActiveBattleMenu(null); onChargeImpulse(); }}
-                          disabled={!isPlayerTurn || player.impulso >= 3}
-                          variant="skill"
-                          forceStyle={{
-                              backgroundColor: classImpulseBaseColor,
-                              borderColor: classImpulseBorderColor,
-                              color: '#ffffff',
-                          }}
-                          glowColor={classImpulseBaseColor}
-                          glowStrength={26}
-                          energized={player.impulso > 0}
-                          sparkleColor={currentImpulseFxColor}
-                      />
                                             {showSkillsAction && (
                                                 <div className="relative col-span-1">
                                                     {activeBattleMenu === 'skills' && (

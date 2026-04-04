@@ -51,6 +51,7 @@ const createRegisteredWeapon = ({
   gripPoint,
   handTransform,
   previewTransform,
+  magicBonus,
   animacaoExecucao,
   animacaoImpacto,
   animacaoExecucaoCor,
@@ -69,6 +70,7 @@ const createRegisteredWeapon = ({
   gripPoint?: RegisteredWeaponGripPoint;
   handTransform: RegisteredWeapon3DDefinition['handTransform'];
   previewTransform: RegisteredWeapon3DDefinition['previewTransform'];
+  magicBonus?: number;
   animacaoExecucao?: string;
   animacaoImpacto?: string;
   animacaoExecucaoCor?: string;
@@ -81,6 +83,7 @@ const createRegisteredWeapon = ({
     cost: Math.max(cost, MIN_WEAPON_COST_BY_RARITY[rarity]),
     type: 'weapon',
     value,
+    magicBonus,
     icon,
     rarity,
     minLevel,
@@ -323,9 +326,10 @@ export const REGISTERED_WEAPON_3D_CATALOG: RegisteredWeapon3DDefinition[] = [
   createRegisteredWeapon({
     id: 'wep_3d_wand_a',
     name: 'Varinha Arcana A',
-    description: 'Foco simples para usuarios de magia. +17 ATK',
+    description: 'Foco simples para usuarios de magia. +8 ATK e +12 MAG',
     cost: 460,
-    value: 17,
+    value: 8,
+    magicBonus: 12,
     rarity: 'bronze',
     minLevel: 2,
     icon: '🪄',
@@ -338,9 +342,10 @@ export const REGISTERED_WEAPON_3D_CATALOG: RegisteredWeapon3DDefinition[] = [
   createRegisteredWeapon({
     id: 'wep_3d_staff_a',
     name: 'Cajado Iniciado A',
-    description: 'Cajado simples para canalizacao basica. +19 ATK',
+    description: 'Cajado simples para canalizacao basica. +10 ATK e +16 MAG',
     cost: 860,
-    value: 19,
+    value: 10,
+    magicBonus: 16,
     rarity: 'bronze',
     minLevel: 3,
     icon: '🪄',
@@ -353,9 +358,10 @@ export const REGISTERED_WEAPON_3D_CATALOG: RegisteredWeapon3DDefinition[] = [
   createRegisteredWeapon({
     id: 'wep_3d_staff_b',
     name: 'Cajado Oraculo B',
-    description: 'Canalizador melhorado para magia pesada. +31 ATK',
+    description: 'Canalizador melhorado para magia pesada. +16 ATK e +28 MAG',
     cost: 3260,
-    value: 31,
+    value: 16,
+    magicBonus: 28,
     rarity: 'gold',
     minLevel: 7,
     icon: '🪄',

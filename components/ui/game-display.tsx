@@ -96,6 +96,7 @@ export const getCardEffectPreview = (card: ProgressionCard) => {
     case 'max_hp': return `+${value} vida maxima`;
     case 'max_mp': return `+${value} mana maxima`;
     case 'atk': return `+${value} ataque`;
+    case 'magic': return `+${value} magia`;
     case 'def': return `+${value} defesa`;
     case 'speed': return `+${value} velocidade`;
     case 'luck': return `+${value} sorte`;
@@ -113,7 +114,12 @@ export const getCardEffectPreview = (card: ProgressionCard) => {
 };
 
 export const getItemPowerLabel = (item: Item) => {
-  if (item.type === 'weapon') return `+${item.value} ATK`;
+  if (item.type === 'weapon') {
+    if ((item.magicBonus ?? 0) > 0) {
+      return `+${item.value} ATK | +${item.magicBonus} MAG`;
+    }
+    return `+${item.value} ATK`;
+  }
   if (item.type === 'potion' && !item.id.includes('pot_atk') && !item.id.includes('pot_def')) return `Recupera ${item.value}`;
   if (item.id.includes('pot_atk')) return `+${item.value * 100}% ATK`;
   if (item.id.includes('pot_def')) return `+${item.value * 100}% DEF`;

@@ -43,6 +43,7 @@ export interface Stats {
   def: number;
   speed: number;
   luck: number; // New stat for crit chance
+  magic: number;
 }
 
 export type PlayerClassId = 'knight' | 'barbarian' | 'mage' | 'ranger' | 'rogue';
@@ -103,8 +104,14 @@ export interface PlayerClassDefinition {
   description: string;
   baseStats: Stats;
   visualProfile: PlayerClassVisualProfile;
+  weaponProficiencies: WeaponGripType[];
+  weaponProficiencyBonuses?: WeaponProficiencyBonusMap;
   assets: PlayerClassAssets;
 }
+
+export type WeaponGripType = 'dagger' | 'sword' | 'axe' | 'hammer' | 'wand' | 'staff' | 'spear' | 'halberd' | 'bow' | 'fist';
+export type WeaponProficiencyBonusStat = 'atk' | 'def' | 'speed' | 'luck' | 'magic' | 'maxMp';
+export type WeaponProficiencyBonusMap = Partial<Record<WeaponProficiencyBonusStat, number>>;
 
 export type ItemType = 'weapon' | 'armor' | 'potion' | 'helmet' | 'legs' | 'shield' | 'material';
 export type Rarity = 'bronze' | 'silver' | 'gold';
@@ -116,6 +123,7 @@ export type CardEffectType =
   | 'max_hp'
   | 'max_mp'
   | 'atk'
+  | 'magic'
   | 'def'
   | 'speed'
   | 'luck'
@@ -141,6 +149,7 @@ export interface Item {
   value: number; // Atk, Def, or Heal amount
   hpBonus?: number;
   mpBonus?: number;
+  magicBonus?: number;
   icon: string; // Icon helper
   rarity: Rarity;
   minLevel: number;
@@ -288,7 +297,7 @@ export interface Skill {
 }
 
 export interface TalentNodeEffect {
-  stats?: Partial<Pick<Stats, 'hp' | 'maxHp' | 'mp' | 'maxMp' | 'atk' | 'def' | 'speed' | 'luck'>>;
+  stats?: Partial<Pick<Stats, 'hp' | 'maxHp' | 'mp' | 'maxMp' | 'atk' | 'def' | 'speed' | 'luck' | 'magic'>>;
   bonuses?: Partial<Record<TalentTrailNodeEffectBonusKey, number>>;
   unlockSkillId?: string;
 }

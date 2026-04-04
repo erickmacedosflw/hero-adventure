@@ -18,6 +18,7 @@ export interface SavePayload {
   hasPlayerDiedOnce: boolean;
   skillsActionUnlocked: boolean;
   skillsUnlockPromptPending?: boolean;
+  impulseUnlockPromptQueue?: number[];
   constellationUnlockPromptPending?: boolean;
   constellationRespecUnlockPromptPending?: boolean;
   constellationRespecPromptSeen?: boolean;
@@ -153,6 +154,16 @@ const isSavePayloadLike = (value: unknown): value is SavePayload => {
 
   if (payload.skillsUnlockPromptPending !== undefined && typeof payload.skillsUnlockPromptPending !== 'boolean') {
     return false;
+  }
+
+  if (payload.impulseUnlockPromptQueue !== undefined) {
+    if (!Array.isArray(payload.impulseUnlockPromptQueue)) {
+      return false;
+    }
+
+    if (payload.impulseUnlockPromptQueue.some((level) => !isFiniteNumber(level) || level < 1)) {
+      return false;
+    }
   }
 
   if (payload.constellationUnlockPromptPending !== undefined && typeof payload.constellationUnlockPromptPending !== 'boolean') {

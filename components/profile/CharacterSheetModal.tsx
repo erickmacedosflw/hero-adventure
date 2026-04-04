@@ -5,8 +5,9 @@ import { getConstellationByClassId } from '../../game/data/classTalents';
 import { getPlayerClassById } from '../../game/data/classes';
 import { canUnlockTalentNode } from '../../game/mechanics/classProgression';
 import { getEquipmentBonuses } from '../../game/mechanics/equipmentBonuses';
+import { getWeaponGripForItem } from '../../game/mechanics/weaponProficiency';
 import { SKILLS } from '../../constants';
-import { ClassTalentTrail, Item, Player, PlayerClassId, ProgressionCard, TalentNode } from '../../types';
+import { ClassTalentTrail, Item, Player, PlayerClassId, ProgressionCard, TalentNode, WeaponGripType, WeaponProficiencyBonusStat } from '../../types';
 import { DeveloperHeroScene } from '../Scene3D';
 import { GameAssetIcon } from '../ui/game-asset-icon';
 import { getCardEffectPreview, getRarityColor, getRarityLabel, ItemTypeIcon } from '../ui/game-display';
@@ -116,25 +117,67 @@ const CLASS_GUIDES: Record<PlayerClassId, ClassGuideDefinition> = {
   },
 };
 
+const CLASS_NAME_PT: Record<PlayerClassId, string> = {
+  knight: 'Cavaleiro',
+  barbarian: 'Barbaro',
+  mage: 'Mago',
+  ranger: 'Arqueiro',
+  rogue: 'Ladino',
+};
+
+const CLASS_STATUS_ICON: Record<PlayerClassId, React.ComponentType<{ size?: number; className?: string }>> = {
+  knight: Shield,
+  barbarian: Sword,
+  mage: WandSparkles,
+  ranger: Crosshair,
+  rogue: Zap,
+};
+
+const WEAPON_PROFICIENCY_BADGE_META: Record<WeaponGripType, { label: string; icon: string }> = {
+  dagger: { label: 'Punhal', icon: '🗡️' },
+  sword: { label: 'Espada', icon: '⚔️' },
+  axe: { label: 'Machado', icon: '🪓' },
+  hammer: { label: 'Martelo', icon: '🔨' },
+  wand: { label: 'Varinha', icon: '🪄' },
+  staff: { label: 'Cajado', icon: '🔮' },
+  spear: { label: 'Lanca', icon: '🔱' },
+  halberd: { label: 'Alabarda', icon: '🛡️' },
+  bow: { label: 'Arco', icon: '🏹' },
+  fist: { label: 'Manopla', icon: '🥊' },
+};
+
 const SummaryCard = ({
   label,
   value,
   tone,
   icon,
   panel,
+  compact = false,
+  bonusPercent,
+  bonusChipClass,
 }: {
   label: string;
   value: React.ReactNode;
   tone?: string;
   icon?: React.ReactNode;
   panel?: string;
+  compact?: boolean;
+  bonusPercent?: number;
+  bonusChipClass?: string;
 }) => (
-  <div className={`rounded-[16px] border px-3 py-2.5 ${panel ?? 'border-[#cfab91] bg-[#fff7ed]'}`}>
+  <div className={`${compact ? 'rounded-[14px] px-2.5 py-2' : 'rounded-[16px] px-3 py-2.5'} border ${panel ?? 'border-[#cfab91] bg-[#fff7ed]'}`}>
     <div className="flex items-center gap-1.5">
       {icon}
-      <div className="text-[10px] font-black uppercase tracking-[0.18em] text-[#9a7068]">{label}</div>
+      <div className={`${compact ? 'text-[9px] tracking-[0.16em]' : 'text-[10px] tracking-[0.18em]'} font-black uppercase text-[#9a7068]`}>{label}</div>
     </div>
-    <div className={`mt-1 text-xl font-black ${tone ?? 'text-[#6b3141]'}`}>{value}</div>
+    <div className={`${compact ? 'mt-0.5' : 'mt-1'} flex items-center justify-between gap-2`}>
+      <div className={`${compact ? 'text-lg' : 'text-xl'} font-black ${tone ?? 'text-[#6b3141]'}`}>{value}</div>
+      {typeof bonusPercent === 'number' && bonusPercent > 0 && (
+        <span className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-black ${bonusChipClass ?? 'border-[#d6b9a3] bg-[#f8eddf] text-[#6b3141]'}`}>
+          +{bonusPercent}%
+        </span>
+      )}
+    </div>
   </div>
 );
 
@@ -143,18 +186,29 @@ const ResourceBar = ({
   value,
   max,
   track,
+  bonusPercent,
+  bonusChipClass,
 }: {
   label: string;
   value: number;
   max: number;
   track: string;
+  bonusPercent?: number;
+  bonusChipClass?: string;
 }) => {
   const percent = max > 0 ? Math.min(100, (value / max) * 100) : 0;
 
   return (
     <div>
       <div className="flex items-center justify-between gap-2">
-        <div className="text-[9px] font-black uppercase tracking-[0.22em] text-[#9a7068]">{label}</div>
+        <div className="flex items-center gap-1.5">
+          <div className="text-[9px] font-black uppercase tracking-[0.22em] text-[#9a7068]">{label}</div>
+          {typeof bonusPercent === 'number' && bonusPercent > 0 && (
+            <span className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[9px] font-black ${bonusChipClass ?? 'border-[#d6b9a3] bg-[#f8eddf] text-[#6b3141]'}`}>
+              +{bonusPercent}%
+            </span>
+          )}
+        </div>
         <div className="text-xs font-black text-[#6b3141]">{value}/{max}</div>
       </div>
       <div className="mt-2 h-2 overflow-hidden rounded-full bg-[#e9d7c2]">
@@ -213,6 +267,15 @@ const getEquipmentBonusMeta = (item: Item | null): Array<{ icon: React.ReactNode
       value: `+${bonuses.maxMp}`,
       chip: 'border-[#b9d1df] bg-[#e8f4fb]',
       valueTone: 'text-[#346c7f]',
+    });
+  }
+  if (bonuses.magic > 0) {
+    chips.push({
+      icon: <WandSparkles size={12} />,
+      label: 'MAG',
+      value: `+${bonuses.magic}`,
+      chip: 'border-[#c7bee6] bg-[#f1eefb]',
+      valueTone: 'text-[#5f4ab3]',
     });
   }
 
@@ -477,6 +540,36 @@ export const CharacterSheetModal = ({ player, shopItems: _shopItems, onClose, on
   const constellation = getConstellationByClassId(player.classId);
   const classGuide = CLASS_GUIDES[player.classId];
   const classAccentColor = currentClass.visualProfile.secondaryColor;
+  const ClassStatusIcon = CLASS_STATUS_ICON[player.classId];
+  const classNamePt = CLASS_NAME_PT[player.classId] ?? currentClass.name;
+  const equippedWeaponGrip = getWeaponGripForItem(player.equippedWeapon);
+  const isProficiencyActive = Boolean(equippedWeaponGrip && currentClass.weaponProficiencies.includes(equippedWeaponGrip));
+  const getProficiencyPercent = (stat: WeaponProficiencyBonusStat): number | undefined => {
+    if (!isProficiencyActive) {
+      return undefined;
+    }
+    const value = currentClass.weaponProficiencyBonuses?.[stat];
+    if (typeof value !== 'number' || value <= 0) {
+      return undefined;
+    }
+    return Math.round(value * 100);
+  };
+  const getResourceProficiencyPercent = (resourceStat: 'maxMp' | 'maxHp'): number | undefined => {
+    if (!isProficiencyActive) {
+      return undefined;
+    }
+    const proficiencyBonuses = currentClass.weaponProficiencyBonuses as Record<string, number> | undefined;
+    const value = proficiencyBonuses?.[resourceStat];
+    if (typeof value !== 'number' || value <= 0) {
+      return undefined;
+    }
+    return Math.round(value * 100);
+  };
+  const classProficiencyBadges = currentClass.weaponProficiencies.map((grip) => ({
+    ...WEAPON_PROFICIENCY_BADGE_META[grip],
+    grip,
+    active: grip === equippedWeaponGrip,
+  }));
 
   useEffect(() => {
     if (isStatusOnlyMode && !allowCardsTab && !allowSkillsTab && !(allowConstellationTab && activeTab === 'constellation') && activeTab !== 'overview') {
@@ -570,7 +663,7 @@ export const CharacterSheetModal = ({ player, shopItems: _shopItems, onClose, on
       onClose={onClose}
       closing={isClosing}
       accent="wine"
-      headerStyle={{ background: `linear-gradient(135deg, ${classAccentColor}, #6b3141)` }}
+      headerStyle={{ background: `linear-gradient(135deg, ${currentClass.visualProfile.primaryColor}, ${currentClass.visualProfile.secondaryColor})` }}
       valueBadge={<><GameAssetIcon name="book" size={24} /> {player.name}</>}
     >
       <div className="flex flex-col gap-3 pb-0">
@@ -700,22 +793,66 @@ export const CharacterSheetModal = ({ player, shopItems: _shopItems, onClose, on
               <div className="rounded-[20px] border border-[#cfab91] bg-[#fff7ed] p-4">
                 <div className="text-[10px] font-black uppercase tracking-[0.24em] text-[#9a7068]">Heroi</div>
                 <h3 className="mt-1 text-lg font-black text-[#6b3141]">{player.name}</h3>
-                <div className="mt-1 text-xs font-bold text-[#8a5a57]">{currentClass.name} • {currentClass.title}</div>
+                <div className="mt-1">
+                  <span
+                    className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.12em]"
+                    style={{
+                      borderColor: `${classAccentColor}55`,
+                      color: classAccentColor,
+                      backgroundColor: `${classAccentColor}1c`,
+                    }}
+                  >
+                    <ClassStatusIcon size={12} />
+                    {classNamePt}
+                  </span>
+                </div>
+                <div className="mt-2 flex flex-wrap gap-1.5 border-t border-[#dcc0aa] pt-2">
+                  {classProficiencyBadges.map((badge) => (
+                    <span
+                      key={`${player.classId}-${badge.label}`}
+                      className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] font-black uppercase tracking-[0.12em] ${badge.active ? '' : 'border-[#d6b9a3] bg-[#f8eddf] text-[#6b3141]'}`}
+                      style={badge.active ? {
+                        borderColor: `${classAccentColor}66`,
+                        color: classAccentColor,
+                        backgroundColor: `${classAccentColor}1f`,
+                        boxShadow: `0 6px 14px ${classAccentColor}2e`,
+                      } : undefined}
+                    >
+                      <span className="text-xs leading-none">{badge.icon}</span>
+                      {badge.label}
+                    </span>
+                  ))}
+                </div>
                 <div className="mt-3 grid gap-3 border-t border-[#dcc0aa] pt-3">
                   <ResourceBar label="XP" value={player.xp} max={player.xpToNext} track="bg-[linear-gradient(90deg,#7d3d4d,#c89a66)]" />
-                  <ResourceBar label="HP" value={player.stats.hp} max={player.stats.maxHp} track="bg-[linear-gradient(90deg,#8d2f46,#d17482)]" />
-                  <ResourceBar label="Mana" value={player.stats.mp} max={player.stats.maxMp} track="bg-[linear-gradient(90deg,#2b6878,#66b8d2)]" />
+                  <ResourceBar
+                    label="HP"
+                    value={player.stats.hp}
+                    max={player.stats.maxHp}
+                    track="bg-[linear-gradient(90deg,#8d2f46,#d17482)]"
+                    bonusPercent={getResourceProficiencyPercent('maxHp')}
+                    bonusChipClass="border-[#d98a98] bg-[#f6d9df] text-[#b83a4b]"
+                  />
+                  <ResourceBar
+                    label="Mana"
+                    value={player.stats.mp}
+                    max={player.stats.maxMp}
+                    track="bg-[linear-gradient(90deg,#2b6878,#66b8d2)]"
+                    bonusPercent={getResourceProficiencyPercent('maxMp')}
+                    bonusChipClass="border-[#8bbfd6] bg-[#e4f3fb] text-[#346c7f]"
+                  />
                   {player.classResource.max > 0 && (
                     <ResourceBar label={player.classResource.name} value={player.classResource.value} max={player.classResource.max} track="bg-[linear-gradient(90deg,#4c1d95,#c084fc)]" />
                   )}
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                <SummaryCard label="Ataque" value={player.stats.atk} tone="text-[#b83a4b]" icon={<Sword size={14} className="text-[#b83a4b]" />} panel="border-[#e4adb6] bg-[#fbe9ec]" />
-                <SummaryCard label="Defesa" value={player.stats.def} tone="text-[#4d6780]" icon={<Shield size={14} className="text-[#4d6780]" />} panel="border-[#b9c8d7] bg-[#ebf2f8]" />
-                <SummaryCard label="Veloc." value={player.stats.speed} tone="text-[#7c4c76]" icon={<Zap size={14} className="text-[#7c4c76]" />} panel="border-[#d3bfd8] bg-[#f3eaf5]" />
-                <SummaryCard label="Sorte" value={player.stats.luck} tone="text-[#b26a2e]" icon={<Star size={14} className="text-[#b26a2e]" />} panel="border-[#dfc89e] bg-[#f9efdf]" />
+              <div className="grid grid-cols-2 gap-1.5">
+                <SummaryCard compact label="Ataque" value={player.stats.atk} tone="text-[#b83a4b]" icon={<Sword size={13} className="text-[#b83a4b]" />} panel="border-[#e4adb6] bg-[#fbe9ec]" bonusPercent={getProficiencyPercent('atk')} bonusChipClass="border-[#d98a98] bg-[#f6d9df] text-[#b83a4b]" />
+                <SummaryCard compact label="Defesa" value={player.stats.def} tone="text-[#4d6780]" icon={<Shield size={13} className="text-[#4d6780]" />} panel="border-[#b9c8d7] bg-[#ebf2f8]" bonusPercent={getProficiencyPercent('def')} bonusChipClass="border-[#99b4cc] bg-[#dfeaf4] text-[#4d6780]" />
+                <SummaryCard compact label="Magia" value={player.stats.magic} tone="text-[#5f4ab3]" icon={<WandSparkles size={13} className="text-[#5f4ab3]" />} panel="border-[#c7bee6] bg-[#f1eefb]" bonusPercent={getProficiencyPercent('magic')} bonusChipClass="border-[#ac9de0] bg-[#e7e0f9] text-[#5f4ab3]" />
+                <SummaryCard compact label="Velocidade" value={player.stats.speed} tone="text-[#7c4c76]" icon={<Zap size={13} className="text-[#7c4c76]" />} panel="border-[#d3bfd8] bg-[#f3eaf5]" bonusPercent={getProficiencyPercent('speed')} bonusChipClass="border-[#b993c2] bg-[#eadcf0] text-[#7c4c76]" />
+                <SummaryCard compact label="Sorte" value={player.stats.luck} tone="text-[#b26a2e]" icon={<Star size={13} className="text-[#b26a2e]" />} panel="border-[#dfc89e] bg-[#f9efdf]" bonusPercent={getProficiencyPercent('luck')} bonusChipClass="border-[#d7b16f] bg-[#f6e7c8] text-[#b26a2e]" />
               </div>
             </div>
 

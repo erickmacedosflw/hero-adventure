@@ -1,5 +1,6 @@
 import { Item, Player } from '../../types';
 import { applyEquipmentBonusesToStats } from './equipmentBonuses';
+import { applyWeaponProficiencyBonusesToStats, getWeaponProficiencyAppliedBonuses } from './weaponProficiency';
 
 export const buyItemForPlayer = (player: Player, item: Item, quantity = 1): Player => {
   const safeQuantity = Math.max(1, Math.floor(quantity));
@@ -68,8 +69,12 @@ export const equipItemOnPlayer = (player: Player, item: Item): Player => {
   let newShield = player.equippedShield;
 
   if (item.type === 'weapon') {
+    const previousProficiencyBonuses = getWeaponProficiencyAppliedBonuses(player.classId, newWep);
+    newStats = applyWeaponProficiencyBonusesToStats(newStats, previousProficiencyBonuses, -1);
     newStats = applyEquipmentBonusesToStats(newStats, newWep, -1);
     newStats = applyEquipmentBonusesToStats(newStats, item, 1);
+    const nextProficiencyBonuses = getWeaponProficiencyAppliedBonuses(player.classId, item);
+    newStats = applyWeaponProficiencyBonusesToStats(newStats, nextProficiencyBonuses, 1);
     newWep = item;
   }
   if (item.type === 'armor') {

@@ -1,6 +1,6 @@
 import { Player, PlayerClassAnimationMap, PlayerClassDefinition, PlayerClassId, Stats } from '../../types';
 
-const statKeys: Array<keyof Pick<Stats, 'atk' | 'def' | 'speed' | 'luck'>> = ['atk', 'def', 'speed', 'luck'];
+const statKeys: Array<keyof Pick<Stats, 'atk' | 'def' | 'speed' | 'luck' | 'magic'>> = ['atk', 'def', 'speed', 'luck', 'magic'];
 const animationDirectory = 'game/assets/Characters/Animations/Rig_Medium';
 const animationFiles = [
   'Rig_Medium_CombatMelee.fbx',
@@ -53,6 +53,8 @@ const createPlayerClass = ({
   baseStats,
   visualProfile,
   calibrationScale,
+  weaponProficiencies,
+  weaponProficiencyBonuses,
 }: {
   id: PlayerClassId;
   name: string;
@@ -65,6 +67,8 @@ const createPlayerClass = ({
   baseStats: Stats;
   visualProfile: PlayerClassDefinition['visualProfile'];
   calibrationScale: number;
+  weaponProficiencies: PlayerClassDefinition['weaponProficiencies'];
+  weaponProficiencyBonuses: PlayerClassDefinition['weaponProficiencyBonuses'];
 }): PlayerClassDefinition => ({
   id,
   name,
@@ -72,6 +76,8 @@ const createPlayerClass = ({
   description,
   baseStats,
   visualProfile,
+  weaponProficiencies,
+  weaponProficiencyBonuses,
   assets: {
     modelPath,
     modelUrl,
@@ -105,19 +111,22 @@ export const PLAYER_CLASSES: PlayerClassDefinition[] = [
       maxHp: 140,
       mp: 40,
       maxMp: 40,
-      atk: 14,
-      def: 8,
+      atk: 16,
+      def: 16,
       speed: 8,
       luck: 4,
+      magic: 6,
     },
     visualProfile: {
       silhouette: 'knight',
-      primaryColor: '#94a3b8',
-      secondaryColor: '#1d4ed8',
+      primaryColor: '#1d4ed8',
+      secondaryColor: '#1e40af',
       detailColor: '#f8fafc',
       auraColor: '#60a5fa',
     },
     calibrationScale: 2.15,
+    weaponProficiencies: ['sword', 'axe', 'spear'],
+    weaponProficiencyBonuses: { atk: 0.2, def: 0.2 },
   }),
   createPlayerClass({
     id: 'barbarian',
@@ -133,10 +142,11 @@ export const PLAYER_CLASSES: PlayerClassDefinition[] = [
       maxHp: 164,
       mp: 26,
       maxMp: 26,
-      atk: 18,
-      def: 7,
+      atk: 20,
+      def: 12,
       speed: 9,
-      luck: 5,
+      luck: 4,
+      magic: 4,
     },
     visualProfile: {
       silhouette: 'barbarian',
@@ -146,6 +156,8 @@ export const PLAYER_CLASSES: PlayerClassDefinition[] = [
       auraColor: '#fb923c',
     },
     calibrationScale: 2.18,
+    weaponProficiencies: ['axe', 'hammer', 'halberd'],
+    weaponProficiencyBonuses: { atk: 0.3 },
   }),
   createPlayerClass({
     id: 'mage',
@@ -161,19 +173,22 @@ export const PLAYER_CLASSES: PlayerClassDefinition[] = [
       maxHp: 96,
       mp: 110,
       maxMp: 110,
-      atk: 17,
-      def: 4,
+      atk: 6,
+      def: 6,
       speed: 10,
-      luck: 8,
+      luck: 6,
+      magic: 20,
     },
     visualProfile: {
       silhouette: 'mage',
       primaryColor: '#7c3aed',
-      secondaryColor: '#2563eb',
+      secondaryColor: '#7c3aed',
       detailColor: '#e0e7ff',
       auraColor: '#c084fc',
     },
     calibrationScale: 2.1,
+    weaponProficiencies: ['wand', 'staff'],
+    weaponProficiencyBonuses: { magic: 0.25, maxMp: 0.25 },
   }),
   createPlayerClass({
     id: 'ranger',
@@ -189,10 +204,11 @@ export const PLAYER_CLASSES: PlayerClassDefinition[] = [
       maxHp: 118,
       mp: 58,
       maxMp: 58,
-      atk: 15,
-      def: 6,
+      atk: 10,
+      def: 12,
       speed: 14,
-      luck: 7,
+      luck: 8,
+      magic: 10,
     },
     visualProfile: {
       silhouette: 'ranger',
@@ -202,6 +218,8 @@ export const PLAYER_CLASSES: PlayerClassDefinition[] = [
       auraColor: '#22c55e',
     },
     calibrationScale: 2.12,
+    weaponProficiencies: ['bow', 'sword'],
+    weaponProficiencyBonuses: { luck: 0.15, speed: 0.2, magic: 0.15 },
   }),
   createPlayerClass({
     id: 'rogue',
@@ -217,10 +235,11 @@ export const PLAYER_CLASSES: PlayerClassDefinition[] = [
       maxHp: 108,
       mp: 52,
       maxMp: 52,
-      atk: 16,
-      def: 5,
+      atk: 14,
+      def: 8,
       speed: 16,
-      luck: 10,
+      luck: 12,
+      magic: 8,
     },
     visualProfile: {
       silhouette: 'rogue',
@@ -230,6 +249,8 @@ export const PLAYER_CLASSES: PlayerClassDefinition[] = [
       auraColor: '#f472b6',
     },
     calibrationScale: 2.12,
+    weaponProficiencies: ['dagger', 'fist'],
+    weaponProficiencyBonuses: { luck: 0.25, speed: 0.25 },
   }),
 ];
 

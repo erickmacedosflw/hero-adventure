@@ -158,7 +158,10 @@ const tickEnemyBuffs = (target: Enemy): Enemy => {
 };
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
-const clampImpulse = (value: number) => clamp(value, 0, 3);
+const getImpulseCapacityByLevel = (level: number) => (
+  level >= 12 ? 3 : level >= 8 ? 2 : level >= 4 ? 1 : 0
+);
+const clampImpulse = (value: number, max = 3) => clamp(value, 0, max);
 const IMPULSE_ATTACK_DAMAGE_BONUS = 0.5;
 const IMPULSE_DEF_IGNORE_RATIO = 0.5;
 const IMPULSE_MANA_DISCOUNT = 0.5;
@@ -196,6 +199,13 @@ const ENEMY_CLASS_SKILL_DAMAGE_MULT: Record<Player['classId'], number> = {
   ranger: 1.14,
   rogue: 1.2,
 };
+const ENEMY_CLASS_MAGIC_SKILL_DAMAGE_MULT: Record<Player['classId'], number> = {
+  knight: 0.94,
+  barbarian: 0.88,
+  mage: 1.22,
+  ranger: 1.02,
+  rogue: 0.98,
+};
 
 const ENEMY_STEAL_BASE_CHANCE = 0.28;
 const ENEMY_STEAL_SPEED_WEIGHT = 0.006;
@@ -225,6 +235,12 @@ const getEnemyDamagePressure = (target: Enemy, kind: 'basic' | 'skill') => {
     ? (ENEMY_CLASS_SKILL_DAMAGE_MULT[target.enemyClassId] ?? 1.1)
     : (ENEMY_CLASS_BASIC_DAMAGE_MULT[target.enemyClassId] ?? 1.1);
   return classMult * (1 + tierBonus);
+};
+
+const getEnemyMagicSkillPressure = (target: Enemy) => {
+  const classMagicMult = ENEMY_CLASS_MAGIC_SKILL_DAMAGE_MULT[target.enemyClassId] ?? 1;
+  const manaPoolFactor = clamp(0.98 + (target.stats.maxMp * 0.0045), 0.98, 1.14);
+  return classMagicMult * manaPoolFactor;
 };
 
 const getSkillCastColor = (skill: Enemy['skillSet'][number]) => {
@@ -450,11 +466,12 @@ export const useBattleController = ({
   }, [addLog, enemy, setEnemy, spawnFloatingText]);
 
   const handleChargeImpulse = useCallback(() => {
-    if (!enemy || turnState !== TurnState.PLAYER_INPUT || player.impulso >= 3) return;
+    const maxImpulse = getImpulseCapacityByLevel(player.level);
+    if (!enemy || turnState !== TurnState.PLAYER_INPUT || maxImpulse <= 0 || player.impulso >= maxImpulse) return;
     lastPlayerActionRef.current = 'item';
     setTurnState(TurnState.PLAYER_ANIMATION);
     battleSfx.play('defense_use', { source: 'hero' });
-    const nextReserve = clampImpulse(player.impulso + 1);
+    const nextReserve = clampImpulse(player.impulso + 1, maxImpulse);
     const impulseTintColor = player.classResource.color || '#22d3ee';
     const impulseAnimationDurationMs = getAnimationDurationMsById(SPRITE_ANIMATION_IDS.execImpulse);
     const impulseFinishDelayMs = impulseAnimationDurationMs > 0 ? (impulseAnimationDurationMs + 80) : 520;
@@ -465,7 +482,8 @@ export const useBattleController = ({
     setPlayerImpactAnimationTrigger((prev) => prev + 1);
     setPlayer((prev) => ({
       ...prev,
-      impulso: clampImpulse(prev.impulso + 1),
+      impulso: clampImpulse(prev.impulso + 1, getImpulseCapacityByLevel(prev.level)),
+      impulsoAtivo: clampImpulse(prev.impulsoAtivo, getImpulseCapacityByLevel(prev.level)),
     }));
     playImpulseVisual('player', nextReserve, '+1 IMPULSO', impulseTintColor);
     addLog('Impulso carregado +1.', 'buff');
@@ -483,6 +501,7 @@ export const useBattleController = ({
     playImpulseVisual,
     player.classResource.color,
     player.impulso,
+    player.level,
     setPlayer,
     setPlayerAnimationAction,
     setPlayerImpactAnimationId,
@@ -494,21 +513,23 @@ export const useBattleController = ({
   ]);
 
   const handleAbsorbImpulse = useCallback(() => {
-    if (turnState !== TurnState.PLAYER_INPUT || player.impulso <= 0 || player.impulsoAtivo >= 3) return;
+    const maxImpulse = getImpulseCapacityByLevel(player.level);
+    if (turnState !== TurnState.PLAYER_INPUT || maxImpulse <= 0 || player.impulso <= 0 || player.impulsoAtivo >= maxImpulse) return;
 
     setPlayer((prev) => ({
       ...prev,
-      impulso: clampImpulse(prev.impulso - 1),
-      impulsoAtivo: clampImpulse(prev.impulsoAtivo + 1),
+      impulso: clampImpulse(prev.impulso - 1, getImpulseCapacityByLevel(prev.level)),
+      impulsoAtivo: clampImpulse(prev.impulsoAtivo + 1, getImpulseCapacityByLevel(prev.level)),
     }));
-    const nextActive = clampImpulse(player.impulsoAtivo + 1);
-    playImpulseVisual('player', nextActive, `ABSORVER ${nextActive}/3`);
-    addLog(`Absorcao de impulso: ${nextActive}/3 ativo.`, 'buff');
+    const nextActive = clampImpulse(player.impulsoAtivo + 1, maxImpulse);
+    playImpulseVisual('player', nextActive, `ABSORVER ${nextActive}/${maxImpulse}`);
+    addLog(`Absorcao de impulso: ${nextActive}/${maxImpulse} ativo.`, 'buff');
   }, [
     addLog,
     playImpulseVisual,
     player.impulso,
     player.impulsoAtivo,
+    player.level,
     setPlayer,
     turnState,
   ]);
@@ -934,7 +955,7 @@ export const useBattleController = ({
         const resourceBurst = resourceSpent * (skill.resourceEffect?.bonusDamagePerPoint ?? 0);
         const riposteMultiplier = riposteActive && isFirstStrike ? RIPOSTE_DAMAGE_MULTIPLIER : 1;
         const attackResult = calculateDamage({
-          attackerAtk: player.stats.atk,
+          attackerAtk: skill.type === 'magic' ? player.stats.magic : player.stats.atk,
           defenderDef: getEnemyDefWithBuff(enemy),
           attackerSpeed: player.stats.speed,
           defenderSpeed: enemy.stats.speed,
@@ -943,7 +964,7 @@ export const useBattleController = ({
           attackKind: skill.type === 'magic' ? 'magic' : 'physical',
           defenderIsDefending: isFirstStrike ? enemy.isDefending : false,
           attackerBuffs: player.buffs,
-          applyAttackBuff: true,
+          applyAttackBuff: skill.type !== 'magic',
           critChanceBonus: talentBonuses.critChance,
           critDamageBonus: talentBonuses.critDamage,
           defenderDefenseIgnoreRatio: activeImpulse >= 2 ? IMPULSE_DEF_IGNORE_RATIO : 0,
@@ -1796,13 +1817,19 @@ export const useBattleController = ({
           return;
         }
 
+        const magicSkillPressure = chosenSkill.attackKind === 'magic'
+          ? getEnemyMagicSkillPressure(simulatedEnemy)
+          : 1;
+
         const skillAttackResult = calculateDamage({
-          attackerAtk: getEnemyAtkWithBuff(simulatedEnemy),
+          attackerAtk: chosenSkill.attackKind === 'magic'
+            ? simulatedEnemy.stats.magic
+            : getEnemyAtkWithBuff(simulatedEnemy),
           defenderDef: player.stats.def,
           attackerSpeed: simulatedEnemy.stats.speed,
           defenderSpeed: player.stats.speed,
           defenderHasPerfectEvade: player.buffs.perfectEvadeTurns > 0,
-          multiplier: chosenSkill.damageMultiplier * getEnemyDamagePressure(simulatedEnemy, 'skill') * skillEffectMultiplier,
+          multiplier: chosenSkill.damageMultiplier * getEnemyDamagePressure(simulatedEnemy, 'skill') * magicSkillPressure * skillEffectMultiplier,
           luck: simulatedEnemy.stats.luck,
           attackKind: chosenSkill.attackKind,
           defenderIsDefending: defendingActive,

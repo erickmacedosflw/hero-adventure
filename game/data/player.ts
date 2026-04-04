@@ -7,7 +7,7 @@ export const INITIAL_PLAYER: Player = {
   classId: DEFAULT_PLAYER_CLASS_ID,
   level: 1,
   xp: 0,
-  xpToNext: 100,
+  xpToNext: 150,
   gold: 150,
   diamonds: 0,
   stats: createClassBaseStats(DEFAULT_PLAYER_CLASS_ID),

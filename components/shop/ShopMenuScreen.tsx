@@ -133,7 +133,13 @@ const formatPercent = (value: number) => {
 
 const getItemEffectCards = (item: Item): EffectCard[] => {
   if (item.type === 'weapon') {
-    return [createEffectCard('atk', 'ATK', `+${item.value}`, <Sword size={15} />, 'text-[#b83a4b]', 'border-[#e6b1b9] bg-[linear-gradient(180deg,#fff8f8,#fbe9eb)]')];
+    const cards: EffectCard[] = [
+      createEffectCard('atk', 'ATK', `+${item.value}`, <Sword size={15} />, 'text-[#b83a4b]', 'border-[#e6b1b9] bg-[linear-gradient(180deg,#fff8f8,#fbe9eb)]'),
+    ];
+    if ((item.magicBonus ?? 0) > 0) {
+      cards.push(createEffectCard('mag', 'MAG', `+${item.magicBonus}`, <Sparkles size={15} />, 'text-[#5f4ab3]', 'border-[#c7bee6] bg-[linear-gradient(180deg,#f7f5ff,#ece8fb)]'));
+    }
+    return cards;
   }
 
   if (item.type === 'armor' || item.type === 'helmet' || item.type === 'legs' || item.type === 'shield') {
@@ -224,9 +230,10 @@ const getEquipmentComparableScore = (item: Item): number => {
   const hpScore = bonuses.maxHp;
   const mpScore = bonuses.maxMp;
   const speedScore = bonuses.speed;
-  const attackScore = item.type === 'weapon' ? item.value : 0;
+  const attackScore = item.type === 'weapon' ? bonuses.atk : 0;
+  const magicScore = item.type === 'weapon' ? bonuses.magic : 0;
 
-  return attackScore + defenseScore + hpScore + mpScore + speedScore;
+  return attackScore + magicScore + defenseScore + hpScore + mpScore + speedScore;
 };
 
 const getEquipmentComparisonTrend = (player: Player, item: Item): 'up' | 'down' | 'equal' | null => {

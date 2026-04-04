@@ -17,7 +17,7 @@ import {
     INITIAL_PLAYER, SHOP_ITEMS, ALL_ITEMS, MATERIALS, SKILLS, ENEMY_DATA, ENEMY_COLORS, DUNGEON_ENEMY_DATA, DUNGEON_BOSS, ALCHEMIST_ITEM_OFFERS 
 } from './constants';
 import { PROGRESSION_CARDS, ALCHEMIST_CARDS } from './game/data/cards';
-import { applyPlayerClass, PLAYER_CLASSES } from './game/data/classes';
+import { applyPlayerClass, getPlayerClassById, PLAYER_CLASSES } from './game/data/classes';
 import { gameMusicManager, isNightTime, type MusicTrackId } from './game/audio/music';
 import { battleSfx } from './game/audio/sfx';
 import { uiSfx } from './game/audio/uiSfx';
@@ -25,6 +25,7 @@ import { createEmptyBuffState } from './game/mechanics/combat';
 import { createClassResourceState, getTalentBonuses, getUnlockedResourceMax, resetTalentNodes, syncPlayerConstellationSkills, unlockTalentNode } from './game/mechanics/classProgression';
 import { buyItemForPlayer, sellItemFromPlayer } from './game/mechanics/inventory';
 import { applyEquipmentBonusesToStats } from './game/mechanics/equipmentBonuses';
+import { WeaponProficiencyAppliedBonuses, applyWeaponProficiencyBonusesToStats, getWeaponProficiencyAppliedBonuses, isWeaponProficientForClass } from './game/mechanics/weaponProficiency';
 import { SavePayload, SaveSlotId, SaveSlotSummary, getActiveSaveSlotId, listSaveSlots, loadSaveFromSlot, saveToActiveSlot, setActiveSaveSlotId, clearSlot } from './game/mechanics/saveSystem';
 import { useBattleController } from './game/hooks/useBattleController';
 import { useBattleResolution } from './game/hooks/useBattleResolution';
@@ -53,7 +54,127 @@ const ONBOARDING_PHASES: OnboardingPhase[] = [
     'alchemist_prompt',
     'alchemist_unlocked',
 ];
+const IMPULSE_UNLOCK_LEVELS = [4, 8, 12] as const;
+const getImpulseCapacityByLevel = (level: number) => (
+    level >= 12 ? 3 : level >= 8 ? 2 : level >= 4 ? 1 : 0
+);
+const XP_TO_NEXT_BASE = 150;
+const XP_TO_NEXT_GROWTH = 1.5;
+const getXpToNextByLevel = (level: number) => {
+    const safeLevel = Math.max(1, Math.floor(level));
+    let xpToNext = XP_TO_NEXT_BASE;
+
+    for (let currentLevel = 1; currentLevel < safeLevel; currentLevel += 1) {
+        xpToNext = Math.floor(xpToNext * XP_TO_NEXT_GROWTH);
+    }
+
+    return xpToNext;
+};
 const AUTOSAVE_DEBOUNCE_MS = 2500;
+const LEGACY_WEAPON_ID_MAP: Record<string, string> = {
+    wep_b1: 'wep_3d_dagger_a',
+    wep_b2: 'wep_3d_axe_a',
+    wep_s1: 'wep_3d_sword_b',
+    wep_s2: 'wep_3d_spear_a',
+    wep_g1: 'wep_3d_sword_d',
+    wep_g2: 'wep_3d_sword_e',
+};
+const ALL_ITEMS_BY_ID = new Map(ALL_ITEMS.map((item) => [item.id, item]));
+
+const hasWeaponProficiencyBonuses = (bonuses: WeaponProficiencyAppliedBonuses) => (
+    Object.values(bonuses).some((value) => typeof value === 'number' && Number.isFinite(value) && value > 0)
+);
+
+const remapLegacyItemId = (itemId: string) => LEGACY_WEAPON_ID_MAP[itemId] ?? itemId;
+
+const resolveCanonicalItemReference = (item: Item | null | undefined): Item | null => {
+    if (!item) {
+        return null;
+    }
+
+    const mappedId = remapLegacyItemId(item.id);
+    return ALL_ITEMS_BY_ID.get(mappedId) ?? item;
+};
+
+const normalizeInventoryItemIds = (inventory: Record<string, number>): Record<string, number> => {
+    const normalized: Record<string, number> = {};
+
+    Object.entries(inventory).forEach(([itemId, quantity]) => {
+        if (!Number.isFinite(quantity) || quantity <= 0) {
+            return;
+        }
+
+        const mappedId = remapLegacyItemId(itemId);
+        normalized[mappedId] = (normalized[mappedId] ?? 0) + Math.floor(quantity);
+    });
+
+    return normalized;
+};
+
+const normalizeSavedPlayerForCurrentBuild = (source: Player): Player => {
+    const playerClass = getPlayerClassById(source.classId);
+    const shouldBackfillMagic = !Number.isFinite(source.stats.magic);
+    const normalizedInventory = normalizeInventoryItemIds(source.inventory ?? {});
+
+    const ensureEquippedVisible = (equipped: Item | null) => {
+        if (!equipped) {
+            return;
+        }
+
+        if ((normalizedInventory[equipped.id] ?? 0) <= 0) {
+            normalizedInventory[equipped.id] = 1;
+        }
+    };
+
+    let equippedWeapon = resolveCanonicalItemReference(source.equippedWeapon);
+    const equippedArmor = resolveCanonicalItemReference(source.equippedArmor);
+    const equippedHelmet = resolveCanonicalItemReference(source.equippedHelmet);
+    const equippedLegs = resolveCanonicalItemReference(source.equippedLegs);
+    const equippedShield = resolveCanonicalItemReference(source.equippedShield);
+
+    ensureEquippedVisible(equippedWeapon);
+    ensureEquippedVisible(equippedArmor);
+    ensureEquippedVisible(equippedHelmet);
+    ensureEquippedVisible(equippedLegs);
+    ensureEquippedVisible(equippedShield);
+
+    let normalizedStats: Stats = {
+        ...source.stats,
+        magic: Number.isFinite(source.stats.magic) ? source.stats.magic : playerClass.baseStats.magic,
+    };
+
+    if (equippedWeapon && !isWeaponProficientForClass(source.classId, equippedWeapon)) {
+        normalizedStats = applyEquipmentBonusesToStats(normalizedStats, equippedWeapon, -1);
+        equippedWeapon = null;
+    }
+
+    if (shouldBackfillMagic && equippedWeapon) {
+        const proficiencyBonuses = getWeaponProficiencyAppliedBonuses(source.classId, equippedWeapon);
+        if (hasWeaponProficiencyBonuses(proficiencyBonuses)) {
+            normalizedStats = applyWeaponProficiencyBonusesToStats(normalizedStats, proficiencyBonuses, 1);
+        }
+    }
+
+    const maxImpulse = getImpulseCapacityByLevel(source.level);
+    const expectedXpToNext = getXpToNextByLevel(source.level);
+    const normalizedXpToNext = Number.isFinite(source.xpToNext)
+        ? Math.max(expectedXpToNext, Math.floor(source.xpToNext))
+        : expectedXpToNext;
+
+    return {
+        ...source,
+        stats: normalizedStats,
+        inventory: normalizedInventory,
+        equippedWeapon,
+        equippedArmor,
+        equippedHelmet,
+        equippedLegs,
+        equippedShield,
+        xpToNext: normalizedXpToNext,
+        impulso: Math.max(0, Math.min(maxImpulse, source.impulso ?? 0)),
+        impulsoAtivo: Math.max(0, Math.min(maxImpulse, source.impulsoAtivo ?? 0)),
+    };
+};
 
 const coerceOnboardingPhase = (value: string): OnboardingPhase => {
     if (ONBOARDING_PHASES.includes(value as OnboardingPhase)) {
@@ -128,8 +249,8 @@ export default function App() {
         statusEffects: [...source.statusEffects],
         chosenCards: [...source.chosenCards],
         cardBonuses: { ...source.cardBonuses },
-        impulso: Math.max(0, Math.min(3, source.impulso ?? 0)),
-        impulsoAtivo: Math.max(0, Math.min(3, source.impulsoAtivo ?? 0)),
+        impulso: Math.max(0, Math.min(getImpulseCapacityByLevel(source.level), source.impulso ?? 0)),
+        impulsoAtivo: Math.max(0, Math.min(getImpulseCapacityByLevel(source.level), source.impulsoAtivo ?? 0)),
         buffs: {
             ...source.buffs,
             perfectGuardTurns: source.buffs.perfectGuardTurns ?? 0,
@@ -608,6 +729,7 @@ export default function App() {
     const [onboardingPhase, setOnboardingPhase] = useState<OnboardingPhase>('intro_camp');
     const [hasPlayerDiedOnce, setHasPlayerDiedOnce] = useState(false);
     const [skillsUnlockPromptPending, setSkillsUnlockPromptPending] = useState(false);
+    const [impulseUnlockPromptQueue, setImpulseUnlockPromptQueue] = useState<number[]>([]);
     const [constellationUnlockPromptPending, setConstellationUnlockPromptPending] = useState(false);
     const [constellationRespecUnlockPromptPending, setConstellationRespecUnlockPromptPending] = useState(false);
     const [constellationRespecPromptSeen, setConstellationRespecPromptSeen] = useState(false);
@@ -675,6 +797,7 @@ export default function App() {
         hasPlayerDiedOnce,
         skillsActionUnlocked,
         skillsUnlockPromptPending,
+        impulseUnlockPromptQueue,
         constellationUnlockPromptPending,
         constellationRespecUnlockPromptPending,
         constellationRespecPromptSeen,
@@ -722,6 +845,7 @@ export default function App() {
         sceneRegion,
         skillsActionUnlocked,
         skillsUnlockPromptPending,
+        impulseUnlockPromptQueue,
         stage,
         turnState,
     ]);
@@ -753,20 +877,36 @@ export default function App() {
         }
 
         const { payload, interruptedBattle, interruptedDungeon } = loaded;
+        const normalizedPlayer = normalizeSavedPlayerForCurrentBuild(payload.player);
         const wasInterrupted = interruptedBattle || interruptedDungeon;
         const safePhase = coerceOnboardingPhase(payload.onboardingPhase);
         const restoredTurnState = payload.turnState ?? TurnState.PLAYER_INPUT;
         const restoredSkillsPromptPending = payload.skillsUnlockPromptPending ?? false;
+        const restoredImpulseUnlockPromptQueue = Array.isArray(payload.impulseUnlockPromptQueue)
+            ? payload.impulseUnlockPromptQueue.filter((level): level is number => IMPULSE_UNLOCK_LEVELS.includes(level as 4 | 8 | 12))
+            : [];
         const restoredConstellationPromptPending = payload.constellationUnlockPromptPending ?? false;
         const restoredConstellationRespecPromptPending = payload.constellationRespecUnlockPromptPending ?? false;
         const restoredConstellationRespecPromptSeen = payload.constellationRespecPromptSeen ?? false;
         const restoredDungeonSubBossDefeatedEvolution = payload.dungeonSubBossDefeatedEvolution ?? null;
-        const restoredDiamondHudUnlocked = payload.hasDiamondHudUnlocked ?? payload.player.diamonds > 0;
+        const restoredDiamondHudUnlocked = payload.hasDiamondHudUnlocked ?? normalizedPlayer.diamonds > 0;
         const restoredCardRewardQueue = payload.cardRewardQueue ? cloneCardRewardOffers(payload.cardRewardQueue) : [];
         const restoredCurrentCardOffer = payload.currentCardOffer ? { ...payload.currentCardOffer } : null;
         const restoredCurrentCardChoices = payload.currentCardChoices ? cloneProgressionCards(payload.currentCardChoices) : [];
         const restoredPostCardFlow = payload.postCardFlow ?? null;
-        const restoredDungeonRun = payload.dungeonRun ? cloneDungeonRunState(payload.dungeonRun) : null;
+        const restoredDungeonRun = payload.dungeonRun
+            ? (() => {
+                const clonedRun = cloneDungeonRunState(payload.dungeonRun);
+                if (!clonedRun) {
+                    return null;
+                }
+
+                return {
+                    ...clonedRun,
+                    entrySnapshot: normalizeSavedPlayerForCurrentBuild(clonedRun.entrySnapshot),
+                };
+            })()
+            : null;
         const restoredDungeonResult = payload.dungeonResult ? cloneDungeonResultState(payload.dungeonResult) : null;
         const restoredBossVictoryContext = payload.bossVictoryContext ? cloneBossVictoryContextState(payload.bossVictoryContext) : null;
         const restoredPendingDungeonQueue = payload.pendingDungeonQueue ? cloneCardRewardOffers(payload.pendingDungeonQueue) : [];
@@ -775,10 +915,10 @@ export default function App() {
 
         setActiveSaveSlotId(slotId);
         setSelectedSaveSlotId(slotId);
-        setSelectedStartingClassId(payload.player.classId);
+        setSelectedStartingClassId(normalizedPlayer.classId);
         setHasConfirmedStartingClass(true);
 
-        setPlayer(clonePlayer(payload.player));
+        setPlayer(clonePlayer(normalizedPlayer));
         setStage(payload.stage);
         setKillCount(wasInterrupted ? 0 : payload.killCount);
         setSubBossDefeatedInStage(payload.subBossDefeatedInStage ?? false);
@@ -788,12 +928,13 @@ export default function App() {
         setHasPlayerDiedOnce(payload.hasPlayerDiedOnce || wasInterrupted);
         setSkillsActionUnlocked(payload.skillsActionUnlocked);
         setSkillsUnlockPromptPending(wasInterrupted ? false : restoredSkillsPromptPending);
+        setImpulseUnlockPromptQueue(wasInterrupted ? [] : restoredImpulseUnlockPromptQueue);
         setConstellationUnlockPromptPending(wasInterrupted ? false : restoredConstellationPromptPending);
         setConstellationRespecUnlockPromptPending(wasInterrupted ? false : restoredConstellationRespecPromptPending);
         setConstellationRespecPromptSeen(restoredConstellationRespecPromptSeen);
         setHasDiamondHudUnlocked(restoredDiamondHudUnlocked);
         setDiamondUnlockPromptPending(false);
-        previousSkillCountRef.current = payload.player.skills.length;
+        previousSkillCountRef.current = normalizedPlayer.skills.length;
 
         setEnemy(null);
         setLogs(wasInterrupted
@@ -836,10 +977,12 @@ export default function App() {
 
         const signaturePayload: SavePayload = {
             ...payload,
+            player: normalizedPlayer,
             onboardingPhase: safePhase,
             hasPlayerDiedOnce: payload.hasPlayerDiedOnce || wasInterrupted,
             dungeonSubBossDefeatedEvolution: restoredDungeonSubBossDefeatedEvolution,
             skillsUnlockPromptPending: wasInterrupted ? false : restoredSkillsPromptPending,
+            impulseUnlockPromptQueue: wasInterrupted ? [] : restoredImpulseUnlockPromptQueue,
             constellationUnlockPromptPending: wasInterrupted ? false : restoredConstellationPromptPending,
             constellationRespecUnlockPromptPending: wasInterrupted ? false : restoredConstellationRespecPromptPending,
             constellationRespecPromptSeen: restoredConstellationRespecPromptSeen,
@@ -1176,12 +1319,32 @@ export default function App() {
             levelsGained += 1;
             nextPlayer.level += 1;
             nextPlayer.xp -= nextPlayer.xpToNext;
-            nextPlayer.xpToNext = Math.floor(nextPlayer.xpToNext * 1.5);
+            nextPlayer.xpToNext = getXpToNextByLevel(nextPlayer.level);
         }
 
         if (levelsGained > 0) {
             nextPlayer.talentPoints += levelsGained;
         }
+
+        const newlyUnlockedImpulseLevels = levelsGained > 0
+            ? IMPULSE_UNLOCK_LEVELS.filter((unlockLevel) => basePlayer.level < unlockLevel && nextPlayer.level >= unlockLevel)
+            : [];
+
+        if (newlyUnlockedImpulseLevels.length > 0) {
+            setImpulseUnlockPromptQueue((prev) => {
+                const merged = [...prev];
+                newlyUnlockedImpulseLevels.forEach((unlockLevel) => {
+                    if (!merged.includes(unlockLevel)) {
+                        merged.push(unlockLevel);
+                    }
+                });
+                return merged;
+            });
+        }
+
+        const maxImpulse = getImpulseCapacityByLevel(nextPlayer.level);
+        nextPlayer.impulso = Math.max(0, Math.min(maxImpulse, nextPlayer.impulso ?? 0));
+        nextPlayer.impulsoAtivo = Math.max(0, Math.min(maxImpulse, nextPlayer.impulsoAtivo ?? 0));
 
         if (levelsGained > 0) {
             const safeRatio = Math.max(0, Math.min(1, levelUpRecoveryRatio));
@@ -1358,6 +1521,9 @@ export default function App() {
                 case 'atk':
                     nextPlayer.stats.atk += Math.floor(effectValue);
                     break;
+                case 'magic':
+                    nextPlayer.stats.magic += Math.floor(effectValue);
+                    break;
                 case 'def':
                     nextPlayer.stats.def += Math.floor(effectValue);
                     break;
@@ -1514,8 +1680,17 @@ export default function App() {
         ranger: 1.1,
         rogue: 1.16,
     };
+    const classMagicMultiplier: Record<Player['classId'], number> = {
+        knight: 0.9,
+        barbarian: 0.8,
+        mage: 1.36,
+        ranger: 1.02,
+        rogue: 0.94,
+    };
     const tierAtkPressure = Math.min(0.22, combatProfile.tier * 0.025);
+    const tierMagicPressure = Math.min(0.28, combatProfile.tier * 0.03);
     const enemyAtkMultiplier = classAtkMultiplier[enemyClassId] * (1 + tierAtkPressure);
+    const enemyMagicMultiplier = classMagicMultiplier[enemyClassId] * (1 + tierMagicPressure);
     const hasStrongCycleBoost = combatProfile.tier >= 2;
     const color = isBoss && isDungeonEncounter
         ? DUNGEON_BOSS.color
@@ -1544,6 +1719,7 @@ export default function App() {
         mp: combatProfile.maxMp,
         maxMp: combatProfile.maxMp,
                 atk: Math.floor(9 * levelMult * atkMultiplier * enemyAtkMultiplier * (isSubBossEncounter ? 1.22 : 1)),
+                                magic: Math.max(1, Math.floor(8 * levelMult * enemyMagicMultiplier * (isSubBossEncounter ? 1.18 : 1))),
                 def: Math.floor(3 * levelMult * defMultiplier * (isSubBossEncounter ? 1.2 : 1)),
                 speed: 10 + speedBonus + (isDungeonEncounter ? Math.floor(activeDungeonEvolution / 3) : 0) + (isSubBossEncounter ? 2 : 0),
         luck: Math.max(1, Math.floor((currentStage * 0.55) + (isBoss ? 3 : 0) + (isSubBossEncounter ? 3 : 0) + (isDungeonEncounter ? activeDungeonEvolution * 0.35 : 0)))
@@ -1676,6 +1852,7 @@ export default function App() {
     setOnboardingPhase('intro_camp');
     setHasPlayerDiedOnce(false);
         setSkillsUnlockPromptPending(false);
+    setImpulseUnlockPromptQueue([]);
         setConstellationUnlockPromptPending(false);
         setConstellationRespecUnlockPromptPending(false);
         setConstellationRespecPromptSeen(false);
@@ -1698,6 +1875,7 @@ export default function App() {
                 hasPlayerDiedOnce: false,
                 skillsActionUnlocked: false,
                 skillsUnlockPromptPending: false,
+                impulseUnlockPromptQueue: [],
                 constellationUnlockPromptPending: false,
                 constellationRespecUnlockPromptPending: false,
                 constellationRespecPromptSeen: false,
@@ -1801,11 +1979,49 @@ export default function App() {
   };
 
     const handleChangePlayerClass = (classId: Player['classId']) => {
+        const shouldDropWeapon = Boolean(player.equippedWeapon && !isWeaponProficientForClass(classId, player.equippedWeapon));
+
         setPlayer(prev => syncPlayerConstellationSkills({
-            ...applyPlayerClass(prev, classId),
+            ...(() => {
+                let adjustedStats = { ...prev.stats };
+                const adjustedInventory = { ...prev.inventory };
+                const equippedWeapon = prev.equippedWeapon;
+
+                const previousClassBonuses = getWeaponProficiencyAppliedBonuses(prev.classId, equippedWeapon);
+                if (hasWeaponProficiencyBonuses(previousClassBonuses)) {
+                    adjustedStats = applyWeaponProficiencyBonusesToStats(adjustedStats, previousClassBonuses, -1);
+                }
+
+                let nextEquippedWeapon = equippedWeapon;
+                if (equippedWeapon && !isWeaponProficientForClass(classId, equippedWeapon)) {
+                    adjustedStats = applyEquipmentBonusesToStats(adjustedStats, equippedWeapon, -1);
+                    if ((adjustedInventory[equippedWeapon.id] ?? 0) <= 0) {
+                        adjustedInventory[equippedWeapon.id] = 1;
+                    }
+                    nextEquippedWeapon = null;
+                }
+
+                const classApplied = applyPlayerClass({ ...prev, inventory: adjustedInventory, stats: adjustedStats, equippedWeapon: nextEquippedWeapon }, classId);
+                let classAppliedStats = { ...classApplied.stats };
+                const nextClassBonuses = getWeaponProficiencyAppliedBonuses(classId, nextEquippedWeapon);
+                if (hasWeaponProficiencyBonuses(nextClassBonuses)) {
+                    classAppliedStats = applyWeaponProficiencyBonusesToStats(classAppliedStats, nextClassBonuses, 1);
+                }
+
+                return {
+                    ...classApplied,
+                    inventory: adjustedInventory,
+                    stats: classAppliedStats,
+                    equippedWeapon: nextEquippedWeapon,
+                };
+            })(),
             classResource: createClassResourceState(classId),
             statusEffects: [],
         }, SKILLS));
+
+        if (shouldDropWeapon) {
+            addLog('Sua nova classe nao tem proficiencia com a arma equipada. A arma foi removida automaticamente.', 'info');
+        }
     };
 
   const handleLimitBreak = () => {
@@ -2364,6 +2580,11 @@ export default function App() {
           return;
       }
 
+      if (item.type === 'weapon' && !isWeaponProficientForClass(player.classId, item)) {
+          addLog(`Sua classe nao tem proficiencia com ${item.name}.`, 'info');
+          return;
+      }
+
       const currentlyEquipped = (
           item.type === 'weapon' ? player.equippedWeapon
           : item.type === 'armor' ? player.equippedArmor
@@ -2403,8 +2624,19 @@ export default function App() {
           let newShield = p.equippedShield;
 
           if (item.type === 'weapon') {
+              const previousProficiencyBonuses = getWeaponProficiencyAppliedBonuses(p.classId, newWep);
+              if (hasWeaponProficiencyBonuses(previousProficiencyBonuses)) {
+                  newStats = applyWeaponProficiencyBonusesToStats(newStats, previousProficiencyBonuses, -1);
+              }
+
               newStats = applyEquipmentBonusesToStats(newStats, newWep, -1);
               newStats = applyEquipmentBonusesToStats(newStats, item, 1);
+
+              const nextProficiencyBonuses = getWeaponProficiencyAppliedBonuses(p.classId, item);
+              if (hasWeaponProficiencyBonuses(nextProficiencyBonuses)) {
+                  newStats = applyWeaponProficiencyBonusesToStats(newStats, nextProficiencyBonuses, 1);
+              }
+
               newWep = item;
           }
           if (item.type === 'armor') {
@@ -2471,6 +2703,11 @@ export default function App() {
           let newShield = p.equippedShield;
 
           if (item.type === 'weapon' && newWep?.id === item.id) {
+              const proficiencyBonuses = getWeaponProficiencyAppliedBonuses(p.classId, item);
+              if (hasWeaponProficiencyBonuses(proficiencyBonuses)) {
+                  newStats = applyWeaponProficiencyBonusesToStats(newStats, proficiencyBonuses, -1);
+              }
+
               newStats = applyEquipmentBonusesToStats(newStats, item, -1);
               newWep = null;
           }
@@ -3257,6 +3494,10 @@ export default function App() {
                                                 skillsUnlockPromptActive={skillsUnlockPromptPending}
                                                 onAcknowledgeSkillsUnlock={() => {
                                                     setSkillsUnlockPromptPending(false);
+                                                }}
+                                                impulseUnlockPromptActive={impulseUnlockPromptQueue[0] ?? null}
+                                                onAcknowledgeImpulseUnlock={() => {
+                                                    setImpulseUnlockPromptQueue((prev) => prev.slice(1));
                                                 }}
                                                 constellationUnlockPromptActive={constellationUnlockPromptPending}
                                                 onAcknowledgeConstellationUnlock={() => {
