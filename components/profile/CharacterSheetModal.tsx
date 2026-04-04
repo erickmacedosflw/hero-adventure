@@ -259,6 +259,11 @@ const getCardCategoryBadge = (card: ProgressionCard) => {
   return { icon: <Sparkles size={14} />, label: 'Especial', color: 'text-sky-700 border-sky-300 bg-sky-100' };
 };
 
+const getProfileTabIconClass = (active: boolean) => {
+  if (!active) return 'opacity-80';
+  return 'rounded-full border-2 border-white bg-white/80 p-0.5 shadow-[0_4px_10px_rgba(40,20,25,0.2)]';
+};
+
 const ConstellationNodeCard = ({
   node,
   player,
@@ -568,7 +573,7 @@ export const CharacterSheetModal = ({ player, shopItems: _shopItems, onClose, on
       headerStyle={{ background: `linear-gradient(135deg, ${classAccentColor}, #6b3141)` }}
       valueBadge={<><GameAssetIcon name="book" size={24} /> {player.name}</>}
     >
-      <div className="flex flex-col gap-3 pb-14 md:pb-0">
+      <div className="flex flex-col gap-3 pb-0">
         <style>{`
           @keyframes profileTabPanelIn {
             0% {
@@ -627,20 +632,65 @@ export const CharacterSheetModal = ({ player, shopItems: _shopItems, onClose, on
         `}</style>
 
         {visibleTabs.length > 1 && (
-          <div className="hidden flex-wrap gap-2 px-1 md:flex">
-            {visibleTabs.map((tab) => (
-              <RpgMenuTab key={tab.id} active={activeTab === tab.id} onClick={() => setActiveTab(tab.id)} className="relative inline-flex items-center gap-2">
-                {tab.icon} {tab.label}
-                {tab.id === 'constellation' && player.talentPoints > 0 && (
-                  <span
-                    className="absolute -right-1 -top-1 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full border px-1 text-[10px] font-black text-white"
-                    style={{ borderColor: `${classAccentColor}cc`, backgroundColor: classAccentColor, boxShadow: `0 4px 10px ${classAccentColor}55` }}
+          <div className="hidden items-center justify-between gap-3 md:flex">
+            <div className="flex flex-wrap gap-2">
+              {visibleTabs.map((tab) => {
+                const active = activeTab === tab.id;
+                return (
+                  <RpgMenuTab
+                    key={tab.id}
+                    active={active}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`relative inline-flex shrink-0 items-center gap-2 ${active ? '!text-white shadow-[0_12px_24px_rgba(40,20,25,0.34)]' : ''}`}
+                    style={active ? { borderColor: classAccentColor, backgroundColor: classAccentColor } : undefined}
                   >
-                    {player.talentPoints}
-                  </span>
-                )}
-              </RpgMenuTab>
-            ))}
+                    <span className={`${active ? 'rounded-full px-1.5 py-0.5' : ''}`} style={active ? { backgroundColor: 'rgba(255,255,255,0.16)' } : undefined}>
+                      {React.cloneElement(tab.icon as React.ReactElement, { className: getProfileTabIconClass(active), size: active ? 24 : 22 })}
+                    </span>
+                    {tab.label}
+                    {tab.id === 'constellation' && player.talentPoints > 0 && (
+                      <span
+                        className="absolute -right-1 -top-1 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full border px-1 text-[10px] font-black text-white"
+                        style={{ borderColor: `${classAccentColor}cc`, backgroundColor: classAccentColor, boxShadow: `0 4px 10px ${classAccentColor}55` }}
+                      >
+                        {player.talentPoints}
+                      </span>
+                    )}
+                  </RpgMenuTab>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {visibleTabs.length > 1 && (
+          <div className="md:hidden">
+            <div className="mt-1 flex items-center gap-2 overflow-x-auto pb-1">
+              {visibleTabs.map((tab) => {
+                const active = activeTab === tab.id;
+                return (
+                  <button
+                    key={`mobile-tab-${tab.id}`}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`relative inline-flex shrink-0 items-center justify-center rounded-full border transition-all ${active ? 'h-14 min-w-[5.25rem] px-3.5 text-white shadow-[0_10px_20px_rgba(40,20,25,0.3)]' : 'h-12 min-w-[3.2rem] border-[#d6b9a3] bg-[#f8eddf] px-2.5'}`}
+                    style={active ? { borderColor: classAccentColor, backgroundColor: classAccentColor } : undefined}
+                    aria-label={tab.label}
+                    title={tab.label}
+                  >
+                    {React.cloneElement(tab.icon as React.ReactElement, { className: getProfileTabIconClass(active), size: active ? 28 : 24 })}
+                    {active && <span className="ml-2 text-xs font-black uppercase tracking-[0.1em] text-white">{tab.label}</span>}
+                    {tab.id === 'constellation' && player.talentPoints > 0 && (
+                      <span
+                        className="absolute right-1 top-1 inline-flex h-[17px] min-w-[17px] items-center justify-center rounded-full border px-1 text-[9px] font-black text-white"
+                        style={{ borderColor: `${classAccentColor}cc`, backgroundColor: classAccentColor, boxShadow: `0 4px 10px ${classAccentColor}55` }}
+                      >
+                        {player.talentPoints}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         )}
 
@@ -862,40 +912,11 @@ export const CharacterSheetModal = ({ player, shopItems: _shopItems, onClose, on
           </ScrollArea>
         )}
 
-        {visibleTabs.length > 1 && (
-        <div className="pointer-events-none fixed inset-x-0 bottom-4 z-[80] flex justify-center px-4 md:hidden">
-          <div className="pointer-events-auto flex items-center gap-1.5 rounded-full border border-[#c59d82] bg-[#f7eddc]/92 px-3 py-1.5 shadow-[0_14px_28px_rgba(54,26,33,0.18)] backdrop-blur-md">
-            {visibleTabs.map((tab) => {
-              const isActive = activeTab === tab.id;
-
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`relative flex min-w-[68px] flex-col items-center justify-center rounded-[14px] px-3 py-1.5 transition-all duration-250 ${isActive ? 'bg-[#fff4e7] text-[#6b3141] shadow-sm' : 'text-[#8f6c67]'}`}
-                >
-                  <span className={`transition-all duration-250 ${isActive ? 'scale-[1.32] -translate-y-0.5 drop-shadow-[0_6px_12px_rgba(107,49,65,0.26)]' : 'scale-100 opacity-80'}`}>{tab.icon}</span>
-                  {tab.id === 'constellation' && player.talentPoints > 0 && (
-                    <span
-                      className="absolute right-2 top-1 inline-flex h-[17px] min-w-[17px] items-center justify-center rounded-full border px-1 text-[9px] font-black text-white"
-                      style={{ borderColor: `${classAccentColor}cc`, backgroundColor: classAccentColor, boxShadow: `0 4px 10px ${classAccentColor}55` }}
-                    >
-                      {player.talentPoints}
-                    </span>
-                  )}
-                  {!isActive && <span className="mt-0.5 text-[9px] font-black uppercase tracking-[0.12em] opacity-70">{tab.label}</span>}
-                </button>
-              );
-            })}
-
-            
-          </div>
-        </div>
-        )}
+        {/* Mobile tabs now use top selector; floating bottom tab menu removed. */}
 
         {showClassGuide && <ClassGuideModal player={player} onClose={() => setShowClassGuide(false)} />}
         {canOpenInventory && !showClassGuide && !showRespecUnlockPrompt && !showRespecConfirm && (
-          <div className="pointer-events-none fixed bottom-[5.7rem] right-4 z-[124] md:bottom-6 md:right-6">
+          <div className="pointer-events-none fixed bottom-4 right-4 z-[124] md:bottom-6 md:right-6">
             <button
               onClick={() => onOpenInventory('all')}
               className="pointer-events-auto inline-flex items-center gap-2 rounded-full border border-[#b98774] bg-[linear-gradient(135deg,#6b3141,#7a3d4d)] px-3.5 py-2 text-xs font-black uppercase tracking-[0.14em] text-[#f7eadf] shadow-[0_14px_28px_rgba(107,49,65,0.35)] transition-all hover:-translate-y-0.5 hover:brightness-105 md:gap-2.5 md:px-5 md:py-3 md:text-sm"
@@ -907,7 +928,7 @@ export const CharacterSheetModal = ({ player, shopItems: _shopItems, onClose, on
           </div>
         )}
         {player.talentPoints > 0 && (!isStatusOnlyMode || allowConstellationTab) && (
-          <div className="pointer-events-none fixed bottom-[5.7rem] left-1/2 z-[125] -translate-x-1/2 md:bottom-6 md:left-1/2 md:-translate-x-1/2">
+          <div className="pointer-events-none fixed bottom-4 left-1/2 z-[125] -translate-x-1/2 md:bottom-6 md:left-1/2 md:-translate-x-1/2">
             <div
               className="inline-flex items-center gap-2 rounded-full border px-4 py-2.5 text-sm font-black uppercase tracking-[0.14em] text-white md:text-base"
               style={{

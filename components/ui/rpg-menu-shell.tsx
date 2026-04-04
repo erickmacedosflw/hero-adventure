@@ -54,8 +54,8 @@ export const RpgMenuSectionTitle = ({ children, className }: { children: React.R
   <div className={cn('rpg-menu-section-title', className)}>{children}</div>
 );
 
-export const RpgMenuTab = ({ active, onClick, children, className }: { active?: boolean; onClick?: () => void; children: React.ReactNode; className?: string }) => (
-  <button onClick={onClick} className={cn('rpg-menu-tab', active && 'rpg-menu-tab-active', className)}>
+export const RpgMenuTab = ({ active, onClick, children, className, style }: { active?: boolean; onClick?: () => void; children: React.ReactNode; className?: string; style?: React.CSSProperties }) => (
+  <button onClick={onClick} className={cn('rpg-menu-tab', active && 'rpg-menu-tab-active', className)} style={style}>
     {children}
   </button>
 );

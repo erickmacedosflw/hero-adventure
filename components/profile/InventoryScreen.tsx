@@ -33,6 +33,14 @@ type EffectCard = {
   panel: string;
 };
 
+type ItemAttributeBadge = {
+  id: string;
+  value: string;
+  icon: React.ReactNode;
+  tone: string;
+  panel: string;
+};
+
 const FILTERS: Array<{ id: InventoryFilter; label: string; icon: React.ReactNode }> = [
   { id: 'potion', label: 'Consum.', icon: <GameAssetIcon name="potionBlue" size={22} /> },
   { id: 'equipment', label: 'Equip.', icon: <GameAssetIcon name="helm" size={22} /> },
@@ -181,6 +189,18 @@ const getItemEffectCards = (item: Item): EffectCard[] => {
   }
 
   return [createEffectCard('special', 'ESPECIAL', 'Craft', <Sparkles size={15} />, 'text-[#8a5a57]', 'border-[#dcc0aa] bg-[linear-gradient(180deg,#fffdf9,#f7ecdd)]')];
+};
+
+const getItemAttributeBadges = (item: Item): ItemAttributeBadge[] => {
+  return getItemEffectCards(item)
+    .filter((entry) => entry.label !== 'TURNOS' && entry.label !== 'ESPECIAL')
+    .map((entry) => ({
+      id: entry.id,
+      value: entry.value,
+      icon: entry.icon,
+      tone: entry.tone,
+      panel: entry.panel,
+    }));
 };
 
 const ItemDetailCard = ({
@@ -840,6 +860,7 @@ export const InventoryScreen = ({ player, shopItems, onClose, onEquip, onUnequip
     const ownedQuantity = player.inventory[item.id] || 0;
     const canBulkSelectEntry = canBulkSell && ownedQuantity > 0;
     const isCheckedForBulkSell = Boolean(bulkSellSelections[item.id]);
+    const attributeBadges = getItemAttributeBadges(item);
 
     return (
       <div
@@ -865,7 +886,7 @@ export const InventoryScreen = ({ player, shopItems, onClose, onEquip, onUnequip
             setMobileDetailItemId(item.id);
           }
         }}
-        className={`relative w-full cursor-pointer rounded-[20px] p-3 text-left transition-all ${getRarityBorderClass(item.rarity)} ${getRarityCardBackgroundClass(item.rarity)} ${bulkSellMode ? (isCheckedForBulkSell ? 'shadow-[0_14px_30px_rgba(62,168,111,0.2)] ring-2 ring-[#3ea86f]/60' : 'ring-1 ring-[#9a7068]/30') : (isSelected ? 'shadow-[0_14px_30px_rgba(107,49,65,0.15)] ring-2 ring-[#7d3d4d]/40' : '')}`}
+        className={`relative w-full self-start cursor-pointer rounded-[20px] p-3 text-left transition-all ${getRarityBorderClass(item.rarity)} ${getRarityCardBackgroundClass(item.rarity)} ${bulkSellMode ? (isCheckedForBulkSell ? 'shadow-[0_14px_30px_rgba(62,168,111,0.2)] ring-2 ring-[#3ea86f]/60' : 'ring-1 ring-[#9a7068]/30') : (isSelected ? 'shadow-[0_14px_30px_rgba(107,49,65,0.15)] ring-2 ring-[#7d3d4d]/40' : '')}`}
       >
         {bulkSellMode ? (
           <div className={`absolute left-2 top-2 z-10 inline-flex h-6 w-6 items-center justify-center rounded-full border border-white shadow-sm ${isCheckedForBulkSell ? 'bg-[#3ea86f] text-white' : canBulkSelectEntry ? 'bg-white text-[#8a5a57]' : 'bg-[#e8d7c5] text-[#b59683]'}`}>
@@ -880,13 +901,29 @@ export const InventoryScreen = ({ player, shopItems, onClose, onEquip, onUnequip
           x{quantity}
         </div>
 
-        <div className="mx-auto mt-1 flex h-24 w-24 items-center justify-center">
-          <span className="text-[56px] leading-none [text-shadow:0_2px_0_#fff,0_-2px_0_#fff,2px_0_0_#fff,-2px_0_0_#fff,1.5px_1.5px_0_#fff,-1.5px_1.5px_0_#fff,1.5px_-1.5px_0_#fff,-1.5px_-1.5px_0_#fff,0_0_12px_rgba(255,255,255,0.6)]">
+        <div className="mx-auto mt-0.5 flex h-20 w-20 items-center justify-center">
+          <span className="text-[44px] leading-none [text-shadow:0_2px_0_#fff,0_-2px_0_#fff,2px_0_0_#fff,-2px_0_0_#fff,1.5px_1.5px_0_#fff,-1.5px_1.5px_0_#fff,1.5px_-1.5px_0_#fff,-1.5px_-1.5px_0_#fff,0_0_12px_rgba(255,255,255,0.6)]">
             {item.icon}
           </span>
         </div>
 
-        <div className="mt-2 text-center text-[15px] font-black leading-tight text-[#6b3141] whitespace-normal break-words sm:text-[13px] sm:truncate sm:whitespace-nowrap">{item.name}</div>
+        <div className="mt-1 text-center text-[15px] font-black leading-tight text-[#6b3141] whitespace-normal break-words sm:text-[13px] sm:truncate sm:whitespace-nowrap">{item.name}</div>
+
+        {attributeBadges.length > 0 && (
+          <div className="mt-2 flex min-w-0 flex-nowrap items-center justify-center gap-1">
+            {attributeBadges.map((badge) => (
+              <span
+                key={`${item.id}-attr-${badge.id}`}
+                className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-1 text-[12px] font-black leading-none sm:px-2 sm:py-0.5 sm:text-[11px] ${badge.panel} ${badge.tone}`}
+              >
+                {React.isValidElement(badge.icon)
+                  ? React.cloneElement(badge.icon as React.ReactElement<{ size?: number }>, { size: 14 })
+                  : badge.icon}
+                {badge.value}
+              </span>
+            ))}
+          </div>
+        )}
 
         {isEquipCard && !bulkSellMode ? (
           <button
@@ -925,7 +962,7 @@ export const InventoryScreen = ({ player, shopItems, onClose, onEquip, onUnequip
       accent="wine"
       valueBadge={<span className="inline-flex items-center gap-2.5 text-lg font-black"><GameAssetIcon name="bag" size={24} /> {totalItems} itens</span>}
     >
-      <div className="grid h-full min-h-0 grid-cols-1 gap-4 pb-0">
+      <div className="flex h-full min-h-0 flex-col gap-4 pb-0">
         <div className="hidden items-center justify-between gap-3 xl:flex">
           <div className="flex flex-nowrap gap-2 overflow-x-auto pb-1">
             {FILTERS.map((entry) => {
@@ -953,7 +990,7 @@ export const InventoryScreen = ({ player, shopItems, onClose, onEquip, onUnequip
           )}
         </div>
 
-        <div className="grid h-full min-h-0 grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(19rem,21rem)]">
+        <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(19rem,21rem)]">
           <aside className="flex min-h-0 flex-col gap-4">
             <div className="xl:hidden">
               <div className="mt-1 flex items-center gap-2 overflow-x-auto pb-1">
@@ -975,7 +1012,7 @@ export const InventoryScreen = ({ player, shopItems, onClose, onEquip, onUnequip
               </div>
             </div>
 
-            <ScrollArea className="min-h-0 flex-1 rounded-[24px] bg-[#f4e7d5] shadow-[0_8px_26px_rgba(107,49,65,0.08)]" viewportClassName="p-4">
+            <ScrollArea className={`rounded-[24px] bg-[#f4e7d5] shadow-[0_8px_26px_rgba(107,49,65,0.08)] ${filter === 'equipment' ? 'min-h-0 flex-1' : ''}`} viewportClassName="p-4">
               <div className="mb-3 flex">
                 <span className="inline-flex items-center gap-1 rounded-full border border-[#d6b9a3] bg-[#f8eddf] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.1em] text-[#6b3141]">
                   Itens {filteredItems.length}
@@ -1005,7 +1042,7 @@ export const InventoryScreen = ({ player, shopItems, onClose, onEquip, onUnequip
                     );
                   })
                 ) : (
-                  <div className="grid grid-cols-[repeat(auto-fill,minmax(8.8rem,1fr))] gap-2.5">
+                  <div className="grid auto-rows-max content-start grid-cols-[repeat(auto-fill,minmax(8.8rem,1fr))] gap-2.5">
                     {filteredItems.map(renderInventoryCard)}
                   </div>
                 )}
