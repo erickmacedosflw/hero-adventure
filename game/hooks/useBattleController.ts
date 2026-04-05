@@ -2,7 +2,12 @@
 import type { Dispatch, SetStateAction } from 'react';
 import { ALL_ITEMS, SKILLS } from '../../constants';
 import { COMBAT_SPRITE_ANIMATION_DEFAULTS, getSpriteAnimationRegistryEntry, SPRITE_ANIMATION_IDS } from '../data/sprite-animations/registry';
+import { getPlayerClassById } from '../data/classes';
 import { estimateAnimationPlaybackDurationMs } from '../mechanics/spriteOverlayPlayback';
+import {
+  shouldUseBowBasicAttack,
+  shouldUseMagicBasicAttack,
+} from '../mechanics/weaponProficiency';
 import {
   applyStatusEffect,
   calculateDamage,
@@ -109,6 +114,10 @@ interface UseBattleControllerParams {
   setEnemyImpactAnimationTarget: Dispatch<SetStateAction<'self' | 'target'>>;
   setPlayerImpactAnimationTrigger: Dispatch<SetStateAction<number>>;
   setEnemyImpactAnimationTrigger: Dispatch<SetStateAction<number>>;
+  setPlayerBowShotTrigger: Dispatch<SetStateAction<number>>;
+  setEnemyBowShotTrigger: Dispatch<SetStateAction<number>>;
+  setPlayerBowShotDidHit: Dispatch<SetStateAction<boolean>>;
+  setEnemyBowShotDidHit: Dispatch<SetStateAction<boolean>>;
   enemyIntentPreview?: EnemyIntentPreview | null;
   onPlayerDefeat?: () => void;
 }
@@ -213,6 +222,8 @@ const ENEMY_STEAL_LUCK_WEIGHT = 0.004;
 const ENEMY_ACTION_READ_DELAY_MS = 1250;
 const ENEMY_ACTION_READ_DELAY_LONG_MS = 1650;
 const IMPACT_TO_DEATH_SFX_DELAY_MS = 120;
+const BOW_PROJECTILE_IMPACT_DELAY_MS = 220;
+const BOW_PROJECTILE_IMPACT_BUFFER_MS = 40;
 const RIPOSTE_DAMAGE_MULTIPLIER = 1.35;
 const RIPOSTE_RESOURCE_BONUS = 1;
 const DEFEND_COUNTER_BASE_CHANCE = 0.06;
@@ -249,6 +260,27 @@ const getSkillCastColor = (skill: Enemy['skillSet'][number]) => {
   if (skill.effect === 'buff_def') return '#60a5fa';
   return skill.attackKind === 'magic' ? '#60a5fa' : '#f97316';
 };
+
+const isPlayerBowSkill = (
+  sourcePlayer: Player,
+  skill: Skill,
+  skillAnimationType: 'cura_status' | 'ataque' | 'magia',
+) => (
+  skillAnimationType === 'ataque'
+    && skill.type === 'physical'
+    && sourcePlayer.classId === 'ranger'
+);
+
+const isEnemyBowSkill = (
+  sourceEnemy: Enemy,
+  skill: Enemy['skillSet'][number],
+  enemySkillAnimationType: 'cura_status' | 'ataque' | 'magia',
+) => (
+  enemySkillAnimationType === 'ataque'
+    && skill.effect === 'damage'
+    && skill.attackKind === 'physical'
+    && sourceEnemy.enemyClassId === 'ranger'
+);
 
 const getEnemyItemUseLabel = (healAmount: number) => {
   if (healAmount >= 220) return '🌟';
@@ -348,6 +380,10 @@ export const useBattleController = ({
   setEnemyImpactAnimationTarget,
   setPlayerImpactAnimationTrigger,
   setEnemyImpactAnimationTrigger,
+  setPlayerBowShotTrigger,
+  setEnemyBowShotTrigger,
+  setPlayerBowShotDidHit,
+  setEnemyBowShotDidHit,
   enemyIntentPreview,
   onPlayerDefeat,
 }: UseBattleControllerParams) => {
@@ -504,6 +540,8 @@ export const useBattleController = ({
     player.level,
     setPlayer,
     setPlayerAnimationAction,
+    setPlayerBowShotDidHit,
+    setPlayerBowShotTrigger,
     setPlayerImpactAnimationId,
     setPlayerImpactAnimationTintColor,
     setPlayerImpactAnimationTarget,
@@ -537,6 +575,17 @@ export const useBattleController = ({
   const handlePlayerAttack = useCallback(() => {
     if (!enemy || turnState !== TurnState.PLAYER_INPUT) return;
     lastPlayerActionRef.current = 'attack';
+    const classAttackColor = getPlayerClassById(player.classId).visualProfile.secondaryColor;
+    const usesMagicBasicAttack = shouldUseMagicBasicAttack(player.classId, player.equippedWeapon);
+    const usesBowBasicAttack = shouldUseBowBasicAttack(player.classId, player.equippedWeapon);
+    const isRangedBasicAttack = usesMagicBasicAttack || usesBowBasicAttack;
+    const basicAttackKind: 'physical' | 'magic' = usesMagicBasicAttack ? 'magic' : 'physical';
+    const basicAttackerStyle: 'weapon' | 'unarmed' = usesMagicBasicAttack
+      ? 'unarmed'
+      : (player.equippedWeapon ? 'weapon' : 'unarmed');
+
+    setPlayerExecutionAnimationId(null);
+    setPlayerExecutionAnimationTintColor(null);
     setPlayerImpactAnimationId(null);
     setPlayerImpactAnimationTintColor(null);
     setPlayerImpactAnimationTarget('target');
@@ -545,16 +594,34 @@ export const useBattleController = ({
     const doubleAttackActive = player.buffs.doubleAttackTurns > 0;
     const riposteActive = Boolean(player.buffs.riposteArmed);
     const activeImpulse = consumeActiveImpulse();
-    const attackImpulseMultiplier = activeImpulse > 0 ? (1 + IMPULSE_ATTACK_DAMAGE_BONUS) : 1;
-    const attackDefenseIgnoreRatio = activeImpulse >= 2 ? IMPULSE_DEF_IGNORE_RATIO : 0;
-    const guaranteedCritFromImpulse = activeImpulse >= 3;
-    const attackDelay = player.equippedWeapon ? 650 : 400;
-    const idleDelay = player.equippedWeapon ? 400 : 550;
+    const bowImpulseExtraStrikes = usesBowBasicAttack
+      ? (player.classId === 'ranger'
+        ? activeImpulse
+        : (activeImpulse > 0 ? 1 : 0))
+      : 0;
+    const attackImpulseMultiplier = usesBowBasicAttack
+      ? 1
+      : (activeImpulse > 0 ? (1 + IMPULSE_ATTACK_DAMAGE_BONUS) : 1);
+    const attackDefenseIgnoreRatio = usesBowBasicAttack ? 0 : (activeImpulse >= 2 ? IMPULSE_DEF_IGNORE_RATIO : 0);
+    const guaranteedCritFromImpulse = usesBowBasicAttack ? false : activeImpulse >= 3;
+    const attackDelay = usesBowBasicAttack
+      ? 0
+      : isRangedBasicAttack
+        ? 520
+        : (player.equippedWeapon ? 650 : 400);
+    const idleDelay = usesBowBasicAttack
+      ? (BOW_PROJECTILE_IMPACT_DELAY_MS + 120)
+      : isRangedBasicAttack
+        ? 520
+        : (player.equippedWeapon ? 400 : 550);
+    const bowProjectileImpactDelayMs = usesBowBasicAttack ? BOW_PROJECTILE_IMPACT_DELAY_MS : 0;
 
     setTurnState(TurnState.PLAYER_ANIMATION);
-    setIsPlayerAttacking(true);
-    playMovementSfx(player.equippedWeapon ? 'weapon' : 'unarmed');
-    setPlayerAnimationAction('attack');
+    setIsPlayerAttacking(!isRangedBasicAttack);
+    if (!isRangedBasicAttack) {
+      playMovementSfx(basicAttackerStyle);
+    }
+    setPlayerAnimationAction(usesMagicBasicAttack ? 'skill' : 'attack');
     setEnemyAnimationAction(enemy.isDefending ? 'defend' : 'battle-idle');
     if (riposteActive) {
       setPlayer((prev) => ({
@@ -569,28 +636,42 @@ export const useBattleController = ({
 
     const resolveStrike = (remainingHp: number, isFirstStrike: boolean) => {
       const riposteMultiplier = riposteActive && isFirstStrike ? RIPOSTE_DAMAGE_MULTIPLIER : 1;
+      const schoolBonus = usesMagicBasicAttack ? talentBonuses.magicDamage : talentBonuses.physicalDamage;
       const attackResult = calculateDamage({
-        attackerAtk: player.stats.atk,
+        attackerAtk: usesMagicBasicAttack ? player.stats.magic : player.stats.atk,
         defenderDef: getEnemyDefWithBuff(enemy),
         attackerSpeed: player.stats.speed,
         defenderSpeed: enemy.stats.speed,
-        multiplier: getBossDamageMultiplier() * attackImpulseMultiplier * (1 + talentBonuses.physicalDamage + getMarkedBonus(enemy.statusEffects, talentBonuses.markedDamage)) * riposteMultiplier,
+        multiplier: getBossDamageMultiplier() * attackImpulseMultiplier * (1 + schoolBonus + getMarkedBonus(enemy.statusEffects, talentBonuses.markedDamage)) * riposteMultiplier,
         luck: player.stats.luck,
-        attackKind: 'physical',
+        attackKind: basicAttackKind,
         defenderIsDefending: isFirstStrike ? enemy.isDefending : false,
         attackerBuffs: player.buffs,
-        applyAttackBuff: true,
+        applyAttackBuff: !usesMagicBasicAttack,
         critChanceBonus: talentBonuses.critChance,
         critDamageBonus: talentBonuses.critDamage,
         defenderDefenseIgnoreRatio: attackDefenseIgnoreRatio,
         forceCrit: guaranteedCritFromImpulse,
+        disableCrit: usesBowBasicAttack && bowImpulseExtraStrikes > 0,
       });
 
       if (attackResult.evaded) {
-        battleSfx.play('evade');
-        spawnFloatingText(isFirstStrike ? 'DESVIO!' : '2o DESVIO!', 'enemy', 'buff');
-        addLog(isFirstStrike ? `${enemy.name} desviou do ataque!` : `${enemy.name} desviou do segundo golpe!`, 'evade');
-        triggerEnemyAnimationAction('evade', 520);
+        if (usesBowBasicAttack) {
+          setPlayerBowShotDidHit(false);
+          setPlayerBowShotTrigger((prev) => prev + 1);
+        }
+        const applyEvadeImpact = () => {
+          battleSfx.play('evade');
+          spawnFloatingText(isFirstStrike ? 'DESVIO!' : '2o DESVIO!', 'enemy', 'buff');
+          addLog(isFirstStrike ? `${enemy.name} desviou do ataque!` : `${enemy.name} desviou do segundo golpe!`, 'evade');
+          triggerEnemyAnimationAction('evade', 520);
+        };
+
+        if (bowProjectileImpactDelayMs > 0) {
+          window.setTimeout(applyEvadeImpact, bowProjectileImpactDelayMs);
+        } else {
+          applyEvadeImpact();
+        }
         return { remainingHp, defeated: false, evaded: true };
       }
 
@@ -602,80 +683,127 @@ export const useBattleController = ({
           ? Math.floor(defendedDamage * (1 - IMPULSE_DEFENSE_EXTRA_MITIGATION))
           : defendedDamage;
       const blockedByDefense = isFirstStrike && enemy.isDefending;
-      if (blockedByDefense) {
+      if (usesMagicBasicAttack) {
+        setPlayerImpactAnimationId(SPRITE_ANIMATION_IDS.execMagic);
+        setPlayerImpactAnimationTintColor(classAttackColor);
+        setPlayerImpactAnimationTarget('target');
+        setPlayerImpactAnimationTrigger((prev) => prev + 1);
+      } else if (usesBowBasicAttack) {
+        setPlayerBowShotDidHit(true);
+        setPlayerBowShotTrigger((prev) => prev + 1);
+      } else if (blockedByDefense) {
         setPlayerImpactAnimationId(SPRITE_ANIMATION_IDS.hitBlock);
         setPlayerImpactAnimationTintColor(null);
       }
-      playAttackImpactSfx({
-        attackKind: 'physical',
-        attackerStyle: player.equippedWeapon ? 'weapon' : 'unarmed',
-        defended: isFirstStrike ? enemy.isDefending : false,
-        source: 'hero',
-      });
-      const strikeLabel = isFirstStrike ? '' : '2o GOLPE! ';
-      spawnParticles([2, -0.5, 0], isFirstStrike ? 10 : 12, attackResult.isCrit ? '#fbbf24' : '#ffffff', 'explode');
-      spawnFloatingText(attackResult.isCrit ? `${strikeLabel}CRIT! ${appliedDamage}` : `${strikeLabel}${appliedDamage}`, 'enemy', attackResult.isCrit ? 'crit' : 'damage');
-      setScreenShake(attackResult.isCrit ? 0.5 : 0.2);
-      setIsEnemyHit(true);
-      window.setTimeout(() => {
-        setScreenShake(0);
-        setIsEnemyHit(false);
-      }, 200);
-
       const updatedHp = Math.max(0, remainingHp - appliedDamage);
-      if (updatedHp <= 0) {
-        playEnemyDeathAfterImpactSfx();
+      const applyStrikeImpact = () => {
+        playAttackImpactSfx({
+          attackKind: basicAttackKind,
+          attackerStyle: basicAttackerStyle,
+          defended: isFirstStrike ? enemy.isDefending : false,
+          source: 'hero',
+        });
+        const strikeLabel = isFirstStrike ? '' : '2o GOLPE! ';
+        spawnParticles([2, -0.5, 0], isFirstStrike ? 10 : 12, attackResult.isCrit ? '#fbbf24' : '#ffffff', 'explode');
+        spawnFloatingText(attackResult.isCrit ? `${strikeLabel}CRIT! ${appliedDamage}` : `${strikeLabel}${appliedDamage}`, 'enemy', attackResult.isCrit ? 'crit' : 'damage');
+        setScreenShake(attackResult.isCrit ? 0.5 : 0.2);
+        setIsEnemyHit(true);
+        window.setTimeout(() => {
+          setScreenShake(0);
+          setIsEnemyHit(false);
+        }, 200);
+
+        if (updatedHp <= 0) {
+          playEnemyDeathAfterImpactSfx();
+        }
+        triggerEnemyAnimationAction(updatedHp <= 0 ? 'death' : attackResult.isCrit ? 'critical-hit' : 'hit', updatedHp <= 0 ? 900 : attackResult.isCrit ? 620 : 360);
+        setEnemy((prev) => {
+          if (!prev) return null;
+          return {
+            ...prev,
+            stats: { ...prev.stats, hp: Math.max(0, prev.stats.hp - appliedDamage) },
+            isDefending: false,
+            impulseGuardLevel: 0,
+          };
+        });
+        const riposteResourceGain = riposteActive && isFirstStrike ? RIPOSTE_RESOURCE_BONUS : 0;
+        awardCombatBenefits(appliedDamage, 1 + Math.max(0, Math.floor(talentBonuses.resourceOnAttack)) + riposteResourceGain, talentBonuses);
+        addLog(`${isFirstStrike ? 'Causou' : 'Segundo golpe:'} ${appliedDamage} dano!${isFirstStrike && enemy.isDefending ? ' (Defendido)' : ''}`, attackResult.isCrit ? 'crit' : 'damage');
+      };
+
+      if (bowProjectileImpactDelayMs > 0) {
+        window.setTimeout(applyStrikeImpact, bowProjectileImpactDelayMs);
+      } else {
+        applyStrikeImpact();
       }
-      triggerEnemyAnimationAction(updatedHp <= 0 ? 'death' : attackResult.isCrit ? 'critical-hit' : 'hit', updatedHp <= 0 ? 900 : attackResult.isCrit ? 620 : 360);
-      setEnemy((prev) => {
-        if (!prev) return null;
-        return {
-          ...prev,
-          stats: { ...prev.stats, hp: Math.max(0, prev.stats.hp - appliedDamage) },
-          isDefending: false,
-          impulseGuardLevel: 0,
-        };
-      });
-      const riposteResourceGain = riposteActive && isFirstStrike ? RIPOSTE_RESOURCE_BONUS : 0;
-      awardCombatBenefits(appliedDamage, 1 + Math.max(0, Math.floor(talentBonuses.resourceOnAttack)) + riposteResourceGain, talentBonuses);
-      addLog(`${isFirstStrike ? 'Causou' : 'Segundo golpe:'} ${appliedDamage} dano!${isFirstStrike && enemy.isDefending ? ' (Defendido)' : ''}`, attackResult.isCrit ? 'crit' : 'damage');
       return { remainingHp: updatedHp, defeated: updatedHp <= 0, evaded: false };
     };
 
     window.setTimeout(() => {
       setIsPlayerAttacking(false);
 
-      const firstStrike = resolveStrike(enemy.stats.hp, true);
-      if (firstStrike.defeated) {
-        setPlayer((prev) => ({ ...prev, buffs: consumeTurnBuffs(prev.buffs) }));
-        void handleVictoryRef.current(900);
-        return;
+      const totalStrikes = 1 + (doubleAttackActive ? 1 : 0) + bowImpulseExtraStrikes;
+      const strikeIntervalDelayMs = bowProjectileImpactDelayMs > 0
+        ? Math.max(260, bowProjectileImpactDelayMs + BOW_PROJECTILE_IMPACT_BUFFER_MS)
+        : 260;
+
+      if (bowImpulseExtraStrikes > 0) {
+        addLog(`Impulso de Flecha: +${bowImpulseExtraStrikes} disparo(s).`, 'buff');
+      }
+      if (doubleAttackActive) {
+        addLog('Presa Gemea ativada: segundo golpe imediato!', 'buff');
       }
 
-      const resolvedIdleDelay = firstStrike.evaded ? Math.max(idleDelay, 570) : idleDelay;
-      if (!doubleAttackActive) {
+      const finishOnVictory = () => {
+        const finalize = () => {
+          setPlayer((prev) => ({ ...prev, buffs: consumeTurnBuffs(prev.buffs) }));
+          setPlayerExecutionAnimationId(null);
+          setPlayerExecutionAnimationTintColor(null);
+          setPlayerImpactAnimationId(null);
+          setPlayerImpactAnimationTintColor(null);
+          void handleVictoryRef.current(900);
+        };
+
+        if (bowProjectileImpactDelayMs > 0) {
+          window.setTimeout(finalize, bowProjectileImpactDelayMs + BOW_PROJECTILE_IMPACT_BUFFER_MS);
+        } else {
+          finalize();
+        }
+      };
+
+      const finishOnEnemyTurn = (lastStrikeEvaded: boolean) => {
+        const resolvedIdleDelay = lastStrikeEvaded
+          ? Math.max(idleDelay, 570, bowProjectileImpactDelayMs + 180)
+          : Math.max(idleDelay, bowProjectileImpactDelayMs + 180);
         window.setTimeout(() => {
           setPlayer((prev) => ({ ...prev, buffs: consumeTurnBuffs(prev.buffs) }));
+          setPlayerExecutionAnimationId(null);
+          setPlayerExecutionAnimationTintColor(null);
+          setPlayerImpactAnimationId(null);
+          setPlayerImpactAnimationTintColor(null);
           setPlayerAnimationAction('idle');
           setTurnState(TurnState.ENEMY_TURN);
         }, resolvedIdleDelay);
-        return;
-      }
+      };
 
-      addLog('Presa Gemea ativada: segundo golpe imediato!', 'buff');
-      window.setTimeout(() => {
-        const secondStrike = resolveStrike(firstStrike.remainingHp, false);
-        if (secondStrike.defeated) {
-          setPlayer((prev) => ({ ...prev, buffs: consumeTurnBuffs(prev.buffs) }));
-          void handleVictoryRef.current(900);
+      const runStrikeSequence = (remainingHp: number, strikeNumber: number) => {
+        const strike = resolveStrike(remainingHp, strikeNumber === 1);
+        if (strike.defeated) {
+          finishOnVictory();
           return;
         }
+
+        if (strikeNumber >= totalStrikes) {
+          finishOnEnemyTurn(strike.evaded);
+          return;
+        }
+
         window.setTimeout(() => {
-          setPlayer((prev) => ({ ...prev, buffs: consumeTurnBuffs(prev.buffs) }));
-          setPlayerAnimationAction('idle');
-          setTurnState(TurnState.ENEMY_TURN);
-        }, 450);
-      }, 260);
+          runStrikeSequence(strike.remainingHp, strikeNumber + 1);
+        }, strikeIntervalDelayMs);
+      };
+
+      runStrikeSequence(enemy.stats.hp, 1);
     }, attackDelay);
   }, [
     addLog,
@@ -688,11 +816,20 @@ export const useBattleController = ({
     setEnemyAnimationAction,
     setIsEnemyHit,
     setIsPlayerAttacking,
+    setPlayerExecutionAnimationId,
+    setPlayerExecutionAnimationTintColor,
     setPlayerAnimationAction,
+    setPlayerImpactAnimationId,
+    setPlayerImpactAnimationTintColor,
+    setPlayerImpactAnimationTarget,
+    setPlayerImpactAnimationTrigger,
+    setPlayerBowShotDidHit,
+    setPlayerBowShotTrigger,
     setScreenShake,
     setTurnState,
     spawnFloatingText,
     spawnParticles,
+    shouldUseBowBasicAttack,
     triggerEnemyAnimationAction,
     turnState,
     setPlayer,
@@ -784,9 +921,6 @@ export const useBattleController = ({
     const talentBonuses = getTalentBonuses(player);
     const riposteActive = skill.type !== 'heal' && Boolean(player.buffs.riposteArmed);
     const hasEmpowerBuff = player.buffs.skillEmpowerTurns > 0;
-    const boostedByImpulse = activeImpulse >= 2;
-    const skillEffectMultiplier = boostedByImpulse || hasEmpowerBuff ? (1 + IMPULSE_SKILL_EFFECT_BONUS) : 1;
-    const grantEmpowerTurns = activeImpulse >= 3 ? 2 : 0;
     const visual = getSkillVisualConfig(skill);
     const skillAnimationType = skill.tipoAnimacao
       ?? (skill.type === 'heal' ? 'cura_status' : skill.type === 'magic' ? 'magia' : 'ataque');
@@ -799,6 +933,12 @@ export const useBattleController = ({
     const impactColor = skill.trailColor ?? visual.color;
     const resourceSpent = skill.resourceEffect?.consumeAll ? player.classResource.value : requiredResource;
     const isAutoGuardSkill = skill.id === 'skl_11';
+    const isBowSkillShot = isPlayerBowSkill(player, skill, skillAnimationType);
+    const boostedByImpulse = !isBowSkillShot && activeImpulse >= 2;
+    const skillEffectMultiplier = boostedByImpulse || hasEmpowerBuff ? (1 + IMPULSE_SKILL_EFFECT_BONUS) : 1;
+    const grantEmpowerTurns = !isBowSkillShot && activeImpulse >= 3 ? 2 : 0;
+    const bowSkillImpulseExtraStrikes = isBowSkillShot ? activeImpulse : 0;
+    const skillProjectileImpactDelayMs = isBowSkillShot ? BOW_PROJECTILE_IMPACT_DELAY_MS : 0;
 
     setTurnState(TurnState.PLAYER_ANIMATION);
     setPlayerExecutionAnimationId(skill.animacaoExecucao ?? null);
@@ -940,12 +1080,13 @@ export const useBattleController = ({
       return;
     }
 
-    const shouldLungeForSkill = skillAnimationType === 'ataque';
+    const shouldLungeForSkill = skillAnimationType === 'ataque' && !isBowSkillShot;
     setIsPlayerAttacking(shouldLungeForSkill);
     if (shouldLungeForSkill) {
       playMovementSfx(skill.type === 'magic' ? 'unarmed' : (player.equippedWeapon ? 'weapon' : 'unarmed'));
     }
     const doubleAttackActive = player.buffs.doubleAttackTurns > 0 && skill.type === 'physical';
+    const skillExecutionDelayMs = isBowSkillShot ? 0 : Math.max(visual.castDelay, skillImpactDelayMs);
     window.setTimeout(() => {
       setIsPlayerAttacking(false);
 
@@ -967,15 +1108,29 @@ export const useBattleController = ({
           applyAttackBuff: skill.type !== 'magic',
           critChanceBonus: talentBonuses.critChance,
           critDamageBonus: talentBonuses.critDamage,
-          defenderDefenseIgnoreRatio: activeImpulse >= 2 ? IMPULSE_DEF_IGNORE_RATIO : 0,
-          forceCrit: activeImpulse >= 3,
+          defenderDefenseIgnoreRatio: isBowSkillShot ? 0 : (activeImpulse >= 2 ? IMPULSE_DEF_IGNORE_RATIO : 0),
+          forceCrit: isBowSkillShot ? false : activeImpulse >= 3,
+          disableCrit: isBowSkillShot && bowSkillImpulseExtraStrikes > 0,
         });
 
         if (attackResult.evaded) {
-          battleSfx.play('evade');
-          spawnFloatingText(isFirstStrike ? 'DESVIO!' : '2o DESVIO!', 'enemy', 'buff');
-          addLog(isFirstStrike ? `${enemy.name} desviou de ${skill.name}!` : `${enemy.name} desviou da repeticao de ${skill.name}!`, 'evade');
-          triggerEnemyAnimationAction('evade', 520);
+          if (isBowSkillShot) {
+            setPlayerBowShotDidHit(false);
+            setPlayerBowShotTrigger((prev) => prev + 1);
+          }
+
+          const applyEvadeImpact = () => {
+            battleSfx.play('evade');
+            spawnFloatingText(isFirstStrike ? 'DESVIO!' : '2o DESVIO!', 'enemy', 'buff');
+            addLog(isFirstStrike ? `${enemy.name} desviou de ${skill.name}!` : `${enemy.name} desviou da repeticao de ${skill.name}!`, 'evade');
+            triggerEnemyAnimationAction('evade', 520);
+          };
+
+          if (skillProjectileImpactDelayMs > 0) {
+            window.setTimeout(applyEvadeImpact, skillProjectileImpactDelayMs);
+          } else {
+            applyEvadeImpact();
+          }
           return { remainingHp, defeated: false };
         }
 
@@ -987,91 +1142,84 @@ export const useBattleController = ({
             ? Math.floor(defendedDamage * (1 - IMPULSE_DEFENSE_EXTRA_MITIGATION))
             : defendedDamage;
         const blockedByDefense = isFirstStrike && enemy.isDefending;
-        playAttackImpactSfx({
-          attackKind: skill.type === 'magic' ? 'magic' : 'physical',
-          attackerStyle: skill.type === 'magic' ? 'unarmed' : (player.equippedWeapon ? 'weapon' : 'unarmed'),
-          defended: isFirstStrike ? enemy.isDefending : false,
-          source: 'hero',
-        });
-        const strikePrefix = isFirstStrike ? '' : '2o ';
-        const impactPosition: [number, number, number] = [2, 0.62, 0.06];
-        const strikeBurstCount = visual.particleCount + (isFirstStrike ? 10 : 14) + (attackResult.isCrit ? 8 : 0);
-        spawnParticles(impactPosition, strikeBurstCount, impactColor, 'explode');
-        spawnParticles(impactPosition, 14 + (attackResult.isCrit ? 6 : 0), impactColor, 'spark');
-        spawnFloatingText(attackResult.isCrit ? `${strikePrefix}CRIT! ${appliedDamage}` : `${strikePrefix}${appliedDamage}`, 'enemy', attackResult.isCrit ? 'crit' : 'damage');
-        if (blockedByDefense) {
-          setPlayerImpactAnimationId(SPRITE_ANIMATION_IDS.hitBlock);
-          setPlayerImpactAnimationTintColor(null);
-          setPlayerImpactAnimationTarget('target');
-        } else {
-          setPlayerImpactAnimationId(skill.animacaoImpacto ?? null);
-          setPlayerImpactAnimationTintColor(skill.animacaoImpactoCor ?? null);
-          setPlayerImpactAnimationTarget(skillImpactTarget);
+        if (isBowSkillShot) {
+          setPlayerBowShotDidHit(true);
+          setPlayerBowShotTrigger((prev) => prev + 1);
         }
-        setPlayerImpactAnimationTrigger((prev) => prev + 1);
-        setIsEnemyHit(true);
-        window.setTimeout(() => setIsEnemyHit(false), 150);
-        setScreenShake(attackResult.isCrit ? visual.shake + 0.18 : visual.shake);
-        window.setTimeout(() => setScreenShake(0), 200);
 
         const updatedHp = Math.max(0, remainingHp - appliedDamage);
-        if (updatedHp <= 0) {
-          playEnemyDeathAfterImpactSfx();
-        }
-        triggerEnemyAnimationAction(updatedHp <= 0 ? 'death' : attackResult.isCrit ? 'critical-hit' : 'hit', updatedHp <= 0 ? 900 : attackResult.isCrit ? 620 : 360);
-        setEnemy((prev) => {
-          if (!prev) return null;
-          return {
-            ...prev,
-            stats: { ...prev.stats, hp: Math.max(0, prev.stats.hp - appliedDamage) },
-            isDefending: false,
-            impulseGuardLevel: 0,
-          };
-        });
+        const applyStrikeImpact = () => {
+          playAttackImpactSfx({
+            attackKind: skill.type === 'magic' ? 'magic' : 'physical',
+            attackerStyle: skill.type === 'magic' ? 'unarmed' : (player.equippedWeapon ? 'weapon' : 'unarmed'),
+            defended: isFirstStrike ? enemy.isDefending : false,
+            source: 'hero',
+          });
+          const strikePrefix = isFirstStrike ? '' : '2o ';
+          const impactPosition: [number, number, number] = [2, 0.62, 0.06];
+          const strikeBurstCount = visual.particleCount + (isFirstStrike ? 10 : 14) + (attackResult.isCrit ? 8 : 0);
+          spawnParticles(impactPosition, strikeBurstCount, impactColor, 'explode');
+          spawnParticles(impactPosition, 14 + (attackResult.isCrit ? 6 : 0), impactColor, 'spark');
+          spawnFloatingText(attackResult.isCrit ? `${strikePrefix}CRIT! ${appliedDamage}` : `${strikePrefix}${appliedDamage}`, 'enemy', attackResult.isCrit ? 'crit' : 'damage');
+          if (blockedByDefense) {
+            setPlayerImpactAnimationId(SPRITE_ANIMATION_IDS.hitBlock);
+            setPlayerImpactAnimationTintColor(null);
+            setPlayerImpactAnimationTarget('target');
+          } else {
+            setPlayerImpactAnimationId(skill.animacaoImpacto ?? null);
+            setPlayerImpactAnimationTintColor(skill.animacaoImpactoCor ?? null);
+            setPlayerImpactAnimationTarget(skillImpactTarget);
+          }
+          setPlayerImpactAnimationTrigger((prev) => prev + 1);
+          setIsEnemyHit(true);
+          window.setTimeout(() => setIsEnemyHit(false), 150);
+          setScreenShake(attackResult.isCrit ? visual.shake + 0.18 : visual.shake);
+          window.setTimeout(() => setScreenShake(0), 200);
 
-        const riposteResourceGain = riposteActive && isFirstStrike ? RIPOSTE_RESOURCE_BONUS : 0;
-        awardCombatBenefits(appliedDamage, (skill.resourceEffect?.gain ?? 0) + Math.max(0, Math.floor(talentBonuses.resourceOnSkill)) + riposteResourceGain, talentBonuses);
-        if (isFirstStrike) {
-          tryApplySkillStatus(skill, talentBonuses);
+          if (updatedHp <= 0) {
+            playEnemyDeathAfterImpactSfx();
+          }
+          triggerEnemyAnimationAction(updatedHp <= 0 ? 'death' : attackResult.isCrit ? 'critical-hit' : 'hit', updatedHp <= 0 ? 900 : attackResult.isCrit ? 620 : 360);
+          setEnemy((prev) => {
+            if (!prev) return null;
+            return {
+              ...prev,
+              stats: { ...prev.stats, hp: Math.max(0, prev.stats.hp - appliedDamage) },
+              isDefending: false,
+              impulseGuardLevel: 0,
+            };
+          });
+
+          const riposteResourceGain = riposteActive && isFirstStrike ? RIPOSTE_RESOURCE_BONUS : 0;
+          awardCombatBenefits(appliedDamage, (skill.resourceEffect?.gain ?? 0) + Math.max(0, Math.floor(talentBonuses.resourceOnSkill)) + riposteResourceGain, talentBonuses);
+          if (isFirstStrike) {
+            tryApplySkillStatus(skill, talentBonuses);
+          }
+          addLog(`${isFirstStrike ? skill.name : `${skill.name} (2o golpe)`}: ${appliedDamage} dano!${isFirstStrike && enemy.isDefending ? ' (Defendido)' : ''}`, attackResult.isCrit ? 'crit' : 'damage');
+        };
+
+        if (skillProjectileImpactDelayMs > 0) {
+          window.setTimeout(applyStrikeImpact, skillProjectileImpactDelayMs);
+        } else {
+          applyStrikeImpact();
         }
-        addLog(`${isFirstStrike ? skill.name : `${skill.name} (2o golpe)`}: ${appliedDamage} dano!${isFirstStrike && enemy.isDefending ? ' (Defendido)' : ''}`, attackResult.isCrit ? 'crit' : 'damage');
         return { remainingHp: updatedHp, defeated: updatedHp <= 0 };
       };
 
-      const firstStrike = resolveSkillStrike(enemy.stats.hp, true);
-      if (firstStrike.defeated) {
-        setPlayer((prev) => ({ ...prev, buffs: consumeTurnBuffs(prev.buffs) }));
-        setPlayerExecutionAnimationId(null);
-        setPlayerExecutionAnimationTintColor(null);
-        setPlayerImpactAnimationId(null);
-        setPlayerImpactAnimationTintColor(null);
-        void handleVictoryRef.current(Math.max(900, skillImpactPlaybackWindowMs));
-        return;
+      const totalStrikes = 1 + (doubleAttackActive ? 1 : 0) + bowSkillImpulseExtraStrikes;
+      const strikeIntervalDelayMs = skillProjectileImpactDelayMs > 0
+        ? Math.max(260, skillProjectileImpactDelayMs + BOW_PROJECTILE_IMPACT_BUFFER_MS)
+        : 260;
+
+      if (bowSkillImpulseExtraStrikes > 0) {
+        addLog(`Impulso de Flecha: +${bowSkillImpulseExtraStrikes} disparo(s) em ${skill.name}.`, 'buff');
+      }
+      if (doubleAttackActive) {
+        addLog(`Presa Gemea repetiu ${skill.name}!`, 'buff');
       }
 
-      if (!doubleAttackActive) {
-        window.setTimeout(() => {
-          setPlayer((prev) => {
-            const consumedBuffs = consumeTurnBuffs(prev.buffs);
-            if (grantEmpowerTurns > 0) {
-              consumedBuffs.skillEmpowerTurns = prev.buffs.skillEmpowerTurns;
-            }
-            return { ...prev, buffs: consumedBuffs };
-          });
-          setPlayerExecutionAnimationId(null);
-          setPlayerExecutionAnimationTintColor(null);
-          setPlayerImpactAnimationId(null);
-          setPlayerImpactAnimationTintColor(null);
-          setPlayerAnimationAction('idle');
-          setTurnState(TurnState.ENEMY_TURN);
-        }, Math.max(420, skillImpactPlaybackWindowMs));
-        return;
-      }
-
-      addLog(`Presa Gemea repetiu ${skill.name}!`, 'buff');
-      window.setTimeout(() => {
-        const secondStrike = resolveSkillStrike(firstStrike.remainingHp, false);
-        if (secondStrike.defeated) {
+      const finishOnVictory = () => {
+        const finalize = () => {
           setPlayer((prev) => {
             const consumedBuffs = consumeTurnBuffs(prev.buffs);
             if (grantEmpowerTurns > 0) {
@@ -1084,8 +1232,16 @@ export const useBattleController = ({
           setPlayerImpactAnimationId(null);
           setPlayerImpactAnimationTintColor(null);
           void handleVictoryRef.current(Math.max(900, skillImpactPlaybackWindowMs));
-          return;
+        };
+
+        if (skillProjectileImpactDelayMs > 0) {
+          window.setTimeout(finalize, skillProjectileImpactDelayMs + BOW_PROJECTILE_IMPACT_BUFFER_MS);
+        } else {
+          finalize();
         }
+      };
+
+      const finishOnEnemyTurn = () => {
         window.setTimeout(() => {
           setPlayer((prev) => {
             const consumedBuffs = consumeTurnBuffs(prev.buffs);
@@ -1100,9 +1256,28 @@ export const useBattleController = ({
           setPlayerImpactAnimationTintColor(null);
           setPlayerAnimationAction('idle');
           setTurnState(TurnState.ENEMY_TURN);
-        }, Math.max(420, skillImpactPlaybackWindowMs));
-      }, 260);
-    }, Math.max(visual.castDelay, skillImpactDelayMs));
+        }, Math.max(420, skillImpactPlaybackWindowMs, skillProjectileImpactDelayMs + 220));
+      };
+
+      const runStrikeSequence = (remainingHp: number, strikeNumber: number) => {
+        const strike = resolveSkillStrike(remainingHp, strikeNumber === 1);
+        if (strike.defeated) {
+          finishOnVictory();
+          return;
+        }
+
+        if (strikeNumber >= totalStrikes) {
+          finishOnEnemyTurn();
+          return;
+        }
+
+        window.setTimeout(() => {
+          runStrikeSequence(strike.remainingHp, strikeNumber + 1);
+        }, strikeIntervalDelayMs);
+      };
+
+      runStrikeSequence(enemy.stats.hp, 1);
+    }, skillExecutionDelayMs);
   }, [
     addLog,
     awardCombatBenefits,
@@ -1118,6 +1293,8 @@ export const useBattleController = ({
     setPlayer,
     setPlayerAnimationAction,
     setPlayerExecutionAnimationId,
+    setPlayerBowShotDidHit,
+    setPlayerBowShotTrigger,
     setScreenShake,
     setIsEnemyHit,
     setTurnState,
@@ -1742,7 +1919,6 @@ export const useBattleController = ({
       const activeEnemyImpulse = consumeEnemyImpulseForAction('habilidade');
       const chosenSkill = usableSkills[Math.floor(Math.random() * usableSkills.length)];
       const effectiveSkillManaCost = activeEnemyImpulse >= 1 ? Math.max(1, Math.floor(chosenSkill.manaCost * (1 - IMPULSE_MANA_DISCOUNT))) : chosenSkill.manaCost;
-      const skillEffectMultiplier = activeEnemyImpulse >= 2 ? (1 + IMPULSE_SKILL_EFFECT_BONUS) : 1;
       const nextSkillSet = simulatedEnemy.skillSet.map((skill) => (
         skill.id === chosenSkill.id
           ? { ...skill, currentCooldown: skill.cooldown }
@@ -1761,7 +1937,13 @@ export const useBattleController = ({
       const enemySkillAnimationType: 'cura_status' | 'ataque' | 'magia' = chosenSkill.effect === 'damage'
         ? (chosenSkill.attackKind === 'magic' ? 'magia' : 'ataque')
         : 'cura_status';
-      const enemyShouldLungeForSkill = enemySkillAnimationType === 'ataque';
+      const enemyBowSkillShot = isEnemyBowSkill(simulatedEnemy, chosenSkill, enemySkillAnimationType);
+      const enemyBowSkillImpulseExtraStrikes = enemyBowSkillShot ? activeEnemyImpulse : 0;
+      const enemySkillTotalStrikes = 1 + enemyBowSkillImpulseExtraStrikes;
+      const enemySkillImpactDelayMs = enemyBowSkillShot ? BOW_PROJECTILE_IMPACT_DELAY_MS : 0;
+      const enemyShouldLungeForSkill = enemySkillAnimationType === 'ataque' && !enemyBowSkillShot;
+      const enemySkillExecutionDelayMs = enemyBowSkillShot ? 0 : 420;
+      const skillEffectMultiplier = enemyBowSkillShot ? 1 : (activeEnemyImpulse >= 2 ? (1 + IMPULSE_SKILL_EFFECT_BONUS) : 1);
       setIsEnemyAttacking(enemyShouldLungeForSkill);
       if (enemyShouldLungeForSkill) {
         playMovementSfx(chosenSkill.attackKind === 'magic' ? 'unarmed' : (simulatedEnemy.attackStyle === 'armed' ? 'weapon' : 'unarmed'));
@@ -1817,140 +1999,452 @@ export const useBattleController = ({
           return;
         }
 
-        const magicSkillPressure = chosenSkill.attackKind === 'magic'
-          ? getEnemyMagicSkillPressure(simulatedEnemy)
-          : 1;
+        if (enemyBowSkillImpulseExtraStrikes > 0) {
+          addLog(`${simulatedEnemy.name} converteu impulso em +${enemyBowSkillImpulseExtraStrikes} disparo(s) de ${chosenSkill.name}!`, 'buff');
+        }
 
-        const skillAttackResult = calculateDamage({
-          attackerAtk: chosenSkill.attackKind === 'magic'
-            ? simulatedEnemy.stats.magic
-            : getEnemyAtkWithBuff(simulatedEnemy),
+        const strikeIntervalDelayMs = enemySkillImpactDelayMs > 0
+          ? Math.max(260, enemySkillImpactDelayMs + BOW_PROJECTILE_IMPACT_BUFFER_MS)
+          : 260;
+
+        const resolveEnemySkillStrike = (remainingHp: number, strikeNumber: number) => {
+          const isFirstStrike = strikeNumber === 1;
+          const strikeDefendingActive = isFirstStrike ? defendingActive : false;
+          const strikePerfectGuardActive = strikeDefendingActive && player.buffs.perfectGuardTurns > 0;
+          const strikeExtraImpulseMitigationActive = strikeDefendingActive && player.buffs.impulseDefenseBoostTurns > 0;
+          const magicSkillPressure = chosenSkill.attackKind === 'magic'
+            ? getEnemyMagicSkillPressure(simulatedEnemy)
+            : 1;
+          const magicImpulseDefenseIgnoreRatio = chosenSkill.attackKind === 'magic' && !enemyBowSkillShot && activeEnemyImpulse >= 2
+            ? IMPULSE_DEF_IGNORE_RATIO
+            : 0;
+          const magicImpulseForceCrit = chosenSkill.attackKind === 'magic' && !enemyBowSkillShot && activeEnemyImpulse >= 3;
+
+          const skillAttackResult = calculateDamage({
+            attackerAtk: chosenSkill.attackKind === 'magic'
+              ? simulatedEnemy.stats.magic
+              : getEnemyAtkWithBuff(simulatedEnemy),
+            defenderDef: player.stats.def,
+            attackerSpeed: simulatedEnemy.stats.speed,
+            defenderSpeed: player.stats.speed,
+            defenderHasPerfectEvade: player.buffs.perfectEvadeTurns > 0,
+            multiplier: chosenSkill.damageMultiplier * getEnemyDamagePressure(simulatedEnemy, 'skill') * magicSkillPressure * skillEffectMultiplier,
+            luck: simulatedEnemy.stats.luck,
+            attackKind: chosenSkill.attackKind,
+            defenderIsDefending: strikeDefendingActive,
+            defenderBuffs: player.buffs,
+            applyDefenseBuff: true,
+            critChanceBonus: simulatedEnemy.aiProfile.critChanceBonus,
+            critDamageBonus: simulatedEnemy.aiProfile.critDamageBonus,
+            damageReduction: talentBonuses.damageReduction,
+            defendMitigationBonus: talentBonuses.defendMitigation,
+            defenderDefenseIgnoreRatio: magicImpulseDefenseIgnoreRatio,
+            forceCrit: magicImpulseForceCrit,
+            disableCrit: enemyBowSkillShot && enemyBowSkillImpulseExtraStrikes > 0,
+          });
+
+          if (skillAttackResult.evaded) {
+            if (enemyBowSkillShot) {
+              setEnemyBowShotDidHit(false);
+              setEnemyBowShotTrigger((prev) => prev + 1);
+            }
+
+            const applyEvadeImpact = () => {
+              battleSfx.play('evade');
+              addLog(`Voce desviou de ${chosenSkill.name}!`, 'evade');
+              spawnFloatingText('DESVIO!', 'player', 'buff');
+
+              if (strikeNumber >= enemySkillTotalStrikes) {
+                finishEnemyActionToPlayerTurn(simulatedEnemy);
+                setIsEnemyAttacking(false);
+                return;
+              }
+
+              window.setTimeout(() => {
+                triggerEnemyAnimationAction('skill', 760);
+                resolveEnemySkillStrike(remainingHp, strikeNumber + 1);
+              }, strikeIntervalDelayMs);
+            };
+
+            if (enemySkillImpactDelayMs > 0) {
+              window.setTimeout(applyEvadeImpact, enemySkillImpactDelayMs);
+            } else {
+              applyEvadeImpact();
+            }
+            return;
+          }
+
+          const defendedDamage = strikeDefendingActive ? Math.floor(skillAttackResult.damage * 0.5) : skillAttackResult.damage;
+          const afterImpulseMitigation = strikeExtraImpulseMitigationActive ? Math.floor(defendedDamage * (1 - IMPULSE_DEFENSE_EXTRA_MITIGATION)) : defendedDamage;
+          const finalDamage = strikePerfectGuardActive ? 0 : afterImpulseMitigation;
+          const mitigatedDamage = strikeDefendingActive ? Math.max(0, skillAttackResult.damage - finalDamage) : 0;
+          const remainingHpAfterHit = Math.max(0, remainingHp - finalDamage);
+          if (enemyBowSkillShot) {
+            setEnemyBowShotDidHit(true);
+            setEnemyBowShotTrigger((prev) => prev + 1);
+          }
+
+          const applySkillImpact = () => {
+            playAttackImpactSfx({
+              attackKind: chosenSkill.attackKind,
+              attackerStyle: chosenSkill.attackKind === 'magic' ? 'unarmed' : (simulatedEnemy.attackStyle === 'armed' ? 'weapon' : 'unarmed'),
+              defended: strikeDefendingActive,
+              source: 'enemy',
+            });
+            if (remainingHpAfterHit <= 0) {
+              battleSfx.play('death');
+            }
+            const hitAnimationAction: PlayerAnimationAction = remainingHpAfterHit <= 0
+              ? 'death'
+              : strikeDefendingActive
+                ? 'defend-hit'
+                : skillAttackResult.isCrit
+                  ? 'critical-hit'
+                  : 'hit';
+
+            spawnParticles([-2, -1, 0], 14, castColor, 'explode');
+            spawnParticles([-2, -1, 0], 10, chosenSkill.attackKind === 'magic' ? '#7dd3fc' : '#fb7185', 'spark');
+            spawnFloatingText(skillAttackResult.isCrit ? `CRIT ${finalDamage}` : finalDamage, 'player', skillAttackResult.isCrit ? 'crit' : 'damage');
+            if (strikeDefendingActive) {
+              setEnemyImpactAnimationId(SPRITE_ANIMATION_IDS.hitBlock);
+              setEnemyImpactAnimationTintColor(null);
+            } else {
+              setEnemyImpactAnimationId(null);
+              setEnemyImpactAnimationTintColor(null);
+            }
+            setScreenShake(skillAttackResult.isCrit ? 0.34 : 0.22);
+            setIsPlayerHit(true);
+            setIsPlayerCritHit(skillAttackResult.isCrit);
+            window.setTimeout(() => {
+              setScreenShake(0);
+              setIsPlayerHit(false);
+              setIsPlayerCritHit(false);
+            }, 220);
+
+            if (mitigatedDamage > 0) {
+              addLog(`Defesa mitigou ${mitigatedDamage} dano.`, 'buff');
+            }
+
+            let pendingCounter: { damage: number; enemyStateBeforeCounter: Enemy } | null = null;
+            setPlayer((prev) => ({
+              ...prev,
+              buffs: {
+                ...prev.buffs,
+                riposteTurns: strikeDefendingActive ? 1 : prev.buffs.riposteTurns,
+                riposteArmed: strikeDefendingActive ? true : prev.buffs.riposteArmed,
+              },
+              isDefending: false,
+              stats: { ...prev.stats, hp: Math.max(0, prev.stats.hp - finalDamage) },
+            }));
+            if (strikeDefendingActive && remainingHpAfterHit > 0) {
+              const counterResult = rollDefensiveCounter(simulatedEnemy);
+              if (counterResult.triggered) {
+                pendingCounter = {
+                  damage: counterResult.damage,
+                  enemyStateBeforeCounter: simulatedEnemy,
+                };
+              }
+            }
+            const strikePrefix = strikeNumber > 1 ? `${strikeNumber}o disparo: ` : '';
+            setPlayerAnimationAction(hitAnimationAction);
+            addLog(`${strikePrefix}${simulatedEnemy.name} usou ${chosenSkill.name}: ${finalDamage} dano!${skillAttackResult.isCrit ? ' CRITICO!' : ''}`, skillAttackResult.isCrit ? 'crit' : 'damage');
+
+            window.setTimeout(() => {
+              setIsEnemyAttacking(false);
+              if (remainingHpAfterHit <= 0) {
+                onPlayerDefeat?.();
+                window.setTimeout(() => {
+                  if (dungeonRun) {
+                    setKillCount(0);
+                    setPlayer((prev) => ({
+                      ...clonePlayer(dungeonRun.entrySnapshot),
+                      xp: prev.xp,
+                      level: prev.level,
+                      xpToNext: prev.xpToNext,
+                      talentPoints: prev.talentPoints,
+                    }));
+                    setDungeonResult({
+                      outcome: 'defeat',
+                      rewards: dungeonRun.rewards,
+                      reason: enemy.isBoss ? 'O chefao final da dungeon venceu voce. O espolio acumulado foi perdido, mas o XP obtido nas vitorias foi mantido.' : 'Voce caiu antes de terminar a dungeon. O espolio acumulado foi perdido, mas o XP obtido nas vitorias foi mantido.',
+                    });
+                    setDungeonRun(null);
+                    setEnemy(null);
+                    setEnemyIntentPreview(null);
+                    setGameState(GameState.DUNGEON_RESULT);
+                  } else if (enemy.isBoss) {
+                    setKillCount(0);
+                    setEnemyIntentPreview(null);
+                    setGameState(GameState.GAME_OVER);
+                  } else {
+                    setEnemyIntentPreview(null);
+                    setGameState(GameState.GAME_OVER);
+                  }
+                }, 900);
+                return;
+              }
+
+              if (pendingCounter) {
+                window.setTimeout(() => {
+                  executeDefensiveCounter(
+                    pendingCounter.enemyStateBeforeCounter,
+                    pendingCounter.damage,
+                    (enemyAfterCounter, enemyDefeatedByCounter) => {
+                      if (enemyDefeatedByCounter) {
+                        void handleVictoryRef.current(900);
+                        return;
+                      }
+                      finishEnemyActionToPlayerTurn(enemyAfterCounter);
+                    },
+                  );
+                }, 150);
+                return;
+              }
+
+              if (strikeNumber >= enemySkillTotalStrikes) {
+                finishEnemyActionToPlayerTurn(simulatedEnemy);
+                return;
+              }
+
+              window.setTimeout(() => {
+                triggerEnemyAnimationAction('skill', 760);
+                resolveEnemySkillStrike(remainingHpAfterHit, strikeNumber + 1);
+              }, strikeIntervalDelayMs);
+            }, ENEMY_ACTION_READ_DELAY_MS);
+          };
+
+          if (enemySkillImpactDelayMs > 0) {
+            window.setTimeout(applySkillImpact, enemySkillImpactDelayMs);
+          } else {
+            applySkillImpact();
+          }
+        };
+
+        resolveEnemySkillStrike(player.stats.hp, 1);
+      }, enemySkillExecutionDelayMs);
+      return;
+    }
+
+    if (executedIntent === 'defend' && canDefend) {
+      const activeEnemyImpulse = consumeEnemyImpulseForAction('defesa');
+      useDefendAction('segurar a ofensiva', activeEnemyImpulse);
+      return;
+    }
+
+    const activeEnemyImpulse = consumeEnemyImpulseForAction('ataque');
+    const enemyUsesMagicBasicAttack = simulatedEnemy.enemyClassId === 'mage';
+    const enemyUsesBowBasicAttack = !enemyUsesMagicBasicAttack && simulatedEnemy.enemyClassId === 'ranger';
+    const enemyBowImpulseExtraStrikes = enemyUsesBowBasicAttack ? activeEnemyImpulse : 0;
+    const enemyBasicTotalStrikes = 1 + enemyBowImpulseExtraStrikes;
+    const enemyBasicImpulseDamageMultiplier = enemyUsesBowBasicAttack
+      ? 1
+      : (activeEnemyImpulse > 0 ? (1 + IMPULSE_ATTACK_DAMAGE_BONUS) : 1);
+    const enemyUsesRangedBasicAttack = enemyUsesMagicBasicAttack || enemyUsesBowBasicAttack;
+    const enemyBasicResolveDelayMs = enemyUsesBowBasicAttack ? 0 : 400;
+    const enemyBasicImpactDelayMs = enemyUsesBowBasicAttack ? BOW_PROJECTILE_IMPACT_DELAY_MS : 0;
+    const enemyClassAttackColor = getPlayerClassById(simulatedEnemy.enemyClassId).visualProfile.secondaryColor;
+    const enemyBasicAttackKind: 'physical' | 'magic' = enemyUsesMagicBasicAttack ? 'magic' : 'physical';
+    const enemyBasicAttackerStyle: 'weapon' | 'unarmed' = enemyUsesMagicBasicAttack
+      ? 'unarmed'
+      : (simulatedEnemy.attackStyle === 'armed' ? 'weapon' : 'unarmed');
+    simulatedEnemy = {
+      ...simulatedEnemy,
+      lastAction: 'attack',
+    };
+    setIsEnemyAttacking(!enemyUsesRangedBasicAttack);
+    if (!enemyUsesRangedBasicAttack) {
+      playMovementSfx(enemyBasicAttackerStyle);
+    }
+    triggerEnemyAnimationAction(enemyUsesMagicBasicAttack ? 'skill' : 'attack', enemyUsesRangedBasicAttack ? 780 : 750);
+
+    window.setTimeout(() => {
+      if (enemyBowImpulseExtraStrikes > 0) {
+        addLog(`${simulatedEnemy.name} converteu impulso em +${enemyBowImpulseExtraStrikes} disparo(s)!`, 'buff');
+      }
+
+      const strikeIntervalDelayMs = enemyBasicImpactDelayMs > 0
+        ? Math.max(260, enemyBasicImpactDelayMs + BOW_PROJECTILE_IMPACT_BUFFER_MS)
+        : 260;
+
+      const resolveEnemyBasicStrike = (remainingHp: number, strikeNumber: number) => {
+        const isFirstStrike = strikeNumber === 1;
+        const strikeDefendingActive = isFirstStrike ? defendingActive : false;
+        const strikePerfectGuardActive = strikeDefendingActive && player.buffs.perfectGuardTurns > 0;
+        const strikeExtraImpulseMitigationActive = strikeDefendingActive && player.buffs.impulseDefenseBoostTurns > 0;
+        const attackResult = calculateDamage({
+          attackerAtk: enemyUsesMagicBasicAttack ? simulatedEnemy.stats.magic : getEnemyAtkWithBuff(simulatedEnemy),
           defenderDef: player.stats.def,
           attackerSpeed: simulatedEnemy.stats.speed,
           defenderSpeed: player.stats.speed,
           defenderHasPerfectEvade: player.buffs.perfectEvadeTurns > 0,
-          multiplier: chosenSkill.damageMultiplier * getEnemyDamagePressure(simulatedEnemy, 'skill') * magicSkillPressure * skillEffectMultiplier,
+          multiplier: getEnemyDamagePressure(simulatedEnemy, 'basic') * enemyBasicImpulseDamageMultiplier,
           luck: simulatedEnemy.stats.luck,
-          attackKind: chosenSkill.attackKind,
-          defenderIsDefending: defendingActive,
+          attackKind: enemyBasicAttackKind,
+          defenderIsDefending: strikeDefendingActive,
           defenderBuffs: player.buffs,
           applyDefenseBuff: true,
           critChanceBonus: simulatedEnemy.aiProfile.critChanceBonus,
           critDamageBonus: simulatedEnemy.aiProfile.critDamageBonus,
           damageReduction: talentBonuses.damageReduction,
           defendMitigationBonus: talentBonuses.defendMitigation,
+          defenderDefenseIgnoreRatio: enemyUsesBowBasicAttack ? 0 : (activeEnemyImpulse >= 2 ? IMPULSE_DEF_IGNORE_RATIO : 0),
+          forceCrit: enemyUsesBowBasicAttack ? false : activeEnemyImpulse >= 3,
+          disableCrit: enemyUsesBowBasicAttack && enemyBowImpulseExtraStrikes > 0,
         });
 
-        if (skillAttackResult.evaded) {
-          battleSfx.play('evade');
-          addLog(`Voce desviou de ${chosenSkill.name}!`, 'evade');
-          spawnFloatingText('DESVIO!', 'player', 'buff');
-          finishEnemyActionToPlayerTurn(simulatedEnemy);
-          setIsEnemyAttacking(false);
+        if (attackResult.evaded) {
+          if (enemyUsesBowBasicAttack) {
+            setEnemyBowShotDidHit(false);
+            setEnemyBowShotTrigger((prev) => prev + 1);
+          }
+          const applyEvadeImpact = () => {
+            battleSfx.play('evade');
+            spawnFloatingText('DESVIO!', 'player', 'buff');
+            addLog(`Voce desviou do ataque de ${simulatedEnemy.name}!`, 'evade');
+            setPlayer((prev) => ({ ...prev, isDefending: false }));
+            setPlayerAnimationAction('evade');
+
+            if (strikeNumber >= enemyBasicTotalStrikes) {
+              window.setTimeout(() => {
+                setIsEnemyAttacking(false);
+                finishEnemyActionToPlayerTurn(simulatedEnemy);
+              }, 600);
+              return;
+            }
+
+            window.setTimeout(() => {
+              triggerEnemyAnimationAction(enemyUsesMagicBasicAttack ? 'skill' : 'attack', enemyUsesRangedBasicAttack ? 780 : 750);
+              resolveEnemyBasicStrike(remainingHp, strikeNumber + 1);
+            }, strikeIntervalDelayMs);
+          };
+
+          if (enemyBasicImpactDelayMs > 0) {
+            window.setTimeout(applyEvadeImpact, enemyBasicImpactDelayMs);
+          } else {
+            applyEvadeImpact();
+          }
           return;
         }
 
-        const defendedDamage = defendingActive ? Math.floor(skillAttackResult.damage * 0.5) : skillAttackResult.damage;
-        const afterImpulseMitigation = extraImpulseMitigationActive ? Math.floor(defendedDamage * (1 - IMPULSE_DEFENSE_EXTRA_MITIGATION)) : defendedDamage;
-        const finalDamage = perfectGuardActive ? 0 : afterImpulseMitigation;
-        const mitigatedDamage = defendingActive ? Math.max(0, skillAttackResult.damage - finalDamage) : 0;
-        const remainingHpAfterHit = Math.max(0, player.stats.hp - finalDamage);
-        playAttackImpactSfx({
-          attackKind: chosenSkill.attackKind,
-          attackerStyle: chosenSkill.attackKind === 'magic' ? 'unarmed' : (simulatedEnemy.attackStyle === 'armed' ? 'weapon' : 'unarmed'),
-          defended: defendingActive,
-          source: 'enemy',
-        });
-        if (remainingHpAfterHit <= 0) {
-          battleSfx.play('death');
-        }
-        const hitAnimationAction: PlayerAnimationAction = remainingHpAfterHit <= 0
-          ? 'death'
-          : defendingActive
-            ? 'defend-hit'
-            : skillAttackResult.isCrit
-              ? 'critical-hit'
-              : 'hit';
-
-        spawnParticles([-2, -1, 0], 14, castColor, 'explode');
-        spawnParticles([-2, -1, 0], 10, chosenSkill.attackKind === 'magic' ? '#7dd3fc' : '#fb7185', 'spark');
-        spawnFloatingText(skillAttackResult.isCrit ? `CRIT ${finalDamage}` : finalDamage, 'player', skillAttackResult.isCrit ? 'crit' : 'damage');
-        if (defendingActive) {
-          setEnemyImpactAnimationId(SPRITE_ANIMATION_IDS.hitBlock);
-          setEnemyImpactAnimationTintColor(null);
-        } else {
-          setEnemyImpactAnimationId(null);
-          setEnemyImpactAnimationTintColor(null);
-        }
-        setScreenShake(skillAttackResult.isCrit ? 0.34 : 0.22);
-        setIsPlayerHit(true);
-        setIsPlayerCritHit(skillAttackResult.isCrit);
-        window.setTimeout(() => {
-          setScreenShake(0);
-          setIsPlayerHit(false);
-          setIsPlayerCritHit(false);
-        }, 220);
-
-        if (mitigatedDamage > 0) {
-          addLog(`Defesa mitigou ${mitigatedDamage} dano.`, 'buff');
+        const defendedDamage = strikeDefendingActive ? Math.floor(attackResult.damage * 0.5) : attackResult.damage;
+        const afterImpulseMitigation = strikeExtraImpulseMitigationActive ? Math.floor(defendedDamage * (1 - IMPULSE_DEFENSE_EXTRA_MITIGATION)) : defendedDamage;
+        const finalDamage = strikePerfectGuardActive ? 0 : afterImpulseMitigation;
+        const mitigatedDamage = strikeDefendingActive ? Math.max(0, attackResult.damage - finalDamage) : 0;
+        const remainingHpAfterHit = Math.max(0, remainingHp - finalDamage);
+        if (enemyUsesBowBasicAttack) {
+          setEnemyBowShotDidHit(true);
+          setEnemyBowShotTrigger((prev) => prev + 1);
         }
 
-        let pendingCounter: { damage: number; enemyStateBeforeCounter: Enemy } | null = null;
-        setPlayer((prev) => ({
-          ...prev,
-          buffs: {
-            ...prev.buffs,
-            riposteTurns: defendingActive ? 1 : prev.buffs.riposteTurns,
-            riposteArmed: defendingActive ? true : prev.buffs.riposteArmed,
-          },
-          isDefending: false,
-          stats: { ...prev.stats, hp: Math.max(0, prev.stats.hp - finalDamage) },
-        }));
-        if (defendingActive && remainingHpAfterHit > 0) {
-          const counterResult = rollDefensiveCounter(simulatedEnemy);
-          if (counterResult.triggered) {
-            pendingCounter = {
-              damage: counterResult.damage,
-              enemyStateBeforeCounter: simulatedEnemy,
-            };
-          }
-        }
-        setPlayerAnimationAction(hitAnimationAction);
-        addLog(`${simulatedEnemy.name} usou ${chosenSkill.name}: ${finalDamage} dano!${skillAttackResult.isCrit ? ' CRITICO!' : ''}`, skillAttackResult.isCrit ? 'crit' : 'damage');
-
-        window.setTimeout(() => {
-          setIsEnemyAttacking(false);
+        const applyAttackImpact = () => {
+          playAttackImpactSfx({
+            attackKind: enemyBasicAttackKind,
+            attackerStyle: enemyBasicAttackerStyle,
+            defended: strikeDefendingActive,
+            source: 'enemy',
+          });
           if (remainingHpAfterHit <= 0) {
-            onPlayerDefeat?.();
-            window.setTimeout(() => {
-              if (dungeonRun) {
-                setKillCount(0);
-                setPlayer((prev) => ({
-                  ...clonePlayer(dungeonRun.entrySnapshot),
-                  xp: prev.xp,
-                  level: prev.level,
-                  xpToNext: prev.xpToNext,
-                  talentPoints: prev.talentPoints,
-                }));
-                setDungeonResult({
-                  outcome: 'defeat',
-                  rewards: dungeonRun.rewards,
-                  reason: enemy.isBoss ? 'O chefao final da dungeon venceu voce. O espolio acumulado foi perdido, mas o XP obtido nas vitorias foi mantido.' : 'Voce caiu antes de terminar a dungeon. O espolio acumulado foi perdido, mas o XP obtido nas vitorias foi mantido.',
-                });
-                setDungeonRun(null);
-                setEnemy(null);
-                setEnemyIntentPreview(null);
-                setGameState(GameState.DUNGEON_RESULT);
-              } else if (enemy.isBoss) {
-                setKillCount(0);
-                setEnemyIntentPreview(null);
-                setGameState(GameState.GAME_OVER);
-              } else {
-                setEnemyIntentPreview(null);
-                setGameState(GameState.GAME_OVER);
-              }
-            }, 900);
+            battleSfx.play('death');
+          }
+          const hitAnimationAction: PlayerAnimationAction = remainingHpAfterHit <= 0
+            ? 'death'
+            : strikeDefendingActive
+              ? 'defend-hit'
+              : attackResult.isCrit
+                ? 'critical-hit'
+                : 'hit';
+
+          spawnParticles([-2, -1, 0], enemyUsesMagicBasicAttack ? 12 : 5, enemyUsesMagicBasicAttack ? enemyClassAttackColor : '#dc2626', 'spark');
+          spawnFloatingText(finalDamage, 'player', attackResult.isCrit ? 'crit' : 'damage');
+          if (enemyUsesMagicBasicAttack) {
+            setEnemyImpactAnimationId(SPRITE_ANIMATION_IDS.execMagic);
+            setEnemyImpactAnimationTintColor(enemyClassAttackColor);
+          } else if (enemyUsesBowBasicAttack) {
+            setEnemyImpactAnimationId(null);
+            setEnemyImpactAnimationTintColor(null);
+          } else if (strikeDefendingActive) {
+            setEnemyImpactAnimationId(SPRITE_ANIMATION_IDS.hitBlock);
+            setEnemyImpactAnimationTintColor(null);
           } else {
+            setEnemyImpactAnimationId(null);
+            setEnemyImpactAnimationTintColor(null);
+          }
+          setScreenShake(0.22);
+          setIsPlayerHit(true);
+          setIsPlayerCritHit(attackResult.isCrit);
+          window.setTimeout(() => {
+            setScreenShake(0);
+            setIsPlayerHit(false);
+            setIsPlayerCritHit(false);
+          }, 200);
+
+          if (mitigatedDamage > 0) {
+            addLog(`Defesa mitigou ${mitigatedDamage} dano.`, 'buff');
+          }
+
+          let pendingCounter: { damage: number; enemyStateBeforeCounter: Enemy } | null = null;
+          setPlayer((prev) => {
+            const nextBuffs = { ...prev.buffs };
+            if (strikeDefendingActive) {
+              nextBuffs.riposteTurns = 1;
+              nextBuffs.riposteArmed = true;
+            }
+            return {
+              ...prev,
+              buffs: nextBuffs,
+              isDefending: false,
+              stats: { ...prev.stats, hp: Math.max(0, prev.stats.hp - finalDamage) },
+            };
+          });
+          if (strikeDefendingActive && remainingHpAfterHit > 0) {
+            const counterResult = rollDefensiveCounter(simulatedEnemy);
+            if (counterResult.triggered) {
+              pendingCounter = {
+                damage: counterResult.damage,
+                enemyStateBeforeCounter: simulatedEnemy,
+              };
+            }
+          }
+
+          const strikePrefix = strikeNumber > 1 ? `${strikeNumber}o disparo: ` : '';
+          addLog(`${strikePrefix}${simulatedEnemy.name} ${enemyUsesMagicBasicAttack ? 'lancou magia' : 'atacou'}: ${finalDamage} dano!${strikeDefendingActive ? ' (Defendido)' : ''}${attackResult.isCrit ? ' CRITICO!' : ''}`, attackResult.isCrit ? 'crit' : 'damage');
+          setPlayerAnimationAction(hitAnimationAction);
+
+          window.setTimeout(() => {
+            setIsEnemyAttacking(false);
+            if (remainingHpAfterHit <= 0) {
+              onPlayerDefeat?.();
+              window.setTimeout(() => {
+                if (dungeonRun) {
+                  setKillCount(0);
+                  setPlayer((prev) => ({
+                    ...clonePlayer(dungeonRun.entrySnapshot),
+                    xp: prev.xp,
+                    level: prev.level,
+                    xpToNext: prev.xpToNext,
+                    talentPoints: prev.talentPoints,
+                  }));
+                  setDungeonResult({
+                    outcome: 'defeat',
+                    rewards: dungeonRun.rewards,
+                    reason: enemy.isBoss ? 'O chefao final da dungeon venceu voce. O espolio acumulado foi perdido, mas o XP obtido nas vitorias foi mantido.' : 'Voce caiu antes de terminar a dungeon. O espolio acumulado foi perdido, mas o XP obtido nas vitorias foi mantido.',
+                  });
+                  setDungeonRun(null);
+                  setEnemy(null);
+                  setEnemyIntentPreview(null);
+                  setGameState(GameState.DUNGEON_RESULT);
+                } else if (enemy.isBoss) {
+                  setKillCount(0);
+                  setEnemyIntentPreview(null);
+                  setGameState(GameState.GAME_OVER);
+                } else {
+                  setEnemyIntentPreview(null);
+                  setGameState(GameState.GAME_OVER);
+                }
+              }, 900);
+              return;
+            }
+
             if (pendingCounter) {
               window.setTimeout(() => {
                 executeDefensiveCounter(
@@ -1964,189 +2458,31 @@ export const useBattleController = ({
                     finishEnemyActionToPlayerTurn(enemyAfterCounter);
                   },
                 );
-              }, 150);
+              }, 500);
               return;
             }
-            finishEnemyActionToPlayerTurn(simulatedEnemy);
-          }
-        }, ENEMY_ACTION_READ_DELAY_MS);
-      }, 420);
-      return;
-    }
 
-    if (executedIntent === 'defend' && canDefend) {
-      const activeEnemyImpulse = consumeEnemyImpulseForAction('defesa');
-      useDefendAction('segurar a ofensiva', activeEnemyImpulse);
-      return;
-    }
-
-    const activeEnemyImpulse = consumeEnemyImpulseForAction('ataque');
-    simulatedEnemy = {
-      ...simulatedEnemy,
-      lastAction: 'attack',
-    };
-    setIsEnemyAttacking(true);
-    playMovementSfx(simulatedEnemy.attackStyle === 'armed' ? 'weapon' : 'unarmed');
-    triggerEnemyAnimationAction('attack', 750);
-
-    window.setTimeout(() => {
-      const attackResult = calculateDamage({
-        attackerAtk: getEnemyAtkWithBuff(simulatedEnemy),
-        defenderDef: player.stats.def,
-        attackerSpeed: simulatedEnemy.stats.speed,
-        defenderSpeed: player.stats.speed,
-        defenderHasPerfectEvade: player.buffs.perfectEvadeTurns > 0,
-        multiplier: getEnemyDamagePressure(simulatedEnemy, 'basic') * (activeEnemyImpulse > 0 ? (1 + IMPULSE_ATTACK_DAMAGE_BONUS) : 1),
-        luck: simulatedEnemy.stats.luck,
-        attackKind: 'physical',
-        defenderIsDefending: defendingActive,
-        defenderBuffs: player.buffs,
-        applyDefenseBuff: true,
-        critChanceBonus: simulatedEnemy.aiProfile.critChanceBonus,
-        critDamageBonus: simulatedEnemy.aiProfile.critDamageBonus,
-        damageReduction: talentBonuses.damageReduction,
-        defendMitigationBonus: talentBonuses.defendMitigation,
-        defenderDefenseIgnoreRatio: activeEnemyImpulse >= 2 ? IMPULSE_DEF_IGNORE_RATIO : 0,
-        forceCrit: activeEnemyImpulse >= 3,
-      });
-
-      if (attackResult.evaded) {
-        battleSfx.play('evade');
-        spawnFloatingText('DESVIO!', 'player', 'buff');
-        addLog(`Voce desviou do ataque de ${simulatedEnemy.name}!`, 'evade');
-        setPlayer((prev) => ({ ...prev, isDefending: false }));
-        setPlayerAnimationAction('evade');
-        window.setTimeout(() => {
-          setIsEnemyAttacking(false);
-          finishEnemyActionToPlayerTurn(simulatedEnemy);
-        }, 600);
-        return;
-      }
-
-      const defendedDamage = defendingActive ? Math.floor(attackResult.damage * 0.5) : attackResult.damage;
-      const afterImpulseMitigation = extraImpulseMitigationActive ? Math.floor(defendedDamage * (1 - IMPULSE_DEFENSE_EXTRA_MITIGATION)) : defendedDamage;
-      const finalDamage = perfectGuardActive ? 0 : afterImpulseMitigation;
-      const mitigatedDamage = defendingActive ? Math.max(0, attackResult.damage - finalDamage) : 0;
-      const remainingHpAfterHit = Math.max(0, player.stats.hp - finalDamage);
-      playAttackImpactSfx({
-        attackKind: 'physical',
-        attackerStyle: simulatedEnemy.attackStyle === 'armed' ? 'weapon' : 'unarmed',
-        defended: defendingActive,
-        source: 'enemy',
-      });
-      if (remainingHpAfterHit <= 0) {
-        battleSfx.play('death');
-      }
-      const hitAnimationAction: PlayerAnimationAction = remainingHpAfterHit <= 0
-        ? 'death'
-        : defendingActive
-          ? 'defend-hit'
-          : attackResult.isCrit
-            ? 'critical-hit'
-            : 'hit';
-
-      spawnParticles([-2, -1, 0], 5, '#dc2626', 'spark');
-      spawnFloatingText(finalDamage, 'player', attackResult.isCrit ? 'crit' : 'damage');
-      if (defendingActive) {
-        setEnemyImpactAnimationId(SPRITE_ANIMATION_IDS.hitBlock);
-        setEnemyImpactAnimationTintColor(null);
-      } else {
-        setEnemyImpactAnimationId(null);
-        setEnemyImpactAnimationTintColor(null);
-      }
-      setScreenShake(0.22);
-      setIsPlayerHit(true);
-      setIsPlayerCritHit(attackResult.isCrit);
-      window.setTimeout(() => {
-        setScreenShake(0);
-        setIsPlayerHit(false);
-        setIsPlayerCritHit(false);
-      }, 200);
-
-      if (mitigatedDamage > 0) {
-        addLog(`Defesa mitigou ${mitigatedDamage} dano.`, 'buff');
-      }
-
-      let pendingCounter: { damage: number; enemyStateBeforeCounter: Enemy } | null = null;
-      setPlayer((prev) => {
-        const nextBuffs = { ...prev.buffs };
-        if (defendingActive) {
-          nextBuffs.riposteTurns = 1;
-          nextBuffs.riposteArmed = true;
-        }
-        return {
-          ...prev,
-          buffs: nextBuffs,
-          isDefending: false,
-          stats: { ...prev.stats, hp: Math.max(0, prev.stats.hp - finalDamage) },
-        };
-      });
-      if (defendingActive && remainingHpAfterHit > 0) {
-        const counterResult = rollDefensiveCounter(simulatedEnemy);
-        if (counterResult.triggered) {
-          pendingCounter = {
-            damage: counterResult.damage,
-            enemyStateBeforeCounter: simulatedEnemy,
-          };
-        }
-      }
-
-      addLog(`${simulatedEnemy.name} atacou: ${finalDamage} dano!${defendingActive ? ' (Defendido)' : ''}${attackResult.isCrit ? ' CRITICO!' : ''}`, attackResult.isCrit ? 'crit' : 'damage');
-      setPlayerAnimationAction(hitAnimationAction);
-
-      window.setTimeout(() => {
-        setIsEnemyAttacking(false);
-        if (remainingHpAfterHit <= 0) {
-          onPlayerDefeat?.();
-          window.setTimeout(() => {
-            if (dungeonRun) {
-              setKillCount(0);
-              setPlayer((prev) => ({
-                ...clonePlayer(dungeonRun.entrySnapshot),
-                xp: prev.xp,
-                level: prev.level,
-                xpToNext: prev.xpToNext,
-                talentPoints: prev.talentPoints,
-              }));
-              setDungeonResult({
-                outcome: 'defeat',
-                rewards: dungeonRun.rewards,
-                reason: enemy.isBoss ? 'O chefao final da dungeon venceu voce. O espolio acumulado foi perdido, mas o XP obtido nas vitorias foi mantido.' : 'Voce caiu antes de terminar a dungeon. O espolio acumulado foi perdido, mas o XP obtido nas vitorias foi mantido.',
-              });
-              setDungeonRun(null);
-              setEnemy(null);
-              setEnemyIntentPreview(null);
-              setGameState(GameState.DUNGEON_RESULT);
-            } else if (enemy.isBoss) {
-              setKillCount(0);
-              setEnemyIntentPreview(null);
-              setGameState(GameState.GAME_OVER);
-            } else {
-              setEnemyIntentPreview(null);
-              setGameState(GameState.GAME_OVER);
+            if (strikeNumber >= enemyBasicTotalStrikes) {
+              finishEnemyActionToPlayerTurn(simulatedEnemy);
+              return;
             }
-          }, 900);
-        } else {
-          if (pendingCounter) {
+
             window.setTimeout(() => {
-              executeDefensiveCounter(
-                pendingCounter.enemyStateBeforeCounter,
-                pendingCounter.damage,
-                (enemyAfterCounter, enemyDefeatedByCounter) => {
-                  if (enemyDefeatedByCounter) {
-                    void handleVictoryRef.current(900);
-                    return;
-                  }
-                  finishEnemyActionToPlayerTurn(enemyAfterCounter);
-                },
-              );
-            }, 500);
-            return;
-          }
-          finishEnemyActionToPlayerTurn(simulatedEnemy);
+              triggerEnemyAnimationAction(enemyUsesMagicBasicAttack ? 'skill' : 'attack', enemyUsesRangedBasicAttack ? 780 : 750);
+              resolveEnemyBasicStrike(remainingHpAfterHit, strikeNumber + 1);
+            }, strikeIntervalDelayMs);
+          }, 350);
+        };
+
+        if (enemyBasicImpactDelayMs > 0) {
+          window.setTimeout(applyAttackImpact, enemyBasicImpactDelayMs);
+        } else {
+          applyAttackImpact();
         }
-      }, 350);
-    }, 400);
+      };
+
+      resolveEnemyBasicStrike(player.stats.hp, 1);
+    }, enemyBasicResolveDelayMs);
   }, [
     addLog,
     announceCounterAttack,
@@ -2160,6 +2496,8 @@ export const useBattleController = ({
     setDungeonResult,
     setDungeonRun,
     setEnemy,
+    setEnemyBowShotDidHit,
+    setEnemyBowShotTrigger,
     setEnemyExecutionAnimationId,
     setGameState,
     setIsEnemyAttacking,

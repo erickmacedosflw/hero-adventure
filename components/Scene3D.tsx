@@ -110,6 +110,10 @@ interface SceneProps {
   enemyImpactAnimationTarget?: 'self' | 'target';
   playerImpactAnimationTrigger?: number;
   enemyImpactAnimationTrigger?: number;
+  playerBowShotTrigger?: number;
+  enemyBowShotTrigger?: number;
+  playerBowShotDidHit?: boolean;
+  enemyBowShotDidHit?: boolean;
   turnState: TurnState;
   isPlayerAttacking: boolean;
   isEnemyAttacking: boolean;
@@ -868,6 +872,12 @@ const MAX_SPRITE_ANIMATION_TRACKS = 8;
 const getImpulseAuraColor = (level: number) => (
   level >= 3 ? '#3b82f6' : level === 2 ? '#a855f7' : '#ef4444'
 );
+const BOW_PROJECTILE_MODEL_URL = new URL('../game/assets/Characters/Weapons/another/arrow_A.fbx', import.meta.url).href;
+const BOW_PROJECTILE_TEXTURE_URL = new URL('../game/assets/Characters/Weapons/another/weapons_bits_texture.png', import.meta.url).href;
+const BOW_PROJECTILE_FLIGHT_MS = 220;
+const BOW_PROJECTILE_STICK_MS = 1000;
+const BOW_PROJECTILE_FADE_MS = 280;
+const BOW_PROJECTILE_BASE_SCALE = 2.5;
 
 const resolveImpactAnimationForWeapon = (weaponId?: string): { animationId: string; tintColor: string | null } => {
   if (!weaponId) {
@@ -907,6 +917,19 @@ const getAnchorY = (point?: SpriteTrackDefinition['anchorPoint']) => (
   point === 'head' ? 0.95 : point === 'chest' ? 0.45 : point === 'feet' ? -0.8 : 0
 );
 
+interface BowProjectileState {
+  startedAtMs: number;
+  didHit: boolean;
+  direction: 1 | -1;
+  start: THREE.Vector3;
+  hitPoint: THREE.Vector3;
+  hitOffsetFromTarget: THREE.Vector3;
+  hitTargetSide: 'player' | 'enemy';
+  hitDirection: THREE.Vector3;
+  missPoint: THREE.Vector3;
+  missFadePoint: THREE.Vector3;
+}
+
 const CombatCinematicFX = ({
   playerAnimationAction,
   enemyAnimationAction,
@@ -922,6 +945,10 @@ const CombatCinematicFX = ({
   enemyImpactAnimationTarget,
   playerImpactAnimationTrigger,
   enemyImpactAnimationTrigger,
+  playerBowShotTrigger,
+  enemyBowShotTrigger,
+  playerBowShotDidHit,
+  enemyBowShotDidHit,
   isPlayerAttacking,
   isEnemyAttacking,
   isEnemyHit,
@@ -947,6 +974,10 @@ const CombatCinematicFX = ({
   enemyImpactAnimationTarget?: 'self' | 'target';
   playerImpactAnimationTrigger?: number;
   enemyImpactAnimationTrigger?: number;
+  playerBowShotTrigger?: number;
+  enemyBowShotTrigger?: number;
+  playerBowShotDidHit?: boolean;
+  enemyBowShotDidHit?: boolean;
   isPlayerAttacking?: boolean;
   isEnemyAttacking?: boolean;
   isEnemyHit?: boolean;
@@ -1026,6 +1057,58 @@ const CombatCinematicFX = ({
   const defaultUnarmedHitPlayerTexture = hitPlayerTexturesById[COMBAT_SPRITE_ANIMATION_DEFAULTS.unarmedImpactAnimationId] ?? null;
   const defaultExecutionEnemyTexture = hitEnemyTexturesById[COMBAT_SPRITE_ANIMATION_DEFAULTS.unarmedExecutionAnimationId] ?? null;
   const defaultExecutionPlayerTexture = hitPlayerTexturesById[COMBAT_SPRITE_ANIMATION_DEFAULTS.unarmedExecutionAnimationId] ?? null;
+  const playerBowProjectileRef = useRef<THREE.Group>(null);
+  const enemyBowProjectileRef = useRef<THREE.Group>(null);
+  const playerBowProjectileStateRef = useRef<BowProjectileState | null>(null);
+  const enemyBowProjectileStateRef = useRef<BowProjectileState | null>(null);
+  const processedPlayerBowShotTriggerRef = useRef<number>(-1);
+  const processedEnemyBowShotTriggerRef = useRef<number>(-1);
+  const bowProjectileModelSource = useFBX(BOW_PROJECTILE_MODEL_URL);
+  const bowProjectileTexture = useTexture(BOW_PROJECTILE_TEXTURE_URL);
+  const createBowProjectileMesh = useCallback(() => {
+    const projectileClone = bowProjectileModelSource.clone(true);
+    bowProjectileTexture.colorSpace = THREE.SRGBColorSpace;
+    bowProjectileTexture.needsUpdate = true;
+
+    projectileClone.traverse((node) => {
+      const mesh = node as THREE.Mesh;
+      if (!mesh.isMesh) {
+        return;
+      }
+
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      mesh.frustumCulled = false;
+
+      const remapMaterial = (material: THREE.Material) => {
+        const standardMaterial = material as THREE.MeshStandardMaterial;
+        const nextMaterial = standardMaterial.clone();
+        nextMaterial.map = bowProjectileTexture;
+        nextMaterial.transparent = true;
+        nextMaterial.opacity = 1;
+        nextMaterial.needsUpdate = true;
+        return nextMaterial;
+      };
+
+      if (Array.isArray(mesh.material)) {
+        mesh.material = mesh.material.map((entry) => remapMaterial(entry as THREE.Material));
+      } else if (mesh.material) {
+        mesh.material = remapMaterial(mesh.material as THREE.Material);
+      }
+    });
+
+    const bounds = new THREE.Box3().setFromObject(projectileClone);
+    const size = new THREE.Vector3();
+    bounds.getSize(size);
+    const maxDimension = Math.max(size.x, size.y, size.z);
+    if (maxDimension > 0) {
+      projectileClone.scale.setScalar(1 / maxDimension);
+    }
+
+    return projectileClone;
+  }, [bowProjectileModelSource, bowProjectileTexture]);
+  const playerBowProjectileModel = useMemo(() => createBowProjectileMesh(), [createBowProjectileMesh]);
+  const enemyBowProjectileModel = useMemo(() => createBowProjectileMesh(), [createBowProjectileMesh]);
 
   useEffect(() => {
     let active = true;
@@ -1527,7 +1610,7 @@ const CombatCinematicFX = ({
       impulseChargePlayerLightRef.current.position.set(playerAnchorXRef.current, playerAnchorYRef.current + 0.8, 0.28);
     }
 
-    const heroTargetX = (isPlayerAttacking || playerAnimationAction === 'attack')
+    const heroTargetX = isPlayerAttacking
       ? 0.5
       : (playerAnimationAction === 'defend' || playerAnimationAction === 'defend-hit')
         ? -1.5
@@ -1544,6 +1627,153 @@ const CombatCinematicFX = ({
     playerAnchorYRef.current = THREE.MathUtils.lerp(playerAnchorYRef.current, heroTargetY, 0.18);
     enemyAnchorXRef.current = THREE.MathUtils.lerp(enemyAnchorXRef.current, enemyTargetX, 0.2);
     enemyAnchorYRef.current = THREE.MathUtils.lerp(enemyAnchorYRef.current, enemyTargetY, 0.18);
+
+    const createBowProjectileState = (side: 'player' | 'enemy', didHit: boolean): BowProjectileState => {
+      const direction: 1 | -1 = side === 'player' ? 1 : -1;
+      const sourceX = side === 'player'
+        ? playerAnchorXRef.current + 0.45
+        : enemyAnchorXRef.current - 0.45;
+      const sourceY = side === 'player'
+        ? playerAnchorYRef.current + 1.2
+        : enemyAnchorYRef.current + 1.2;
+      const targetX = side === 'player'
+        ? enemyAnchorXRef.current - 0.2
+        : playerAnchorXRef.current + 0.2;
+      const targetY = side === 'player'
+        ? enemyAnchorYRef.current + 1.06
+        : playerAnchorYRef.current + 1.06;
+      const hitTargetSide: 'player' | 'enemy' = side === 'player' ? 'enemy' : 'player';
+
+      const start = new THREE.Vector3(sourceX, sourceY, 0.04);
+      const target = new THREE.Vector3(targetX, targetY, 0.04);
+      const hitOffsetFromTarget = new THREE.Vector3(direction * 0.14, 1.06, 0.04);
+      const hitPoint = target.clone().add(new THREE.Vector3(direction * 0.14, 0, 0));
+      const hitDirection = new THREE.Vector3(direction, 0.05, 0).normalize();
+      const missPoint = target.clone().add(new THREE.Vector3(direction * 1.08, -0.08, 0));
+      const missFadePoint = missPoint.clone().add(new THREE.Vector3(direction * 0.48, -0.16, 0));
+
+      return {
+        startedAtMs: nowMs,
+        didHit,
+        direction,
+        start,
+        hitPoint,
+        hitOffsetFromTarget,
+        hitTargetSide,
+        hitDirection,
+        missPoint,
+        missFadePoint,
+      };
+    };
+
+    if (typeof playerBowShotTrigger === 'number') {
+      if (processedPlayerBowShotTriggerRef.current < 0) {
+        processedPlayerBowShotTriggerRef.current = playerBowShotTrigger;
+      } else if (playerBowShotTrigger !== processedPlayerBowShotTriggerRef.current) {
+        processedPlayerBowShotTriggerRef.current = playerBowShotTrigger;
+        playerBowProjectileStateRef.current = createBowProjectileState('player', playerBowShotDidHit !== false);
+      }
+    }
+
+    if (typeof enemyBowShotTrigger === 'number') {
+      if (processedEnemyBowShotTriggerRef.current < 0) {
+        processedEnemyBowShotTriggerRef.current = enemyBowShotTrigger;
+      } else if (enemyBowShotTrigger !== processedEnemyBowShotTriggerRef.current) {
+        processedEnemyBowShotTriggerRef.current = enemyBowShotTrigger;
+        enemyBowProjectileStateRef.current = createBowProjectileState('enemy', enemyBowShotDidHit !== false);
+      }
+    }
+
+    const updateBowProjectile = (
+      projectileRef: React.RefObject<THREE.Group>,
+      projectileStateRef: React.MutableRefObject<BowProjectileState | null>,
+    ) => {
+      const projectile = projectileRef.current;
+      const shot = projectileStateRef.current;
+      if (!projectile || !shot) {
+        if (projectile) {
+          projectile.visible = false;
+        }
+        return;
+      }
+
+      const elapsedMs = Math.max(0, nowMs - shot.startedAtMs);
+      const stickDuration = shot.didHit ? BOW_PROJECTILE_STICK_MS : 0;
+      const fadeStartMs = BOW_PROJECTILE_FLIGHT_MS + stickDuration;
+      const totalDurationMs = fadeStartMs + BOW_PROJECTILE_FADE_MS;
+
+      if (elapsedMs > totalDurationMs) {
+        projectile.visible = false;
+        projectileStateRef.current = null;
+        return;
+      }
+
+      projectile.visible = true;
+      const nextPosition = new THREE.Vector3();
+      const nextDirection = new THREE.Vector3(shot.direction, -0.02, 0);
+      let opacity = 1;
+
+      if (elapsedMs <= BOW_PROJECTILE_FLIGHT_MS) {
+        const progress = elapsedMs / BOW_PROJECTILE_FLIGHT_MS;
+        const flightTarget = shot.didHit ? shot.hitPoint : shot.missPoint;
+        nextPosition.lerpVectors(shot.start, flightTarget, progress);
+        nextPosition.y += Math.sin(progress * Math.PI) * 0.34;
+        nextDirection.copy(flightTarget).sub(nextPosition);
+      } else if (shot.didHit && elapsedMs <= fadeStartMs) {
+        const hitAnchorX = shot.hitTargetSide === 'enemy' ? enemyAnchorXRef.current : playerAnchorXRef.current;
+        const hitAnchorY = shot.hitTargetSide === 'enemy' ? enemyAnchorYRef.current : playerAnchorYRef.current;
+        nextPosition.set(hitAnchorX, hitAnchorY, 0.04).add(shot.hitOffsetFromTarget);
+        nextDirection.copy(shot.hitDirection);
+      } else {
+        const fadeProgress = Math.min(1, (elapsedMs - fadeStartMs) / BOW_PROJECTILE_FADE_MS);
+        opacity = 1 - fadeProgress;
+        if (shot.didHit) {
+          const hitAnchorX = shot.hitTargetSide === 'enemy' ? enemyAnchorXRef.current : playerAnchorXRef.current;
+          const hitAnchorY = shot.hitTargetSide === 'enemy' ? enemyAnchorYRef.current : playerAnchorYRef.current;
+          nextPosition
+            .set(hitAnchorX, hitAnchorY, 0.04)
+            .add(shot.hitOffsetFromTarget)
+            .add(new THREE.Vector3(shot.direction * 0.06 * fadeProgress, -0.03 * fadeProgress, 0));
+          nextDirection.copy(shot.hitDirection);
+        } else {
+          nextPosition.lerpVectors(shot.missPoint, shot.missFadePoint, fadeProgress);
+          nextDirection.copy(shot.missFadePoint).sub(shot.missPoint);
+        }
+      }
+
+      projectile.position.copy(nextPosition);
+      const orientationDirection = nextDirection.clone();
+      orientationDirection.y += 0.18;
+      if (orientationDirection.lengthSq() < 0.00001) {
+        orientationDirection.set(shot.direction, 0, 0);
+      }
+      orientationDirection.normalize();
+      // The FBX arrow's tip axis points down (-Y), so align that axis to the flight direction.
+      projectile.quaternion.setFromUnitVectors(new THREE.Vector3(0, -1, 0), orientationDirection);
+      const scale = BOW_PROJECTILE_BASE_SCALE * (0.86 + (opacity * 0.14));
+      projectile.scale.setScalar(scale);
+
+      projectile.traverse((node) => {
+        const mesh = node as THREE.Mesh;
+        if (!mesh.isMesh) {
+          return;
+        }
+        const applyOpacity = (material: THREE.Material) => {
+          const standard = material as THREE.MeshStandardMaterial;
+          standard.transparent = true;
+          standard.opacity = opacity;
+          standard.needsUpdate = true;
+        };
+        if (Array.isArray(mesh.material)) {
+          mesh.material.forEach((entry) => applyOpacity(entry as THREE.Material));
+        } else if (mesh.material) {
+          applyOpacity(mesh.material as THREE.Material);
+        }
+      });
+    };
+
+    updateBowProjectile(playerBowProjectileRef, playerBowProjectileStateRef);
+    updateBowProjectile(enemyBowProjectileRef, enemyBowProjectileStateRef);
 
     const resolveResources = ({
       side,
@@ -1948,6 +2178,12 @@ const CombatCinematicFX = ({
           />
         </sprite>
       ))}
+      <group ref={playerBowProjectileRef} visible={false}>
+        <primitive object={playerBowProjectileModel} />
+      </group>
+      <group ref={enemyBowProjectileRef} visible={false}>
+        <primitive object={enemyBowProjectileModel} />
+      </group>
       <pointLight ref={hitEnemyLightRef} color="#fef08a" intensity={0} distance={3.2} decay={2} />
       <pointLight ref={impulsePlayerLightRef} color="#ef4444" intensity={0} distance={4.8} decay={2} />
       <pointLight ref={impulseEnemyLightRef} color="#ef4444" intensity={0} distance={4.8} decay={2} />
@@ -2214,7 +2450,7 @@ const HeroVoxel = ({ classId = 'knight', playerAnimationAction = 'idle', animati
     }
     if (group.current) {
       // Idle/Action movement — stay at attack position while animation is still playing
-      const isInAttackAnimation = isAttacking || playerAnimationAction === 'attack';
+      const isInAttackAnimation = isAttacking;
       if (isInAttackAnimation) {
         group.current.position.x = THREE.MathUtils.lerp(group.current.position.x, attackPositionX, 0.2);
         group.current.position.y = THREE.MathUtils.lerp(group.current.position.y, -1, 0.2);
@@ -2721,32 +2957,38 @@ export const GameScene: React.FC<SceneProps> = (props) => {
           />
         )}
         {!props.isMenuView && (
-        <CombatCinematicFX
-          playerAnimationAction={props.playerAnimationAction}
-          enemyAnimationAction={props.enemyAnimationAction}
-          playerExecutionAnimationId={props.playerExecutionAnimationId}
-          enemyExecutionAnimationId={props.enemyExecutionAnimationId}
-          playerExecutionAnimationTintColor={props.playerExecutionAnimationTintColor}
-          enemyExecutionAnimationTintColor={props.enemyExecutionAnimationTintColor}
-          playerImpactAnimationId={props.playerImpactAnimationId}
-          enemyImpactAnimationId={props.enemyImpactAnimationId}
-          playerImpactAnimationTintColor={props.playerImpactAnimationTintColor}
-          enemyImpactAnimationTintColor={props.enemyImpactAnimationTintColor}
-          playerImpactAnimationTarget={props.playerImpactAnimationTarget}
-          enemyImpactAnimationTarget={props.enemyImpactAnimationTarget}
-          playerImpactAnimationTrigger={props.playerImpactAnimationTrigger}
-          enemyImpactAnimationTrigger={props.enemyImpactAnimationTrigger}
-          isPlayerAttacking={props.isPlayerAttacking}
-          isEnemyAttacking={props.isEnemyAttacking}
-          isEnemyHit={props.isEnemyHit}
-          isPlayerHit={props.isPlayerHit}
-          equippedWeaponId={props.equippedWeaponId}
-          enemyAttackStyle={props.enemyAttackStyle}
-          latestEnemyImpactColor={latestEnemyImpactColor}
-          activeImpulseLevel={props.activeImpulseLevel}
-          enemyImpulseLevel={props.enemyState?.impulso ?? 0}
-          particleLoad={props.particles.length}
-        />
+          <Suspense fallback={null}>
+            <CombatCinematicFX
+              playerAnimationAction={props.playerAnimationAction}
+              enemyAnimationAction={props.enemyAnimationAction}
+              playerExecutionAnimationId={props.playerExecutionAnimationId}
+              enemyExecutionAnimationId={props.enemyExecutionAnimationId}
+              playerExecutionAnimationTintColor={props.playerExecutionAnimationTintColor}
+              enemyExecutionAnimationTintColor={props.enemyExecutionAnimationTintColor}
+              playerImpactAnimationId={props.playerImpactAnimationId}
+              enemyImpactAnimationId={props.enemyImpactAnimationId}
+              playerImpactAnimationTintColor={props.playerImpactAnimationTintColor}
+              enemyImpactAnimationTintColor={props.enemyImpactAnimationTintColor}
+              playerImpactAnimationTarget={props.playerImpactAnimationTarget}
+              enemyImpactAnimationTarget={props.enemyImpactAnimationTarget}
+              playerImpactAnimationTrigger={props.playerImpactAnimationTrigger}
+              enemyImpactAnimationTrigger={props.enemyImpactAnimationTrigger}
+              playerBowShotTrigger={props.playerBowShotTrigger}
+              enemyBowShotTrigger={props.enemyBowShotTrigger}
+              playerBowShotDidHit={props.playerBowShotDidHit}
+              enemyBowShotDidHit={props.enemyBowShotDidHit}
+              isPlayerAttacking={props.isPlayerAttacking}
+              isEnemyAttacking={props.isEnemyAttacking}
+              isEnemyHit={props.isEnemyHit}
+              isPlayerHit={props.isPlayerHit}
+              equippedWeaponId={props.equippedWeaponId}
+              enemyAttackStyle={props.enemyAttackStyle}
+              latestEnemyImpactColor={latestEnemyImpactColor}
+              activeImpulseLevel={props.activeImpulseLevel}
+              enemyImpulseLevel={props.enemyState?.impulso ?? 0}
+              particleLoad={props.particles.length}
+            />
+          </Suspense>
         )}
         <AmbientDriftParticles isLowQuality={quality.isLowQuality} isDungeonRun={isDungeonRun} />
 

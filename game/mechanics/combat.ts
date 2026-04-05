@@ -22,6 +22,7 @@ interface CalculateDamageInput {
   defendMitigationBonus?: number;
   defenderDefenseIgnoreRatio?: number;
   forceCrit?: boolean;
+  disableCrit?: boolean;
 }
 
 export interface DamageResult {
@@ -122,6 +123,7 @@ export const calculateDamage = ({
   defendMitigationBonus = 0,
   defenderDefenseIgnoreRatio = 0,
   forceCrit = false,
+  disableCrit = false,
 }: CalculateDamageInput): DamageResult => {
   let finalAtk = attackerAtk;
   let finalDef = defenderDef;
@@ -159,7 +161,7 @@ export const calculateDamage = ({
   const base = Math.max(1, finalAtk - (finalDef * 0.3));
   const variance = Math.random() * 0.2 + 0.9;
   const critChance = Math.max(0.02, Math.min(0.45, 0.04 + (luck * 0.012) + critChanceBonus));
-  const isCrit = forceCrit || Math.random() < critChance;
+  const isCrit = !disableCrit && (forceCrit || Math.random() < critChance);
   const critMult = isCrit ? Math.min(2.6, 1.5 + critDamageBonus) : 1;
   const defenseMitigation = defenderIsDefending ? defendMitigationBonus : 0;
   const totalDamageReduction = Math.max(0, Math.min(0.8, damageReduction + defenseMitigation));
