@@ -301,6 +301,44 @@ export default function App() {
     const getDungeonPowerMultiplier = (evolution: number) => 1 + (evolution * 0.12);
     const getDungeonPhaseFromEvolution = (evolution: number) => Math.max(1, evolution + 1);
     const pickRandom = <T,>(entries: T[]) => entries[Math.floor(Math.random() * entries.length)];
+    const shuffleEntries = <T,>(entries: T[]): T[] => {
+        const shuffled = [...entries];
+        for (let index = shuffled.length - 1; index > 0; index -= 1) {
+            const swapIndex = Math.floor(Math.random() * (index + 1));
+            const current = shuffled[index];
+            shuffled[index] = shuffled[swapIndex];
+            shuffled[swapIndex] = current;
+        }
+        return shuffled;
+    };
+
+    const isEnemyBagCompatible = <T extends { name: string }>(bag: T[], pool: T[]) => {
+        if (bag.length === 0 || pool.length === 0) {
+            return false;
+        }
+
+        const poolNames = new Set(pool.map(entry => entry.name));
+        return bag.every(entry => poolNames.has(entry.name));
+    };
+
+    const pickFromEnemyBag = <T extends { name: string }>(pool: T[], bagRef: React.MutableRefObject<T[]>): T => {
+        if (pool.length === 0) {
+            throw new Error('Enemy pool is empty.');
+        }
+
+        if (!isEnemyBagCompatible(bagRef.current, pool)) {
+            bagRef.current = shuffleEntries(pool);
+        }
+
+        const nextEnemy = bagRef.current.shift();
+        if (nextEnemy) {
+            return nextEnemy;
+        }
+
+        bagRef.current = shuffleEntries(pool);
+        return bagRef.current.shift() ?? pool[0];
+    };
+
     const pickRandomMany = <T,>(entries: T[], amount: number): T[] => {
         if (entries.length === 0 || amount <= 0) {
             return [];
@@ -713,6 +751,10 @@ export default function App() {
     const [enemyImpactAnimationTarget, setEnemyImpactAnimationTarget] = useState<'self' | 'target'>('target');
     const [playerImpactAnimationTrigger, setPlayerImpactAnimationTrigger] = useState(0);
     const [enemyImpactAnimationTrigger, setEnemyImpactAnimationTrigger] = useState(0);
+    const [playerBowShotTrigger, setPlayerBowShotTrigger] = useState(0);
+    const [enemyBowShotTrigger, setEnemyBowShotTrigger] = useState(0);
+    const [playerBowShotDidHit, setPlayerBowShotDidHit] = useState(true);
+    const [enemyBowShotDidHit, setEnemyBowShotDidHit] = useState(true);
     const [menuHeroAction, setMenuHeroAction] = useState<PlayerAnimationAction>('idle');
     const [menuCameraFocusOverride, setMenuCameraFocusOverride] = useState<boolean | null>(null);
     const [showTavernUi, setShowTavernUi] = useState(true);
@@ -720,6 +762,8 @@ export default function App() {
     const [shopReturnInventoryFilter, setShopReturnInventoryFilter] = useState<'all' | 'equipment' | 'potion' | 'material'>('all');
     const [openInventoryFromShopToken, setOpenInventoryFromShopToken] = useState(0);
     const [openInventoryFromShopFilter, setOpenInventoryFromShopFilter] = useState<'all' | 'equipment' | 'potion' | 'material'>('all');
+    const huntEnemyBagRef = useRef<EnemyTemplate[]>([]);
+    const dungeonEnemyBagRef = useRef<DungeonEnemyTemplate[]>([]);
     const [sceneRegion, setSceneRegion] = useState<SceneRegion>('forest');
     const [onboardingPhase, setOnboardingPhase] = useState<OnboardingPhase>('intro_camp');
     const [hasPlayerDiedOnce, setHasPlayerDiedOnce] = useState(false);
@@ -1659,9 +1703,17 @@ export default function App() {
     const availableDungeonEnemies = DUNGEON_ENEMY_DATA.filter(template => template.minEvolution <= activeDungeonEvolution);
     const dungeonEnemyPool = availableDungeonEnemies.length > 0 ? availableDungeonEnemies : DUNGEON_ENEMY_DATA;
     const enemyTemplate: EnemyTemplate | DungeonEnemyTemplate | DungeonBossTemplate = isBoss
-        ? (isDungeonEncounter ? DUNGEON_BOSS : pickRandom(ENEMY_DATA))
-        : (isDungeonEncounter ? pickRandom(dungeonEnemyPool) : pickRandom(ENEMY_DATA));
+        ? (isDungeonEncounter ? DUNGEON_BOSS : pickFromEnemyBag(ENEMY_DATA, huntEnemyBagRef))
+        : (isDungeonEncounter ? pickFromEnemyBag(dungeonEnemyPool, dungeonEnemyBagRef) : pickFromEnemyBag(ENEMY_DATA, huntEnemyBagRef));
     const enemyClassId = pickEnemyClassId(enemyTemplate);
+    const templateBaseStats = enemyTemplate.baseStats;
+    const baseHp = templateBaseStats?.maxHp ?? templateBaseStats?.hp ?? 68;
+    const baseMp = templateBaseStats?.maxMp ?? templateBaseStats?.mp;
+    const baseAtk = templateBaseStats?.atk ?? 9;
+    const baseMagic = templateBaseStats?.magic ?? 8;
+    const baseDef = templateBaseStats?.def ?? 3;
+    const baseSpeed = templateBaseStats?.speed ?? 10;
+    const baseLuck = templateBaseStats?.luck;
     const templateCombatProfile = enemyTemplate as Partial<DungeonEnemyTemplate & DungeonBossTemplate>;
     const hpMultiplier = templateCombatProfile.hpMultiplier ?? 1;
     const atkMultiplier = templateCombatProfile.atkMultiplier ?? 1;
@@ -1709,15 +1761,17 @@ export default function App() {
       name: name,
       level: currentStage,
       stats: {
-                hp: Math.floor(68 * levelMult * hpMultiplier * (isSubBossEncounter ? 1.35 : 1)),
-                maxHp: Math.floor(68 * levelMult * hpMultiplier * (isSubBossEncounter ? 1.35 : 1)),
-        mp: combatProfile.maxMp,
-        maxMp: combatProfile.maxMp,
-                atk: Math.floor(9 * levelMult * atkMultiplier * enemyAtkMultiplier * (isSubBossEncounter ? 1.22 : 1)),
-                                magic: Math.max(1, Math.floor(8 * levelMult * enemyMagicMultiplier * (isSubBossEncounter ? 1.18 : 1))),
-                def: Math.floor(3 * levelMult * defMultiplier * (isSubBossEncounter ? 1.2 : 1)),
-                speed: 10 + speedBonus + (isDungeonEncounter ? Math.floor(activeDungeonEvolution / 3) : 0) + (isSubBossEncounter ? 2 : 0),
-        luck: Math.max(1, Math.floor((currentStage * 0.55) + (isBoss ? 3 : 0) + (isSubBossEncounter ? 3 : 0) + (isDungeonEncounter ? activeDungeonEvolution * 0.35 : 0)))
+            hp: Math.floor(baseHp * levelMult * hpMultiplier * (isSubBossEncounter ? 1.35 : 1)),
+            maxHp: Math.floor(baseHp * levelMult * hpMultiplier * (isSubBossEncounter ? 1.35 : 1)),
+        mp: baseMp ?? combatProfile.maxMp,
+        maxMp: baseMp ?? combatProfile.maxMp,
+            atk: Math.floor(baseAtk * levelMult * atkMultiplier * enemyAtkMultiplier * (isSubBossEncounter ? 1.22 : 1)),
+                    magic: Math.max(1, Math.floor(baseMagic * levelMult * enemyMagicMultiplier * (isSubBossEncounter ? 1.18 : 1))),
+            def: Math.floor(baseDef * levelMult * defMultiplier * (isSubBossEncounter ? 1.2 : 1)),
+            speed: baseSpeed + speedBonus + (isDungeonEncounter ? Math.floor(activeDungeonEvolution / 3) : 0) + (isSubBossEncounter ? 2 : 0),
+        luck: baseLuck !== undefined
+            ? Math.max(1, Math.floor(baseLuck + (isBoss ? 3 : 0) + (isSubBossEncounter ? 3 : 0) + (isDungeonEncounter ? activeDungeonEvolution * 0.35 : 0)))
+            : Math.max(1, Math.floor((currentStage * 0.55) + (isBoss ? 3 : 0) + (isSubBossEncounter ? 3 : 0) + (isDungeonEncounter ? activeDungeonEvolution * 0.35 : 0)))
       },
             xpReward,
             goldReward,
@@ -2404,15 +2458,27 @@ export default function App() {
     setEnemyImpactAnimationTarget,
     setPlayerImpactAnimationTrigger,
     setEnemyImpactAnimationTrigger,
+    setPlayerBowShotTrigger,
+    setEnemyBowShotTrigger,
+    setPlayerBowShotDidHit,
+    setEnemyBowShotDidHit,
     enemyIntentPreview,
         onPlayerDefeat: () => setHasPlayerDiedOnce(true),
   });
 
   useEffect(() => {
     if (turnState === TurnState.ENEMY_TURN && enemy && gameState === GameState.BATTLE) {
-      handleEnemyTurn();
+            try {
+                handleEnemyTurn();
+            } catch (error) {
+                console.error('Enemy turn crashed and was recovered.', error);
+                addLog('A IA do inimigo falhou neste turno. Fluxo recuperado automaticamente.', 'info');
+                setIsEnemyAttacking(false);
+                setEnemyAnimationAction('battle-idle');
+                setTurnState(TurnState.PLAYER_INPUT);
+            }
     }
-  }, [enemy, gameState, handleEnemyTurn, turnState]);
+    }, [addLog, enemy, gameState, handleEnemyTurn, setEnemyAnimationAction, setIsEnemyAttacking, turnState]);
 
   useEffect(() => {
     if (!enemy) {
@@ -3222,6 +3288,10 @@ export default function App() {
                         enemyImpactAnimationTarget={enemyImpactAnimationTarget}
                         playerImpactAnimationTrigger={playerImpactAnimationTrigger}
                         enemyImpactAnimationTrigger={enemyImpactAnimationTrigger}
+                        playerBowShotTrigger={playerBowShotTrigger}
+                        enemyBowShotTrigger={enemyBowShotTrigger}
+                        playerBowShotDidHit={playerBowShotDidHit}
+                        enemyBowShotDidHit={enemyBowShotDidHit}
                         enemyType={enemy?.type || 'beast'}
                         isEnemyBoss={enemy?.isBoss}
                         isPlayerDefending={isDefenseAnimationActive}
