@@ -3,6 +3,7 @@ import { getEquippedWeaponGrip } from '../data/weaponCatalog';
 import { Item, PlayerClassId, Stats, WeaponProficiencyBonusStat } from '../../types';
 
 export type WeaponProficiencyAppliedBonuses = Partial<Record<WeaponProficiencyBonusStat, number>>;
+const MAGIC_BASIC_ATTACK_GRIPS = new Set(['wand', 'staff']);
 
 const PROFICIENCY_BONUS_STATS: WeaponProficiencyBonusStat[] = ['atk', 'def', 'speed', 'luck', 'magic', 'maxMp'];
 
@@ -13,6 +14,25 @@ const hasPositiveNumber = (value: unknown): value is number => (
 export const getWeaponGripForItem = (item: Item | null | undefined) => (
   item?.type === 'weapon' ? getEquippedWeaponGrip(item.id) : undefined
 );
+
+export const shouldUseMagicBasicAttack = (classId: PlayerClassId, item: Item | null | undefined) => {
+  const grip = getWeaponGripForItem(item);
+
+  if (classId === 'mage') {
+    // Mage keeps magical basic attack when unarmed or with a magic-focused weapon.
+    return !grip || MAGIC_BASIC_ATTACK_GRIPS.has(grip);
+  }
+
+  return Boolean(grip && MAGIC_BASIC_ATTACK_GRIPS.has(grip));
+};
+
+export const shouldUseBowBasicAttack = (classId: PlayerClassId, item: Item | null | undefined) => {
+  if (shouldUseMagicBasicAttack(classId, item)) {
+    return false;
+  }
+
+  return getWeaponGripForItem(item) === 'bow';
+};
 
 export const isWeaponProficientForClass = (classId: PlayerClassId, item: Item | null | undefined) => {
   const grip = getWeaponGripForItem(item);
