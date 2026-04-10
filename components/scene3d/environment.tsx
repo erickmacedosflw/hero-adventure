@@ -7,9 +7,60 @@ import type { RenderQualityProfile } from './types';
 
 const disableRaycast = () => null;
 
+export type RenderPlatform = 'desktop' | 'mobile';
+
+const MOBILE_USER_AGENT_PATTERN = /android|iphone|ipad|ipod|mobile/i;
+
+const DESKTOP_BALANCED_PROFILE: RenderQualityProfile = {
+  isLowQuality: false,
+  dpr: [0.9, 1.1],
+  shadowMapSize: 768,
+  starsCount: 520,
+  contactShadowResolution: 80,
+  antialias: false,
+};
+
+const MOBILE_PERFORMANCE_PROFILE: RenderQualityProfile = {
+  isLowQuality: true,
+  dpr: [0.75, 0.95],
+  shadowMapSize: 512,
+  starsCount: 260,
+  contactShadowResolution: 56,
+  antialias: false,
+};
+
+const cloneRenderQualityProfile = (profile: RenderQualityProfile): RenderQualityProfile => ({
+  ...profile,
+  dpr: [profile.dpr[0], profile.dpr[1]],
+});
+
+export const getRenderPlatform = (): RenderPlatform => {
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') {
+    return 'desktop';
+  }
+
+  const touchPoints = navigator.maxTouchPoints ?? 0;
+  const userAgent = navigator.userAgent.toLowerCase();
+  const compactViewport = window.innerWidth < 1024;
+  const mobileUserAgent = MOBILE_USER_AGENT_PATTERN.test(userAgent);
+
+  if (mobileUserAgent || (touchPoints > 1 && compactViewport)) {
+    return 'mobile';
+  }
+
+  return 'desktop';
+};
+
+export const getRenderPowerPreference = (): WebGLPowerPreference => (
+  getRenderPlatform() === 'mobile' ? 'low-power' : 'high-performance'
+);
+
 export const createModularBuilderQualityProfile = (base: RenderQualityProfile): RenderQualityProfile => ({
   isLowQuality: true,
-  dpr: [1, Math.min(base.dpr[1], 1.25)],
+  dpr: [
+    Math.min(1, Math.max(base.dpr[0], Math.min(base.dpr[1], 1.25))),
+    Math.max(base.dpr[0], Math.min(base.dpr[1], 1.25)),
+  ],
   shadowMapSize: Math.min(base.shadowMapSize, 512),
   starsCount: 0,
   contactShadowResolution: Math.min(base.contactShadowResolution, 64),
@@ -17,31 +68,8 @@ export const createModularBuilderQualityProfile = (base: RenderQualityProfile): 
 });
 
 export const getRenderQualityProfile = (): RenderQualityProfile => {
-  if (typeof window === 'undefined') {
-    return {
-      isLowQuality: false,
-      dpr: [1, 1.5],
-      shadowMapSize: 512,
-      starsCount: 800,
-      contactShadowResolution: 128,
-      antialias: false,
-    };
-  }
-
-  const cores = navigator.hardwareConcurrency ?? 4;
-  const memory = (navigator as Navigator & { deviceMemory?: number }).deviceMemory ?? 4;
-  const compactScreen = window.innerWidth < 900;
-  const constrainedDevice = cores <= 4 || memory <= 4;
-  const low = constrainedDevice || (compactScreen && (cores <= 6 || memory <= 6));
-
-  return {
-    isLowQuality: low,
-    dpr: low ? [0.85, 1] : compactScreen ? [0.95, 1.25] : [1, 1.5],
-    shadowMapSize: low ? 512 : compactScreen ? 768 : 1024,
-    starsCount: low ? 400 : 800,
-    contactShadowResolution: low ? 64 : compactScreen ? 96 : 128,
-    antialias: false,
-  };
+  const platform = getRenderPlatform();
+  return cloneRenderQualityProfile(platform === 'mobile' ? MOBILE_PERFORMANCE_PROFILE : DESKTOP_BALANCED_PROFILE);
 };
 
 export const GrassFloor = () => {

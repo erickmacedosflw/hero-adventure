@@ -9,7 +9,7 @@ import { PlayerAnimationAction, PlayerClassDefinition, PlayerClassId, WeaponGrip
 import { hasRuntimeFbxAssets } from './scene3d/animation';
 import { AnimatedClassHero } from './scene3d/characters';
 import { BattleScenario } from './scene3d/scenarios';
-import { DayNightCycle, SkyboxController, getRenderQualityProfile } from './scene3d/environment';
+import { DayNightCycle, SkyboxController, getRenderPowerPreference, getRenderQualityProfile } from './scene3d/environment';
 
 interface ClassSelectionScreenProps {
   classes: PlayerClassDefinition[];
@@ -497,6 +497,7 @@ const ForestSelectionScene = ({
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const quality = useMemo(() => getRenderQualityProfile(), []);
+  const powerPreference = useMemo(() => getRenderPowerPreference(), []);
   const scenario = useMemo(() => getScenario('forest'), []);
   const handleTimeUpdate = useCallback(() => {}, []);
 
@@ -522,7 +523,7 @@ const ForestSelectionScene = ({
       <Canvas
         shadows={{ type: THREE.PCFSoftShadowMap }}
         dpr={quality.dpr}
-        gl={{ antialias: quality.antialias, powerPreference: 'high-performance' }}
+        gl={{ antialias: quality.antialias, powerPreference }}
         performance={{ min: 0.5 }}
       >
         <PerspectiveCamera makeDefault position={[0, 2.62, 17.2]} fov={33} rotation={[-0.075, 0, 0]} />

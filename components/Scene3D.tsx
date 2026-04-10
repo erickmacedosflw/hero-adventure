@@ -27,6 +27,8 @@ import {
   DayNightCycle,
   DungeonAtmosphere,
   SkyboxController,
+  getRenderPlatform,
+  getRenderPowerPreference,
   getRenderQualityProfile,
 } from './scene3d/environment';
 import {
@@ -69,7 +71,6 @@ import type {
   DeveloperKitbashSlotFitDiagnostic,
   DeveloperKitbashTransform,
   DeveloperMeshPartDescriptor,
-  RenderQualityProfile,
   DeveloperWeaponTransformControlMode,
   DeveloperWeaponTransformOverride,
 } from './scene3d/types';
@@ -140,7 +141,6 @@ interface SceneProps {
   isMenuView?: boolean;
   menuCameraFocus?: boolean;
   isDungeonScene?: boolean;
-  isArCameraMode?: boolean;
   stage?: number;
   isDungeonRun?: boolean;
   onGameTimeUpdate?: (time: string) => void;
@@ -149,147 +149,6 @@ interface SceneProps {
   enemyState?: Enemy | null;
   enemyIntentPreview?: EnemyIntentPreview | null;
 }
-
-type AdaptiveQualityTier = 'desktop-like' | 'balanced' | 'performance';
-
-const detectLikelyMobileDevice = () => {
-  if (typeof window === 'undefined' || typeof navigator === 'undefined') {
-    return false;
-  }
-
-  const touchPoints = navigator.maxTouchPoints ?? 0;
-  const ua = navigator.userAgent.toLowerCase();
-  const mobileUa = /android|iphone|ipad|ipod|mobile/.test(ua);
-  const compactViewport = window.innerWidth < 1024;
-  return mobileUa || (touchPoints > 1 && compactViewport);
-};
-
-const getInitialAdaptiveTier = (isMobileDevice: boolean, baseQuality: RenderQualityProfile): AdaptiveQualityTier => {
-  if (!isMobileDevice) {
-    return 'desktop-like';
-  }
-
-  if (baseQuality.isLowQuality) {
-    return 'balanced';
-  }
-
-  return 'desktop-like';
-};
-
-const buildAdaptiveQualityProfile = (
-  baseQuality: RenderQualityProfile,
-  tier: AdaptiveQualityTier,
-  isMobileDevice: boolean,
-): RenderQualityProfile => {
-  if (!isMobileDevice) {
-    return baseQuality;
-  }
-
-  if (tier === 'desktop-like') {
-    return {
-      ...baseQuality,
-      isLowQuality: false,
-      dpr: [Math.max(0.9, baseQuality.dpr[0]), Math.min(1.35, baseQuality.dpr[1])] as [number, number],
-      shadowMapSize: Math.min(baseQuality.shadowMapSize, 1024),
-      starsCount: Math.min(baseQuality.starsCount, 900),
-      contactShadowResolution: Math.min(baseQuality.contactShadowResolution, 128),
-    };
-  }
-
-  if (tier === 'balanced') {
-    return {
-      ...baseQuality,
-      isLowQuality: false,
-      dpr: [0.85, Math.min(1.1, baseQuality.dpr[1])] as [number, number],
-      shadowMapSize: Math.min(baseQuality.shadowMapSize, 768),
-      starsCount: Math.min(baseQuality.starsCount, 520),
-      contactShadowResolution: Math.min(baseQuality.contactShadowResolution, 80),
-    };
-  }
-
-  return {
-    ...baseQuality,
-    isLowQuality: true,
-    dpr: [0.75, 0.95] as [number, number],
-    shadowMapSize: Math.min(baseQuality.shadowMapSize, 512),
-    starsCount: Math.min(baseQuality.starsCount, 260),
-    contactShadowResolution: Math.min(baseQuality.contactShadowResolution, 56),
-  };
-};
-
-const AdaptiveQualityController = ({
-  enabled,
-  tier,
-  onTierChange,
-}: {
-  enabled: boolean;
-  tier: AdaptiveQualityTier;
-  onTierChange: (next: AdaptiveQualityTier) => void;
-}) => {
-  const sampleElapsedRef = useRef(0);
-  const sampleFramesRef = useRef(0);
-  const lowFpsStreakRef = useRef(0);
-  const highFpsStreakRef = useRef(0);
-
-  useEffect(() => {
-    sampleElapsedRef.current = 0;
-    sampleFramesRef.current = 0;
-    lowFpsStreakRef.current = 0;
-    highFpsStreakRef.current = 0;
-  }, [tier]);
-
-  useFrame((_, delta) => {
-    if (!enabled) {
-      return;
-    }
-
-    sampleElapsedRef.current += delta;
-    sampleFramesRef.current += 1;
-
-    if (sampleElapsedRef.current < 1.6) {
-      return;
-    }
-
-    const fps = sampleFramesRef.current / sampleElapsedRef.current;
-    sampleElapsedRef.current = 0;
-    sampleFramesRef.current = 0;
-
-    const lowThreshold = tier === 'desktop-like' ? 44 : tier === 'balanced' ? 38 : 32;
-    const highThreshold = tier === 'performance' ? 56 : tier === 'balanced' ? 58 : 62;
-
-    if (fps < lowThreshold) {
-      lowFpsStreakRef.current += 1;
-      highFpsStreakRef.current = 0;
-    } else if (fps > highThreshold) {
-      highFpsStreakRef.current += 1;
-      lowFpsStreakRef.current = 0;
-    } else {
-      lowFpsStreakRef.current = 0;
-      highFpsStreakRef.current = 0;
-    }
-
-    if (tier === 'desktop-like' && lowFpsStreakRef.current >= 2) {
-      onTierChange('balanced');
-      return;
-    }
-
-    if (tier === 'balanced' && lowFpsStreakRef.current >= 2) {
-      onTierChange('performance');
-      return;
-    }
-
-    if (tier === 'performance' && highFpsStreakRef.current >= 6) {
-      onTierChange('balanced');
-      return;
-    }
-
-    if (tier === 'balanced' && highFpsStreakRef.current >= 8) {
-      onTierChange('desktop-like');
-    }
-  });
-
-  return null;
-};
 
 // --- MAIN COMPONENTS ---
 
@@ -2783,35 +2642,26 @@ export const GameScene: React.FC<SceneProps> = (props) => {
     setGameTime(time);
     props.onGameTimeUpdate?.(time);
   }, [props.onGameTimeUpdate]);
-  const baseQuality = useMemo(() => getRenderQualityProfile(), []);
-  const isMobileDevice = useMemo(() => detectLikelyMobileDevice(), []);
-  const [adaptiveTier, setAdaptiveTier] = useState<AdaptiveQualityTier>(() => getInitialAdaptiveTier(isMobileDevice, baseQuality));
-  const quality = useMemo(
-    () => buildAdaptiveQualityProfile(baseQuality, adaptiveTier, isMobileDevice),
-    [adaptiveTier, baseQuality, isMobileDevice],
-  );
-  const shouldUseForestDepthOfField = !quality.isLowQuality && adaptiveTier !== 'performance';
-  const shouldUseDungeonDepthOfField = adaptiveTier === 'desktop-like';
-  const forestBloomIntensity = adaptiveTier === 'desktop-like' ? 0.55 : adaptiveTier === 'balanced' ? 0.44 : 0.32;
-  const dungeonBloomIntensity = adaptiveTier === 'desktop-like' ? 0.32 : adaptiveTier === 'balanced' ? 0.28 : 0.22;
-  const forestDepthOfFieldHeight = adaptiveTier === 'desktop-like' ? 560 : 440;
-  const dungeonDepthOfFieldHeight = adaptiveTier === 'desktop-like' ? 560 : 440;
+  const quality = useMemo(() => getRenderQualityProfile(), []);
+  const isMobileDevice = useMemo(() => getRenderPlatform() === 'mobile', []);
+  const shouldUseForestDepthOfField = !isMobileDevice && !quality.isLowQuality;
+  const shouldUseDungeonDepthOfField = false;
+  const forestBloomIntensity = isMobileDevice ? 0.32 : 0.44;
+  const dungeonBloomIntensity = isMobileDevice ? 0.22 : 0.28;
+  const forestDepthOfFieldHeight = 440;
+  const dungeonDepthOfFieldHeight = 440;
   const isDungeonRun = Boolean(props.isDungeonScene ?? props.isDungeonRun);
-  const isArCameraMode = Boolean(props.isArCameraMode);
-  const shouldRenderPostProcessing = !isArCameraMode;
-  const shouldUsePostProcessing = shouldRenderPostProcessing && adaptiveTier !== 'performance';
-  const glPowerPreference: WebGLPowerPreference = (!isMobileDevice && adaptiveTier === 'desktop-like') ? 'high-performance' : 'low-power';
-  const shouldRenderAmbientDrift = !isMobileDevice || adaptiveTier !== 'performance';
-  const particleRenderCap = adaptiveTier === 'performance' ? 72 : quality.isLowQuality ? 96 : 120;
+  const shouldUsePostProcessing = !isMobileDevice;
+  const glPowerPreference = useMemo(() => getRenderPowerPreference(), []);
+  const shouldRenderAmbientDrift = !isMobileDevice;
+  const particleRenderCap = isMobileDevice ? 72 : 120;
   const visibleParticles = useMemo(
     () => props.particles.slice(-particleRenderCap),
     [particleRenderCap, props.particles],
   );
   const shouldUseDepthOfField = isDungeonRun ? shouldUseDungeonDepthOfField : shouldUseForestDepthOfField;
   const activeDepthOfFieldRange = isDungeonRun ? DUNGEON_FOCUS_RANGE : FOREST_FOCUS_RANGE;
-  const activeDepthOfFieldBokeh = isDungeonRun
-    ? (adaptiveTier === 'desktop-like' ? 2.15 : 1.7)
-    : (adaptiveTier === 'desktop-like' ? 2.35 : 1.95);
+  const activeDepthOfFieldBokeh = isDungeonRun ? 1.7 : 1.95;
   const activeDepthOfFieldHeight = isDungeonRun ? dungeonDepthOfFieldHeight : forestDepthOfFieldHeight;
   const activeBloomIntensity = isDungeonRun ? dungeonBloomIntensity : forestBloomIntensity;
   const activeBloomThreshold = isDungeonRun ? 0.5 : (shouldUseDepthOfField ? 0.42 : 0.48);
@@ -2843,9 +2693,9 @@ export const GameScene: React.FC<SceneProps> = (props) => {
   }, [props.particles]);
 
   return (
-    <div ref={containerRef} className="absolute inset-0 z-0 transition-colors duration-1000" style={{ backgroundColor: isArCameraMode ? 'transparent' : bgColor }}>
+    <div ref={containerRef} className="absolute inset-0 z-0 transition-colors duration-1000" style={{ backgroundColor: bgColor }}>
       {/* Time Display Overlay - Desktop only */}
-      {!isDungeonRun && !isArCameraMode && (
+      {!isDungeonRun && (
         <div className="absolute top-6 left-6 z-10 bg-black/40 border border-white/10 px-4 py-1 rounded-full hidden sm:flex items-center gap-3 pointer-events-none">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-400 shrink-0"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
           <span className="font-mono text-white text-sm tracking-widest">{gameTime}</span>
@@ -2855,38 +2705,12 @@ export const GameScene: React.FC<SceneProps> = (props) => {
       <Canvas
         shadows={{ type: THREE.PCFSoftShadowMap }}
         dpr={quality.dpr}
-        gl={{ antialias: quality.antialias, powerPreference: glPowerPreference, alpha: isArCameraMode }}
-        onCreated={({ gl }) => {
-          if (isArCameraMode) {
-            gl.setClearAlpha(0);
-          }
-        }}
+        gl={{ antialias: quality.antialias, powerPreference: glPowerPreference }}
         performance={{ min: 0.5 }}
         frameloop="always"
       >
-        <AdaptiveQualityController
-          enabled={isMobileDevice}
-          tier={adaptiveTier}
-          onTierChange={setAdaptiveTier}
-        />
         <CameraController screenShake={props.screenShake} menuFocus={props.menuCameraFocus ?? Boolean(props.isMenuView)} />
-        {isArCameraMode ? (
-          <>
-            <ambientLight intensity={0.65} />
-            <hemisphereLight intensity={0.55} groundColor="#243a20" color="#f4ffe6" />
-            <Suspense fallback={null}>
-              <BattleScenario scenario={activeScenario} lowQuality={quality.isLowQuality} />
-            </Suspense>
-            <ContactShadows
-              position={[0, -1.04, -0.2]}
-              opacity={0.28}
-              scale={20}
-              blur={2}
-              far={9}
-              resolution={battleContactShadowResolution}
-            />
-          </>
-        ) : isDungeonRun ? (
+        {isDungeonRun ? (
           <>
             <color attach="background" args={[bgColor]} />
             <fog attach="fog" args={['#1f2937', 14, 32]} />

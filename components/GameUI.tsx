@@ -1,7 +1,7 @@
 ﻿
 import React, { useState, useEffect, useRef } from 'react';
-import { Player, Enemy, EnemyIntentPreview, BattleLog, TurnState, Item, Skill, GameState, FloatingText, Rarity, ProgressionCard, CardRewardOffer, AlchemistCardOffer, AlchemistItemOffer, DungeonResult, DungeonRewards, BossVictoryContext, ArSupportState } from '../types';
-import { Sword, Shield, Zap, Heart, Coins, ShoppingBag, Skull, Play, Plus, FlaskConical, User, X, Home, LogOut, DollarSign, AlertTriangle, MousePointerClick, Shirt, Footprints, Crown, LayoutGrid, Sparkles, Crosshair, ArrowLeft, Star, Clock, Camera, Orbit } from 'lucide-react';
+import { Player, Enemy, EnemyIntentPreview, BattleLog, TurnState, Item, Skill, GameState, FloatingText, Rarity, ProgressionCard, CardRewardOffer, AlchemistCardOffer, AlchemistItemOffer, DungeonResult, DungeonRewards, BossVictoryContext } from '../types';
+import { Sword, Shield, Zap, Heart, Coins, ShoppingBag, Skull, Play, Plus, FlaskConical, User, X, Home, LogOut, DollarSign, AlertTriangle, MousePointerClick, Shirt, Footprints, Crown, LayoutGrid, Sparkles, Crosshair, ArrowLeft, Star, Clock, Orbit } from 'lucide-react';
 import { ItemPreviewThree } from './items/ItemPreviewThree';
 import { GameAssetIcon } from './ui/game-asset-icon';
 import { CharacterSheetModal } from './profile/CharacterSheetModal';
@@ -38,8 +38,6 @@ interface GameUIProps {
   onUnequipItem: (item: Item) => void;
   onContinue: () => void; // Used for Level Up or Victory -> Tavern
   onFlee: () => void;
-    onOpenAr: () => void;
-    arSupport: ArSupportState;
   currentNarration: string;
   shopItems: Item[];
   floatingTexts?: FloatingText[];
@@ -1025,8 +1023,6 @@ export const TavernScreen: React.FC<{
   onShop: () => void,
   onShopFromInventory?: (filter: 'all' | 'equipment' | 'potion' | 'material') => void,
     onAlchemist: () => void,
-    onOpenAr: () => void,
-    arSupport: ArSupportState,
   shopItems: Item[],
     autoOpenConstellationToken?: number,
   onEquipItem: (item: Item) => void,
@@ -1063,7 +1059,7 @@ export const TavernScreen: React.FC<{
   autoOpenInventoryToken?: number,
   autoOpenInventoryFilter?: 'all' | 'equipment' | 'potion' | 'material',
   showDiamondHud?: boolean,
-}> = ({ player, killCount, onHunt, onBoss, onDungeon, onShop, onShopFromInventory, onAlchemist, onOpenAr, arSupport, shopItems, autoOpenConstellationToken = 0, onEquipItem, onUnequipItem, onUseItem, onSellItem, onUnlockTalent, onResetTalents, campIntroOnly = false, restrictProfileToStatusOnly = false, inventoryUnlocked = false, inventoryUnlockPromptActive = false, onAcknowledgeInventoryUnlock, cardsUnlockPromptActive = false, onAcknowledgeCardsUnlock, skillsUnlockPromptActive = false, onAcknowledgeSkillsUnlock, constellationUnlockPromptActive = false, onAcknowledgeConstellationUnlock, constellationRespecUnlockPromptActive = false, onAcknowledgeConstellationRespecUnlock, allowCardsInProfile = false, fleeUnlocked = false, merchantUnlockPromptActive = false, onAcknowledgeMerchantUnlock, dungeonUnlockPromptActive = false, onAcknowledgeDungeonUnlock, alchemistUnlockPromptActive = false, onAcknowledgeAlchemistUnlock, merchantUnlocked = false, dungeonUnlocked = false, alchemistUnlocked = false, showSkillsAction = false, autoOpenInventoryToken = 0, autoOpenInventoryFilter = 'all', showDiamondHud = false }) => {
+}> = ({ player, killCount, onHunt, onBoss, onDungeon, onShop, onShopFromInventory, onAlchemist, shopItems, autoOpenConstellationToken = 0, onEquipItem, onUnequipItem, onUseItem, onSellItem, onUnlockTalent, onResetTalents, campIntroOnly = false, restrictProfileToStatusOnly = false, inventoryUnlocked = false, inventoryUnlockPromptActive = false, onAcknowledgeInventoryUnlock, cardsUnlockPromptActive = false, onAcknowledgeCardsUnlock, skillsUnlockPromptActive = false, onAcknowledgeSkillsUnlock, constellationUnlockPromptActive = false, onAcknowledgeConstellationUnlock, constellationRespecUnlockPromptActive = false, onAcknowledgeConstellationRespecUnlock, allowCardsInProfile = false, fleeUnlocked = false, merchantUnlockPromptActive = false, onAcknowledgeMerchantUnlock, dungeonUnlockPromptActive = false, onAcknowledgeDungeonUnlock, alchemistUnlockPromptActive = false, onAcknowledgeAlchemistUnlock, merchantUnlocked = false, dungeonUnlocked = false, alchemistUnlocked = false, showSkillsAction = false, autoOpenInventoryToken = 0, autoOpenInventoryFilter = 'all', showDiamondHud = false }) => {
   const [showProfile, setShowProfile] = useState(false);
   const [showInventory, setShowInventory] = useState(false);
     const [returnToProfileOnInventoryClose, setReturnToProfileOnInventoryClose] = useState(false);
@@ -1079,12 +1075,9 @@ export const TavernScreen: React.FC<{
     const [showMerchantUnlockPrompt, setShowMerchantUnlockPrompt] = useState(false);
     const [showDungeonUnlockPrompt, setShowDungeonUnlockPrompt] = useState(false);
     const [showAlchemistUnlockPrompt, setShowAlchemistUnlockPrompt] = useState(false);
-        const showArOption = false;
     const showDiamondOnTopHud = showDiamondHud;
     const bossUnlocked = killCount >= 10;
     const canAccessDungeon = dungeonUnlocked;
-        const arModeReady = arSupport.status === 'supported';
-        const arModeChecking = arSupport.status === 'checking';
     const killsRemaining = Math.max(0, 10 - killCount);
     const currentClass = getPlayerClassById(player.classId);
     const classAccentColor = currentClass.visualProfile.secondaryColor;
@@ -1446,19 +1439,6 @@ export const TavernScreen: React.FC<{
                             </button>
                         )}
 
-                        {showArOption && (
-                            <button
-                                onClick={onOpenAr}
-                                className={`col-span-2 rounded-xl border px-2.5 py-2.5 text-center transition-all hover:-translate-y-0.5 ${arModeReady ? 'border-[#3b6580] bg-[#4d7a96]/95 text-white hover:bg-[#5a8aa6]' : 'border-[#cfab91] bg-[#f4e5d4] text-[#6b3141] hover:bg-[#e9d7c2]'}`}
-                            >
-                                <div className="flex items-center justify-center gap-1.5 text-xs font-black">
-                                    <Camera size={17} /> Ver em AR
-                                </div>
-                                <div className="mt-0.5 text-[9px] font-black uppercase tracking-[0.16em] opacity-80">
-                                    {arModeChecking ? 'Verificando' : arModeReady ? 'Suporte detectado' : 'Fallback 3D'}
-                                </div>
-                            </button>
-                        )}
                     </div>
 
                     {!campIntroOnly && bossUnlocked && (
@@ -2701,7 +2681,7 @@ export const ShopScreen: React.FC<{ player: Player, items: Item[], huntStage: nu
 };
 
 export const BattleHUD: React.FC<GameUIProps> = (props) => {
-    const { player, enemy, turnState, logs, onAttack, onDefend, onChargeImpulse, onAbsorbImpulse, onSkill, onUseItem, enemyIntentPreview = null, onUnlockTalent, onResetTalents, currentNarration, gameState, shopItems, floatingTexts, onFlee, onOpenAr, arSupport, onStartBattle, stage, dungeonPhase = 1, killCount, onEquipItem, onUnequipItem, isDungeonRun, dungeonRewards, dungeonCleared = 0, dungeonTotal = 30, gameTime, restrictProfileToStatusOnly = false, limitBattleActionsToBasics = false, inventoryUnlocked = false, inventoryUnlockPromptActive = false, onAcknowledgeInventoryUnlock, cardsUnlockPromptActive = false, onAcknowledgeCardsUnlock, skillsUnlockPromptActive = false, onAcknowledgeSkillsUnlock, impulseUnlockPromptActive = null, onAcknowledgeImpulseUnlock, constellationUnlockPromptActive = false, onAcknowledgeConstellationUnlock, constellationRespecUnlockPromptActive = false, onAcknowledgeConstellationRespecUnlock, allowCardsInProfile = false, fleeUnlocked = false, showItemsAction = false, showSkillsAction = false, itemsUnlockPromptActive = false, onAcknowledgeItemsUnlock, fleeUnlockPromptActive = false, onAcknowledgeFleeUnlock, showDiamondHud = false, diamondUnlockPromptActive = false, onAcknowledgeDiamondUnlock } = props;
+    const { player, enemy, turnState, logs, onAttack, onDefend, onChargeImpulse, onAbsorbImpulse, onSkill, onUseItem, enemyIntentPreview = null, onUnlockTalent, onResetTalents, currentNarration, gameState, shopItems, floatingTexts, onFlee, onStartBattle, stage, dungeonPhase = 1, killCount, onEquipItem, onUnequipItem, isDungeonRun, dungeonRewards, dungeonCleared = 0, dungeonTotal = 30, gameTime, restrictProfileToStatusOnly = false, limitBattleActionsToBasics = false, inventoryUnlocked = false, inventoryUnlockPromptActive = false, onAcknowledgeInventoryUnlock, cardsUnlockPromptActive = false, onAcknowledgeCardsUnlock, skillsUnlockPromptActive = false, onAcknowledgeSkillsUnlock, impulseUnlockPromptActive = null, onAcknowledgeImpulseUnlock, constellationUnlockPromptActive = false, onAcknowledgeConstellationUnlock, constellationRespecUnlockPromptActive = false, onAcknowledgeConstellationRespecUnlock, allowCardsInProfile = false, fleeUnlocked = false, showItemsAction = false, showSkillsAction = false, itemsUnlockPromptActive = false, onAcknowledgeItemsUnlock, fleeUnlockPromptActive = false, onAcknowledgeFleeUnlock, showDiamondHud = false, diamondUnlockPromptActive = false, onAcknowledgeDiamondUnlock } = props;
   const [activeBattleMenu, setActiveBattleMenu] = useState<'skills' | 'items' | null>(null);
   const [showProfile, setShowProfile] = useState(false);
     const [profileInitialTab, setProfileInitialTab] = useState<'overview' | 'cards' | 'skills' | 'constellation' | undefined>(undefined);
@@ -2828,8 +2808,6 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
             ? 'border-amber-300 bg-amber-100 text-amber-700'
             : 'border-[#d69f69] bg-[#fff1dc] text-[#8d5e29]';
     const enemyUsesManaSkills = Boolean(enemy?.skillSet.some((skill) => skill.manaCost > 0));
-        const showArOption = false;
-        const arModeReady = arSupport.status === 'supported';
     const canLeaveFreely = !isDungeonRun && killCount >= 10;
     const dungeonRewardItems = Object.entries(dungeonRewards?.drops ?? {})
             .map(([itemId, quantity]) => ({ item: ALL_ITEMS.find(entry => entry.id === itemId), quantity }))
@@ -4044,11 +4022,6 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                   {isDungeonRun && dungeonRewards && (
                       <button onClick={() => setShowDungeonLootPreview(true)} className="self-start rounded-[10px] border border-[#cfab91] bg-[#f4e5d4] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.15em] text-[#6b3141] transition-colors hover:bg-[#e9d7c2]">
                           Espólio
-                      </button>
-                  )}
-                  {showArOption && (
-                      <button onClick={onOpenAr} className={`sm:hidden self-start rounded-[10px] border px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.15em] transition-colors ${arModeReady ? 'border-[#3b6580] bg-[#4d7a96] text-white hover:bg-[#5a8aa6]' : 'border-[#cfab91] bg-[#f4e5d4] text-[#6b3141] hover:bg-[#e9d7c2]'}`}>
-                          <span className="inline-flex items-center gap-1.5"><Camera size={12} /> Ver em AR</span>
                       </button>
                   )}
               </div>

@@ -7,6 +7,7 @@ import { getPlayerClassById } from '../../game/data/classes';
 import { EquippedWeaponAttachment } from './weapons';
 import {
   createModularBuilderQualityProfile,
+  getRenderPowerPreference,
   getRenderQualityProfile,
 } from './environment';
 import {
@@ -133,6 +134,7 @@ export const DeveloperHeroSceneRenderer: React.FC<
   transparentModelOffsetY = 0,
 }) => {
   const quality = useMemo(() => getRenderQualityProfile(), []);
+  const powerPreference = useMemo(() => getRenderPowerPreference(), []);
   const transparentCameraDistance = 7.1 / Math.max(0.65, transparentCameraZoom);
   const heroScale = transparent ? 1.12 * transparentModelScale : 1;
   const heroGroupY = transparent ? -1.12 + transparentModelOffsetY : -1.12;
@@ -142,7 +144,7 @@ export const DeveloperHeroSceneRenderer: React.FC<
       <Canvas
         shadows={{ type: THREE.PCFSoftShadowMap }}
         dpr={quality.dpr}
-        gl={{ antialias: quality.antialias, powerPreference: 'high-performance', alpha: transparent }}
+        gl={{ antialias: quality.antialias, powerPreference, alpha: transparent }}
         performance={{ min: 0.5 }}
         onCreated={({ gl, scene }) => {
           if (transparent) {
@@ -238,13 +240,14 @@ export const DeveloperMonsterSceneRenderer: React.FC<
   isHit = false,
 }) => {
   const quality = useMemo(() => getRenderQualityProfile(), []);
+  const powerPreference = useMemo(() => getRenderPowerPreference(), []);
 
   return (
     <div className="relative h-full w-full overflow-hidden rounded-[inherit] bg-[radial-gradient(circle_at_top,_rgba(248,250,252,0.14),_transparent_36%),linear-gradient(180deg,rgba(15,23,42,0.98),rgba(2,6,23,0.99))]">
       <Canvas
         shadows={{ type: THREE.PCFSoftShadowMap }}
         dpr={quality.dpr}
-        gl={{ antialias: quality.antialias, powerPreference: 'high-performance' }}
+        gl={{ antialias: quality.antialias, powerPreference }}
         performance={{ min: 0.5 }}
       >
         <color attach="background" args={['#020617']} />
@@ -321,6 +324,7 @@ export const DeveloperClassBuilderSceneRenderer: React.FC<
   partSelections,
 }) => {
   const quality = useMemo(() => createModularBuilderQualityProfile(getRenderQualityProfile()), []);
+  const powerPreference = useMemo(() => getRenderPowerPreference(), []);
   const baseClass = getPlayerClassById(baseClassId);
   const runtimeBaseAssets = hasRuntimeFbxAssets(baseClass.assets) ? baseClass.assets : null;
   const [partTransforms, setPartTransforms] = useState<Partial<Record<DeveloperKitbashMainSlot, any>>>({});
@@ -346,7 +350,7 @@ export const DeveloperClassBuilderSceneRenderer: React.FC<
       <Canvas
         shadows={{ type: THREE.PCFSoftShadowMap }}
         dpr={quality.dpr}
-        gl={{ antialias: quality.antialias, powerPreference: 'high-performance' }}
+        gl={{ antialias: quality.antialias, powerPreference }}
         performance={{ min: 0.5 }}
       >
         <color attach="background" args={['#020617']} />
@@ -418,6 +422,7 @@ export const DeveloperWeaponCalibrationSceneRenderer: React.FC<DeveloperWeaponCa
   onWeaponTransformOverrideChange,
 }) => {
   const quality = useMemo(() => getRenderQualityProfile(), []);
+  const powerPreference = useMemo(() => getRenderPowerPreference(), []);
   const dummyCharacter = useMemo(() => {
     const root = new THREE.Group();
     const hand = new THREE.Bone();
@@ -432,7 +437,7 @@ export const DeveloperWeaponCalibrationSceneRenderer: React.FC<DeveloperWeaponCa
       <Canvas
         shadows={{ type: THREE.PCFSoftShadowMap }}
         dpr={quality.dpr}
-        gl={{ antialias: quality.antialias, powerPreference: 'high-performance' }}
+        gl={{ antialias: quality.antialias, powerPreference }}
         performance={{ min: 0.5 }}
       >
         <color attach="background" args={['#020617']} />
@@ -488,6 +493,7 @@ export const DeveloperKitbashSceneRenderer: React.FC<
   onRuntimeDiagnosticsChange,
 }) => {
   const quality = useMemo(() => getRenderQualityProfile(), []);
+  const powerPreference = useMemo(() => getRenderPowerPreference(), []);
   const baseClass = getPlayerClassById(baseClassId);
   const runtimeBaseAssets = hasRuntimeFbxAssets(baseClass.assets) ? baseClass.assets : null;
   const runtimeDonorAssets = hasRuntimeFbxAssets(donorAssets) ? donorAssets : null;
@@ -536,7 +542,7 @@ export const DeveloperKitbashSceneRenderer: React.FC<
       <Canvas
         shadows={{ type: THREE.PCFSoftShadowMap }}
         dpr={quality.dpr}
-        gl={{ antialias: quality.antialias, powerPreference: 'high-performance' }}
+        gl={{ antialias: quality.antialias, powerPreference }}
         performance={{ min: 0.5 }}
       >
         <color attach="background" args={['#020617']} />

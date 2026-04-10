@@ -19,21 +19,6 @@ export enum TurnState {
   PROCESSING
 }
 
-export type ArEntryPoint = 'tavern' | 'battle';
-export type ArSupportStatus = 'checking' | 'supported' | 'unsupported';
-export type ArSupportPlatform = 'android' | 'ios' | 'desktop' | 'unknown';
-export type ArRoutingStrategy = 'webxr' | 'camera-fallback' | 'fallback-3d';
-
-export interface ArSupportState {
-  status: ArSupportStatus;
-  platform: ArSupportPlatform;
-  isIOS: boolean;
-  hasWebXR: boolean;
-  isSecureContext: boolean;
-  strategy: ArRoutingStrategy;
-  reason: string;
-}
-
 export interface Stats {
   hp: number;
   maxHp: number;
