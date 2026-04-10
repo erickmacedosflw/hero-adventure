@@ -25,6 +25,7 @@ import { createEmptyBuffState } from './game/mechanics/combat';
 import { createClassResourceState, getTalentBonuses, getUnlockedResourceMax, resetTalentNodes, syncPlayerConstellationSkills, unlockTalentNode } from './game/mechanics/classProgression';
 import { buyItemForPlayer, sellItemFromPlayer } from './game/mechanics/inventory';
 import { applyEquipmentBonusesToStats } from './game/mechanics/equipmentBonuses';
+import { warmupBattleRuntimeAssets } from './game/mechanics/assetWarmup';
 import { WeaponProficiencyAppliedBonuses, applyWeaponProficiencyBonusesToStats, getWeaponProficiencyAppliedBonuses } from './game/mechanics/weaponProficiency';
 import { SavePayload, SaveSlotId, SaveSlotSummary, getActiveSaveSlotId, listSaveSlots, loadSaveFromSlot, saveToActiveSlot, setActiveSaveSlotId, clearSlot } from './game/mechanics/saveSystem';
 import { useBattleController } from './game/hooks/useBattleController';
@@ -670,6 +671,18 @@ export default function App() {
         setBootReadyMemory(true);
         setIsBootReady(true);
     }, []);
+
+    useEffect(() => {
+        if (!isBootReady || !hasConfirmedStartingClass || pathname.startsWith('/developer')) {
+            return;
+        }
+
+        warmupBattleRuntimeAssets({
+            playerClasses: PLAYER_CLASSES,
+            enemies: bootEnemies,
+            activeClassId: player.classId,
+        });
+    }, [bootEnemies, hasConfirmedStartingClass, isBootReady, pathname, player.classId]);
 
     const createStartingPlayer = useCallback((classId: Player['classId']) => (
         syncPlayerConstellationSkills({
@@ -3096,13 +3109,26 @@ export default function App() {
             void ensureRecovered();
         };
 
+        const listenerOptions: AddEventListenerOptions = { capture: true, passive: true };
         window.addEventListener('focus', recoverAudio);
         window.addEventListener('pageshow', recoverAudio);
+        window.addEventListener('pointerdown', recoverAudio, listenerOptions);
+        window.addEventListener('touchstart', recoverAudio, listenerOptions);
+        window.addEventListener('mousedown', recoverAudio, listenerOptions);
+        window.addEventListener('click', recoverAudio, listenerOptions);
+        window.addEventListener('keydown', recoverAudio, { capture: true });
         document.addEventListener('visibilitychange', recoverAudio);
+
+        recoverAudio();
 
         return () => {
             window.removeEventListener('focus', recoverAudio);
             window.removeEventListener('pageshow', recoverAudio);
+            window.removeEventListener('pointerdown', recoverAudio, listenerOptions);
+            window.removeEventListener('touchstart', recoverAudio, listenerOptions);
+            window.removeEventListener('mousedown', recoverAudio, listenerOptions);
+            window.removeEventListener('click', recoverAudio, listenerOptions);
+            window.removeEventListener('keydown', recoverAudio, { capture: true });
             document.removeEventListener('visibilitychange', recoverAudio);
         };
     }, [hasUnlockedMusic, targetMusicTrack]);

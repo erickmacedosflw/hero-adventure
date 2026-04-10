@@ -88,7 +88,12 @@ export const AnimatedClassHero = ({
   const sourceModel = useFBX(assets.modelUrl);
   const texture = useTexture(assets.textureUrl);
   const knightReferenceAssets = getPlayerClassById('knight').assets;
-  const knightReferenceModel = useFBX(hasRuntimeFbxAssets(knightReferenceAssets) ? knightReferenceAssets.modelUrl : assets.modelUrl);
+  const shouldLoadKnightReference = debugTargetId === 'barbarian';
+  const knightReferenceModel = useFBX(
+    shouldLoadKnightReference && hasRuntimeFbxAssets(knightReferenceAssets)
+      ? knightReferenceAssets.modelUrl
+      : assets.modelUrl,
+  );
   const animationAssets = animationAssetsOverride ?? assets;
   const animationMap = animationAssets.animationMap;
   const primaryAnimationBundle = useMemo(

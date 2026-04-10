@@ -42,17 +42,32 @@ export default defineConfig(({ mode }) => {
             ],
           },
           workbox: {
+            cleanupOutdatedCaches: true,
+            skipWaiting: true,
+            clientsClaim: true,
             maximumFileSizeToCacheInBytes: 10 * 1024 * 1024,
-            globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,jpg,jpeg,woff2,fbx,mp3}'],
+            globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,jpg,jpeg,woff2,fbx,mp3,wav,ogg,m4a}'],
             runtimeCaching: [
               {
-                urlPattern: /\.(?:fbx|mp3|png|jpg|jpeg|webp|svg)$/,
+                urlPattern: /\.(?:fbx|png|jpg|jpeg|webp|svg)$/,
                 handler: 'CacheFirst',
                 options: {
                   cacheName: 'hero-adventure-assets',
                   expiration: {
                     maxEntries: 480,
                     maxAgeSeconds: 60 * 60 * 24 * 120,
+                  },
+                },
+              },
+              {
+                urlPattern: /\.(?:mp3|wav|ogg|m4a)$/,
+                handler: 'CacheFirst',
+                options: {
+                  cacheName: 'hero-adventure-audio',
+                  rangeRequests: true,
+                  expiration: {
+                    maxEntries: 160,
+                    maxAgeSeconds: 60 * 60 * 24 * 60,
                   },
                 },
               },
