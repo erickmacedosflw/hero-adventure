@@ -11,6 +11,7 @@ export const SPRITE_ANIMATION_IDS = {
   execAuraUp1: 'anim_exec_aura_up_1',
   execFlash: 'anim_exec_flash',
   execFire: 'anim_exec_fire',
+  execMagic: 'anim_exec_magic',
   execAbsorb: 'anim_exec_absorb',
   execAbsorb2: 'anim_exec_absorb_2',
   execImpulse: 'anim_exec_impulse',
@@ -51,6 +52,11 @@ export const SPRITE_ANIMATION_REGISTRY: SpriteAnimationRegistryEntry[] = [
     id: SPRITE_ANIMATION_IDS.execFire,
     nome: 'Execucao Fire',
     arquivo: 'game/data/sprite-animations/generated/fire.json',
+  },
+  {
+    id: SPRITE_ANIMATION_IDS.execMagic,
+    nome: 'Execucao Magic',
+    arquivo: 'game/data/sprite-animations/generated/magic.json',
   },
   {
     id: SPRITE_ANIMATION_IDS.execAbsorb,

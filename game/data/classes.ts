@@ -28,6 +28,9 @@ const createRigMediumAnimationMap = (): PlayerClassAnimationMap => ({
   evadeLeft: 'Rig_Medium_MovementAdvanced:Dodge_Left',
   evadeRight: 'Rig_Medium_MovementAdvanced:Dodge_Right',
   death: 'Rig_Medium_General:Death_A',
+  attackByGrip: {
+    bow: 'Rig_Medium_CombatRanged:Ranged_Bow_Release',
+  },
 });
 
 const createAnimationUrls = () => [

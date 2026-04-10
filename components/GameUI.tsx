@@ -11,6 +11,7 @@ import { ALL_ITEMS, SKILLS } from '../constants';
 import { ALL_CARDS } from '../game/data/cards';
 import { getPlayerClassById } from '../game/data/classes';
 import { getTalentBonuses } from '../game/mechanics/classProgression';
+import { shouldUseBowBasicAttack, shouldUseMagicBasicAttack } from '../game/mechanics/weaponProficiency';
 import { getNewlyUnlockedShopRarityByStage } from '../game/mechanics/shopProgression';
 import { uiSfx } from '../game/audio/uiSfx';
 
@@ -2728,6 +2729,8 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
     const previousResourceRef = useRef(player.classResource.value);
     const showDiamondOnBattleHud = showDiamondHud;
     const currentPlayerClass = getPlayerClassById(player.classId);
+    const usesMagicBasicAttack = shouldUseMagicBasicAttack(player.classId, player.equippedWeapon);
+    const usesBowBasicAttack = shouldUseBowBasicAttack(player.classId, player.equippedWeapon);
     const classAccentColor = currentPlayerClass.visualProfile.secondaryColor;
     const classAccentDarkColor = darkenHexColor(classAccentColor, 0.24);
     const classHeaderColor = currentPlayerClass.visualProfile.secondaryColor;
@@ -4122,7 +4125,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                               sparkleColor={currentImpulseFxColor}
                           />
                       )}
-                      <ActionTile icon={<Sword size={18} />} label="ATACAR" onClick={() => { setActiveBattleMenu(null); onAttack(); }} disabled={!isPlayerTurn} variant="attack" glowColor={impulseButtonGlowColor} glowStrength={24} energized={buttonsEnergized} sparkleColor={currentImpulseFxColor} />
+                      <ActionTile icon={usesMagicBasicAttack ? <Sparkles size={18} /> : (usesBowBasicAttack ? <Crosshair size={18} /> : <Sword size={18} />)} label={usesMagicBasicAttack ? 'MAGIA' : 'ATACAR'} onClick={() => { setActiveBattleMenu(null); onAttack(); }} disabled={!isPlayerTurn} variant="attack" glowColor={impulseButtonGlowColor} glowStrength={24} energized={buttonsEnergized} sparkleColor={currentImpulseFxColor} />
                       <ActionTile icon={<Shield size={18} />} label="DEFENDER" onClick={() => { setActiveBattleMenu(null); onDefend(); }} disabled={!isPlayerTurn} variant="defense" glowColor={impulseButtonGlowColor} glowStrength={24} energized={buttonsEnergized} sparkleColor={currentImpulseFxColor} />
                                             {showSkillsAction && (
                                                 <div className="relative col-span-1">

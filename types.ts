@@ -170,6 +170,7 @@ export interface EnemyTemplate {
   name: string;
   type: 'beast' | 'humanoid' | 'undead';
   enemyClassId?: PlayerClassId;
+  baseStats?: Partial<Pick<Stats, 'hp' | 'maxHp' | 'mp' | 'maxMp' | 'atk' | 'def' | 'speed' | 'luck' | 'magic'>>;
   color?: string;
   scale?: number;
   assets?: PlayerClassAssets;

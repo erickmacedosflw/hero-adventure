@@ -271,10 +271,46 @@ const createSkeletonAssets = (modelFile: 'Skeleton_Minion.fbx' | 'Skeleton_Rogue
 });
 
 export const ENEMY_DATA: EnemyTemplate[] = [
-  { name: 'Skeleton Minion', type: 'undead', enemyClassId: 'ranger', color: '#d6d3d1', scale: 1.02, assets: createSkeletonAssets('Skeleton_Minion.fbx', 2.02), attackStyle: 'unarmed' },
-  { name: 'Skeleton Rogue', type: 'undead', enemyClassId: 'rogue', color: '#cbd5e1', scale: 1.04, assets: createSkeletonAssets('Skeleton_Rogue.fbx', 2.06), attackStyle: 'unarmed' },
-  { name: 'Skeleton Warrior', type: 'undead', enemyClassId: 'knight', color: '#e2e8f0', scale: 1.08, assets: createSkeletonAssets('Skeleton_Warrior.fbx', 2.14), attackStyle: 'unarmed' },
-  { name: 'Skeleton Mage', type: 'undead', enemyClassId: 'mage', color: '#c4b5fd', scale: 1.06, assets: createSkeletonAssets('Skeleton_Mage.fbx', 2.1), attackStyle: 'unarmed' },
+  {
+    name: 'Skeleton Minion',
+    type: 'undead',
+    enemyClassId: 'ranger',
+    baseStats: { hp: 98, maxHp: 98, mp: 24, maxMp: 24, atk: 12, magic: 12, def: 8, speed: 8, luck: 3 },
+    color: '#d6d3d1',
+    scale: 1.02,
+    assets: createSkeletonAssets('Skeleton_Minion.fbx', 2.02),
+    attackStyle: 'unarmed',
+  },
+  {
+    name: 'Skeleton Rogue',
+    type: 'undead',
+    enemyClassId: 'rogue',
+    baseStats: { hp: 98, maxHp: 98, mp: 24, maxMp: 24, atk: 14, magic: 10, def: 8, speed: 12, luck: 6 },
+    color: '#cbd5e1',
+    scale: 1.04,
+    assets: createSkeletonAssets('Skeleton_Rogue.fbx', 2.06),
+    attackStyle: 'unarmed',
+  },
+  {
+    name: 'Skeleton Warrior',
+    type: 'undead',
+    enemyClassId: 'knight',
+    baseStats: { hp: 120, maxHp: 120, mp: 18, maxMp: 18, atk: 16, magic: 6, def: 12, speed: 6, luck: 2 },
+    color: '#e2e8f0',
+    scale: 1.08,
+    assets: createSkeletonAssets('Skeleton_Warrior.fbx', 2.14),
+    attackStyle: 'unarmed',
+  },
+  {
+    name: 'Skeleton Mage',
+    type: 'undead',
+    enemyClassId: 'mage',
+    baseStats: { hp: 78, maxHp: 78, mp: 40, maxMp: 40, atk: 8, magic: 18, def: 6, speed: 6, luck: 4 },
+    color: '#c4b5fd',
+    scale: 1.06,
+    assets: createSkeletonAssets('Skeleton_Mage.fbx', 2.1),
+    attackStyle: 'unarmed',
+  },
 ];
 
 export const DUNGEON_ENEMY_DATA: DungeonEnemyTemplate[] = [
