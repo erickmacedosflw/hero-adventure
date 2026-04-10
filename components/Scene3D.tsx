@@ -2799,27 +2799,30 @@ export const GameScene: React.FC<SceneProps> = (props) => {
   const renderQualityPreset = props.renderQualityPreset ?? getDefaultRenderQualityPreset();
   const quality = useMemo(() => getRenderQualityProfile(renderQualityPreset), [renderQualityPreset]);
   const isMobileDevice = useMemo(() => getRenderPlatform() === 'mobile', []);
-  const shouldUseForestDepthOfField = !isMobileDevice && !quality.isLowQuality;
-  const shouldUseDungeonDepthOfField = false;
-  const forestBloomIntensity = isMobileDevice ? 0.32 : 0.44;
-  const dungeonBloomIntensity = isMobileDevice ? 0.22 : 0.28;
+  const isPerformanceMode = renderQualityPreset === 'performance';
+  const isBalancedMode = renderQualityPreset === 'balanced';
+  const isQualityMode = renderQualityPreset === 'quality';
+  const shouldUseForestDepthOfField = isQualityMode || (!isMobileDevice && !quality.isLowQuality);
+  const shouldUseDungeonDepthOfField = isQualityMode;
+  const forestBloomIntensity = isQualityMode ? 0.5 : (isMobileDevice ? 0.34 : 0.44);
+  const dungeonBloomIntensity = isQualityMode ? 0.34 : (isMobileDevice ? 0.22 : 0.28);
   const forestDepthOfFieldHeight = 440;
   const dungeonDepthOfFieldHeight = 440;
   const isDungeonRun = Boolean(props.isDungeonScene ?? props.isDungeonRun);
-  const shouldUsePostProcessing = renderQualityPreset !== 'performance';
-  const shouldUseBloomAndVignette = renderQualityPreset !== 'performance';
-  const postProcessingMultisampling = renderQualityPreset === 'quality' ? (isMobileDevice ? 2 : 4) : 0;
-  const backfaceOutlineThickness = renderQualityPreset === 'performance'
+  const shouldUsePostProcessing = !isPerformanceMode;
+  const shouldUseBloomAndVignette = !isPerformanceMode;
+  const postProcessingMultisampling = isQualityMode ? 4 : (isBalancedMode ? 2 : 0);
+  const backfaceOutlineThickness = isPerformanceMode
     ? (isMobileDevice ? 0.045 : 0.06)
     : (isMobileDevice ? 0.055 : 0.07);
   const outlineTargets = useMemo(() => [outlineHeroRef, outlineEnemyRef], []);
   const glPowerPreference = useMemo(() => getRenderPowerPreference(renderQualityPreset), [renderQualityPreset]);
-  const shouldRenderAmbientDrift = renderQualityPreset !== 'performance' && !isMobileDevice;
-  const particleRenderCap = renderQualityPreset === 'performance'
-    ? (isMobileDevice ? 48 : 84)
-    : renderQualityPreset === 'quality'
-      ? (isMobileDevice ? 88 : 140)
-      : (isMobileDevice ? 72 : 120);
+  const shouldRenderAmbientDrift = isQualityMode || (!isMobileDevice && !isPerformanceMode);
+  const particleRenderCap = isPerformanceMode
+    ? (isMobileDevice ? 34 : 84)
+    : isQualityMode
+      ? (isMobileDevice ? 160 : 190)
+      : (isMobileDevice ? 80 : 120);
   const visibleParticles = useMemo(
     () => props.particles.slice(-particleRenderCap),
     [particleRenderCap, props.particles],
@@ -2833,9 +2836,10 @@ export const GameScene: React.FC<SceneProps> = (props) => {
   const activeBloomSmoothing = isDungeonRun ? 0.85 : (shouldUseDepthOfField ? 0.8 : 0.82);
   const activeVignetteOffset = isDungeonRun ? 0.1 : (shouldUseDepthOfField ? 0.06 : 0.08);
   const activeVignetteDarkness = isDungeonRun ? 0.42 : (shouldUseDepthOfField ? 0.1 : 0.13);
+  const shadowMapType = isPerformanceMode ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
   const battleContactShadowResolution = useMemo(
-    () => quality.isLowQuality ? 48 : Math.min(quality.contactShadowResolution, 96),
-    [quality.contactShadowResolution, quality.isLowQuality],
+    () => isQualityMode ? quality.contactShadowResolution : (quality.isLowQuality ? 48 : Math.min(quality.contactShadowResolution, 96)),
+    [isQualityMode, quality.contactShadowResolution, quality.isLowQuality],
   );
 
   const bgColor = useMemo(() => {
@@ -2868,7 +2872,7 @@ export const GameScene: React.FC<SceneProps> = (props) => {
       )}
 
       <Canvas
-        shadows={{ type: THREE.PCFSoftShadowMap }}
+        shadows={{ type: shadowMapType }}
         dpr={quality.dpr}
         gl={{ antialias: quality.antialias, powerPreference: glPowerPreference }}
         performance={{ min: 0.5 }}

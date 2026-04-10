@@ -41,28 +41,28 @@ const DESKTOP_QUALITY_PROFILE: RenderQualityProfile = {
 
 const MOBILE_PERFORMANCE_PROFILE: RenderQualityProfile = {
   isLowQuality: true,
-  dpr: [0.75, 0.95],
-  shadowMapSize: 512,
-  starsCount: 260,
-  contactShadowResolution: 56,
+  dpr: [0.65, 0.85],
+  shadowMapSize: 384,
+  starsCount: 140,
+  contactShadowResolution: 44,
   antialias: false,
 };
 
 const MOBILE_BALANCED_PROFILE: RenderQualityProfile = {
   isLowQuality: false,
-  dpr: [0.85, 1.05],
-  shadowMapSize: 640,
-  starsCount: 360,
-  contactShadowResolution: 72,
+  dpr: [0.85, 1.15],
+  shadowMapSize: 768,
+  starsCount: 420,
+  contactShadowResolution: 84,
   antialias: false,
 };
 
 const MOBILE_QUALITY_PROFILE: RenderQualityProfile = {
   isLowQuality: false,
-  dpr: [0.95, 1.25],
-  shadowMapSize: 896,
-  starsCount: 520,
-  contactShadowResolution: 88,
+  dpr: [1.15, 1.8],
+  shadowMapSize: 1536,
+  starsCount: 900,
+  contactShadowResolution: 144,
   antialias: true,
 };
 
