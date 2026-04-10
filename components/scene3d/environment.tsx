@@ -733,12 +733,13 @@ export const CameraController = ({
   const clockRef = useRef(0);
   const isMobile = window.innerWidth < 768;
   const menuDistance = isMobile ? 7.2 : 5.8;
-  const battleDistance = isMobile ? 13.5 : 11;
+  const battleDistance = isMobile ? 16.2 : 11;
+  const battleHeight = isMobile ? 4.1 : 2.5;
   const menuFov = isMobile ? 50 : 46;
   const battleFov = isMobile ? 54 : 50;
   const focusBlendRef = useRef(menuFocus ? 1 : 0);
   const focusBlendTargetRef = useRef(menuFocus ? 1 : 0);
-  const lookTarget = useMemo(() => new THREE.Vector3(0, 0.9, 0), []);
+  const lookTarget = useMemo(() => new THREE.Vector3(0, isMobile ? 1.55 : 0.9, 0), [isMobile]);
   const menuLookTarget = useMemo(() => new THREE.Vector3(-2, 0.82, 0), []);
   const mixedLookTarget = useMemo(() => new THREE.Vector3(), []);
   const menuOrbitRef = useRef(0);
@@ -826,7 +827,7 @@ export const CameraController = ({
     const microX = Math.sin(t * 3.7) * 0.008 + Math.cos(t * 5.3) * 0.005;
     const microY = Math.cos(t * 4.1) * 0.006 + Math.sin(t * 6.7) * 0.004;
     const battleTargetX = orbitX + driftX + microX;
-    const battleTargetY = 2.5 + driftY + microY;
+    const battleTargetY = battleHeight + driftY + microY;
     const battleTargetZ = orbitZ + driftZ;
     const targetX = THREE.MathUtils.lerp(battleTargetX, menuTargetX, focusBlend);
     const targetY = THREE.MathUtils.lerp(battleTargetY, menuTargetY, focusBlend);
@@ -851,7 +852,7 @@ export const CameraController = ({
       }
     }
   });
-  return <PerspectiveCamera ref={cameraRef} makeDefault position={[0, 2.5, battleDistance]} fov={battleFov} near={0.5} far={120} />;
+  return <PerspectiveCamera ref={cameraRef} makeDefault position={[0, battleHeight, battleDistance]} fov={battleFov} near={0.5} far={120} />;
 };
 export const NightEnemyGlow = ({ gameTime }: { gameTime: string }) => {
   const glowRef = useRef<THREE.PointLight>(null);
