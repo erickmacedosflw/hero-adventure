@@ -1,6 +1,6 @@
 import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { ContactShadows, Html, PerspectiveCamera, useProgress } from '@react-three/drei';
+import { ContactShadows, Html, PerspectiveCamera } from '@react-three/drei';
 import * as THREE from 'three';
 import { ArrowLeft, ArrowRight, Crosshair, Heart, Shield, Star, Swords, WandSparkles, X, Zap } from 'lucide-react';
 import { getConstellationByClassId } from '../game/data/classTalents';
@@ -502,18 +502,75 @@ const ForestSelectionScene = ({
   const handleTimeUpdate = useCallback(() => {}, []);
 
   const SceneReadyProbe = ({ onReady }: { onReady?: () => void }) => {
-    const { active } = useProgress();
+    const framesRef = useRef(0);
     const readySentRef = useRef(false);
+    const cancelledRef = useRef(false);
+    const raf1Ref = useRef<number | null>(null);
+    const raf2Ref = useRef<number | null>(null);
 
-    useEffect(() => {
-      if (!onReady || readySentRef.current || active) {
+    const scheduleReady = useCallback(() => {
+      if (!onReady || cancelledRef.current) {
+        return;
+      }
+
+      const enqueue = typeof queueMicrotask === 'function'
+        ? queueMicrotask
+        : (callback: () => void) => {
+            Promise.resolve().then(callback);
+          };
+
+      enqueue(() => {
+        if (!onReady || cancelledRef.current) {
+          return;
+        }
+
+        raf1Ref.current = window.requestAnimationFrame(() => {
+          raf1Ref.current = null;
+          if (!onReady || cancelledRef.current) {
+            return;
+          }
+
+          raf2Ref.current = window.requestAnimationFrame(() => {
+            raf2Ref.current = null;
+            if (!onReady || cancelledRef.current) {
+              return;
+            }
+
+            onReady();
+          });
+        });
+      });
+    }, [onReady]);
+
+    useFrame(() => {
+      if (!onReady || readySentRef.current) {
+        return;
+      }
+
+      framesRef.current += 1;
+      if (framesRef.current < 3) {
         return;
       }
 
       readySentRef.current = true;
-      const timer = window.setTimeout(() => onReady(), 120);
-      return () => window.clearTimeout(timer);
-    }, [active, onReady]);
+      scheduleReady();
+    });
+
+    useEffect(() => {
+      return () => {
+        cancelledRef.current = true;
+
+        if (raf1Ref.current !== null) {
+          window.cancelAnimationFrame(raf1Ref.current);
+          raf1Ref.current = null;
+        }
+
+        if (raf2Ref.current !== null) {
+          window.cancelAnimationFrame(raf2Ref.current);
+          raf2Ref.current = null;
+        }
+      };
+    }, []);
 
     return null;
   };

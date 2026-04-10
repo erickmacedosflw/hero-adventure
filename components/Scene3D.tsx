@@ -2635,8 +2635,159 @@ const CombinedHeroVoxel = ({
   );
 };
 
+interface BackfaceHullOverlayProps {
+  targets: Array<{ current: THREE.Object3D | null }>;
+  thickness: number;
+  color?: string;
+}
+
+const BackfaceHullOverlay = ({
+  targets,
+  thickness,
+  color = '#000000',
+}: BackfaceHullOverlayProps) => {
+  const { scene } = useThree();
+  const hullRootRef = useRef(new THREE.Group());
+  const signatureRef = useRef('');
+  const materialRef = useRef<THREE.MeshBasicMaterial | null>(null);
+  const pairsRef = useRef<Array<{
+    source: THREE.Mesh | THREE.SkinnedMesh;
+    hull: THREE.Mesh | THREE.SkinnedMesh;
+  }>>([]);
+
+  const cleanupHulls = useCallback(() => {
+    for (const pair of pairsRef.current) {
+      hullRootRef.current.remove(pair.hull);
+    }
+    pairsRef.current = [];
+  }, []);
+
+  const rebuildHulls = useCallback(() => {
+    const sources: Array<THREE.Mesh | THREE.SkinnedMesh> = [];
+
+    for (const target of targets) {
+      const root = target.current;
+      if (!root) {
+        continue;
+      }
+
+      root.traverse((node) => {
+        if ((node as THREE.SkinnedMesh).isSkinnedMesh || (node as THREE.Mesh).isMesh) {
+          sources.push(node as THREE.Mesh | THREE.SkinnedMesh);
+        }
+      });
+    }
+
+    const signature = sources.map((source) => source.uuid).join('|');
+    if (signature === signatureRef.current) {
+      return;
+    }
+
+    signatureRef.current = signature;
+    cleanupHulls();
+
+    for (const source of sources) {
+      if (!source.geometry) {
+        continue;
+      }
+
+      let hull: THREE.Mesh | THREE.SkinnedMesh;
+      if ((source as THREE.SkinnedMesh).isSkinnedMesh) {
+        const skinnedSource = source as THREE.SkinnedMesh;
+        const skinnedHull = new THREE.SkinnedMesh(skinnedSource.geometry, materialRef.current!);
+        skinnedHull.bindMode = skinnedSource.bindMode;
+        skinnedHull.bind(skinnedSource.skeleton, skinnedSource.bindMatrix);
+        hull = skinnedHull;
+      } else {
+        hull = new THREE.Mesh(source.geometry, materialRef.current!);
+      }
+
+      hull.frustumCulled = false;
+      hull.castShadow = false;
+      hull.receiveShadow = false;
+      hull.matrixAutoUpdate = false;
+      hull.renderOrder = source.renderOrder - 1;
+      hull.layers.mask = source.layers.mask;
+
+      hullRootRef.current.add(hull);
+      pairsRef.current.push({ source, hull });
+    }
+  }, [cleanupHulls, targets]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const material = new THREE.MeshBasicMaterial({
+      color: new THREE.Color(color),
+      side: THREE.BackSide,
+      toneMapped: false,
+      transparent: false,
+      depthWrite: false,
+      depthTest: false,
+    });
+    materialRef.current = material;
+    hullRootRef.current.renderOrder = -10;
+    scene.add(hullRootRef.current);
+
+    rebuildHulls();
+    const refreshDelays = [0, 160, 500, 1100, 2000];
+    const timerIds = refreshDelays.map((delay) => window.setTimeout(rebuildHulls, delay));
+    const intervalId = window.setInterval(rebuildHulls, 900);
+
+    return () => {
+      timerIds.forEach((timerId) => window.clearTimeout(timerId));
+      window.clearInterval(intervalId);
+      cleanupHulls();
+      scene.remove(hullRootRef.current);
+      material.dispose();
+      materialRef.current = null;
+    };
+  }, [cleanupHulls, color, rebuildHulls, scene]);
+
+  const tmpPosition = useMemo(() => new THREE.Vector3(), []);
+  const tmpQuaternion = useMemo(() => new THREE.Quaternion(), []);
+  const tmpScale = useMemo(() => new THREE.Vector3(), []);
+
+  useFrame(() => {
+    for (const { source, hull } of pairsRef.current) {
+      let visible = true;
+      let current: THREE.Object3D | null = source;
+      while (current) {
+        if (!current.visible) {
+          visible = false;
+          break;
+        }
+        current = current.parent;
+      }
+
+      hull.visible = visible;
+      if (!visible) {
+        continue;
+      }
+
+      source.matrixWorld.decompose(tmpPosition, tmpQuaternion, tmpScale);
+      tmpScale.multiplyScalar(1 + thickness);
+      hull.matrix.compose(tmpPosition, tmpQuaternion, tmpScale);
+
+      if ((source as THREE.SkinnedMesh).isSkinnedMesh && (hull as THREE.SkinnedMesh).isSkinnedMesh) {
+        const sourceSkinned = source as THREE.SkinnedMesh;
+        const hullSkinned = hull as THREE.SkinnedMesh;
+        if (hullSkinned.skeleton !== sourceSkinned.skeleton) {
+          hullSkinned.bind(sourceSkinned.skeleton, sourceSkinned.bindMatrix);
+        }
+      }
+    }
+  });
+
+  return null;
+};
+
 export const GameScene: React.FC<SceneProps> = (props) => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const outlineHeroRef = useRef<THREE.Group>(null);
+  const outlineEnemyRef = useRef<THREE.Group>(null);
   const [gameTime, setGameTime] = useState("12:00");
   const handleTimeUpdate = useCallback((time: string) => {
     setGameTime(time);
@@ -2651,7 +2802,11 @@ export const GameScene: React.FC<SceneProps> = (props) => {
   const forestDepthOfFieldHeight = 440;
   const dungeonDepthOfFieldHeight = 440;
   const isDungeonRun = Boolean(props.isDungeonScene ?? props.isDungeonRun);
-  const shouldUsePostProcessing = !isMobileDevice;
+  const shouldUsePostProcessing = true;
+  const shouldUseBloomAndVignette = !isMobileDevice;
+  const postProcessingMultisampling = isMobileDevice ? 0 : 4;
+  const backfaceOutlineThickness = isMobileDevice ? 0.055 : 0.07;
+  const outlineTargets = useMemo(() => [outlineHeroRef, outlineEnemyRef], []);
   const glPowerPreference = useMemo(() => getRenderPowerPreference(), []);
   const shouldRenderAmbientDrift = !isMobileDevice;
   const particleRenderCap = isMobileDevice ? 72 : 120;
@@ -2710,77 +2865,90 @@ export const GameScene: React.FC<SceneProps> = (props) => {
         frameloop="always"
       >
         <CameraController screenShake={props.screenShake} menuFocus={props.menuCameraFocus ?? Boolean(props.isMenuView)} />
-        {isDungeonRun ? (
-          <>
-            <color attach="background" args={[bgColor]} />
-            <fog attach="fog" args={['#1f2937', 14, 32]} />
-            <DungeonAtmosphere quality={quality} />
-            <DungeonScenario />
-          </>
-        ) : (
-          <>
-            <SkyboxController />
-            <fog attach="fog" args={['#d7e6c2', 16, 46]} />
-            <DayNightCycle containerRef={containerRef} onTimeUpdate={handleTimeUpdate} quality={quality} />
-            <ambientLight intensity={0.6} />
-            <hemisphereLight intensity={0.5} groundColor="#243a20" color="#f4ffe6" />
-            <Suspense fallback={null}>
-              <BattleScenario scenario={activeScenario} lowQuality={quality.isLowQuality} />
-            </Suspense>
-            <ContactShadows
-              position={[0, -1.04, -0.2]}
-              opacity={0.34}
-              scale={22}
-              blur={2.2}
-              far={10}
-              resolution={battleContactShadowResolution}
+        <group>
+          {isDungeonRun ? (
+            <>
+              <color attach="background" args={[bgColor]} />
+              <fog attach="fog" args={['#1f2937', 14, 32]} />
+              <DungeonAtmosphere quality={quality} />
+              <DungeonScenario />
+            </>
+          ) : (
+            <>
+              <SkyboxController />
+              <fog attach="fog" args={['#d7e6c2', 16, 46]} />
+              <DayNightCycle containerRef={containerRef} onTimeUpdate={handleTimeUpdate} quality={quality} />
+              <ambientLight intensity={0.6} />
+              <hemisphereLight intensity={0.5} groundColor="#243a20" color="#f4ffe6" />
+              <Suspense fallback={null}>
+                <BattleScenario scenario={activeScenario} lowQuality={quality.isLowQuality} />
+              </Suspense>
+              <ContactShadows
+                position={[0, -1.04, -0.2]}
+                opacity={0.34}
+                scale={22}
+                blur={2.2}
+                far={10}
+                resolution={battleContactShadowResolution}
+              />
+            </>
+          )}
+        </group>
+
+        <group ref={outlineHeroRef}>
+          <HeroVoxel
+            classId={props.playerClassId}
+            playerAnimationAction={props.playerAnimationAction}
+            isAttacking={props.isPlayerAttacking}
+            isDefending={props.isPlayerDefending}
+            weaponId={props.equippedWeaponId}
+            armorId={props.equippedArmorId}
+            helmetId={props.equippedHelmetId}
+            legsId={props.equippedLegsId}
+            shieldId={props.equippedShieldId}
+            isLevelingUp={props.isLevelingUp}
+            levelUpCardCategory={props.levelUpCardCategory}
+            isMenuView={props.isMenuView}
+            isHit={props.isPlayerHit}
+            isPlayerCritHit={props.isPlayerCritHit}
+            hasPerfectEvadeAura={props.hasPerfectEvadeAura}
+            hasDoubleAttackAura={props.hasDoubleAttackAura}
+            impulseLevel={props.impulseLevel}
+            activeImpulseLevel={props.activeImpulseLevel}
+            playerState={props.playerState}
+            contactShadowResolution={quality.contactShadowResolution}
+            loadSecondaryAnimationBundles
+            onHeroClick={props.isMenuView ? props.onMenuHeroClick : undefined}
+          />
+        </group>
+
+        <group ref={outlineEnemyRef}>
+          {!props.isMenuView && (
+            <EnemyCharacter
+              assets={props.enemyAssets}
+              color={props.enemyColor}
+              scale={props.enemyScale}
+              isAttacking={props.isEnemyAttacking}
+              isDefending={props.isEnemyDefending}
+              defendImpulseLevel={props.enemyState?.impulseGuardLevel ?? 0}
+              animationActionOverride={props.enemyAnimationAction}
+              type={props.enemyType}
+              enemyName={props.enemyName}
+              isBoss={props.isEnemyBoss}
+              isHit={props.isEnemyHit}
+              attackStyle={props.enemyAttackStyle}
+              contactShadowResolution={quality.contactShadowResolution}
+              statusOverlay={enemyOverlay}
             />
-          </>
-        )}
-        
-        <HeroVoxel 
-          classId={props.playerClassId}
-          playerAnimationAction={props.playerAnimationAction}
-          isAttacking={props.isPlayerAttacking}
-          isDefending={props.isPlayerDefending}
-          weaponId={props.equippedWeaponId}
-          armorId={props.equippedArmorId}
-          helmetId={props.equippedHelmetId}
-          legsId={props.equippedLegsId}
-          shieldId={props.equippedShieldId}
-          isLevelingUp={props.isLevelingUp}
-          levelUpCardCategory={props.levelUpCardCategory}
-          isMenuView={props.isMenuView}
-          isHit={props.isPlayerHit}
-          isPlayerCritHit={props.isPlayerCritHit}
-          hasPerfectEvadeAura={props.hasPerfectEvadeAura}
-          hasDoubleAttackAura={props.hasDoubleAttackAura}
-          impulseLevel={props.impulseLevel}
-          activeImpulseLevel={props.activeImpulseLevel}
-          playerState={props.playerState}
-          contactShadowResolution={quality.contactShadowResolution}
-          loadSecondaryAnimationBundles
-          onHeroClick={props.isMenuView ? props.onMenuHeroClick : undefined}
+          )}
+        </group>
+
+        <BackfaceHullOverlay
+          targets={outlineTargets}
+          thickness={backfaceOutlineThickness}
+          color="#000000"
         />
-        
-        {!props.isMenuView && (
-        <EnemyCharacter 
-          assets={props.enemyAssets}
-          color={props.enemyColor}
-          scale={props.enemyScale}
-          isAttacking={props.isEnemyAttacking}
-          isDefending={props.isEnemyDefending}
-          defendImpulseLevel={props.enemyState?.impulseGuardLevel ?? 0}
-          animationActionOverride={props.enemyAnimationAction}
-          type={props.enemyType}
-          enemyName={props.enemyName}
-          isBoss={props.isEnemyBoss}
-          isHit={props.isEnemyHit}
-          attackStyle={props.enemyAttackStyle}
-          contactShadowResolution={quality.contactShadowResolution}
-          statusOverlay={enemyOverlay}
-        />
-        )}
+
         {!props.isMenuView && (
           <EnemyIntentOverlay
             intent={props.enemyIntentPreview}
@@ -2830,7 +2998,7 @@ export const GameScene: React.FC<SceneProps> = (props) => {
         <WorldFloatingTexts texts={props.floatingTexts} />
 
         {shouldUsePostProcessing ? (
-          <EffectComposer>
+          <EffectComposer multisampling={postProcessingMultisampling}>
             {shouldUseDepthOfField ? (
               <DepthOfField
                 target={CHARACTER_FOCUS_TARGET}
@@ -2839,8 +3007,12 @@ export const GameScene: React.FC<SceneProps> = (props) => {
                 height={activeDepthOfFieldHeight}
               />
             ) : null}
-            <Bloom intensity={activeBloomIntensity} luminanceThreshold={activeBloomThreshold} luminanceSmoothing={activeBloomSmoothing} mipmapBlur />
-            <Vignette eskil={false} offset={activeVignetteOffset} darkness={activeVignetteDarkness} />
+            {shouldUseBloomAndVignette ? (
+              <>
+                <Bloom intensity={activeBloomIntensity} luminanceThreshold={activeBloomThreshold} luminanceSmoothing={activeBloomSmoothing} mipmapBlur />
+                <Vignette eskil={false} offset={activeVignetteOffset} darkness={activeVignetteDarkness} />
+              </>
+            ) : null}
           </EffectComposer>
         ) : null}
       </Canvas>
