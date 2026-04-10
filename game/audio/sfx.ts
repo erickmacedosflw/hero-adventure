@@ -31,6 +31,7 @@ class BattleSfxManager {
   private sounds = new Map<BattleSfxEvent, Howl>();
   private lastPlayAt = new Map<BattleSfxEvent, number>();
   private hasPreloaded = false;
+  private enabled = true;
 
   private getSound(event: BattleSfxEvent) {
     const cached = this.sounds.get(event);
@@ -80,6 +81,14 @@ class BattleSfxManager {
     return recoverHowlerAudioContext('SFX');
   }
 
+  setEnabled(enabled: boolean) {
+    this.enabled = enabled;
+  }
+
+  isEnabled() {
+    return this.enabled;
+  }
+
   private resolveRate(event: BattleSfxEvent, payload?: BattleSfxPayload) {
     const config = sfxConfig[event];
     if (!config.randomRateRange) {
@@ -101,6 +110,10 @@ class BattleSfxManager {
   }
 
   play(event: BattleSfxEvent, _payload?: BattleSfxPayload) {
+    if (!this.enabled) {
+      return;
+    }
+
     const now = Date.now();
     const config = sfxConfig[event];
     const cooldownMs = config.cooldownMs ?? SFX_COOLDOWN_MS;

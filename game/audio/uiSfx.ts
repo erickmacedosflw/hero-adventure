@@ -24,6 +24,7 @@ class UiSfxManager {
   private sounds = new Map<UiSfxEvent, Howl>();
   private lastPlayAt = new Map<UiSfxEvent, number>();
   private hasPreloaded = false;
+  private enabled = true;
 
   private getSound(event: UiSfxEvent) {
     const cached = this.sounds.get(event);
@@ -72,7 +73,19 @@ class UiSfxManager {
     return recoverHowlerAudioContext('UI-SFX');
   }
 
+  setEnabled(enabled: boolean) {
+    this.enabled = enabled;
+  }
+
+  isEnabled() {
+    return this.enabled;
+  }
+
   play(event: UiSfxEvent) {
+    if (!this.enabled) {
+      return;
+    }
+
     const now = Date.now();
     const cooldownMs = uiSfxConfig[event].cooldownMs;
     const lastPlayedAt = this.lastPlayAt.get(event) ?? 0;

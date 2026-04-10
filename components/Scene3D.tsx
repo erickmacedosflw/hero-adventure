@@ -27,9 +27,11 @@ import {
   DayNightCycle,
   DungeonAtmosphere,
   SkyboxController,
+  getDefaultRenderQualityPreset,
   getRenderPlatform,
   getRenderPowerPreference,
   getRenderQualityProfile,
+  type RenderQualityPreset,
 } from './scene3d/environment';
 import {
   DeveloperClassBuilderSceneRenderer,
@@ -148,6 +150,7 @@ interface SceneProps {
   playerState?: Player;
   enemyState?: Enemy | null;
   enemyIntentPreview?: EnemyIntentPreview | null;
+  renderQualityPreset?: RenderQualityPreset;
 }
 
 // --- MAIN COMPONENTS ---
@@ -2793,7 +2796,8 @@ export const GameScene: React.FC<SceneProps> = (props) => {
     setGameTime(time);
     props.onGameTimeUpdate?.(time);
   }, [props.onGameTimeUpdate]);
-  const quality = useMemo(() => getRenderQualityProfile(), []);
+  const renderQualityPreset = props.renderQualityPreset ?? getDefaultRenderQualityPreset();
+  const quality = useMemo(() => getRenderQualityProfile(renderQualityPreset), [renderQualityPreset]);
   const isMobileDevice = useMemo(() => getRenderPlatform() === 'mobile', []);
   const shouldUseForestDepthOfField = !isMobileDevice && !quality.isLowQuality;
   const shouldUseDungeonDepthOfField = false;
@@ -2802,14 +2806,20 @@ export const GameScene: React.FC<SceneProps> = (props) => {
   const forestDepthOfFieldHeight = 440;
   const dungeonDepthOfFieldHeight = 440;
   const isDungeonRun = Boolean(props.isDungeonScene ?? props.isDungeonRun);
-  const shouldUsePostProcessing = true;
-  const shouldUseBloomAndVignette = !isMobileDevice;
-  const postProcessingMultisampling = isMobileDevice ? 0 : 4;
-  const backfaceOutlineThickness = isMobileDevice ? 0.055 : 0.07;
+  const shouldUsePostProcessing = renderQualityPreset !== 'performance';
+  const shouldUseBloomAndVignette = renderQualityPreset !== 'performance';
+  const postProcessingMultisampling = renderQualityPreset === 'quality' ? (isMobileDevice ? 2 : 4) : 0;
+  const backfaceOutlineThickness = renderQualityPreset === 'performance'
+    ? (isMobileDevice ? 0.045 : 0.06)
+    : (isMobileDevice ? 0.055 : 0.07);
   const outlineTargets = useMemo(() => [outlineHeroRef, outlineEnemyRef], []);
-  const glPowerPreference = useMemo(() => getRenderPowerPreference(), []);
-  const shouldRenderAmbientDrift = !isMobileDevice;
-  const particleRenderCap = isMobileDevice ? 72 : 120;
+  const glPowerPreference = useMemo(() => getRenderPowerPreference(renderQualityPreset), [renderQualityPreset]);
+  const shouldRenderAmbientDrift = renderQualityPreset !== 'performance' && !isMobileDevice;
+  const particleRenderCap = renderQualityPreset === 'performance'
+    ? (isMobileDevice ? 48 : 84)
+    : renderQualityPreset === 'quality'
+      ? (isMobileDevice ? 88 : 140)
+      : (isMobileDevice ? 72 : 120);
   const visibleParticles = useMemo(
     () => props.particles.slice(-particleRenderCap),
     [particleRenderCap, props.particles],

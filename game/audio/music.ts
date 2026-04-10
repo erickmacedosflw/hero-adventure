@@ -29,6 +29,7 @@ class GameMusicManager {
   private currentTrackId: MusicTrackId | null = null;
   private currentHowl: Howl | null = null;
   private fadeTimeoutId: number | null = null;
+  private enabled = true;
 
   private getTrack(trackId: MusicTrackId) {
     const cached = this.tracks.get(trackId);
@@ -65,7 +66,23 @@ class GameMusicManager {
     return recoverHowlerAudioContext('Music');
   }
 
+  setEnabled(enabled: boolean) {
+    this.enabled = enabled;
+
+    if (!enabled) {
+      this.stopAll(220);
+    }
+  }
+
+  isEnabled() {
+    return this.enabled;
+  }
+
   transitionTo(trackId: MusicTrackId, fadeMs = DEFAULT_CROSSFADE_MS) {
+    if (!this.enabled) {
+      return;
+    }
+
     const nextHowl = this.getTrack(trackId);
     const targetVolume = musicTracks[trackId].volume;
 

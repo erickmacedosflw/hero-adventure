@@ -8,8 +8,18 @@ import type { RenderQualityProfile } from './types';
 const disableRaycast = () => null;
 
 export type RenderPlatform = 'desktop' | 'mobile';
+export type RenderQualityPreset = 'performance' | 'balanced' | 'quality';
 
 const MOBILE_USER_AGENT_PATTERN = /android|iphone|ipad|ipod|mobile/i;
+
+const DESKTOP_PERFORMANCE_PROFILE: RenderQualityProfile = {
+  isLowQuality: true,
+  dpr: [0.8, 1],
+  shadowMapSize: 512,
+  starsCount: 260,
+  contactShadowResolution: 56,
+  antialias: false,
+};
 
 const DESKTOP_BALANCED_PROFILE: RenderQualityProfile = {
   isLowQuality: false,
@@ -20,6 +30,15 @@ const DESKTOP_BALANCED_PROFILE: RenderQualityProfile = {
   antialias: false,
 };
 
+const DESKTOP_QUALITY_PROFILE: RenderQualityProfile = {
+  isLowQuality: false,
+  dpr: [1, 1.35],
+  shadowMapSize: 1280,
+  starsCount: 760,
+  contactShadowResolution: 112,
+  antialias: true,
+};
+
 const MOBILE_PERFORMANCE_PROFILE: RenderQualityProfile = {
   isLowQuality: true,
   dpr: [0.75, 0.95],
@@ -27,6 +46,24 @@ const MOBILE_PERFORMANCE_PROFILE: RenderQualityProfile = {
   starsCount: 260,
   contactShadowResolution: 56,
   antialias: false,
+};
+
+const MOBILE_BALANCED_PROFILE: RenderQualityProfile = {
+  isLowQuality: false,
+  dpr: [0.85, 1.05],
+  shadowMapSize: 640,
+  starsCount: 360,
+  contactShadowResolution: 72,
+  antialias: false,
+};
+
+const MOBILE_QUALITY_PROFILE: RenderQualityProfile = {
+  isLowQuality: false,
+  dpr: [0.95, 1.25],
+  shadowMapSize: 896,
+  starsCount: 520,
+  contactShadowResolution: 88,
+  antialias: true,
 };
 
 const cloneRenderQualityProfile = (profile: RenderQualityProfile): RenderQualityProfile => ({
@@ -51,9 +88,21 @@ export const getRenderPlatform = (): RenderPlatform => {
   return 'desktop';
 };
 
-export const getRenderPowerPreference = (): WebGLPowerPreference => (
-  getRenderPlatform() === 'mobile' ? 'low-power' : 'high-performance'
+export const getDefaultRenderQualityPreset = (platform = getRenderPlatform()): RenderQualityPreset => (
+  platform === 'mobile' ? 'performance' : 'balanced'
 );
+
+export const getRenderPowerPreference = (preset?: RenderQualityPreset): WebGLPowerPreference => {
+  if (preset === 'quality') {
+    return 'high-performance';
+  }
+
+  if (preset === 'performance') {
+    return 'low-power';
+  }
+
+  return getRenderPlatform() === 'mobile' ? 'low-power' : 'high-performance';
+};
 
 export const createModularBuilderQualityProfile = (base: RenderQualityProfile): RenderQualityProfile => ({
   isLowQuality: true,
@@ -67,9 +116,31 @@ export const createModularBuilderQualityProfile = (base: RenderQualityProfile): 
   antialias: false,
 });
 
-export const getRenderQualityProfile = (): RenderQualityProfile => {
+export const getRenderQualityProfile = (preset?: RenderQualityPreset): RenderQualityProfile => {
   const platform = getRenderPlatform();
-  return cloneRenderQualityProfile(platform === 'mobile' ? MOBILE_PERFORMANCE_PROFILE : DESKTOP_BALANCED_PROFILE);
+  const selectedPreset = preset ?? getDefaultRenderQualityPreset(platform);
+
+  if (platform === 'mobile') {
+    if (selectedPreset === 'quality') {
+      return cloneRenderQualityProfile(MOBILE_QUALITY_PROFILE);
+    }
+
+    if (selectedPreset === 'balanced') {
+      return cloneRenderQualityProfile(MOBILE_BALANCED_PROFILE);
+    }
+
+    return cloneRenderQualityProfile(MOBILE_PERFORMANCE_PROFILE);
+  }
+
+  if (selectedPreset === 'quality') {
+    return cloneRenderQualityProfile(DESKTOP_QUALITY_PROFILE);
+  }
+
+  if (selectedPreset === 'performance') {
+    return cloneRenderQualityProfile(DESKTOP_PERFORMANCE_PROFILE);
+  }
+
+  return cloneRenderQualityProfile(DESKTOP_BALANCED_PROFILE);
 };
 
 export const GrassFloor = () => {

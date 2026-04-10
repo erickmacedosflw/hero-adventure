@@ -14,6 +14,7 @@ import { getTalentBonuses } from '../game/mechanics/classProgression';
 import { shouldUseBowBasicAttack, shouldUseMagicBasicAttack } from '../game/mechanics/weaponProficiency';
 import { getNewlyUnlockedShopRarityByStage } from '../game/mechanics/shopProgression';
 import { uiSfx } from '../game/audio/uiSfx';
+import type { RenderQualityPreset } from './scene3d/environment';
 
 interface GameUIProps {
   player: Player;
@@ -75,6 +76,15 @@ interface GameUIProps {
     showDiamondHud?: boolean;
     diamondUnlockPromptActive?: boolean;
     onAcknowledgeDiamondUnlock?: () => void;
+    musicEnabled?: boolean;
+    sfxEnabled?: boolean;
+    renderQualityPreset?: RenderQualityPreset;
+    recommendedRenderQualityPreset?: RenderQualityPreset;
+    onUpdateBattleSettings?: (partial: Partial<{
+        musicEnabled: boolean;
+        sfxEnabled: boolean;
+        renderQualityPreset: RenderQualityPreset;
+    }>) => void;
 }
 
 // --- HELPERS ---
@@ -238,6 +248,12 @@ const HeaderChip = ({ icon, children }: { icon: React.ReactNode, children: React
 );
 
 const MENU_MODAL_ANIM_MS = 220;
+
+const getRenderPresetLabel = (preset: RenderQualityPreset) => {
+    if (preset === 'performance') return 'Performance';
+    if (preset === 'quality') return 'Qualidade';
+    return 'Balanceado';
+};
 
 const AnimatedModal = ({
     open,
@@ -2681,9 +2697,10 @@ export const ShopScreen: React.FC<{ player: Player, items: Item[], huntStage: nu
 };
 
 export const BattleHUD: React.FC<GameUIProps> = (props) => {
-    const { player, enemy, turnState, logs, onAttack, onDefend, onChargeImpulse, onAbsorbImpulse, onSkill, onUseItem, enemyIntentPreview = null, onUnlockTalent, onResetTalents, currentNarration, gameState, shopItems, floatingTexts, onFlee, onStartBattle, stage, dungeonPhase = 1, killCount, onEquipItem, onUnequipItem, isDungeonRun, dungeonRewards, dungeonCleared = 0, dungeonTotal = 30, gameTime, restrictProfileToStatusOnly = false, limitBattleActionsToBasics = false, inventoryUnlocked = false, inventoryUnlockPromptActive = false, onAcknowledgeInventoryUnlock, cardsUnlockPromptActive = false, onAcknowledgeCardsUnlock, skillsUnlockPromptActive = false, onAcknowledgeSkillsUnlock, impulseUnlockPromptActive = null, onAcknowledgeImpulseUnlock, constellationUnlockPromptActive = false, onAcknowledgeConstellationUnlock, constellationRespecUnlockPromptActive = false, onAcknowledgeConstellationRespecUnlock, allowCardsInProfile = false, fleeUnlocked = false, showItemsAction = false, showSkillsAction = false, itemsUnlockPromptActive = false, onAcknowledgeItemsUnlock, fleeUnlockPromptActive = false, onAcknowledgeFleeUnlock, showDiamondHud = false, diamondUnlockPromptActive = false, onAcknowledgeDiamondUnlock } = props;
+    const { player, enemy, turnState, logs, onAttack, onDefend, onChargeImpulse, onAbsorbImpulse, onSkill, onUseItem, enemyIntentPreview = null, onUnlockTalent, onResetTalents, currentNarration, gameState, shopItems, floatingTexts, onFlee, onStartBattle, stage, dungeonPhase = 1, killCount, onEquipItem, onUnequipItem, isDungeonRun, dungeonRewards, dungeonCleared = 0, dungeonTotal = 30, gameTime, restrictProfileToStatusOnly = false, limitBattleActionsToBasics = false, inventoryUnlocked = false, inventoryUnlockPromptActive = false, onAcknowledgeInventoryUnlock, cardsUnlockPromptActive = false, onAcknowledgeCardsUnlock, skillsUnlockPromptActive = false, onAcknowledgeSkillsUnlock, impulseUnlockPromptActive = null, onAcknowledgeImpulseUnlock, constellationUnlockPromptActive = false, onAcknowledgeConstellationUnlock, constellationRespecUnlockPromptActive = false, onAcknowledgeConstellationRespecUnlock, allowCardsInProfile = false, fleeUnlocked = false, showItemsAction = false, showSkillsAction = false, itemsUnlockPromptActive = false, onAcknowledgeItemsUnlock, fleeUnlockPromptActive = false, onAcknowledgeFleeUnlock, showDiamondHud = false, diamondUnlockPromptActive = false, onAcknowledgeDiamondUnlock, musicEnabled = true, sfxEnabled = true, renderQualityPreset = 'balanced', recommendedRenderQualityPreset = 'balanced', onUpdateBattleSettings } = props;
   const [activeBattleMenu, setActiveBattleMenu] = useState<'skills' | 'items' | null>(null);
   const [showProfile, setShowProfile] = useState(false);
+    const [showBattleSettings, setShowBattleSettings] = useState(false);
     const [profileInitialTab, setProfileInitialTab] = useState<'overview' | 'cards' | 'skills' | 'constellation' | undefined>(undefined);
   const [showInventory, setShowInventory] = useState(false);
     const [returnToProfileOnInventoryClose, setReturnToProfileOnInventoryClose] = useState(false);
@@ -2767,6 +2784,28 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
             uiSfx.play('modal_open');
             setShowProfile(true);
         }
+    };
+    const openBattleSettingsModal = () => {
+        if (!showBattleSettings) {
+            uiSfx.play('modal_open');
+        }
+        setShowBattleSettings(true);
+    };
+    const closeBattleSettingsModal = () => {
+        if (!showBattleSettings) {
+            return;
+        }
+        setShowBattleSettings(false);
+        uiSfx.play('modal_close');
+    };
+    const toggleMusic = () => {
+        onUpdateBattleSettings?.({ musicEnabled: !musicEnabled });
+    };
+    const toggleSfx = () => {
+        onUpdateBattleSettings?.({ sfxEnabled: !sfxEnabled });
+    };
+    const changeRenderPreset = (preset: RenderQualityPreset) => {
+        onUpdateBattleSettings?.({ renderQualityPreset: preset });
     };
   const isPlayerTurn = turnState === TurnState.PLAYER_INPUT;
     const enemyClassId = enemy?.enemyClassId ?? 'knight';
@@ -2987,6 +3026,21 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
   }, [activeBattleMenu]);
 
   useEffect(() => {
+      if (!showBattleSettings) {
+          return;
+      }
+
+      const closeOnEscape = (event: KeyboardEvent) => {
+          if (event.key === 'Escape') {
+              closeBattleSettingsModal();
+          }
+      };
+
+      window.addEventListener('keydown', closeOnEscape);
+      return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [showBattleSettings]);
+
+  useEffect(() => {
       if (inventoryUnlockPromptActive) {
           setShowInventoryUnlockPrompt(true);
       }
@@ -3061,6 +3115,65 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                     backdrop-filter: none !important;
                 }
             `}</style>
+      <AnimatedModal open={showBattleSettings}>
+          {(isClosing) => (
+              <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/50 pointer-events-auto p-4" onClick={closeBattleSettingsModal}>
+                  <div className={`w-full max-w-xs rounded-[20px] border border-[#cfab91] bg-[#f7ecdd] shadow-[0_24px_70px_rgba(107,49,65,0.26)] overflow-hidden transition-all duration-200 ${isClosing ? 'opacity-0 scale-95' : 'opacity-100 scale-100'}`} onClick={(event) => event.stopPropagation()}>
+                      <div className="bg-[#6b3141] px-4 py-3">
+                          <div className="flex items-center justify-between gap-3">
+                              <div>
+                                  <div className="text-[10px] font-black uppercase tracking-[0.22em] text-[#dcc0aa]">Configuracao</div>
+                                  <h3 className="mt-1 text-lg font-black text-white">Batalha</h3>
+                              </div>
+                              <button onClick={closeBattleSettingsModal} className="rounded-lg border border-white/25 bg-white/10 p-1.5 text-white transition-colors hover:bg-white/20" aria-label="Fechar configuracoes">
+                                  <X size={14} />
+                              </button>
+                          </div>
+                      </div>
+
+                      <div className="space-y-3 p-4">
+                          <div className="grid grid-cols-2 gap-2">
+                              <button
+                                  onClick={toggleMusic}
+                                  className={`rounded-xl border px-3 py-2 text-left transition-colors ${musicEnabled ? 'border-[#8eb4c0] bg-[#eaf6fb]' : 'border-[#cfab91] bg-[#f4e5d4]'}`}
+                              >
+                                  <div className="text-[10px] font-black uppercase tracking-[0.14em] text-[#8f6c67]">Musica</div>
+                                  <div className="mt-0.5 text-sm font-black text-[#6b3141]">{musicEnabled ? 'Ligada' : 'Desligada'}</div>
+                              </button>
+                              <button
+                                  onClick={toggleSfx}
+                                  className={`rounded-xl border px-3 py-2 text-left transition-colors ${sfxEnabled ? 'border-[#8eb4c0] bg-[#eaf6fb]' : 'border-[#cfab91] bg-[#f4e5d4]'}`}
+                              >
+                                  <div className="text-[10px] font-black uppercase tracking-[0.14em] text-[#8f6c67]">Efeitos</div>
+                                  <div className="mt-0.5 text-sm font-black text-[#6b3141]">{sfxEnabled ? 'Ligados' : 'Desligados'}</div>
+                              </button>
+                          </div>
+
+                          <div className="rounded-xl border border-[#cfab91] bg-[#f4e5d4] p-2.5">
+                              <div className="text-[10px] font-black uppercase tracking-[0.16em] text-[#8f6c67]">Qualidade grafica</div>
+                              <div className="mt-2 grid grid-cols-3 gap-1.5">
+                                  {(['performance', 'balanced', 'quality'] as RenderQualityPreset[]).map((preset) => {
+                                      const selected = renderQualityPreset === preset;
+                                      return (
+                                          <button
+                                              key={preset}
+                                              onClick={() => changeRenderPreset(preset)}
+                                              className={`rounded-lg border px-2 py-2 text-[11px] font-black uppercase tracking-[0.08em] transition-colors ${selected ? 'border-[#2f6274] bg-[#2b6878] text-white' : 'border-[#cfab91] bg-[#f7ecdd] text-[#6b3141] hover:bg-[#efe0cd]'}`}
+                                          >
+                                              {getRenderPresetLabel(preset)}
+                                          </button>
+                                      );
+                                  })}
+                              </div>
+                              <div className="mt-2 text-[10px] font-bold uppercase tracking-[0.12em] text-[#8f6c67]">
+                                  Recomendado: {getRenderPresetLabel(recommendedRenderQualityPreset)}
+                              </div>
+                          </div>
+                      </div>
+                  </div>
+              </div>
+          )}
+      </AnimatedModal>
       {showFleeConfirm && (
           <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/55 backdrop-blur-[2px] pointer-events-auto p-4" onClick={() => setShowFleeConfirm(false)}>
               <div className="w-full max-w-sm rounded-[24px] border border-[#cfab91] bg-[#f7ecdd] shadow-[0_24px_80px_rgba(107,49,65,0.15)] overflow-hidden animate-fade-in-down" onClick={event => event.stopPropagation()}>
@@ -3511,6 +3624,25 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
 
                       <div className="pointer-events-auto self-start flex flex-col gap-1">
                           <button
+                              onClick={openBattleSettingsModal}
+                              className="group relative flex h-14 w-14 items-center justify-center transition-all duration-200 hover:-translate-y-0.5 hover:scale-105 active:scale-95 sm:h-16 sm:w-16"
+                              title="Configuracoes"
+                              aria-label="Configuracoes"
+                          >
+                              <span
+                                  className="inline-flex items-center justify-center rounded-full border border-[#f6eadc] bg-[#6b3141]/90 p-1.5"
+                                  style={{
+                                      filter: 'drop-shadow(1px 0 0 rgba(255,255,255,0.95)) drop-shadow(-1px 0 0 rgba(255,255,255,0.95)) drop-shadow(0 1px 0 rgba(255,255,255,0.95)) drop-shadow(0 -1px 0 rgba(255,255,255,0.95)) drop-shadow(0 4px 10px rgba(0,0,0,0.28))',
+                                  }}
+                              >
+                                  <GameAssetIcon name="gear" size={24} />
+                              </span>
+                              <span className="pointer-events-none absolute left-full ml-2 whitespace-nowrap rounded-full border border-[#cfab91] bg-[#f7ecdd]/95 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.1em] text-[#6b3141] opacity-0 translate-x-1 transition-all duration-150 group-hover:translate-x-0 group-hover:opacity-100 group-focus-visible:translate-x-0 group-focus-visible:opacity-100">
+                                  Configuracao
+                              </span>
+                          </button>
+
+                          <button
                               onClick={() => openProfileModal(undefined)}
                               className="group relative flex h-14 w-14 items-center justify-center transition-all duration-200 hover:-translate-y-0.5 hover:scale-105 active:scale-95 sm:h-16 sm:w-16"
                               title="Perfil"
@@ -3781,6 +3913,25 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                   </div>
 
                   <div className="pointer-events-auto flex flex-col gap-1 sm:gap-1">
+                      <button
+                          onClick={openBattleSettingsModal}
+                          className="group relative flex h-14 w-14 items-center justify-center transition-all duration-200 hover:-translate-y-0.5 hover:scale-105 active:scale-95 sm:h-11 sm:w-11"
+                          title="Configuracoes"
+                          aria-label="Configuracoes"
+                      >
+                          <span
+                              className="inline-flex items-center justify-center rounded-full border border-[#f6eadc] bg-[#6b3141]/90 p-1"
+                              style={{
+                                  filter: 'drop-shadow(1px 0 0 rgba(255,255,255,0.95)) drop-shadow(-1px 0 0 rgba(255,255,255,0.95)) drop-shadow(0 1px 0 rgba(255,255,255,0.95)) drop-shadow(0 -1px 0 rgba(255,255,255,0.95)) drop-shadow(0 4px 10px rgba(0,0,0,0.28))',
+                              }}
+                          >
+                              <GameAssetIcon name="gear" size={22} />
+                          </span>
+                          <span className="pointer-events-none absolute left-full ml-2 whitespace-nowrap rounded-full border border-[#cfab91] bg-[#f7ecdd]/95 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.1em] text-[#6b3141] opacity-0 translate-x-1 transition-all duration-150 group-hover:translate-x-0 group-hover:opacity-100 group-focus-visible:translate-x-0 group-focus-visible:opacity-100">
+                              Configuracao
+                          </span>
+                      </button>
+
                       <button
                           onClick={() => openProfileModal(undefined)}
                           className="group relative flex h-14 w-14 items-center justify-center transition-all duration-200 hover:-translate-y-0.5 hover:scale-105 active:scale-95 sm:h-11 sm:w-11"

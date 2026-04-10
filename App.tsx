@@ -27,6 +27,7 @@ import { SavePayload, SaveSlotId, SaveSlotSummary, getActiveSaveSlotId, listSave
 import { useBattleController } from './game/hooks/useBattleController';
 import { useBattleResolution } from './game/hooks/useBattleResolution';
 import { generateBattleDescription, generateVictorySpeech } from './services/geminiService';
+import { getDefaultRenderQualityPreset, type RenderQualityPreset } from './components/scene3d/environment';
 
 type BootWindow = Window & { __heroAdventureBootReady?: boolean };
 const MENU_CAMERA_TRANSITION_MS = 2500;
@@ -76,6 +77,50 @@ const LEGACY_WEAPON_ID_MAP: Record<string, string> = {
     wep_g2: 'wep_3d_sword_e',
 };
 const ALL_ITEMS_BY_ID = new Map(ALL_ITEMS.map((item) => [item.id, item]));
+const BATTLE_SETTINGS_STORAGE_KEY = 'hero_adventure_battle_settings_v1';
+
+interface BattleSettings {
+    musicEnabled: boolean;
+    sfxEnabled: boolean;
+    renderQualityPreset: RenderQualityPreset;
+}
+
+const createDefaultBattleSettings = (): BattleSettings => ({
+    musicEnabled: true,
+    sfxEnabled: true,
+    renderQualityPreset: getDefaultRenderQualityPreset(),
+});
+
+const sanitizeRenderQualityPreset = (value: unknown): RenderQualityPreset | null => {
+    if (value === 'performance' || value === 'balanced' || value === 'quality') {
+        return value;
+    }
+
+    return null;
+};
+
+const readBattleSettings = (): BattleSettings => {
+    const defaults = createDefaultBattleSettings();
+    if (typeof window === 'undefined') {
+        return defaults;
+    }
+
+    try {
+        const raw = window.localStorage.getItem(BATTLE_SETTINGS_STORAGE_KEY);
+        if (!raw) {
+            return defaults;
+        }
+
+        const parsed = JSON.parse(raw) as Partial<BattleSettings>;
+        return {
+            musicEnabled: typeof parsed.musicEnabled === 'boolean' ? parsed.musicEnabled : defaults.musicEnabled,
+            sfxEnabled: typeof parsed.sfxEnabled === 'boolean' ? parsed.sfxEnabled : defaults.sfxEnabled,
+            renderQualityPreset: sanitizeRenderQualityPreset(parsed.renderQualityPreset) ?? defaults.renderQualityPreset,
+        };
+    } catch {
+        return defaults;
+    }
+};
 
 const hasWeaponProficiencyBonuses = (bonuses: WeaponProficiencyAppliedBonuses) => (
     Object.values(bonuses).some((value) => typeof value === 'number' && Number.isFinite(value) && value > 0)
@@ -2937,7 +2982,36 @@ export default function App() {
         setMenuHeroAction('idle');
     }, [resolvedGameState]);
 
+    const [battleSettings, setBattleSettings] = useState<BattleSettings>(() => readBattleSettings());
     const [hasUnlockedMusic, setHasUnlockedMusic] = useState(false);
+    const recommendedRenderQualityPreset = useMemo(() => getDefaultRenderQualityPreset(), []);
+    const updateBattleSettings = useCallback((partial: Partial<BattleSettings>) => {
+        setBattleSettings((prev) => ({
+            ...prev,
+            ...partial,
+        }));
+    }, []);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') {
+            return;
+        }
+
+        window.localStorage.setItem(BATTLE_SETTINGS_STORAGE_KEY, JSON.stringify(battleSettings));
+    }, [battleSettings]);
+
+    useEffect(() => {
+        gameMusicManager.setEnabled(battleSettings.musicEnabled);
+        if (!battleSettings.musicEnabled) {
+            gameMusicManager.stopAll(220);
+        }
+    }, [battleSettings.musicEnabled]);
+
+    useEffect(() => {
+        battleSfx.setEnabled(battleSettings.sfxEnabled);
+        uiSfx.setEnabled(battleSettings.sfxEnabled);
+    }, [battleSettings.sfxEnabled]);
+
     const targetMusicTrack = useMemo<MusicTrackId | null>(() => {
         if (pathname.startsWith('/developer')) {
             return null;
@@ -2982,7 +3056,7 @@ export default function App() {
                     battleSfx.preload();
                     uiSfx.preload();
 
-                    if (targetMusicTrack) {
+                    if (targetMusicTrack && battleSettings.musicEnabled) {
                         // iOS exige uma tentativa de play imediatamente apos o gesto para liberar BGM no PWA.
                         gameMusicManager.transitionTo(targetMusicTrack, 0);
                     }
@@ -3016,20 +3090,20 @@ export default function App() {
             window.removeEventListener('pointerup', unlockMusic, listenerOptions);
             window.removeEventListener('keydown', unlockMusic, { capture: true });
         };
-    }, [hasUnlockedMusic, targetMusicTrack]);
+    }, [battleSettings.musicEnabled, hasUnlockedMusic, targetMusicTrack]);
 
     useEffect(() => {
         if (!hasUnlockedMusic) {
             return;
         }
 
-        if (!targetMusicTrack) {
+        if (!battleSettings.musicEnabled || !targetMusicTrack) {
             gameMusicManager.stopAll();
             return;
         }
 
         gameMusicManager.transitionTo(targetMusicTrack);
-    }, [hasUnlockedMusic, targetMusicTrack]);
+    }, [battleSettings.musicEnabled, hasUnlockedMusic, targetMusicTrack]);
 
     useEffect(() => {
         if (!hasUnlockedMusic || typeof window === 'undefined' || typeof document === 'undefined') {
@@ -3054,7 +3128,7 @@ export default function App() {
                     return;
                 }
 
-                if (!targetMusicTrack) {
+                if (!battleSettings.musicEnabled || !targetMusicTrack) {
                     gameMusicManager.stopAll();
                     return;
                 }
@@ -3097,7 +3171,7 @@ export default function App() {
             });
             pendingRecoveryTimers.clear();
         };
-    }, [hasUnlockedMusic, targetMusicTrack]);
+    }, [battleSettings.musicEnabled, hasUnlockedMusic, targetMusicTrack]);
 
     useEffect(() => () => {
         gameMusicManager.dispose();
@@ -3164,7 +3238,7 @@ export default function App() {
         return () => {
             window.removeEventListener('click', handleUiClick, { capture: true });
         };
-    }, [hasUnlockedMusic]);
+    }, [battleSettings.sfxEnabled, hasUnlockedMusic]);
 
     const wasNewMechanicModalOpenRef = useRef(false);
     useEffect(() => {
@@ -3363,6 +3437,7 @@ export default function App() {
                         isMenuView={resolvedGameState === GameState.TAVERN}
                         menuCameraFocus={shouldMenuCameraFocus}
                         isDungeonScene={sceneRegion === 'dungeon'}
+                        renderQualityPreset={battleSettings.renderQualityPreset}
                         onMenuHeroClick={resolvedGameState === GameState.TAVERN ? handleMenuHeroClick : undefined}
                     />
             </SceneErrorBoundary>
@@ -3562,6 +3637,11 @@ export default function App() {
                                                                                                 onAcknowledgeFleeUnlock={() => setOnboardingPhase('flee_unlocked')}
                                                 allowCardsInProfile={isCardsUnlocked}
                                                                                                 fleeUnlocked={isFleeUnlocked}
+                                                                                                musicEnabled={battleSettings.musicEnabled}
+                                                                                                sfxEnabled={battleSettings.sfxEnabled}
+                                                                                                renderQualityPreset={battleSettings.renderQualityPreset}
+                                                                                                recommendedRenderQualityPreset={recommendedRenderQualityPreset}
+                                                                                                onUpdateBattleSettings={updateBattleSettings}
         />
       )}
 
