@@ -1,4 +1,5 @@
-import { Howl, Howler } from 'howler';
+import { Howl } from 'howler';
+import { recoverHowlerAudioContext } from './recovery';
 
 const SFX_COOLDOWN_MS = 65;
 
@@ -76,17 +77,7 @@ class BattleSfxManager {
   }
 
   async unlock() {
-    Howler.autoUnlock = true;
-    Howler.mute(false);
-
-    const howlerWithContext = Howler as typeof Howler & { ctx?: AudioContext };
-    if (howlerWithContext.ctx && howlerWithContext.ctx.state !== 'running') {
-      try {
-        await howlerWithContext.ctx.resume();
-      } catch (error) {
-        console.warn('[SFX] Nao foi possivel retomar o contexto de audio.', error);
-      }
-    }
+    return recoverHowlerAudioContext('SFX');
   }
 
   private resolveRate(event: BattleSfxEvent, payload?: BattleSfxPayload) {

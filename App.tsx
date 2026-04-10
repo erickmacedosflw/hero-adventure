@@ -1,7 +1,6 @@
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { ShoppingBag, Play, Sword, Home, Orbit } from 'lucide-react';
-import { Howler } from 'howler';
 import { DeveloperConsole } from './components/DeveloperConsole';
 import { GameScene } from './components/Scene3D';
 import { OpeningScreen } from './components/OpeningScreen';
@@ -2972,16 +2971,9 @@ export default function App() {
             isAudioUnlockingRef.current = true;
 
             const tryUnlock = async () => {
-                const howlerWithContext = Howler as typeof Howler & { ctx?: AudioContext };
-
                 try {
-                    if (howlerWithContext.ctx && howlerWithContext.ctx.state !== 'running') {
-                        await howlerWithContext.ctx.resume();
-                    }
-
-                    await Promise.allSettled([gameMusicManager.unlock(), battleSfx.unlock(), uiSfx.unlock()]);
-
-                    const isContextReady = !howlerWithContext.ctx || howlerWithContext.ctx.state === 'running';
+                    const unlockResults = await Promise.allSettled([gameMusicManager.unlock(), battleSfx.unlock(), uiSfx.unlock()]);
+                    const isContextReady = unlockResults.some((result) => result.status === 'fulfilled' && result.value);
                     if (!isContextReady) {
                         console.warn('[Audio] Contexto ainda bloqueado; aguardando nova interacao do usuario.');
                         return;
@@ -2989,6 +2981,12 @@ export default function App() {
 
                     battleSfx.preload();
                     uiSfx.preload();
+
+                    if (targetMusicTrack) {
+                        // iOS exige uma tentativa de play imediatamente apos o gesto para liberar BGM no PWA.
+                        gameMusicManager.transitionTo(targetMusicTrack, 0);
+                    }
+
                     setHasUnlockedMusic(true);
                 } catch (error) {
                     console.warn('[Audio] Falha ao desbloquear audio; nova tentativa sera feita na proxima interacao.', error);
@@ -3003,18 +3001,22 @@ export default function App() {
         const listenerOptions: AddEventListenerOptions = { capture: true, passive: true };
         window.addEventListener('pointerdown', unlockMusic, listenerOptions);
         window.addEventListener('touchstart', unlockMusic, listenerOptions);
+        window.addEventListener('touchend', unlockMusic, listenerOptions);
         window.addEventListener('mousedown', unlockMusic, listenerOptions);
         window.addEventListener('click', unlockMusic, listenerOptions);
+        window.addEventListener('pointerup', unlockMusic, listenerOptions);
         window.addEventListener('keydown', unlockMusic, { capture: true });
 
         return () => {
             window.removeEventListener('pointerdown', unlockMusic, listenerOptions);
             window.removeEventListener('touchstart', unlockMusic, listenerOptions);
+            window.removeEventListener('touchend', unlockMusic, listenerOptions);
             window.removeEventListener('mousedown', unlockMusic, listenerOptions);
             window.removeEventListener('click', unlockMusic, listenerOptions);
+            window.removeEventListener('pointerup', unlockMusic, listenerOptions);
             window.removeEventListener('keydown', unlockMusic, { capture: true });
         };
-    }, [hasUnlockedMusic]);
+    }, [hasUnlockedMusic, targetMusicTrack]);
 
     useEffect(() => {
         if (!hasUnlockedMusic) {
@@ -3034,13 +3036,23 @@ export default function App() {
             return;
         }
 
+        const isLikelyIos = /iPad|iPhone|iPod/i.test(navigator.userAgent)
+            || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        const recoveryDelays = isLikelyIos ? [0, 180, 620] : [0];
+        const pendingRecoveryTimers = new Set<number>();
+
         const recoverAudio = () => {
             if (document.visibilityState === 'hidden') {
                 return;
             }
 
             const ensureRecovered = async () => {
-                await Promise.allSettled([gameMusicManager.unlock(), battleSfx.unlock(), uiSfx.unlock()]);
+                const unlockResults = await Promise.allSettled([gameMusicManager.unlock(), battleSfx.unlock(), uiSfx.unlock()]);
+                const isContextReady = unlockResults.some((result) => result.status === 'fulfilled' && result.value);
+
+                if (!isContextReady) {
+                    return;
+                }
 
                 if (!targetMusicTrack) {
                     gameMusicManager.stopAll();
@@ -3050,7 +3062,13 @@ export default function App() {
                 gameMusicManager.transitionTo(targetMusicTrack, 420);
             };
 
-            void ensureRecovered();
+            recoveryDelays.forEach((delayMs) => {
+                const timerId = window.setTimeout(() => {
+                    pendingRecoveryTimers.delete(timerId);
+                    void ensureRecovered();
+                }, delayMs);
+                pendingRecoveryTimers.add(timerId);
+            });
         };
 
         const listenerOptions: AddEventListenerOptions = { capture: true, passive: true };
@@ -3074,6 +3092,10 @@ export default function App() {
             window.removeEventListener('click', recoverAudio, listenerOptions);
             window.removeEventListener('keydown', recoverAudio, { capture: true });
             document.removeEventListener('visibilitychange', recoverAudio);
+            pendingRecoveryTimers.forEach((timerId) => {
+                window.clearTimeout(timerId);
+            });
+            pendingRecoveryTimers.clear();
         };
     }, [hasUnlockedMusic, targetMusicTrack]);
 

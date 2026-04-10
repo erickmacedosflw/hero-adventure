@@ -1,4 +1,5 @@
-import { Howl, Howler } from 'howler';
+import { Howl } from 'howler';
+import { recoverHowlerAudioContext } from './recovery';
 
 const uiSfxConfig = {
   click_in: { src: new URL('./effects/click_in.mp3', import.meta.url).href, volume: 0.5, cooldownMs: 35 },
@@ -68,17 +69,7 @@ class UiSfxManager {
   }
 
   async unlock() {
-    Howler.autoUnlock = true;
-    Howler.mute(false);
-
-    const howlerWithContext = Howler as typeof Howler & { ctx?: AudioContext };
-    if (howlerWithContext.ctx && howlerWithContext.ctx.state !== 'running') {
-      try {
-        await howlerWithContext.ctx.resume();
-      } catch (error) {
-        console.warn('[UI-SFX] Nao foi possivel retomar o contexto de audio.', error);
-      }
-    }
+    return recoverHowlerAudioContext('UI-SFX');
   }
 
   play(event: UiSfxEvent) {

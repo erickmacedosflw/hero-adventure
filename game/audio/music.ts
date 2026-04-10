@@ -1,4 +1,5 @@
-import { Howl, Howler } from 'howler';
+import { Howl } from 'howler';
+import { recoverHowlerAudioContext } from './recovery';
 
 const musicTracks = {
   title: {
@@ -61,17 +62,7 @@ class GameMusicManager {
   }
 
   async unlock() {
-    Howler.autoUnlock = true;
-    Howler.mute(false);
-
-    const howlerWithContext = Howler as typeof Howler & { ctx?: AudioContext };
-    if (howlerWithContext.ctx && howlerWithContext.ctx.state !== 'running') {
-      try {
-        await howlerWithContext.ctx.resume();
-      } catch (error) {
-        console.warn('[Music] Nao foi possivel retomar o contexto de audio.', error);
-      }
-    }
+    return recoverHowlerAudioContext('Music');
   }
 
   transitionTo(trackId: MusicTrackId, fadeMs = DEFAULT_CROSSFADE_MS) {
