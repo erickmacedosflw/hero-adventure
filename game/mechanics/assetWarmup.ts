@@ -9,6 +9,21 @@ type QueueEntry = { kind: 'fbx' | 'texture'; url: string };
 
 let hasWarmupStarted = false;
 
+const isLikelyMobileOrIOS = () => {
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') {
+    return false;
+  }
+
+  const userAgent = navigator.userAgent;
+  const touchPoints = navigator.maxTouchPoints ?? 0;
+  const isTouchMac = userAgent.includes('Mac') && touchPoints > 1;
+  const isIOS = /iPhone|iPad|iPod/i.test(userAgent) || isTouchMac;
+  const isMobileUa = /android|iphone|ipad|ipod|mobile/i.test(userAgent.toLowerCase());
+  const compactViewport = window.innerWidth < 1024;
+
+  return isIOS || isMobileUa || (touchPoints > 1 && compactViewport);
+};
+
 const isRuntimeAssetUrl = (url?: string | null) => (
   typeof url === 'string' && url.length > 0 && !url.includes('undefined')
 );
@@ -68,8 +83,11 @@ const scheduleProgressiveWarmup = (entries: QueueEntry[]) => {
     return;
   }
 
+  const constrainedDevice = isLikelyMobileOrIOS();
   let cursor = 0;
-  const chunkSize = 2;
+  const chunkSize = constrainedDevice ? 1 : 2;
+  const nextChunkDelayMs = constrainedDevice ? 180 : 90;
+  const firstChunkDelayMs = constrainedDevice ? 260 : 120;
 
   const runChunk = () => {
     if (cursor >= entries.length) {
@@ -83,11 +101,11 @@ const scheduleProgressiveWarmup = (entries: QueueEntry[]) => {
     cursor = end;
 
     if (cursor < entries.length) {
-      window.setTimeout(runChunk, 90);
+      window.setTimeout(runChunk, nextChunkDelayMs);
     }
   };
 
-  window.setTimeout(runChunk, 120);
+  window.setTimeout(runChunk, firstChunkDelayMs);
 };
 
 export const warmupBattleRuntimeAssets = ({
@@ -107,12 +125,15 @@ export const warmupBattleRuntimeAssets = ({
   const queue: QueueEntry[] = [];
   const activeClass = playerClasses.find((entry) => entry.id === activeClassId);
   const knightClass = getPlayerClassById('knight');
+  const constrainedDevice = isLikelyMobileOrIOS();
 
   // Prioritize current class and knight rig reference to remove first-combat hitches.
   enqueueAssets(queue, activeClass?.assets);
   enqueueAssets(queue, knightClass.assets);
 
-  enemies.forEach((enemy) => enqueueAssets(queue, enemy.assets));
+  if (!constrainedDevice) {
+    enemies.forEach((enemy) => enqueueAssets(queue, enemy.assets));
+  }
 
   const uniqueQueue = dedupeQueue(queue);
   scheduleProgressiveWarmup(uniqueQueue);
