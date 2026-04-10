@@ -3018,7 +3018,7 @@ export default function App() {
                 const howlerWithContext = Howler as typeof Howler & { ctx?: AudioContext };
 
                 try {
-                    if (howlerWithContext.ctx && howlerWithContext.ctx.state === 'suspended') {
+                    if (howlerWithContext.ctx && howlerWithContext.ctx.state !== 'running') {
                         await howlerWithContext.ctx.resume();
                     }
 
@@ -3070,6 +3070,41 @@ export default function App() {
         }
 
         gameMusicManager.transitionTo(targetMusicTrack);
+    }, [hasUnlockedMusic, targetMusicTrack]);
+
+    useEffect(() => {
+        if (!hasUnlockedMusic || typeof window === 'undefined' || typeof document === 'undefined') {
+            return;
+        }
+
+        const recoverAudio = () => {
+            if (document.visibilityState === 'hidden') {
+                return;
+            }
+
+            const ensureRecovered = async () => {
+                await Promise.allSettled([gameMusicManager.unlock(), battleSfx.unlock(), uiSfx.unlock()]);
+
+                if (!targetMusicTrack) {
+                    gameMusicManager.stopAll();
+                    return;
+                }
+
+                gameMusicManager.transitionTo(targetMusicTrack, 420);
+            };
+
+            void ensureRecovered();
+        };
+
+        window.addEventListener('focus', recoverAudio);
+        window.addEventListener('pageshow', recoverAudio);
+        document.addEventListener('visibilitychange', recoverAudio);
+
+        return () => {
+            window.removeEventListener('focus', recoverAudio);
+            window.removeEventListener('pageshow', recoverAudio);
+            document.removeEventListener('visibilitychange', recoverAudio);
+        };
     }, [hasUnlockedMusic, targetMusicTrack]);
 
     useEffect(() => () => {

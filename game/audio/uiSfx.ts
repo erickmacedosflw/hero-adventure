@@ -72,7 +72,7 @@ class UiSfxManager {
     Howler.mute(false);
 
     const howlerWithContext = Howler as typeof Howler & { ctx?: AudioContext };
-    if (howlerWithContext.ctx && howlerWithContext.ctx.state === 'suspended') {
+    if (howlerWithContext.ctx && howlerWithContext.ctx.state !== 'running') {
       try {
         await howlerWithContext.ctx.resume();
       } catch (error) {
