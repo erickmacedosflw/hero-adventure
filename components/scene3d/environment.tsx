@@ -92,6 +92,21 @@ const SKYBOX_PATHS: Record<string, string> = {
   noite: '/skybox/noite/',
 };
 
+type SkyboxTheme = keyof typeof SKYBOX_PATHS;
+
+const getSkyboxLoadOrder = (): SkyboxTheme[] => ['sol', 'dia', 'tarde', 'noite', 'manha'];
+
+const shouldStageSkyboxLoading = () => {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+
+  const cores = navigator.hardwareConcurrency ?? 4;
+  const memory = (navigator as Navigator & { deviceMemory?: number }).deviceMemory ?? 4;
+  const compactScreen = window.innerWidth < 900;
+  return cores <= 6 || memory <= 6 || compactScreen;
+};
+
 const getGameT = (elapsed: number) => ((elapsed * 2 + 720) / 1440) % 1;
 
 const DAY_NIGHT_TIMES = {
@@ -190,6 +205,7 @@ export const SkyboxController: React.FC = () => {
   const { scene, gl } = useThree();
   const cubemaps = useRef<Record<string, THREE.CubeTexture>>({});
   const iblCache = useRef<Record<string, THREE.Texture>>({});
+  const deferredLoadTimersRef = useRef<number[]>([]);
   const fallbackCubeRef = useRef<THREE.CubeTexture | null>(null);
   const skyboxUpdateAccumulatorRef = useRef(0);
   const pmrem = useRef<THREE.PMREMGenerator | null>(null);
@@ -219,8 +235,16 @@ export const SkyboxController: React.FC = () => {
     pmrem.current = new THREE.PMREMGenerator(gl);
     pmrem.current.compileCubemapShader();
     const loader = new THREE.CubeTextureLoader();
+    const loadOrder = getSkyboxLoadOrder();
+    const stageLoads = shouldStageSkyboxLoading();
+    const immediateCount = stageLoads ? 2 : loadOrder.length;
 
-    Object.entries(SKYBOX_PATHS).forEach(([key, base]) => {
+    const loadCubemap = (key: SkyboxTheme) => {
+      if (cubemaps.current[key]) {
+        return;
+      }
+
+      const base = SKYBOX_PATHS[key];
       loader.load(
         SKYBOX_FACES.map((face) => base + face),
         (tex) => {
@@ -246,9 +270,26 @@ export const SkyboxController: React.FC = () => {
         undefined,
         (error) => console.warn(`[SkyboxController] failed to load "${key}":`, error),
       );
+    };
+
+    loadOrder.slice(0, immediateCount).forEach((key) => {
+      loadCubemap(key);
     });
 
+    if (immediateCount < loadOrder.length) {
+      loadOrder.slice(immediateCount).forEach((key, index) => {
+        const timer = window.setTimeout(() => {
+          loadCubemap(key);
+        }, 800 + index * 450);
+        deferredLoadTimersRef.current.push(timer);
+      });
+    }
+
     return () => {
+      deferredLoadTimersRef.current.forEach((timer) => {
+        window.clearTimeout(timer);
+      });
+      deferredLoadTimersRef.current = [];
       pmrem.current?.dispose();
       Object.values(cubemaps.current).forEach((texture) => texture.dispose());
       Object.values(iblCache.current).forEach((texture) => texture.dispose());

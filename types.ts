@@ -575,6 +575,7 @@ export interface Particle {
   velocity: [number, number, number];
   life: number;
   ttl?: number;
+  expiresAt?: number;
   renderMode?: 'sprite2d' | 'shard3d';
 }
 
@@ -586,6 +587,7 @@ export interface FloatingText {
   xOffset: number; // Random slight offset
   yOffset: number;
   durationMs?: number;
+  expiresAt?: number;
   color?: string;
 }
 

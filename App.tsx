@@ -1221,6 +1221,7 @@ export default function App() {
       const densityMultiplier = type === 'explode' ? 0.72 : type === 'spark' ? 0.68 : 0.78;
       const targetCount = Math.max(6, Math.round(count * densityMultiplier));
       const now = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+      const nowMs = Date.now();
       const windowDurationMs = 240;
       const hardBudgetPerWindow = 70;
 
@@ -1251,6 +1252,7 @@ export default function App() {
               scale: type === 'heal' ? 0.18 : isShard ? 0.13 : 0.24,
               life: 1.0,
               ttl: type === 'heal' ? 0.8 : isShard ? 0.7 : 0.92,
+              expiresAt: nowMs + 1100,
               renderMode: isShard ? 'shard3d' : 'sprite2d',
               velocity: [
                   (Math.random() - 0.5) * spread * 2,
@@ -1260,12 +1262,7 @@ export default function App() {
           });
       }
 
-      const spawnedIds = new Set(newParticles.map((particle) => particle.id));
-    setParticles((prev) => [...prev, ...newParticles].slice(-120));
-
-      setTimeout(() => {
-          setParticles((prev) => prev.filter((particle) => !spawnedIds.has(particle.id)));
-      }, 1100);
+      setParticles((prev) => [...prev, ...newParticles].slice(-120));
   };
 
   const spawnFloatingText = (
@@ -1275,6 +1272,7 @@ export default function App() {
       color?: string,
   ) => {
       const id = Math.random().toString(36);
+            const nowMs = Date.now();
       const isNamedActionText = type === 'skill' || type === 'item';
       const durationMs = type === 'item'
         ? 1200
@@ -1291,14 +1289,37 @@ export default function App() {
           xOffset: isNamedActionText ? 0 : (Math.random() * 40) - 20, // Keep skill/item labels centered and readable
           yOffset: isNamedActionText ? 0 : (Math.random() * 20) - 10,
           durationMs,
+          expiresAt: nowMs + durationMs,
           color,
       }].slice(-8));
-
-      // Auto remove after animation
-      setTimeout(() => {
-          setFloatingTexts(prev => prev.filter(t => t.id !== id));
-      }, durationMs);
   };
+
+  useEffect(() => {
+      if (particles.length === 0 && floatingTexts.length === 0) {
+          return;
+      }
+
+      const pruneExpiredVfx = () => {
+          const nowMs = Date.now();
+
+          setParticles((prev) => {
+              const next = prev.filter((particle) => !particle.expiresAt || particle.expiresAt > nowMs);
+              return next.length === prev.length ? prev : next;
+          });
+
+          setFloatingTexts((prev) => {
+              const next = prev.filter((text) => !text.expiresAt || text.expiresAt > nowMs);
+              return next.length === prev.length ? prev : next;
+          });
+      };
+
+      pruneExpiredVfx();
+      const timer = window.setInterval(pruneExpiredVfx, 180);
+
+      return () => {
+          window.clearInterval(timer);
+      };
+  }, [floatingTexts.length, particles.length]);
 
     useEffect(() => {
         const handleLocationChange = () => setPathname(window.location.pathname);

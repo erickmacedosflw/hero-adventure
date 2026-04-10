@@ -2799,6 +2799,14 @@ export const GameScene: React.FC<SceneProps> = (props) => {
   const isDungeonRun = Boolean(props.isDungeonScene ?? props.isDungeonRun);
   const isArCameraMode = Boolean(props.isArCameraMode);
   const shouldRenderPostProcessing = !isArCameraMode;
+  const shouldUsePostProcessing = shouldRenderPostProcessing && adaptiveTier !== 'performance';
+  const glPowerPreference: WebGLPowerPreference = (!isMobileDevice && adaptiveTier === 'desktop-like') ? 'high-performance' : 'low-power';
+  const shouldRenderAmbientDrift = !isMobileDevice || adaptiveTier !== 'performance';
+  const particleRenderCap = adaptiveTier === 'performance' ? 72 : quality.isLowQuality ? 96 : 120;
+  const visibleParticles = useMemo(
+    () => props.particles.slice(-particleRenderCap),
+    [particleRenderCap, props.particles],
+  );
   const shouldUseDepthOfField = isDungeonRun ? shouldUseDungeonDepthOfField : shouldUseForestDepthOfField;
   const activeDepthOfFieldRange = isDungeonRun ? DUNGEON_FOCUS_RANGE : FOREST_FOCUS_RANGE;
   const activeDepthOfFieldBokeh = isDungeonRun
@@ -2847,7 +2855,7 @@ export const GameScene: React.FC<SceneProps> = (props) => {
       <Canvas
         shadows={{ type: THREE.PCFSoftShadowMap }}
         dpr={quality.dpr}
-        gl={{ antialias: quality.antialias, powerPreference: 'high-performance', alpha: isArCameraMode }}
+        gl={{ antialias: quality.antialias, powerPreference: glPowerPreference, alpha: isArCameraMode }}
         onCreated={({ gl }) => {
           if (isArCameraMode) {
             gl.setClearAlpha(0);
@@ -2990,12 +2998,14 @@ export const GameScene: React.FC<SceneProps> = (props) => {
             />
           </Suspense>
         )}
-        <AmbientDriftParticles isLowQuality={quality.isLowQuality} isDungeonRun={isDungeonRun} />
+        {shouldRenderAmbientDrift ? (
+          <AmbientDriftParticles isLowQuality={quality.isLowQuality} isDungeonRun={isDungeonRun} />
+        ) : null}
 
-        {props.particles.map(p => <MeshParticle key={p.id} {...p} />)}
+        {visibleParticles.map((particle) => <MeshParticle key={particle.id} {...particle} />)}
         <WorldFloatingTexts texts={props.floatingTexts} />
 
-        {shouldRenderPostProcessing ? (
+        {shouldUsePostProcessing ? (
           <EffectComposer>
             {shouldUseDepthOfField ? (
               <DepthOfField
