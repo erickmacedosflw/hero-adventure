@@ -10,7 +10,6 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
-    "@google/genai": "^1.30.0",
     "@pixi/react": "^8.0.5",
     "@radix-ui/react-scroll-area": "^1.2.3",
     "@radix-ui/react-tooltip": "^1.2.8",

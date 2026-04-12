@@ -3,9 +3,11 @@ import { Canvas, useLoader } from '@react-three/fiber';
 import { useProgress, useTexture } from '@react-three/drei';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import { DungeonBossTemplate, DungeonEnemyTemplate, EnemyTemplate, PlayerClassDefinition } from '../types';
+import { primeOfflineBootCache } from '../game/mechanics/offlineCachePriming';
 
 const MIN_SPLASH_VISIBILITY_MS = 900;
 const MAX_PRELOAD_WAIT_MS = 14000;
+const MAX_OFFLINE_PRIME_WAIT_MS = 5200;
 
 const FOREST_SCENARIO_MODEL_URLS = [
   new URL('../game/assets/Scenario/Florest/Tree_1_A_Color1.fbx', import.meta.url).href,
@@ -128,6 +130,7 @@ export const OpeningScreen: React.FC<OpeningScreenProps> = ({ classes, enemies, 
   const mountTimeRef = useRef(Date.now());
   const finalizeTimerRef = useRef<number | null>(null);
   const [forceComplete, setForceComplete] = useState(false);
+  const [offlinePrimeReady, setOfflinePrimeReady] = useState(false);
   const { active, progress, loaded, total, item } = useProgress();
 
   const finalizeBoot = useCallback(() => {
@@ -164,12 +167,12 @@ export const OpeningScreen: React.FC<OpeningScreenProps> = ({ classes, enemies, 
     : Math.max(4, Math.min(100, Math.round(rawPercentage)));
 
   useEffect(() => {
-    if (readyRef.current || percentage < 100) {
+    if (readyRef.current || percentage < 100 || !offlinePrimeReady) {
       return;
     }
 
     finalizeBoot();
-  }, [finalizeBoot, percentage]);
+  }, [finalizeBoot, offlinePrimeReady, percentage]);
 
   useEffect(() => {
     if (readyRef.current) {
@@ -183,6 +186,46 @@ export const OpeningScreen: React.FC<OpeningScreenProps> = ({ classes, enemies, 
     return () => window.clearTimeout(timeout);
   }, []);
 
+  useEffect(() => {
+    let activePrime = true;
+
+    if (typeof window === 'undefined' || navigator.onLine === false) {
+      setOfflinePrimeReady(true);
+      return () => {
+        activePrime = false;
+      };
+    }
+
+    const timeout = window.setTimeout(() => {
+      if (!activePrime) {
+        return;
+      }
+      setOfflinePrimeReady(true);
+    }, MAX_OFFLINE_PRIME_WAIT_MS);
+
+    const primeUrls = [
+      ...manifest.modelUrls,
+      ...manifest.textureUrls,
+      ...manifest.animationUrls,
+      ...manifest.audioUrls,
+    ];
+
+    void primeOfflineBootCache(primeUrls)
+      .catch(() => undefined)
+      .finally(() => {
+        if (!activePrime) {
+          return;
+        }
+        window.clearTimeout(timeout);
+        setOfflinePrimeReady(true);
+      });
+
+    return () => {
+      activePrime = false;
+      window.clearTimeout(timeout);
+    };
+  }, [manifest.animationUrls, manifest.audioUrls, manifest.modelUrls, manifest.textureUrls]);
+
   useEffect(() => () => {
     if (finalizeTimerRef.current !== null) {
       window.clearTimeout(finalizeTimerRef.current);
@@ -190,7 +233,7 @@ export const OpeningScreen: React.FC<OpeningScreenProps> = ({ classes, enemies, 
   }, []);
 
   const loadingLabel = percentage >= 100
-    ? 'Iniciando'
+    ? (offlinePrimeReady ? 'Iniciando' : 'Otimizando offline')
     : active
       ? 'Carregando'
       : item

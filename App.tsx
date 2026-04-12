@@ -26,7 +26,7 @@ import { WeaponProficiencyAppliedBonuses, applyWeaponProficiencyBonusesToStats, 
 import { SavePayload, SaveSlotId, SaveSlotSummary, getActiveSaveSlotId, listSaveSlots, loadSaveFromSlot, saveToActiveSlot, setActiveSaveSlotId, clearSlot } from './game/mechanics/saveSystem';
 import { useBattleController } from './game/hooks/useBattleController';
 import { useBattleResolution } from './game/hooks/useBattleResolution';
-import { generateBattleDescription, generateVictorySpeech } from './services/geminiService';
+import { generateBattleDescription, generateVictorySpeech } from './services/battleNarrationService';
 import { getDefaultRenderQualityPreset, type RenderQualityPreset } from './components/scene3d/environment';
 
 type BootWindow = Window & { __heroAdventureBootReady?: boolean };

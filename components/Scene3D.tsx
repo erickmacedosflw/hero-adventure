@@ -332,8 +332,57 @@ const COMBAT_TRAIL_SEEDS = Array.from({ length: COMBAT_TRAIL_COUNT }, (_, i) => 
   size: 0.08 + (i % 4) * 0.026,
 }));
 
+const SPRITE_FETCH_TIMEOUT_MS = 2600;
+const SPRITE_TEXTURE_LOAD_TIMEOUT_MS = 3200;
+
 const GENERATED_ANIMATION_JSON_MODULES = import.meta.glob('../game/data/sprite-animations/generated/*.json', { eager: true });
 const GENERATED_SPRITE_SHEET_URL_MODULES = import.meta.glob('../game/sprites/*', { eager: true, import: 'default', query: '?url' }) as Record<string, string>;
+
+const isOfflineRuntime = () => (
+  typeof navigator !== 'undefined' && navigator.onLine === false
+);
+
+const isCrossOriginHttpUrl = (value: string) => {
+  if (!/^https?:\/\//i.test(value)) {
+    return false;
+  }
+
+  if (typeof window === 'undefined') {
+    return true;
+  }
+
+  try {
+    const parsed = new URL(value, window.location.href);
+    return parsed.origin !== window.location.origin;
+  } catch {
+    return true;
+  }
+};
+
+const loadTextureWithTimeout = (
+  textureLoader: THREE.TextureLoader,
+  candidate: string,
+  timeoutMs: number,
+) => (
+  new Promise<THREE.Texture>((resolve, reject) => {
+    const timeoutId = window.setTimeout(() => {
+      reject(new Error(`Texture load timeout: ${candidate}`));
+    }, timeoutMs);
+
+    textureLoader.load(
+      candidate,
+      (texture) => {
+        window.clearTimeout(timeoutId);
+        resolve(texture);
+      },
+      undefined,
+      (error) => {
+        window.clearTimeout(timeoutId);
+        reject(error);
+      },
+    );
+  })
+);
 
 const getPathBasename = (input?: string | null) => {
   if (!input) return null;
@@ -372,10 +421,12 @@ const LevelUpSpriteExecution = ({ isLevelingUp }: { isLevelingUp?: boolean }) =>
 
     const loadTextureByCandidates = async (candidates: string[]): Promise<THREE.Texture | null> => {
       for (const candidate of candidates) {
+        if (isOfflineRuntime() && isCrossOriginHttpUrl(candidate)) {
+          continue;
+        }
+
         try {
-          const loaded = await new Promise<THREE.Texture>((resolve, reject) => {
-            textureLoader.load(candidate, resolve, undefined, reject);
-          });
+          const loaded = await loadTextureWithTimeout(textureLoader, candidate, SPRITE_TEXTURE_LOAD_TIMEOUT_MS);
           return loaded;
         } catch {
           // try next candidate
@@ -915,6 +966,7 @@ const CombatCinematicFX = ({
   const [hitPlayerTrackTexturesById, setHitPlayerTrackTexturesById] = useState<Record<string, Array<THREE.Texture | null>>>({});
   const [hitEnemyTrackLuminanceTexturesById, setHitEnemyTrackLuminanceTexturesById] = useState<Record<string, Array<THREE.Texture | null>>>({});
   const [hitPlayerTrackLuminanceTexturesById, setHitPlayerTrackLuminanceTexturesById] = useState<Record<string, Array<THREE.Texture | null>>>({});
+  const [spriteFallbackDebug, setSpriteFallbackDebug] = useState({ missingDefinitions: 0, missingTextures: 0 });
   const defaultUnarmedHitEnemyTexture = hitEnemyTexturesById[COMBAT_SPRITE_ANIMATION_DEFAULTS.unarmedImpactAnimationId] ?? null;
   const defaultUnarmedHitPlayerTexture = hitPlayerTexturesById[COMBAT_SPRITE_ANIMATION_DEFAULTS.unarmedImpactAnimationId] ?? null;
   const defaultExecutionEnemyTexture = hitEnemyTexturesById[COMBAT_SPRITE_ANIMATION_DEFAULTS.unarmedExecutionAnimationId] ?? null;
@@ -989,10 +1041,12 @@ const CombatCinematicFX = ({
 
     const loadTextureByCandidates = async (candidates: string[]): Promise<THREE.Texture | null> => {
       for (const candidate of candidates) {
+        if (isOfflineRuntime() && isCrossOriginHttpUrl(candidate)) {
+          continue;
+        }
+
         try {
-          const loaded = await new Promise<THREE.Texture>((resolve, reject) => {
-            textureLoader.load(candidate, resolve, undefined, reject);
-          });
+          const loaded = await loadTextureWithTimeout(textureLoader, candidate, SPRITE_TEXTURE_LOAD_TIMEOUT_MS);
           return loaded;
         } catch {
           // try next candidate
@@ -1012,12 +1066,23 @@ const CombatCinematicFX = ({
         return null;
       }
 
+      if (isOfflineRuntime() && isCrossOriginHttpUrl(url)) {
+        return null;
+      }
+
+      let timeoutId: number | null = null;
       try {
-        const response = await fetch(url);
+        const controller = new AbortController();
+        timeoutId = window.setTimeout(() => controller.abort(), SPRITE_FETCH_TIMEOUT_MS);
+        const response = await fetch(url, { signal: controller.signal });
         if (!response.ok) return null;
         return await response.json() as SpriteOverlayAnimationDefinition;
       } catch {
         return null;
+      } finally {
+        if (timeoutId !== null) {
+          window.clearTimeout(timeoutId);
+        }
       }
     };
 
@@ -1031,6 +1096,8 @@ const CombatCinematicFX = ({
       const nextPlayerTrackTextures: Record<string, Array<THREE.Texture | null>> = {};
       const nextEnemyTrackLuminanceTextures: Record<string, Array<THREE.Texture | null>> = {};
       const nextPlayerTrackLuminanceTextures: Record<string, Array<THREE.Texture | null>> = {};
+      const missingDefinitionIds: string[] = [];
+      const missingTextureIds: string[] = [];
       const textureSetByRef = new Map<string, {
         enemyTex: THREE.Texture;
         playerTex: THREE.Texture;
@@ -1081,7 +1148,10 @@ const CombatCinematicFX = ({
 
       for (const entry of SPRITE_ANIMATION_REGISTRY) {
         const definition = await loadDefinitionByRegistryPath(entry.arquivo);
-        if (!definition) continue;
+        if (!definition) {
+          missingDefinitionIds.push(entry.id);
+          continue;
+        }
         nextDefinitions[entry.id] = definition;
 
         const enabledTracks = definition.spriteTracks?.filter((track) => track.enabled !== false)
@@ -1093,7 +1163,10 @@ const CombatCinematicFX = ({
           ?? definition.spriteSheetUrl
           ?? definition.spriteSheetName;
         const baseTextureSet = await loadTextureSetForRef(firstTrackRef, definition.spriteSheetName);
-        if (!baseTextureSet) continue;
+        if (!baseTextureSet) {
+          missingTextureIds.push(entry.id);
+          continue;
+        }
 
         nextEnemyTextures[entry.id] = baseTextureSet.enemyTex;
         nextPlayerTextures[entry.id] = baseTextureSet.playerTex;
@@ -1135,6 +1208,10 @@ const CombatCinematicFX = ({
       setHitPlayerTrackTexturesById(nextPlayerTrackTextures);
       setHitEnemyTrackLuminanceTexturesById(nextEnemyTrackLuminanceTextures);
       setHitPlayerTrackLuminanceTexturesById(nextPlayerTrackLuminanceTextures);
+      setSpriteFallbackDebug({
+        missingDefinitions: missingDefinitionIds.length,
+        missingTextures: missingTextureIds.length,
+      });
     };
 
     void loadAllHitAnimations();
@@ -2050,6 +2127,16 @@ const CombatCinematicFX = ({
       <pointLight ref={impulsePlayerLightRef} color="#ef4444" intensity={0} distance={4.8} decay={2} />
       <pointLight ref={impulseEnemyLightRef} color="#ef4444" intensity={0} distance={4.8} decay={2} />
       <pointLight ref={impulseChargePlayerLightRef} color="#22d3ee" intensity={0} distance={5.4} decay={2} />
+      {(spriteFallbackDebug.missingDefinitions > 0 || spriteFallbackDebug.missingTextures > 0) ? (
+        <Html center sprite distanceFactor={9.2} position={[0, 3.1, 0]} zIndexRange={[170, 0]}>
+          <div className="rounded-lg border border-amber-200/70 bg-[#111827]/80 px-3 py-2 text-center text-[10px] font-black uppercase tracking-[0.13em] text-amber-100 shadow-[0_10px_24px_rgba(0,0,0,0.45)]">
+            FX fallback ativo
+            <div className="mt-1 text-[9px] font-bold tracking-[0.08em] text-amber-50/95">
+              json {spriteFallbackDebug.missingDefinitions} | textura {spriteFallbackDebug.missingTextures}
+            </div>
+          </div>
+        </Html>
+      ) : null}
     </group>
   );
 };
@@ -2422,7 +2509,24 @@ const HeroVoxel = ({ classId = 'knight', playerAnimationAction = 'idle', animati
               calibrationOverride={calibrationOverride}
             />
           </Suspense>
-        ) : null}
+        ) : (
+          <group>
+            <mesh position={[0, 0.9, 0]}>
+              <boxGeometry args={[0.7, 1.3, 0.52]} />
+              <meshStandardMaterial color="#60a5fa" wireframe transparent opacity={0.88} />
+            </mesh>
+            <mesh position={[0, 0.16, 0]} rotation={[Math.PI / 2, 0, 0]}>
+              <torusGeometry args={[0.7, 0.05, 10, 24]} />
+              <meshStandardMaterial color="#93c5fd" emissive="#93c5fd" emissiveIntensity={0.85} transparent opacity={0.6} />
+            </mesh>
+            <pointLight color="#93c5fd" intensity={1.1} distance={4.8} decay={2} position={[0, 1.35, 0.3]} />
+            <Html center sprite distanceFactor={8} position={[0, 2.25, 0]} zIndexRange={[170, 0]}>
+              <div className="rounded-lg border border-sky-200/70 bg-[#111827]/78 px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-sky-100 shadow-[0_10px_24px_rgba(0,0,0,0.45)]">
+                Modelo de heroi indisponivel
+              </div>
+            </Html>
+          </group>
+        )}
         {isLevelingUp && <LevelUpEffect category={levelUpCardCategory} />}
         <LevelUpSpriteExecution isLevelingUp={isLevelingUp} />
         {statusOverlay}

@@ -1,5 +1,5 @@
 import React, { Suspense, useEffect, useMemo, useRef } from 'react';
-import { ContactShadows, useAnimations, useFBX, useTexture } from '@react-three/drei';
+import { ContactShadows, Html, useAnimations, useFBX, useTexture } from '@react-three/drei';
 import { useFrame, useLoader } from '@react-three/fiber';
 import * as THREE from 'three';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
@@ -422,6 +422,25 @@ interface EnemyCharacterProps {
   statusOverlay?: React.ReactNode;
 }
 
+const MissingEnemyAssetPlaceholder = ({ scale = 1 }: { scale?: number }) => (
+  <group>
+    <mesh position={[0, 0.9, 0]}>
+      <boxGeometry args={[0.7 * scale, 1.3 * scale, 0.52 * scale]} />
+      <meshStandardMaterial color="#f87171" wireframe transparent opacity={0.88} />
+    </mesh>
+    <mesh position={[0, 0.16, 0]} rotation={[Math.PI / 2, 0, 0]}>
+      <torusGeometry args={[0.7 * scale, 0.05 * scale, 10, 24]} />
+      <meshStandardMaterial color="#fca5a5" emissive="#fca5a5" emissiveIntensity={0.85} transparent opacity={0.6} />
+    </mesh>
+    <pointLight color="#fca5a5" intensity={1.1} distance={4.8 * scale} decay={2} position={[0, 1.4 * scale, 0.3]} />
+    <Html center sprite distanceFactor={8} position={[0, 2.25 * scale, 0]} zIndexRange={[170, 0]}>
+      <div className="rounded-lg border border-rose-200/70 bg-[#111827]/78 px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-rose-100 shadow-[0_10px_24px_rgba(0,0,0,0.45)]">
+        Modelo do inimigo indisponivel
+      </div>
+    </Html>
+  </group>
+);
+
 export const EnemyCharacter = ({
   assets,
   color,
@@ -560,7 +579,13 @@ export const EnemyCharacter = ({
       : 'battle-idle');
 
   if (!runtimeEnemyAssets) {
-    return null;
+    return (
+      <group ref={group} position={originPosition} rotation={[0, baseRotationY, 0]}>
+        <MissingEnemyAssetPlaceholder scale={Math.max(0.92, scale * 0.85)} />
+        {statusOverlay}
+        <ContactShadows opacity={0.26} scale={3} blur={1.8} far={2} resolution={contactShadowResolution} />
+      </group>
+    );
   }
 
   return (

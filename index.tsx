@@ -3,16 +3,6 @@ import ReactDOM from 'react-dom/client';
 import { registerSW } from 'virtual:pwa-register';
 import App from './App';
 
-const isIOSBrowser = (() => {
-  if (typeof navigator === 'undefined') {
-    return false;
-  }
-
-  const userAgent = navigator.userAgent;
-  const isTouchMac = userAgent.includes('Mac') && (navigator.maxTouchPoints ?? 0) > 1;
-  return /iPhone|iPad|iPod/i.test(userAgent) || isTouchMac;
-})();
-
 const clearServiceWorkers = () => {
   if (!('serviceWorker' in navigator)) {
     return;
@@ -23,7 +13,7 @@ const clearServiceWorkers = () => {
     .catch(() => undefined);
 };
 
-if (import.meta.env.PROD && !isIOSBrowser) {
+if (import.meta.env.PROD) {
   registerSW({
     immediate: true,
     onRegisterError(error) {

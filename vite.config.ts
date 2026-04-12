@@ -1,11 +1,10 @@
 import path from 'path';
-import { defineConfig, loadEnv } from 'vite';
+import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
-export default defineConfig(({ mode }) => {
-    const env = loadEnv(mode, '.', '');
+export default defineConfig(() => {
     return {
       server: {
         port: 3000,
@@ -46,10 +45,23 @@ export default defineConfig(({ mode }) => {
             skipWaiting: true,
             clientsClaim: true,
             maximumFileSizeToCacheInBytes: 10 * 1024 * 1024,
-            globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,jpg,jpeg,woff2,fbx,mp3,wav,ogg,m4a}'],
+            navigateFallback: '/index.html',
+            globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,jpg,jpeg,woff2,fbx,mp3,wav,ogg,m4a,json,webmanifest}'],
             runtimeCaching: [
               {
-                urlPattern: /\.(?:fbx|png|jpg|jpeg|webp|svg)$/,
+                urlPattern: ({ request }) => request.mode === 'navigate',
+                handler: 'NetworkFirst',
+                options: {
+                  cacheName: 'hero-adventure-pages',
+                  networkTimeoutSeconds: 3,
+                  expiration: {
+                    maxEntries: 24,
+                    maxAgeSeconds: 60 * 60 * 24 * 14,
+                  },
+                },
+              },
+              {
+                urlPattern: /\.(?:fbx|png|jpg|jpeg|webp|svg|json)$/,
                 handler: 'CacheFirst',
                 options: {
                   cacheName: 'hero-adventure-assets',
@@ -75,10 +87,6 @@ export default defineConfig(({ mode }) => {
           },
         }),
       ],
-      define: {
-        'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-        'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)
-      },
       resolve: {
         alias: {
           '@': path.resolve(__dirname, '.'),
