@@ -96,6 +96,17 @@ function buildForestLayout(): PropEntry[] {
     entries.push({ key: pickKey(TREE_KEYS), position: p, rotationY: rng(0, Math.PI * 2), scale: rng(0.018, 0.026) });
   }
 
+  // Far background line to reduce empty horizon gaps on wide/mobile screens
+  const farBgTrees: [number, number, number][] = [
+    [-24, -1.05, -18], [-20, -1.05, -22], [-16, -1.05, -24], [-12, -1.05, -23],
+    [-8, -1.05, -26],  [-4, -1.05, -24],  [0, -1.05, -27],   [4, -1.05, -24],
+    [8, -1.05, -26],   [12, -1.05, -23],  [16, -1.05, -24],  [20, -1.05, -22],
+    [24, -1.05, -18],
+  ];
+  for (const p of farBgTrees) {
+    entries.push({ key: pickKey(TREE_KEYS), position: p, rotationY: rng(0, Math.PI * 2), scale: rng(0.02, 0.03) });
+  }
+
   // Side trees (flanks)
   const sideTrees: [number, number, number][] = [
     [-10, -1.05, 0], [-12, -1.05, 3], [-14, -1.05, -1], [-11, -1.05, 5],
@@ -104,6 +115,15 @@ function buildForestLayout(): PropEntry[] {
   ];
   for (const p of sideTrees) {
     entries.push({ key: pickKey(TREE_KEYS), position: p, rotationY: rng(0, Math.PI * 2), scale: rng(0.02, 0.028) });
+  }
+
+  // Secondary flank coverage to avoid visible void at camera edges
+  const sideFarTrees: [number, number, number][] = [
+    [-19, -1.05, -5], [-20, -1.05, -10], [-18, -1.05, -15],
+    [19, -1.05, -5],  [20, -1.05, -10],  [18, -1.05, -15],
+  ];
+  for (const p of sideFarTrees) {
+    entries.push({ key: pickKey(TREE_KEYS), position: p, rotationY: rng(0, Math.PI * 2), scale: rng(0.018, 0.027) });
   }
 
   // Bushes (edges, not center)
@@ -124,6 +144,15 @@ function buildForestLayout(): PropEntry[] {
   ];
   for (const p of rocks) {
     entries.push({ key: pickKey(ROCK_KEYS), position: p, rotationY: rng(0, Math.PI * 2), scale: rng(0.014, 0.022) });
+  }
+
+  // Rock clusters for distant depth masking
+  const farRocks: [number, number, number][] = [
+    [-14, -1.12, -18], [-9, -1.12, -20], [-3, -1.12, -22],
+    [3, -1.12, -22],   [9, -1.12, -20],  [14, -1.12, -18],
+  ];
+  for (const p of farRocks) {
+    entries.push({ key: pickKey(ROCK_KEYS), position: p, rotationY: rng(0, Math.PI * 2), scale: rng(0.016, 0.025) });
   }
 
   // Grass

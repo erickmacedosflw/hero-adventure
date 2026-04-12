@@ -235,6 +235,59 @@ const DAY_NIGHT_COLORS = {
   hemiNoiteG: new THREE.Color('#060c1f'),
 } as const;
 
+const createSunSpriteTexture = ({
+  size,
+  innerAlpha,
+  outerAlpha,
+}: {
+  size: number;
+  innerAlpha: number;
+  outerAlpha: number;
+}) => {
+  if (typeof document === 'undefined') {
+    const data = new Uint8Array([255, 255, 255, Math.floor(255 * innerAlpha)]);
+    const fallback = new THREE.DataTexture(data, 1, 1, THREE.RGBAFormat);
+    fallback.needsUpdate = true;
+    return fallback;
+  }
+
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const context = canvas.getContext('2d');
+  if (!context) {
+    const data = new Uint8Array([255, 255, 255, Math.floor(255 * innerAlpha)]);
+    const fallback = new THREE.DataTexture(data, 1, 1, THREE.RGBAFormat);
+    fallback.needsUpdate = true;
+    return fallback;
+  }
+
+  const gradient = context.createRadialGradient(
+    size / 2,
+    size / 2,
+    size * 0.06,
+    size / 2,
+    size / 2,
+    size * 0.5,
+  );
+  gradient.addColorStop(0, `rgba(255,255,255,${innerAlpha})`);
+  gradient.addColorStop(0.55, `rgba(255,255,255,${outerAlpha})`);
+  gradient.addColorStop(1, 'rgba(255,255,255,0)');
+
+  context.clearRect(0, 0, size, size);
+  context.fillStyle = gradient;
+  context.fillRect(0, 0, size, size);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.wrapS = THREE.ClampToEdgeWrapping;
+  texture.wrapT = THREE.ClampToEdgeWrapping;
+  texture.minFilter = THREE.LinearFilter;
+  texture.magFilter = THREE.LinearFilter;
+  texture.needsUpdate = true;
+  return texture;
+};
+
 const BLEND_WIN = 30 / 1440;
 const getSkyboxBlend = (t: number): { from: string; to: string; blend: number } => {
   const B = {
@@ -466,6 +519,19 @@ export const DayNightCycle = ({
   const hemiSkyRef = useRef(new THREE.Color());
   const hemiGroundRef = useRef(new THREE.Color());
   const cycleUpdateAccumulatorRef = useRef(0);
+  const sunGlowTexture = useMemo(
+    () => createSunSpriteTexture({ size: 256, innerAlpha: 1, outerAlpha: 0.24 }),
+    [],
+  );
+  const sunRaysTexture = useMemo(
+    () => createSunSpriteTexture({ size: 512, innerAlpha: 0.42, outerAlpha: 0.06 }),
+    [],
+  );
+
+  useEffect(() => () => {
+    sunGlowTexture.dispose();
+    sunRaysTexture.dispose();
+  }, [sunGlowTexture, sunRaysTexture]);
 
   useFrame((state, delta) => {
     cycleUpdateAccumulatorRef.current += delta;
@@ -642,22 +708,26 @@ export const DayNightCycle = ({
       <sprite ref={sunRaysRef} raycast={disableRaycast} renderOrder={4}>
         <spriteMaterial
           ref={sunRaysMaterialRef}
+          map={sunRaysTexture}
           color="#ffd27a"
           transparent
           opacity={0.12}
           depthWrite={false}
           blending={THREE.AdditiveBlending}
+          alphaTest={0.01}
           toneMapped={false}
         />
       </sprite>
       <sprite ref={sunGlowRef} raycast={disableRaycast} renderOrder={5}>
         <spriteMaterial
           ref={sunGlowMaterialRef}
+          map={sunGlowTexture}
           color="#ffe9a8"
           transparent
           opacity={0.3}
           depthWrite={false}
           blending={THREE.AdditiveBlending}
+          alphaTest={0.01}
           toneMapped={false}
         />
       </sprite>

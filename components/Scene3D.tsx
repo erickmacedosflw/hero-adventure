@@ -2940,6 +2940,8 @@ export const GameScene: React.FC<SceneProps> = (props) => {
   const activeBloomSmoothing = isDungeonRun ? 0.85 : (shouldUseDepthOfField ? 0.8 : 0.82);
   const activeVignetteOffset = isDungeonRun ? 0.1 : (shouldUseDepthOfField ? 0.06 : 0.08);
   const activeVignetteDarkness = isDungeonRun ? 0.42 : (shouldUseDepthOfField ? 0.1 : 0.13);
+  const forestFogNear = quality.isLowQuality ? 12 : 16;
+  const forestFogFar = quality.isLowQuality ? 34 : 46;
   const shadowMapType = isPerformanceMode ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
   const battleContactShadowResolution = useMemo(
     () => isQualityMode ? quality.contactShadowResolution : (quality.isLowQuality ? 48 : Math.min(quality.contactShadowResolution, 96)),
@@ -2994,7 +2996,7 @@ export const GameScene: React.FC<SceneProps> = (props) => {
           ) : (
             <>
               <SkyboxController />
-              <fog attach="fog" args={['#d7e6c2', 16, 46]} />
+              <fog attach="fog" args={['#d7e6c2', forestFogNear, forestFogFar]} />
               <DayNightCycle containerRef={containerRef} onTimeUpdate={handleTimeUpdate} quality={quality} />
               <ambientLight intensity={0.6} />
               <hemisphereLight intensity={0.5} groundColor="#243a20" color="#f4ffe6" />
