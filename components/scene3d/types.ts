@@ -72,3 +72,79 @@ export interface DeveloperAnimationRuntimeDiagnostic {
   actionStarted: boolean;
   status: 'playing' | 'missing-target-clip' | 'missing-action';
 }
+
+export type DeveloperScenarioComposerId = 'tower' | 'forest' | 'dungeon' | 'moutain' | 'hero-selection';
+export type DeveloperScenarioComposerCameraMode = 'battle-sim' | 'free';
+export type DeveloperScenarioComposerSelectionTarget = 'scenario' | 'hero' | 'enemy' | 'menu-portal' | `scene-object:${string}` | `hero-slot:${PlayerClassId}`;
+export type DeveloperScenarioComposerTransformMode = 'translate' | 'rotate' | 'scale';
+
+export interface DeveloperScenarioComposerTransform {
+  position: [number, number, number];
+  rotation: [number, number, number];
+  scale: number;
+}
+
+export interface DeveloperScenarioComposerLighting {
+  ambientColor: string;
+  ambientIntensity: number;
+  directionalColor: string;
+  directionalIntensity: number;
+  directionalPosition: [number, number, number];
+}
+
+export interface DeveloperScenarioComposerAtmosphere {
+  fogEnabled: boolean;
+  fogColor: string;
+  fogNear: number;
+  fogFar: number;
+}
+
+export interface DeveloperScenarioComposerParticles {
+  dustEnabled: boolean;
+  mistEnabled: boolean;
+  density: number;
+  speed: number;
+  opacity: number;
+}
+
+export interface DeveloperScenarioComposerCameraState {
+  position: [number, number, number];
+  target: [number, number, number];
+  fov: number;
+}
+
+export interface DeveloperScenarioComposerHeroSlot {
+  classId: PlayerClassId;
+  position: [number, number, number];
+  rotationY: number;
+}
+
+export interface DeveloperScenarioComposerConfig {
+  scenarioId: DeveloperScenarioComposerId;
+  scenarioTransform: DeveloperScenarioComposerTransform;
+  sceneObjects: DeveloperScenarioComposerSceneObject[];
+  heroSelectionSlots?: DeveloperScenarioComposerHeroSlot[];
+  heroBasePosition: [number, number, number];
+  enemyBasePosition: [number, number, number];
+  lighting: DeveloperScenarioComposerLighting;
+  atmosphere: DeveloperScenarioComposerAtmosphere;
+  particles: DeveloperScenarioComposerParticles;
+  cameraMode: DeveloperScenarioComposerCameraMode;
+  cameraState: DeveloperScenarioComposerCameraState;
+}
+
+export interface DeveloperScenarioComposerSceneObject {
+  id: string;
+  label: string;
+  modelUrl: string;
+  transform: DeveloperScenarioComposerTransform;
+}
+
+export interface DeveloperScenarioComposerExportPayload {
+  version: number;
+  exportedAt: string;
+  scenarioId: DeveloperScenarioComposerId;
+  scenarioName: string;
+  scenarioModelUrl: string;
+  config: DeveloperScenarioComposerConfig;
+}

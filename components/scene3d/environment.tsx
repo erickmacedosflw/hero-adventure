@@ -866,17 +866,21 @@ export const FogController: React.FC = () => {
 export const CameraController = ({
   screenShake,
   menuFocus = false,
+  menuPortalTravelCinematicToken = 0,
+  menuPortalFocusPoint,
 }: {
   screenShake?: number;
   menuFocus?: boolean;
+  menuPortalTravelCinematicToken?: number;
+  menuPortalFocusPoint?: [number, number, number];
 }) => {
   const cameraRef = useRef<THREE.PerspectiveCamera>(null);
   const clockRef = useRef(0);
   const isMobile = window.innerWidth < 768;
-  const menuDistance = isMobile ? 7.2 : 5.8;
+  const menuDistance = isMobile ? 8.4 : 6.8;
   const battleDistance = isMobile ? 16.2 : 11;
   const battleHeight = isMobile ? 4.1 : 2.5;
-  const menuFov = isMobile ? 50 : 46;
+  const menuFov = isMobile ? 54 : 50;
   const battleFov = isMobile ? 54 : 50;
   const focusBlendRef = useRef(menuFocus ? 1 : 0);
   const focusBlendTargetRef = useRef(menuFocus ? 1 : 0);
@@ -889,6 +893,20 @@ export const CameraController = ({
   const menuHeightTargetRef = useRef(0);
   const dragActiveRef = useRef(false);
   const dragXRef = useRef(0);
+  const cinematicTokenRef = useRef(0);
+  const cinematicPosition = useMemo(() => new THREE.Vector3(), []);
+  const cinematicLook = useMemo(() => new THREE.Vector3(), []);
+  const cinematicStateRef = useRef({
+    active: false,
+    phase: 'idle' as 'idle' | 'zoom-in' | 'hold' | 'zoom-out',
+    elapsed: 0,
+    startPosition: new THREE.Vector3(),
+    startLook: new THREE.Vector3(),
+    startFov: battleFov,
+    targetPosition: new THREE.Vector3(),
+    targetLook: new THREE.Vector3(),
+    targetFov: battleFov,
+  });
   useEffect(() => {
     focusBlendTargetRef.current = menuFocus ? 1 : 0;
   }, [menuFocus]);
@@ -939,7 +957,48 @@ export const CameraController = ({
       window.removeEventListener('touchmove', onTouchMove);
     };
   }, [menuFocus]);
+  useEffect(() => {
+    if (!menuFocus || menuPortalTravelCinematicToken <= 0) {
+      return;
+    }
+    if (menuPortalTravelCinematicToken === cinematicTokenRef.current) {
+      return;
+    }
+
+    cinematicTokenRef.current = menuPortalTravelCinematicToken;
+    const camera = cameraRef.current;
+    if (!camera) {
+      return;
+    }
+
+    const focusPoint = menuPortalFocusPoint ?? [-4.22, 0.08, 0.58];
+    const portalLook = new THREE.Vector3(focusPoint[0], focusPoint[1], focusPoint[2]);
+    const forward = new THREE.Vector3();
+    camera.getWorldDirection(forward);
+    const cameraLook = camera.position.clone().add(forward.multiplyScalar(8));
+    const portalCameraPosition = new THREE.Vector3(
+      portalLook.x + (isMobile ? 1.85 : 1.5),
+      portalLook.y + (isMobile ? 1.2 : 0.95),
+      portalLook.z + (isMobile ? 2.45 : 1.95),
+    );
+
+    cinematicStateRef.current = {
+      active: true,
+      phase: 'zoom-in',
+      elapsed: 0,
+      startPosition: camera.position.clone(),
+      startLook: cameraLook,
+      startFov: camera.fov,
+      targetPosition: portalCameraPosition,
+      targetLook: portalLook,
+      targetFov: Math.max(36, camera.fov - (isMobile ? 5 : 7)),
+    };
+  }, [isMobile, menuFocus, menuPortalFocusPoint, menuPortalTravelCinematicToken]);
   useFrame((_, delta) => {
+    const easeInOut = (value: number) => value * value * (3 - (2 * value));
+    const ZOOM_IN_SECONDS = 0.72;
+    const HOLD_SECONDS = 0.24;
+    const ZOOM_OUT_SECONDS = 0.82;
     clockRef.current += delta;
     const t = clockRef.current;
     const transitionDurationSeconds = 2.5;
@@ -973,7 +1032,48 @@ export const CameraController = ({
     const targetX = THREE.MathUtils.lerp(battleTargetX, menuTargetX, focusBlend);
     const targetY = THREE.MathUtils.lerp(battleTargetY, menuTargetY, focusBlend);
     const targetZ = THREE.MathUtils.lerp(battleTargetZ, menuTargetZ, focusBlend);
-    if (cameraRef.current && screenShake && focusBlend < 0.2) {
+
+    const cinematicState = cinematicStateRef.current;
+    const hasActiveCinematic = Boolean(cameraRef.current && cinematicState.active);
+    let cinematicFov: number | null = null;
+
+    if (hasActiveCinematic && cameraRef.current) {
+      cinematicState.elapsed += delta;
+
+      if (cinematicState.phase === 'zoom-in') {
+        const progress = THREE.MathUtils.clamp(cinematicState.elapsed / ZOOM_IN_SECONDS, 0, 1);
+        const eased = easeInOut(progress);
+        cinematicPosition.lerpVectors(cinematicState.startPosition, cinematicState.targetPosition, eased);
+        cinematicLook.lerpVectors(cinematicState.startLook, cinematicState.targetLook, eased);
+        cinematicFov = THREE.MathUtils.lerp(cinematicState.startFov, cinematicState.targetFov, eased);
+        if (progress >= 1) {
+          cinematicState.phase = 'hold';
+          cinematicState.elapsed = 0;
+        }
+      } else if (cinematicState.phase === 'hold') {
+        cinematicPosition.copy(cinematicState.targetPosition);
+        cinematicLook.copy(cinematicState.targetLook);
+        cinematicFov = cinematicState.targetFov;
+        if (cinematicState.elapsed >= HOLD_SECONDS) {
+          cinematicState.phase = 'zoom-out';
+          cinematicState.elapsed = 0;
+        }
+      } else if (cinematicState.phase === 'zoom-out') {
+        const progress = THREE.MathUtils.clamp(cinematicState.elapsed / ZOOM_OUT_SECONDS, 0, 1);
+        const eased = easeInOut(progress);
+        cinematicPosition.lerpVectors(cinematicState.targetPosition, cinematicState.startPosition, eased);
+        cinematicLook.lerpVectors(cinematicState.targetLook, cinematicState.startLook, eased);
+        cinematicFov = THREE.MathUtils.lerp(cinematicState.targetFov, cinematicState.startFov, eased);
+        if (progress >= 1) {
+          cinematicState.active = false;
+          cinematicState.phase = 'idle';
+          cinematicState.elapsed = 0;
+        }
+      }
+
+      cameraRef.current.position.lerp(cinematicPosition, 0.22);
+      mixedLookTarget.copy(cinematicLook);
+    } else if (cameraRef.current && screenShake && focusBlend < 0.2) {
       const shake = screenShake;
       cameraRef.current.position.x = targetX + (Math.random() - 0.5) * shake;
       cameraRef.current.position.y = targetY + (Math.random() - 0.5) * shake;
@@ -983,10 +1083,13 @@ export const CameraController = ({
       cameraRef.current.position.y = THREE.MathUtils.lerp(cameraRef.current.position.y, targetY, 0.08);
       cameraRef.current.position.z = THREE.MathUtils.lerp(cameraRef.current.position.z, targetZ, 0.08);
     }
+
     if (cameraRef.current) {
-      mixedLookTarget.lerpVectors(lookTarget, menuLookTarget, focusBlend);
+      if (!hasActiveCinematic) {
+        mixedLookTarget.lerpVectors(lookTarget, menuLookTarget, focusBlend);
+      }
       cameraRef.current.lookAt(mixedLookTarget);
-      const targetFov = THREE.MathUtils.lerp(battleFov, menuFov, focusBlend);
+      const targetFov = cinematicFov ?? THREE.MathUtils.lerp(battleFov, menuFov, focusBlend);
       if (Math.abs(cameraRef.current.fov - targetFov) > 0.01) {
         cameraRef.current.fov = targetFov;
         cameraRef.current.updateProjectionMatrix();

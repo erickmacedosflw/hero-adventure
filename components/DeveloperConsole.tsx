@@ -4,7 +4,7 @@ import { ALL_ITEMS, DUNGEON_BOSS, DUNGEON_ENEMY_DATA, ENEMY_DATA } from '../cons
 import { getRegisteredWeapon3DByItemId, REGISTERED_WEAPON_ITEMS } from '../game/data/weaponCatalog';
 import { getPlayerClassById, PLAYER_CLASSES } from '../game/data/classes';
 import { DungeonBossTemplate, DungeonEnemyTemplate, EnemyTemplate, PlayerAnimationAction, PlayerClassId, Rarity } from '../types';
-import { DeveloperClassBuilderScene, DeveloperKitbashScene, DeveloperMonsterScene, DeveloperWeaponCalibrationScene } from './Scene3D';
+import { DeveloperClassBuilderScene, DeveloperKitbashScene, DeveloperMonsterScene, DeveloperScenarioComposerScene, DeveloperWeaponCalibrationScene } from './Scene3D';
 import { SpriteAnimationLab } from './SpriteAnimationLab';
 import type {
   DeveloperAnimationRuntimeDiagnostic,
@@ -12,12 +12,20 @@ import type {
   DeveloperKitbashMainSlot,
   DeveloperKitbashPartSource,
   DeveloperKitbashSlot,
+  DeveloperScenarioComposerConfig,
+  DeveloperScenarioComposerExportPayload,
+  DeveloperScenarioComposerHeroSlot,
+  DeveloperScenarioComposerId,
+  DeveloperScenarioComposerSceneObject,
+  DeveloperScenarioComposerSelectionTarget,
+  DeveloperScenarioComposerTransformMode,
   DeveloperWeaponTransformControlMode,
   DeveloperWeaponTransformOverride,
 } from './scene3d/types';
 import { ItemPreviewThree } from './items/ItemPreviewThree';
+import { getRuntimeMenuPortalPreset, MENU_NAVIGATION_PORTAL_MODEL_URL, type RuntimeMenuPortalTransform } from '../game/data/runtimeMenuPortal';
 
-type DeveloperTab = 'overview' | 'animation-lab' | 'monster-lab' | 'item-lab' | 'kitbash-lab' | 'sprite-lab';
+type DeveloperTab = 'overview' | 'animation-lab' | 'monster-lab' | 'item-lab' | 'kitbash-lab' | 'sprite-lab' | 'scenario-lab';
 type WeaponCalibrationViewMode = 'sandbox' | 'attached';
 
 const animationActions: PlayerAnimationAction[] = ['idle', 'battle-idle', 'attack', 'defend', 'defend-hit', 'hit', 'critical-hit', 'item', 'heal', 'skill', 'evade', 'death'];
@@ -74,6 +82,341 @@ const rarityTone: Record<Rarity, string> = {
   gold: 'text-amber-200 border-amber-400/20 bg-amber-400/10',
 };
 
+const DEVELOPER_SCENARIO_CATALOG: Record<DeveloperScenarioComposerId, {
+  id: DeveloperScenarioComposerId;
+  label: string;
+  modelUrl: string;
+}> = {
+  tower: {
+    id: 'tower',
+    label: 'Tower',
+    modelUrl: new URL('../game/assets/Scenario/Tower/cenario_3d_torre.glb', import.meta.url).href,
+  },
+  forest: {
+    id: 'forest',
+    label: 'Florest',
+    modelUrl: new URL('../game/assets/Scenario/Florest/cenario_3d_floresta.glb', import.meta.url).href,
+  },
+  dungeon: {
+    id: 'dungeon',
+    label: 'Dungeon',
+    modelUrl: new URL('../game/assets/Scenario/Dungeon/cenario_3d_dungeon.glb', import.meta.url).href,
+  },
+  moutain: {
+    id: 'moutain',
+    label: 'Mountain',
+    modelUrl: new URL('../game/assets/Scenario/Moutain/cenario_3d_montanha.glb', import.meta.url).href,
+  },
+  'hero-selection': {
+    id: 'hero-selection',
+    label: 'Hero Selection',
+    modelUrl: new URL('../game/assets/Scenario/Tower/cenario_3d_torre.glb', import.meta.url).href,
+  },
+};
+
+type DeveloperScenarioObjectTemplateId = DeveloperScenarioComposerId | 'tower-object';
+
+const DEVELOPER_SCENE_OBJECT_TEMPLATE_CATALOG: Record<DeveloperScenarioObjectTemplateId, {
+  id: DeveloperScenarioObjectTemplateId;
+  label: string;
+  modelUrl: string;
+}> = {
+  tower: {
+    id: 'tower',
+    label: 'Tower',
+    modelUrl: DEVELOPER_SCENARIO_CATALOG.tower.modelUrl,
+  },
+  forest: {
+    id: 'forest',
+    label: 'Florest',
+    modelUrl: DEVELOPER_SCENARIO_CATALOG.forest.modelUrl,
+  },
+  dungeon: {
+    id: 'dungeon',
+    label: 'Dungeon',
+    modelUrl: DEVELOPER_SCENARIO_CATALOG.dungeon.modelUrl,
+  },
+  moutain: {
+    id: 'moutain',
+    label: 'Mountain',
+    modelUrl: DEVELOPER_SCENARIO_CATALOG.moutain.modelUrl,
+  },
+  'hero-selection': {
+    id: 'hero-selection',
+    label: 'Hero Selection',
+    modelUrl: DEVELOPER_SCENARIO_CATALOG['hero-selection'].modelUrl,
+  },
+  'tower-object': {
+    id: 'tower-object',
+    label: 'Tower Object',
+    modelUrl: new URL('../game/assets/Scenario/Tower/cenario_3d_torre_objeto.glb', import.meta.url).href,
+  },
+};
+
+const DEFAULT_HERO_SELECTION_SLOTS: DeveloperScenarioComposerHeroSlot[] = [
+  { classId: 'knight', position: [-5.065875029255851, -1.02, 3.0315979913560533], rotationY: 0.34 },
+  { classId: 'barbarian', position: [-2.796920010942409, -1.02, -0.12], rotationY: 0.2 },
+  { classId: 'mage', position: [0.15859680243079177, -1.02, 2.176172139616071], rotationY: 0.06 },
+  { classId: 'ranger', position: [3.2778408920796833, -1.02, -0.12], rotationY: -0.2 },
+  { classId: 'rogue', position: [5.642212994468803, -1.02, 2.6744567347513666], rotationY: -0.34 },
+];
+
+const createDefaultScenarioComposerConfig = (scenarioId: DeveloperScenarioComposerId): DeveloperScenarioComposerConfig => {
+  if (scenarioId === 'tower') {
+    return {
+      scenarioId,
+      scenarioTransform: {
+        position: [0, -1.15, 0],
+        rotation: [0, 0, 0],
+        scale: 1,
+      },
+      sceneObjects: [],
+      heroBasePosition: [-2.1, -1, 0],
+      enemyBasePosition: [2.1, -1, 0],
+      lighting: {
+        ambientColor: '#e2e8f0',
+        ambientIntensity: 0.58,
+        directionalColor: '#c7d2fe',
+        directionalIntensity: 1.12,
+        directionalPosition: [3.2, 6.1, 5.2],
+      },
+      atmosphere: {
+        fogEnabled: true,
+        fogColor: '#1f2937',
+        fogNear: 12,
+        fogFar: 42,
+      },
+      particles: {
+        dustEnabled: true,
+        mistEnabled: true,
+        density: 0.5,
+        speed: 0.42,
+        opacity: 0.22,
+      },
+      cameraMode: 'battle-sim',
+      cameraState: {
+        position: [0, 2.2, 11],
+        target: [0, 0.2, 0],
+        fov: 45,
+      },
+    };
+  }
+
+  if (scenarioId === 'forest') {
+    return {
+      scenarioId,
+      scenarioTransform: {
+        position: [0, -1.15, -0.2],
+        rotation: [0, 0, 0],
+        scale: 1,
+      },
+      sceneObjects: [],
+      heroBasePosition: [-2.05, -1, 0],
+      enemyBasePosition: [2.05, -1, 0],
+      lighting: {
+        ambientColor: '#dcfce7',
+        ambientIntensity: 0.64,
+        directionalColor: '#fef9c3',
+        directionalIntensity: 1.04,
+        directionalPosition: [3, 6, 5],
+      },
+      atmosphere: {
+        fogEnabled: true,
+        fogColor: '#84cc16',
+        fogNear: 16,
+        fogFar: 46,
+      },
+      particles: {
+        dustEnabled: true,
+        mistEnabled: true,
+        density: 0.55,
+        speed: 0.4,
+        opacity: 0.2,
+      },
+      cameraMode: 'battle-sim',
+      cameraState: {
+        position: [0, 2.2, 11],
+        target: [0, 0.2, 0],
+        fov: 45,
+      },
+    };
+  }
+
+  if (scenarioId === 'moutain') {
+    return {
+      scenarioId,
+      scenarioTransform: {
+        position: [-0.622838181152414, 1.7740583891503867, -1.4063092684384098],
+        rotation: [-1.5921513204638782, -1.5621957698879716, -1.5882422593282355],
+        scale: 20.51690457362007,
+      },
+      sceneObjects: [
+        {
+          id: 'scene-object-mo0vplfk-m95cre',
+          label: 'Tower Object 1',
+          modelUrl: new URL('../game/assets/Scenario/Tower/cenario_3d_torre_objeto.glb', import.meta.url).href,
+          transform: {
+            position: [-2.2268665940147696, 3.059670283458114, -22.43335412594464],
+            rotation: [-3.141592653589793, -1.5094643673210264, -3.141592653589793],
+            scale: 14.133388163415905,
+          },
+        },
+      ],
+      heroBasePosition: [-2.05, -1, 0],
+      enemyBasePosition: [2.05, -1, 0],
+      lighting: {
+        ambientColor: '#dbeafe',
+        ambientIntensity: 0.56,
+        directionalColor: '#f8fafc',
+        directionalIntensity: 0.98,
+        directionalPosition: [2.8, 5.8, 4.8],
+      },
+      atmosphere: {
+        fogEnabled: true,
+        fogColor: '#94a3b8',
+        fogNear: 8,
+        fogFar: 26,
+      },
+      particles: {
+        dustEnabled: true,
+        mistEnabled: true,
+        density: 0.55,
+        speed: 0.45,
+        opacity: 0.22,
+      },
+      cameraMode: 'free',
+      cameraState: {
+        position: [4.495909189342535, 5.478608540250615, 11.338752852228687],
+        target: [1.643459977668827, 2.719083847608313, -0.39648318544302874],
+        fov: 45,
+      },
+    };
+  }
+
+  if (scenarioId === 'hero-selection') {
+    return {
+      scenarioId,
+      scenarioTransform: {
+        position: [-0.8782786604688742, 5.484000234294957, -0.20775746777177284],
+        rotation: [0.028583256286450552, -1.5498129813442971, 0],
+        scale: 17.882588560424573,
+      },
+      sceneObjects: [],
+      heroSelectionSlots: DEFAULT_HERO_SELECTION_SLOTS.map((entry) => ({
+        classId: entry.classId,
+        position: [...entry.position] as [number, number, number],
+        rotationY: entry.rotationY,
+      })),
+      heroBasePosition: [-2.1, -1, 0],
+      enemyBasePosition: [2.1, -1, 0],
+      lighting: {
+        ambientColor: '#e5f1ff',
+        ambientIntensity: 0.58,
+        directionalColor: '#fefadc',
+        directionalIntensity: 1.12,
+        directionalPosition: [3.2, 6.1, 5.2],
+      },
+      atmosphere: {
+        fogEnabled: true,
+        fogColor: '#5a5735',
+        fogNear: 12,
+        fogFar: 42,
+      },
+      particles: {
+        dustEnabled: true,
+        mistEnabled: false,
+        density: 0.5,
+        speed: 0.42,
+        opacity: 0.22,
+      },
+      cameraMode: 'free',
+      cameraState: {
+        position: [1.4059473017594344, 1.3084268926022895, 14.166037869265972],
+        target: [1.1582310875212565, -0.4348756623832002, -0.17977113392723795],
+        fov: 45,
+      },
+    };
+  }
+
+  return {
+    scenarioId,
+    scenarioTransform: {
+      position: [0, -1.15, 0],
+      rotation: [0, 0, 0],
+      scale: 1,
+    },
+    sceneObjects: [],
+    heroBasePosition: [-2.05, -1, 0],
+    enemyBasePosition: [2.05, -1, 0],
+    lighting: {
+      ambientColor: '#dbeafe',
+      ambientIntensity: 0.56,
+      directionalColor: '#f8fafc',
+      directionalIntensity: 0.98,
+      directionalPosition: [2.8, 5.8, 4.8],
+    },
+    atmosphere: {
+      fogEnabled: true,
+      fogColor: '#0f172a',
+      fogNear: 10,
+      fogFar: 34,
+    },
+    particles: {
+      dustEnabled: true,
+      mistEnabled: true,
+      density: 0.62,
+      speed: 0.5,
+      opacity: 0.25,
+    },
+    cameraMode: 'battle-sim',
+    cameraState: {
+      position: [0, 2.2, 11],
+      target: [0, 0.2, 0],
+      fov: 45,
+    },
+  };
+};
+
+const createDefaultScenarioComposerState = (): Record<DeveloperScenarioComposerId, DeveloperScenarioComposerConfig> => ({
+  tower: createDefaultScenarioComposerConfig('tower'),
+  forest: createDefaultScenarioComposerConfig('forest'),
+  dungeon: createDefaultScenarioComposerConfig('dungeon'),
+  moutain: createDefaultScenarioComposerConfig('moutain'),
+  'hero-selection': createDefaultScenarioComposerConfig('hero-selection'),
+});
+
+const normalizeHexColor = (value: string, fallback: string) => {
+  const trimmed = value.trim();
+  return /^#[0-9a-fA-F]{6}$/.test(trimmed) ? trimmed : fallback;
+};
+
+const createScenarioSceneObjectId = () => (
+  `scene-object-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
+);
+
+const toSceneObjectSelectionTarget = (objectId: string): DeveloperScenarioComposerSelectionTarget => (
+  `scene-object:${objectId}` as DeveloperScenarioComposerSelectionTarget
+);
+
+const parseSceneObjectSelectionTarget = (target: DeveloperScenarioComposerSelectionTarget): string | null => (
+  target.startsWith('scene-object:') ? target.slice('scene-object:'.length) : null
+);
+
+const createDefaultMenuPortalTransform = (): RuntimeMenuPortalTransform => {
+  const preset = getRuntimeMenuPortalPreset();
+  return {
+    position: [...preset.transform.position] as [number, number, number],
+    rotation: [...preset.transform.rotation] as [number, number, number],
+    scale: preset.transform.scale,
+  };
+};
+
+const createMenuPortalExportPayload = (transform: RuntimeMenuPortalTransform) => ({
+  version: 1,
+  exportedAt: new Date().toISOString(),
+  transform,
+});
+
 const SelectField = ({
   label,
   value,
@@ -116,9 +459,40 @@ const NumberField = ({
       type="number"
       value={value}
       step={step}
-      onChange={(event) => onChange(Number(event.target.value))}
+      onChange={(event) => {
+        const normalized = event.target.value.replace(',', '.');
+        onChange(Number(normalized));
+      }}
       className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2.5 text-slate-100 outline-none transition-colors focus:border-cyan-400/40"
     />
+  </label>
+);
+
+const ColorField = ({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}) => (
+  <label className="flex flex-col gap-2 text-sm">
+    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">{label}</span>
+    <div className="flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-950 px-2 py-2">
+      <input
+        type="color"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="h-8 w-10 cursor-pointer rounded border border-slate-700 bg-transparent"
+      />
+      <input
+        type="text"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="w-full bg-transparent text-slate-100 outline-none"
+      />
+    </div>
   </label>
 );
 
@@ -146,6 +520,18 @@ export const DeveloperConsole: React.FC = () => {
     rotation: [0.288, -0.394, 0.243],
     scale: 0.600,
   });
+  const [scenarioEditorScenarioId, setScenarioEditorScenarioId] = useState<DeveloperScenarioComposerId>('hero-selection');
+  const [scenarioEditorConfigs, setScenarioEditorConfigs] = useState<Record<DeveloperScenarioComposerId, DeveloperScenarioComposerConfig>>(createDefaultScenarioComposerState);
+  const [scenarioHeroClassId, setScenarioHeroClassId] = useState<PlayerClassId>('knight');
+  const [scenarioSelectedHeroSlotClassId, setScenarioSelectedHeroSlotClassId] = useState<PlayerClassId>('knight');
+  const [scenarioSelectionTarget, setScenarioSelectionTarget] = useState<DeveloperScenarioComposerSelectionTarget>('scenario');
+  const [scenarioTransformMode, setScenarioTransformMode] = useState<DeveloperScenarioComposerTransformMode>('translate');
+  const [scenarioTransformControlsEnabled, setScenarioTransformControlsEnabled] = useState(true);
+  const [scenarioObjectTemplateId, setScenarioObjectTemplateId] = useState<DeveloperScenarioObjectTemplateId>('forest');
+  const [scenarioSelectedObjectId, setScenarioSelectedObjectId] = useState('');
+  const [scenarioExportStatus, setScenarioExportStatus] = useState<'idle' | 'copied' | 'downloaded' | 'error'>('idle');
+  const [menuPortalTransform, setMenuPortalTransform] = useState<RuntimeMenuPortalTransform>(createDefaultMenuPortalTransform);
+  const [menuPortalExportStatus, setMenuPortalExportStatus] = useState<'idle' | 'copied' | 'downloaded' | 'error'>('idle');
   const selectedClass = useMemo(() => getPlayerClassById(classId), [classId]);
   const monsterCatalog = useMemo(() => {
     const entries: Array<{ id: string; label: string; family: string; enemy: EnemyTemplate | DungeonEnemyTemplate | DungeonBossTemplate }> = [];
@@ -162,9 +548,24 @@ export const DeveloperConsole: React.FC = () => {
     return entries;
   }, []);
   const [selectedMonsterId, setSelectedMonsterId] = useState(monsterCatalog[0]?.id ?? '');
+  const [scenarioMonsterId, setScenarioMonsterId] = useState(monsterCatalog[0]?.id ?? '');
   const selectedMonsterEntry = useMemo(
     () => monsterCatalog.find((entry) => entry.id === selectedMonsterId) ?? monsterCatalog[0],
     [monsterCatalog, selectedMonsterId],
+  );
+  const selectedScenarioMonsterEntry = useMemo(
+    () => monsterCatalog.find((entry) => entry.id === scenarioMonsterId) ?? monsterCatalog[0],
+    [monsterCatalog, scenarioMonsterId],
+  );
+  const activeScenarioConfig = scenarioEditorConfigs[scenarioEditorScenarioId];
+  const activeScenarioCatalogEntry = DEVELOPER_SCENARIO_CATALOG[scenarioEditorScenarioId];
+  const activeScenarioSelectedObject = useMemo(
+    () => activeScenarioConfig?.sceneObjects.find((entry) => entry.id === scenarioSelectedObjectId),
+    [activeScenarioConfig?.sceneObjects, scenarioSelectedObjectId],
+  );
+  const activeScenarioSelectedHeroSlot = useMemo(
+    () => activeScenarioConfig?.heroSelectionSlots?.find((entry) => entry.classId === scenarioSelectedHeroSlotClassId),
+    [activeScenarioConfig?.heroSelectionSlots, scenarioSelectedHeroSlotClassId],
   );
   const kitbashDonorCatalog = useMemo(() => {
     const classEntries = PLAYER_CLASSES.map((playerClass) => ({
@@ -318,6 +719,75 @@ export const DeveloperConsole: React.FC = () => {
   }, [weaponTransformCopyStatus]);
 
   useEffect(() => {
+    if (scenarioExportStatus === 'idle') {
+      return;
+    }
+
+    const timer = window.setTimeout(() => setScenarioExportStatus('idle'), 1800);
+    return () => window.clearTimeout(timer);
+  }, [scenarioExportStatus]);
+
+  useEffect(() => {
+    if (menuPortalExportStatus === 'idle') {
+      return;
+    }
+
+    const timer = window.setTimeout(() => setMenuPortalExportStatus('idle'), 1800);
+    return () => window.clearTimeout(timer);
+  }, [menuPortalExportStatus]);
+
+  useEffect(() => {
+    if (!activeScenarioConfig) {
+      if (scenarioSelectedObjectId !== '') {
+        setScenarioSelectedObjectId('');
+      }
+      if (parseSceneObjectSelectionTarget(scenarioSelectionTarget)) {
+        setScenarioSelectionTarget('scenario');
+      }
+      return;
+    }
+
+    if (activeScenarioConfig.sceneObjects.length === 0) {
+      if (scenarioSelectedObjectId !== '') {
+        setScenarioSelectedObjectId('');
+      }
+      if (parseSceneObjectSelectionTarget(scenarioSelectionTarget)) {
+        setScenarioSelectionTarget('scenario');
+      }
+      return;
+    }
+
+    const stillExists = activeScenarioConfig.sceneObjects.some((entry) => entry.id === scenarioSelectedObjectId);
+    if (!stillExists) {
+      const fallbackId = activeScenarioConfig.sceneObjects[0].id;
+      setScenarioSelectedObjectId(fallbackId);
+      if (parseSceneObjectSelectionTarget(scenarioSelectionTarget)) {
+        setScenarioSelectionTarget(toSceneObjectSelectionTarget(fallbackId));
+      }
+    }
+  }, [activeScenarioConfig, scenarioSelectedObjectId, scenarioSelectionTarget]);
+
+  useEffect(() => {
+    const slots = activeScenarioConfig?.heroSelectionSlots;
+    const selectedSlotFromTarget = scenarioSelectionTarget.startsWith('hero-slot:')
+      ? (scenarioSelectionTarget.slice('hero-slot:'.length) as PlayerClassId)
+      : null;
+
+    if (selectedSlotFromTarget && (!slots || !slots.some((entry) => entry.classId === selectedSlotFromTarget))) {
+      setScenarioSelectionTarget('scenario');
+    }
+
+    if (!slots || slots.length === 0) {
+      return;
+    }
+
+    const selectedStillExists = slots.some((entry) => entry.classId === scenarioSelectedHeroSlotClassId);
+    if (!selectedStillExists) {
+      setScenarioSelectedHeroSlotClassId(slots[0].classId);
+    }
+  }, [activeScenarioConfig, scenarioSelectedHeroSlotClassId, scenarioSelectionTarget]);
+
+  useEffect(() => {
     if (!selectedRegisteredWeapon) {
       setWeaponTransformGizmoEnabled(false);
       return;
@@ -377,9 +847,247 @@ export const DeveloperConsole: React.FC = () => {
     }
   };
 
+  const updateActiveScenarioConfig = (
+    updater: (current: DeveloperScenarioComposerConfig) => DeveloperScenarioComposerConfig,
+  ) => {
+    setScenarioEditorConfigs((current) => ({
+      ...current,
+      [scenarioEditorScenarioId]: updater(current[scenarioEditorScenarioId]),
+    }));
+  };
+
+  const handleSceneScenarioTransformChange = (transform: {
+    position: [number, number, number];
+    rotation: [number, number, number];
+    scale: number;
+  }) => {
+    updateActiveScenarioConfig((current) => ({
+      ...current,
+      scenarioTransform: {
+        position: [...transform.position] as [number, number, number],
+        rotation: [...transform.rotation] as [number, number, number],
+        scale: Number.isFinite(transform.scale) ? Math.max(0.001, transform.scale) : current.scenarioTransform.scale,
+      },
+    }));
+  };
+
+  const handleSceneHeroPositionChange = (position: [number, number, number]) => {
+    updateActiveScenarioConfig((current) => ({
+      ...current,
+      heroBasePosition: [...position] as [number, number, number],
+    }));
+  };
+
+  const handleSceneEnemyPositionChange = (position: [number, number, number]) => {
+    updateActiveScenarioConfig((current) => ({
+      ...current,
+      enemyBasePosition: [...position] as [number, number, number],
+    }));
+  };
+
+  const handleSceneHeroSelectionSlotChange = (classId: PlayerClassId, position: [number, number, number], rotationY: number) => {
+    updateActiveScenarioConfig((current) => ({
+      ...current,
+      heroSelectionSlots: (current.heroSelectionSlots ?? []).map((entry) => (
+        entry.classId === classId
+          ? {
+              ...entry,
+              position: [...position] as [number, number, number],
+              rotationY: Number.isFinite(rotationY) ? rotationY : entry.rotationY,
+            }
+          : entry
+      )),
+    }));
+  };
+
+  const handleSceneCameraStateChange = (cameraState: {
+    position: [number, number, number];
+    target: [number, number, number];
+    fov: number;
+  }) => {
+    updateActiveScenarioConfig((current) => ({
+      ...current,
+      cameraState: {
+        position: [...cameraState.position] as [number, number, number],
+        target: [...cameraState.target] as [number, number, number],
+        fov: Number.isFinite(cameraState.fov) ? Math.max(1, cameraState.fov) : current.cameraState.fov,
+      },
+    }));
+  };
+
+  const handleSceneObjectTransformChange = (
+    objectId: string,
+    transform: {
+      position: [number, number, number];
+      rotation: [number, number, number];
+      scale: number;
+    },
+  ) => {
+    updateActiveScenarioConfig((current) => ({
+      ...current,
+      sceneObjects: current.sceneObjects.map((entry) => (
+        entry.id === objectId
+          ? {
+              ...entry,
+              transform: {
+                position: [...transform.position] as [number, number, number],
+                rotation: [...transform.rotation] as [number, number, number],
+                scale: Number.isFinite(transform.scale) ? Math.max(0.001, transform.scale) : entry.transform.scale,
+              },
+            }
+          : entry
+      )),
+    }));
+  };
+
+  const handleSceneMenuPortalTransformChange = (transform: {
+    position: [number, number, number];
+    rotation: [number, number, number];
+    scale: number;
+  }) => {
+    setMenuPortalTransform((current) => ({
+      position: [...transform.position] as [number, number, number],
+      rotation: [...transform.rotation] as [number, number, number],
+      scale: Number.isFinite(transform.scale) ? Math.max(0.0001, transform.scale) : current.scale,
+    }));
+  };
+
+  const handleAddScenarioObject = () => {
+    const template = DEVELOPER_SCENE_OBJECT_TEMPLATE_CATALOG[scenarioObjectTemplateId];
+    if (!template) {
+      return;
+    }
+
+    const sameModelCount = activeScenarioConfig.sceneObjects.filter((entry) => entry.modelUrl === template.modelUrl).length;
+    const nextObject: DeveloperScenarioComposerSceneObject = {
+      id: createScenarioSceneObjectId(),
+      label: `${template.label} ${sameModelCount + 1}`,
+      modelUrl: template.modelUrl,
+      transform: {
+        position: [0, -1.15, 0],
+        rotation: [0, 0, 0],
+        scale: 1,
+      },
+    };
+
+    updateActiveScenarioConfig((current) => ({
+      ...current,
+      sceneObjects: [...current.sceneObjects, nextObject],
+    }));
+    setScenarioSelectedObjectId(nextObject.id);
+    setScenarioSelectionTarget(toSceneObjectSelectionTarget(nextObject.id));
+  };
+
+  const handleRemoveSelectedScenarioObject = () => {
+    if (!scenarioSelectedObjectId) {
+      return;
+    }
+
+    updateActiveScenarioConfig((current) => ({
+      ...current,
+      sceneObjects: current.sceneObjects.filter((entry) => entry.id !== scenarioSelectedObjectId),
+    }));
+
+    if (parseSceneObjectSelectionTarget(scenarioSelectionTarget) === scenarioSelectedObjectId) {
+      setScenarioSelectionTarget('scenario');
+    }
+  };
+
+  const updateSelectedScenarioObject = (
+    updater: (entry: DeveloperScenarioComposerSceneObject) => DeveloperScenarioComposerSceneObject,
+  ) => {
+    if (!scenarioSelectedObjectId) {
+      return;
+    }
+
+    updateActiveScenarioConfig((current) => ({
+      ...current,
+      sceneObjects: current.sceneObjects.map((entry) => (
+        entry.id === scenarioSelectedObjectId ? updater(entry) : entry
+      )),
+    }));
+  };
+
+  const buildScenarioExportPayload = (): DeveloperScenarioComposerExportPayload => ({
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    scenarioId: scenarioEditorScenarioId,
+    scenarioName: activeScenarioCatalogEntry.label,
+    scenarioModelUrl: activeScenarioCatalogEntry.modelUrl,
+    config: activeScenarioConfig,
+  });
+
+  const handleCopyScenarioJson = async () => {
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(buildScenarioExportPayload(), null, 2));
+      setScenarioExportStatus('copied');
+    } catch {
+      setScenarioExportStatus('error');
+    }
+  };
+
+  const handleDownloadScenarioJson = () => {
+    try {
+      const payload = JSON.stringify(buildScenarioExportPayload(), null, 2);
+      const blob = new Blob([payload], { type: 'application/json;charset=utf-8' });
+      const href = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = href;
+      anchor.download = `scenario-${scenarioEditorScenarioId}.json`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      URL.revokeObjectURL(href);
+      setScenarioExportStatus('downloaded');
+    } catch {
+      setScenarioExportStatus('error');
+    }
+  };
+
+  const handleCopyMenuPortalJson = async () => {
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(createMenuPortalExportPayload(menuPortalTransform), null, 2));
+      setMenuPortalExportStatus('copied');
+    } catch {
+      setMenuPortalExportStatus('error');
+    }
+  };
+
+  const handleDownloadMenuPortalJson = () => {
+    try {
+      const payload = JSON.stringify(createMenuPortalExportPayload(menuPortalTransform), null, 2);
+      const blob = new Blob([payload], { type: 'application/json;charset=utf-8' });
+      const href = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = href;
+      anchor.download = 'runtime-menu-portal.json';
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      URL.revokeObjectURL(href);
+      setMenuPortalExportStatus('downloaded');
+    } catch {
+      setMenuPortalExportStatus('error');
+    }
+  };
+
+  const handleResetMenuPortalTransform = () => {
+    setMenuPortalTransform(createDefaultMenuPortalTransform());
+    setMenuPortalExportStatus('idle');
+  };
+
+  const handleResetScenarioConfig = () => {
+    setScenarioEditorConfigs((current) => ({
+      ...current,
+      [scenarioEditorScenarioId]: createDefaultScenarioComposerConfig(scenarioEditorScenarioId),
+    }));
+    setScenarioExportStatus('idle');
+  };
+
   const tabs: Array<{ id: DeveloperTab; label: string; icon: React.ReactNode }> = [
     { id: 'overview', label: 'Hub', icon: <Bug size={16} /> },
     { id: 'animation-lab', label: 'Animacao', icon: <WandSparkles size={16} /> },
+    { id: 'scenario-lab', label: 'Cenarios', icon: <Layers3 size={16} /> },
     { id: 'sprite-lab', label: 'Sprite Lab', icon: <WandSparkles size={16} /> },
     { id: 'monster-lab', label: 'Monstros 3D', icon: <Swords size={16} /> },
     { id: 'item-lab', label: 'Itens 3D', icon: <Boxes size={16} /> },
@@ -444,6 +1152,12 @@ export const DeveloperConsole: React.FC = () => {
               <div className="game-icon-badge h-12 w-12 text-fuchsia-300"><Layers3 size={22} /></div>
               <h2 className="mt-4 font-gamer text-2xl font-black text-white">Kitbash de Armaduras</h2>
               <p className="mt-3 text-sm text-slate-400">Compare a rig de duas fontes e valide se partes do corpo podem virar armadura ou equipamento reaproveitavel.</p>
+            </button>
+
+            <button onClick={() => setTab('scenario-lab')} className="game-surface rounded-[1.75rem] border border-cyan-400/15 p-6 text-left transition-transform hover:-translate-y-1">
+              <div className="game-icon-badge h-12 w-12 text-cyan-300"><Layers3 size={22} /></div>
+              <h2 className="mt-4 font-gamer text-2xl font-black text-white">Scenario Lab</h2>
+              <p className="mt-3 text-sm text-slate-400">Monte os cenarios GLB de batalha com camera simulada, ajuste de luz/atmosfera e posicao base de heroi e inimigo.</p>
             </button>
 
             <div className="game-surface rounded-[1.75rem] border border-amber-400/15 p-6">
@@ -876,6 +1590,791 @@ export const DeveloperConsole: React.FC = () => {
               >
                 Disparar hit flash
               </button>
+            </div>
+          </section>
+        )}
+
+        {tab === 'scenario-lab' && activeScenarioConfig && selectedScenarioMonsterEntry && (
+          <section className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_390px] 2xl:grid-cols-[minmax(0,1fr)_420px] xl:items-start">
+            <div className="game-surface rounded-[1.75rem] border border-slate-700 p-4 sm:p-5">
+              <div className="mb-4 flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.2em] text-slate-500">
+                <span className="rounded-full border border-cyan-400/20 bg-cyan-500/10 px-3 py-1 text-cyan-100">cenario: {activeScenarioCatalogEntry.label}</span>
+                <span className="rounded-full border border-indigo-400/20 bg-indigo-500/10 px-3 py-1 text-indigo-100">camera: {activeScenarioConfig.cameraMode}</span>
+                <span className="rounded-full border border-emerald-400/20 bg-emerald-500/10 px-3 py-1 text-emerald-100">heroi: {scenarioHeroClassId}</span>
+                <span className="rounded-full border border-amber-400/20 bg-amber-500/10 px-3 py-1 text-amber-100">inimigo: {selectedScenarioMonsterEntry.label}</span>
+              </div>
+              <div className="h-[380px] sm:h-[440px] lg:h-[560px] min-[1600px]:h-[650px] rounded-[1.5rem] border border-slate-800 bg-slate-950/60">
+                <DeveloperScenarioComposerScene
+                  scenarioModelUrl={activeScenarioCatalogEntry.modelUrl}
+                  scenarioTransform={activeScenarioConfig.scenarioTransform}
+                  menuPortalModelUrl={MENU_NAVIGATION_PORTAL_MODEL_URL}
+                  menuPortalTransform={menuPortalTransform}
+                  sceneObjects={activeScenarioConfig.sceneObjects}
+                  heroClassId={scenarioHeroClassId}
+                  heroSelectionSlots={activeScenarioConfig.heroSelectionSlots}
+                  heroPosition={activeScenarioConfig.heroBasePosition}
+                  enemyPosition={activeScenarioConfig.enemyBasePosition}
+                  enemyName={selectedScenarioMonsterEntry.enemy.name}
+                  enemyAssets={selectedScenarioMonsterEntry.enemy.assets}
+                  enemyType={selectedScenarioMonsterEntry.enemy.type}
+                  enemyColor={selectedScenarioMonsterEntry.enemy.color}
+                  enemyScale={selectedScenarioMonsterEntry.enemy.scale}
+                  enemyAttackStyle={selectedScenarioMonsterEntry.enemy.attackStyle}
+                  lighting={activeScenarioConfig.lighting}
+                  atmosphere={activeScenarioConfig.atmosphere}
+                  particles={activeScenarioConfig.particles}
+                  cameraMode={activeScenarioConfig.cameraMode}
+                  cameraState={activeScenarioConfig.cameraState}
+                  selectionTarget={scenarioSelectionTarget}
+                  transformMode={scenarioTransformMode}
+                  transformControlsEnabled={scenarioTransformControlsEnabled}
+                  onSelectionTargetChange={setScenarioSelectionTarget}
+                  onScenarioTransformChange={handleSceneScenarioTransformChange}
+                  onSceneObjectTransformChange={handleSceneObjectTransformChange}
+                  onMenuPortalTransformChange={handleSceneMenuPortalTransformChange}
+                  onCameraStateChange={handleSceneCameraStateChange}
+                  onHeroPositionChange={handleSceneHeroPositionChange}
+                  onEnemyPositionChange={handleSceneEnemyPositionChange}
+                  onHeroSelectionSlotChange={handleSceneHeroSelectionSlotChange}
+                />
+              </div>
+            </div>
+
+            <div className="game-surface rounded-[1.75rem] border border-slate-700 p-5 sm:p-6 xl:sticky xl:top-6">
+              <h2 className="font-gamer text-2xl font-black text-white">Scenario Lab</h2>
+              <p className="mt-2 text-sm text-slate-400">Posicione o cenario GLB, heroi e inimigo, simule a camera real da batalha e exporte JSON para cada cenario.</p>
+              <p className="mt-2 text-xs text-slate-500">Editor livre: clique direto no modelo do cenario, heroi ou inimigo para selecionar o alvo e mover no gizmo (inclui eixo Y para subir/descer). A camera orbit fica livre quando nao esta arrastando o gizmo. Atalhos de movimento relativo a camera: W/A/S/D (frente/lado), Q/E (desce/sobe), Shift para passo maior.</p>
+
+              <div className="mt-6 space-y-4">
+                <SelectField
+                  label="Cenario"
+                  value={scenarioEditorScenarioId}
+                  onChange={(value) => {
+                    setScenarioEditorScenarioId(value as DeveloperScenarioComposerId);
+                    setScenarioExportStatus('idle');
+                  }}
+                  options={Object.values(DEVELOPER_SCENARIO_CATALOG).map((entry) => ({ value: entry.id, label: entry.label }))}
+                />
+                <SelectField
+                  label="Classe Heroi"
+                  value={scenarioHeroClassId}
+                  onChange={(value) => setScenarioHeroClassId(value as PlayerClassId)}
+                  options={PLAYER_CLASSES.map((playerClass) => ({ value: playerClass.id, label: playerClass.name }))}
+                />
+                <SelectField
+                  label="Inimigo"
+                  value={scenarioMonsterId}
+                  onChange={setScenarioMonsterId}
+                  options={monsterCatalog.map((entry) => ({ value: entry.id, label: entry.label }))}
+                />
+                <SelectField
+                  label="Camera"
+                  value={activeScenarioConfig.cameraMode}
+                  onChange={(value) => updateActiveScenarioConfig((current) => ({
+                    ...current,
+                    cameraMode: value as DeveloperScenarioComposerConfig['cameraMode'],
+                  }))}
+                  options={[
+                    { value: 'battle-sim', label: 'Simular batalha' },
+                    { value: 'free', label: 'Livre (Orbit)' },
+                  ]}
+                />
+                <SelectField
+                  label="Alvo do Gizmo"
+                  value={scenarioSelectionTarget}
+                  onChange={(value) => {
+                    const nextTarget = value as DeveloperScenarioComposerSelectionTarget;
+                    setScenarioSelectionTarget(nextTarget);
+                    const selectedObjectId = parseSceneObjectSelectionTarget(nextTarget);
+                    if (selectedObjectId) {
+                      setScenarioSelectedObjectId(selectedObjectId);
+                    }
+                    if (nextTarget.startsWith('hero-slot:')) {
+                      const classId = nextTarget.slice('hero-slot:'.length) as PlayerClassId;
+                      setScenarioSelectedHeroSlotClassId(classId);
+                    }
+                  }}
+                  options={[
+                    { value: 'scenario', label: 'Cenario (transform completo)' },
+                    { value: 'menu-portal', label: 'Portal global (todas cenas)' },
+                    { value: 'hero', label: 'Heroi (posicao)' },
+                    { value: 'enemy', label: 'Inimigo (posicao)' },
+                    ...(activeScenarioConfig.heroSelectionSlots ?? []).map((entry) => ({
+                      value: `hero-slot:${entry.classId}`,
+                      label: `Slot selecao: ${entry.classId}`,
+                    })),
+                    ...activeScenarioConfig.sceneObjects.map((entry) => ({
+                      value: toSceneObjectSelectionTarget(entry.id),
+                      label: `Objeto extra: ${entry.label}`,
+                    })),
+                  ]}
+                />
+                <SelectField
+                  label="Modo do Gizmo"
+                  value={scenarioTransformMode}
+                  onChange={(value) => setScenarioTransformMode(value as DeveloperScenarioComposerTransformMode)}
+                  options={[
+                    { value: 'translate', label: 'Mover' },
+                    { value: 'rotate', label: 'Rotacionar' },
+                    { value: 'scale', label: 'Escalar' },
+                  ]}
+                />
+                <button
+                  onClick={() => setScenarioTransformControlsEnabled((current) => !current)}
+                  className={`rounded-xl border px-3 py-3 text-xs font-black uppercase tracking-[0.18em] transition-colors ${scenarioTransformControlsEnabled ? 'border-cyan-400/30 bg-cyan-500/12 text-cyan-100' : 'border-slate-700 bg-slate-950/70 text-slate-400 hover:border-slate-500 hover:text-slate-200'}`}
+                >
+                  {scenarioTransformControlsEnabled ? 'Gizmo ativo na cena' : 'Ativar gizmo na cena'}
+                </button>
+              </div>
+
+              <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-950/70 p-4 text-sm text-slate-300">
+                <div className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-500">Transform do Cenario</div>
+                <div className="mt-3 grid grid-cols-2 gap-3">
+                  <NumberField
+                    label="Pos X"
+                    value={activeScenarioConfig.scenarioTransform.position[0]}
+                    onChange={(value) => updateActiveScenarioConfig((current) => {
+                      const next = [...current.scenarioTransform.position] as [number, number, number];
+                      next[0] = Number.isFinite(value) ? value : 0;
+                      return { ...current, scenarioTransform: { ...current.scenarioTransform, position: next } };
+                    })}
+                  />
+                  <NumberField
+                    label="Pos Y"
+                    value={activeScenarioConfig.scenarioTransform.position[1]}
+                    onChange={(value) => updateActiveScenarioConfig((current) => {
+                      const next = [...current.scenarioTransform.position] as [number, number, number];
+                      next[1] = Number.isFinite(value) ? value : 0;
+                      return { ...current, scenarioTransform: { ...current.scenarioTransform, position: next } };
+                    })}
+                  />
+                  <NumberField
+                    label="Pos Z"
+                    value={activeScenarioConfig.scenarioTransform.position[2]}
+                    onChange={(value) => updateActiveScenarioConfig((current) => {
+                      const next = [...current.scenarioTransform.position] as [number, number, number];
+                      next[2] = Number.isFinite(value) ? value : 0;
+                      return { ...current, scenarioTransform: { ...current.scenarioTransform, position: next } };
+                    })}
+                  />
+                  <NumberField
+                    label="Escala"
+                    value={activeScenarioConfig.scenarioTransform.scale}
+                    onChange={(value) => updateActiveScenarioConfig((current) => ({
+                      ...current,
+                      scenarioTransform: {
+                        ...current.scenarioTransform,
+                        scale: Number.isFinite(value) ? Math.max(0.001, value) : current.scenarioTransform.scale,
+                      },
+                    }))}
+                  />
+                  <NumberField
+                    label="Rot X"
+                    value={activeScenarioConfig.scenarioTransform.rotation[0]}
+                    onChange={(value) => updateActiveScenarioConfig((current) => {
+                      const next = [...current.scenarioTransform.rotation] as [number, number, number];
+                      next[0] = Number.isFinite(value) ? value : 0;
+                      return { ...current, scenarioTransform: { ...current.scenarioTransform, rotation: next } };
+                    })}
+                  />
+                  <NumberField
+                    label="Rot Y"
+                    value={activeScenarioConfig.scenarioTransform.rotation[1]}
+                    onChange={(value) => updateActiveScenarioConfig((current) => {
+                      const next = [...current.scenarioTransform.rotation] as [number, number, number];
+                      next[1] = Number.isFinite(value) ? value : 0;
+                      return { ...current, scenarioTransform: { ...current.scenarioTransform, rotation: next } };
+                    })}
+                  />
+                  <NumberField
+                    label="Rot Z"
+                    value={activeScenarioConfig.scenarioTransform.rotation[2]}
+                    onChange={(value) => updateActiveScenarioConfig((current) => {
+                      const next = [...current.scenarioTransform.rotation] as [number, number, number];
+                      next[2] = Number.isFinite(value) ? value : 0;
+                      return { ...current, scenarioTransform: { ...current.scenarioTransform, rotation: next } };
+                    })}
+                  />
+                </div>
+              </div>
+
+              <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-950/70 p-4 text-sm text-slate-300">
+                <div className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-500">Objetos Extras do Cenario</div>
+                <div className="mt-3 grid grid-cols-2 gap-3">
+                  <SelectField
+                    label="Modelo extra"
+                    value={scenarioObjectTemplateId}
+                    onChange={(value) => setScenarioObjectTemplateId(value as DeveloperScenarioObjectTemplateId)}
+                    options={Object.values(DEVELOPER_SCENE_OBJECT_TEMPLATE_CATALOG).map((entry) => ({ value: entry.id, label: entry.label }))}
+                  />
+                  <button
+                    onClick={handleAddScenarioObject}
+                    className="self-end rounded-xl border border-cyan-400/30 bg-cyan-500/12 px-3 py-3 text-xs font-black uppercase tracking-[0.18em] text-cyan-100 transition-colors hover:bg-cyan-500/18"
+                  >
+                    Adicionar objeto
+                  </button>
+                </div>
+
+                {activeScenarioConfig.sceneObjects.length > 0 ? (
+                  <>
+                    <div className="mt-4 grid grid-cols-2 gap-3">
+                      <SelectField
+                        label="Objeto selecionado"
+                        value={scenarioSelectedObjectId}
+                        onChange={(value) => {
+                          setScenarioSelectedObjectId(value);
+                          setScenarioSelectionTarget(toSceneObjectSelectionTarget(value));
+                        }}
+                        options={activeScenarioConfig.sceneObjects.map((entry) => ({ value: entry.id, label: entry.label }))}
+                      />
+                      <button
+                        onClick={handleRemoveSelectedScenarioObject}
+                        className="self-end rounded-xl border border-rose-400/30 bg-rose-500/12 px-3 py-3 text-xs font-black uppercase tracking-[0.18em] text-rose-100 transition-colors hover:bg-rose-500/18"
+                      >
+                        Remover objeto
+                      </button>
+                    </div>
+
+                    {activeScenarioSelectedObject ? (
+                      <>
+                        <label className="mt-4 flex flex-col gap-2 text-sm">
+                          <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Nome do objeto</span>
+                          <input
+                            type="text"
+                            value={activeScenarioSelectedObject.label}
+                            onChange={(event) => updateSelectedScenarioObject((entry) => ({ ...entry, label: event.target.value }))}
+                            className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2.5 text-slate-100 outline-none transition-colors focus:border-cyan-400/40"
+                          />
+                        </label>
+
+                        <div className="mt-3 grid grid-cols-2 gap-3">
+                          <NumberField
+                            label="Pos X"
+                            value={activeScenarioSelectedObject.transform.position[0]}
+                            onChange={(value) => updateSelectedScenarioObject((entry) => {
+                              const next = [...entry.transform.position] as [number, number, number];
+                              next[0] = Number.isFinite(value) ? value : 0;
+                              return { ...entry, transform: { ...entry.transform, position: next } };
+                            })}
+                          />
+                          <NumberField
+                            label="Pos Y"
+                            value={activeScenarioSelectedObject.transform.position[1]}
+                            onChange={(value) => updateSelectedScenarioObject((entry) => {
+                              const next = [...entry.transform.position] as [number, number, number];
+                              next[1] = Number.isFinite(value) ? value : 0;
+                              return { ...entry, transform: { ...entry.transform, position: next } };
+                            })}
+                          />
+                          <NumberField
+                            label="Pos Z"
+                            value={activeScenarioSelectedObject.transform.position[2]}
+                            onChange={(value) => updateSelectedScenarioObject((entry) => {
+                              const next = [...entry.transform.position] as [number, number, number];
+                              next[2] = Number.isFinite(value) ? value : 0;
+                              return { ...entry, transform: { ...entry.transform, position: next } };
+                            })}
+                          />
+                          <NumberField
+                            label="Escala"
+                            value={activeScenarioSelectedObject.transform.scale}
+                            onChange={(value) => updateSelectedScenarioObject((entry) => ({
+                              ...entry,
+                              transform: {
+                                ...entry.transform,
+                                scale: Number.isFinite(value) ? Math.max(0.001, value) : entry.transform.scale,
+                              },
+                            }))}
+                          />
+                          <NumberField
+                            label="Rot X"
+                            value={activeScenarioSelectedObject.transform.rotation[0]}
+                            onChange={(value) => updateSelectedScenarioObject((entry) => {
+                              const next = [...entry.transform.rotation] as [number, number, number];
+                              next[0] = Number.isFinite(value) ? value : 0;
+                              return { ...entry, transform: { ...entry.transform, rotation: next } };
+                            })}
+                          />
+                          <NumberField
+                            label="Rot Y"
+                            value={activeScenarioSelectedObject.transform.rotation[1]}
+                            onChange={(value) => updateSelectedScenarioObject((entry) => {
+                              const next = [...entry.transform.rotation] as [number, number, number];
+                              next[1] = Number.isFinite(value) ? value : 0;
+                              return { ...entry, transform: { ...entry.transform, rotation: next } };
+                            })}
+                          />
+                          <NumberField
+                            label="Rot Z"
+                            value={activeScenarioSelectedObject.transform.rotation[2]}
+                            onChange={(value) => updateSelectedScenarioObject((entry) => {
+                              const next = [...entry.transform.rotation] as [number, number, number];
+                              next[2] = Number.isFinite(value) ? value : 0;
+                              return { ...entry, transform: { ...entry.transform, rotation: next } };
+                            })}
+                          />
+                        </div>
+                      </>
+                    ) : null}
+                  </>
+                ) : (
+                  <p className="mt-4 text-xs text-slate-500">Nenhum objeto extra adicionado. Use o seletor acima para inserir quantos modelos quiser no mesmo cenario.</p>
+                )}
+              </div>
+
+              <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-950/70 p-4 text-sm text-slate-300">
+                <div className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-500">Portal Global (todas cenas)</div>
+                <p className="mt-2 text-xs text-slate-500">Transform unico para o portal de navegacao no acampamento. Esse JSON e separado e vale para qualquer cenario.</p>
+
+                <div className="mt-3 grid grid-cols-2 gap-3">
+                  <NumberField
+                    label="Pos X"
+                    value={menuPortalTransform.position[0]}
+                    onChange={(value) => setMenuPortalTransform((current) => ({
+                      ...current,
+                      position: [Number.isFinite(value) ? value : 0, current.position[1], current.position[2]],
+                    }))}
+                  />
+                  <NumberField
+                    label="Pos Y"
+                    value={menuPortalTransform.position[1]}
+                    onChange={(value) => setMenuPortalTransform((current) => ({
+                      ...current,
+                      position: [current.position[0], Number.isFinite(value) ? value : 0, current.position[2]],
+                    }))}
+                  />
+                  <NumberField
+                    label="Pos Z"
+                    value={menuPortalTransform.position[2]}
+                    onChange={(value) => setMenuPortalTransform((current) => ({
+                      ...current,
+                      position: [current.position[0], current.position[1], Number.isFinite(value) ? value : 0],
+                    }))}
+                  />
+                  <NumberField
+                    label="Escala"
+                    value={menuPortalTransform.scale}
+                    onChange={(value) => setMenuPortalTransform((current) => ({
+                      ...current,
+                      scale: Number.isFinite(value) ? Math.max(0.0001, value) : current.scale,
+                    }))}
+                  />
+                  <NumberField
+                    label="Rot X"
+                    value={menuPortalTransform.rotation[0]}
+                    onChange={(value) => setMenuPortalTransform((current) => ({
+                      ...current,
+                      rotation: [Number.isFinite(value) ? value : 0, current.rotation[1], current.rotation[2]],
+                    }))}
+                  />
+                  <NumberField
+                    label="Rot Y"
+                    value={menuPortalTransform.rotation[1]}
+                    onChange={(value) => setMenuPortalTransform((current) => ({
+                      ...current,
+                      rotation: [current.rotation[0], Number.isFinite(value) ? value : 0, current.rotation[2]],
+                    }))}
+                  />
+                  <NumberField
+                    label="Rot Z"
+                    value={menuPortalTransform.rotation[2]}
+                    onChange={(value) => setMenuPortalTransform((current) => ({
+                      ...current,
+                      rotation: [current.rotation[0], current.rotation[1], Number.isFinite(value) ? value : 0],
+                    }))}
+                  />
+                </div>
+
+                <div className="mt-4 grid grid-cols-3 gap-2">
+                  <button
+                    onClick={handleResetMenuPortalTransform}
+                    className="rounded-xl border border-slate-700 bg-slate-950/80 px-3 py-3 text-xs font-black uppercase tracking-[0.16em] text-slate-200 transition-colors hover:border-slate-500 hover:text-white"
+                  >
+                    Resetar
+                  </button>
+                  <button
+                    onClick={() => { void handleCopyMenuPortalJson(); }}
+                    className="rounded-xl border border-cyan-400/30 bg-cyan-500/12 px-3 py-3 text-xs font-black uppercase tracking-[0.16em] text-cyan-100 transition-colors hover:bg-cyan-500/18"
+                  >
+                    {menuPortalExportStatus === 'copied' ? 'JSON copiado' : 'Copiar JSON'}
+                  </button>
+                  <button
+                    onClick={handleDownloadMenuPortalJson}
+                    className="rounded-xl border border-emerald-400/30 bg-emerald-500/12 px-3 py-3 text-xs font-black uppercase tracking-[0.16em] text-emerald-100 transition-colors hover:bg-emerald-500/18"
+                  >
+                    {menuPortalExportStatus === 'downloaded' ? 'Baixado' : 'Baixar JSON'}
+                  </button>
+                </div>
+
+                {menuPortalExportStatus === 'error' ? (
+                  <div className="mt-3 rounded-xl border border-rose-400/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-100">
+                    Nao foi possivel exportar o JSON do portal. Tente novamente.
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-950/70 p-4 text-sm text-slate-300">
+                <div className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-500">Posicao de Combate</div>
+                <div className="mt-3 grid grid-cols-2 gap-3">
+                  <NumberField
+                    label="Heroi X"
+                    value={activeScenarioConfig.heroBasePosition[0]}
+                    onChange={(value) => updateActiveScenarioConfig((current) => {
+                      const next = [...current.heroBasePosition] as [number, number, number];
+                      next[0] = Number.isFinite(value) ? value : 0;
+                      return { ...current, heroBasePosition: next };
+                    })}
+                  />
+                  <NumberField
+                    label="Heroi Y"
+                    value={activeScenarioConfig.heroBasePosition[1]}
+                    onChange={(value) => updateActiveScenarioConfig((current) => {
+                      const next = [...current.heroBasePosition] as [number, number, number];
+                      next[1] = Number.isFinite(value) ? value : 0;
+                      return { ...current, heroBasePosition: next };
+                    })}
+                  />
+                  <NumberField
+                    label="Heroi Z"
+                    value={activeScenarioConfig.heroBasePosition[2]}
+                    onChange={(value) => updateActiveScenarioConfig((current) => {
+                      const next = [...current.heroBasePosition] as [number, number, number];
+                      next[2] = Number.isFinite(value) ? value : 0;
+                      return { ...current, heroBasePosition: next };
+                    })}
+                  />
+                  <NumberField
+                    label="Inimigo X"
+                    value={activeScenarioConfig.enemyBasePosition[0]}
+                    onChange={(value) => updateActiveScenarioConfig((current) => {
+                      const next = [...current.enemyBasePosition] as [number, number, number];
+                      next[0] = Number.isFinite(value) ? value : 0;
+                      return { ...current, enemyBasePosition: next };
+                    })}
+                  />
+                  <NumberField
+                    label="Inimigo Y"
+                    value={activeScenarioConfig.enemyBasePosition[1]}
+                    onChange={(value) => updateActiveScenarioConfig((current) => {
+                      const next = [...current.enemyBasePosition] as [number, number, number];
+                      next[1] = Number.isFinite(value) ? value : 0;
+                      return { ...current, enemyBasePosition: next };
+                    })}
+                  />
+                  <NumberField
+                    label="Inimigo Z"
+                    value={activeScenarioConfig.enemyBasePosition[2]}
+                    onChange={(value) => updateActiveScenarioConfig((current) => {
+                      const next = [...current.enemyBasePosition] as [number, number, number];
+                      next[2] = Number.isFinite(value) ? value : 0;
+                      return { ...current, enemyBasePosition: next };
+                    })}
+                  />
+                </div>
+              </div>
+
+              {activeScenarioConfig.heroSelectionSlots && activeScenarioConfig.heroSelectionSlots.length > 0 ? (
+                <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-950/70 p-4 text-sm text-slate-300">
+                  <div className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-500">Slots da Tela de Selecao (5 Herois)</div>
+                  <p className="mt-2 text-xs text-slate-500">Ajuste cada slot para definir onde cada heroi nasce na tela inicial.</p>
+
+                  <div className="mt-3 grid grid-cols-2 gap-3">
+                    <SelectField
+                      label="Slot do heroi"
+                      value={scenarioSelectedHeroSlotClassId}
+                      onChange={(value) => {
+                        const classId = value as PlayerClassId;
+                        setScenarioSelectedHeroSlotClassId(classId);
+                        setScenarioSelectionTarget(`hero-slot:${classId}` as DeveloperScenarioComposerSelectionTarget);
+                      }}
+                      options={activeScenarioConfig.heroSelectionSlots.map((entry) => ({ value: entry.classId, label: entry.classId }))}
+                    />
+                    <button
+                      onClick={() => setScenarioSelectionTarget(`hero-slot:${scenarioSelectedHeroSlotClassId}` as DeveloperScenarioComposerSelectionTarget)}
+                      className="self-end rounded-xl border border-cyan-400/30 bg-cyan-500/12 px-3 py-3 text-xs font-black uppercase tracking-[0.18em] text-cyan-100 transition-colors hover:bg-cyan-500/18"
+                    >
+                      Selecionar no gizmo
+                    </button>
+                  </div>
+
+                  {activeScenarioSelectedHeroSlot ? (
+                    <div className="mt-3 grid grid-cols-2 gap-3">
+                      <NumberField
+                        label="Pos X"
+                        value={activeScenarioSelectedHeroSlot.position[0]}
+                        onChange={(value) => updateActiveScenarioConfig((current) => ({
+                          ...current,
+                          heroSelectionSlots: (current.heroSelectionSlots ?? []).map((entry) => (
+                            entry.classId === scenarioSelectedHeroSlotClassId
+                              ? { ...entry, position: [Number.isFinite(value) ? value : 0, entry.position[1], entry.position[2]] }
+                              : entry
+                          )),
+                        }))}
+                      />
+                      <NumberField
+                        label="Pos Y"
+                        value={activeScenarioSelectedHeroSlot.position[1]}
+                        onChange={(value) => updateActiveScenarioConfig((current) => ({
+                          ...current,
+                          heroSelectionSlots: (current.heroSelectionSlots ?? []).map((entry) => (
+                            entry.classId === scenarioSelectedHeroSlotClassId
+                              ? { ...entry, position: [entry.position[0], Number.isFinite(value) ? value : 0, entry.position[2]] }
+                              : entry
+                          )),
+                        }))}
+                      />
+                      <NumberField
+                        label="Pos Z"
+                        value={activeScenarioSelectedHeroSlot.position[2]}
+                        onChange={(value) => updateActiveScenarioConfig((current) => ({
+                          ...current,
+                          heroSelectionSlots: (current.heroSelectionSlots ?? []).map((entry) => (
+                            entry.classId === scenarioSelectedHeroSlotClassId
+                              ? { ...entry, position: [entry.position[0], entry.position[1], Number.isFinite(value) ? value : 0] }
+                              : entry
+                          )),
+                        }))}
+                      />
+                      <NumberField
+                        label="Rot Y"
+                        value={activeScenarioSelectedHeroSlot.rotationY}
+                        onChange={(value) => updateActiveScenarioConfig((current) => ({
+                          ...current,
+                          heroSelectionSlots: (current.heroSelectionSlots ?? []).map((entry) => (
+                            entry.classId === scenarioSelectedHeroSlotClassId
+                              ? { ...entry, rotationY: Number.isFinite(value) ? value : entry.rotationY }
+                              : entry
+                          )),
+                        }))}
+                      />
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+
+              <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-950/70 p-4 text-sm text-slate-300">
+                <div className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-500">Luzes</div>
+                <div className="mt-3 grid grid-cols-2 gap-3">
+                  <ColorField
+                    label="Cor ambiente"
+                    value={activeScenarioConfig.lighting.ambientColor}
+                    onChange={(value) => updateActiveScenarioConfig((current) => ({
+                      ...current,
+                      lighting: {
+                        ...current.lighting,
+                        ambientColor: normalizeHexColor(value, current.lighting.ambientColor),
+                      },
+                    }))}
+                  />
+                  <NumberField
+                    label="Int. ambiente"
+                    value={activeScenarioConfig.lighting.ambientIntensity}
+                    onChange={(value) => updateActiveScenarioConfig((current) => ({
+                      ...current,
+                      lighting: {
+                        ...current.lighting,
+                        ambientIntensity: Number.isFinite(value) ? Math.max(0, value) : current.lighting.ambientIntensity,
+                      },
+                    }))}
+                  />
+                  <ColorField
+                    label="Cor direcional"
+                    value={activeScenarioConfig.lighting.directionalColor}
+                    onChange={(value) => updateActiveScenarioConfig((current) => ({
+                      ...current,
+                      lighting: {
+                        ...current.lighting,
+                        directionalColor: normalizeHexColor(value, current.lighting.directionalColor),
+                      },
+                    }))}
+                  />
+                  <NumberField
+                    label="Int. direcional"
+                    value={activeScenarioConfig.lighting.directionalIntensity}
+                    onChange={(value) => updateActiveScenarioConfig((current) => ({
+                      ...current,
+                      lighting: {
+                        ...current.lighting,
+                        directionalIntensity: Number.isFinite(value) ? Math.max(0, value) : current.lighting.directionalIntensity,
+                      },
+                    }))}
+                  />
+                  <NumberField
+                    label="Dir X"
+                    value={activeScenarioConfig.lighting.directionalPosition[0]}
+                    onChange={(value) => updateActiveScenarioConfig((current) => {
+                      const next = [...current.lighting.directionalPosition] as [number, number, number];
+                      next[0] = Number.isFinite(value) ? value : 0;
+                      return { ...current, lighting: { ...current.lighting, directionalPosition: next } };
+                    })}
+                  />
+                  <NumberField
+                    label="Dir Y"
+                    value={activeScenarioConfig.lighting.directionalPosition[1]}
+                    onChange={(value) => updateActiveScenarioConfig((current) => {
+                      const next = [...current.lighting.directionalPosition] as [number, number, number];
+                      next[1] = Number.isFinite(value) ? value : 0;
+                      return { ...current, lighting: { ...current.lighting, directionalPosition: next } };
+                    })}
+                  />
+                  <NumberField
+                    label="Dir Z"
+                    value={activeScenarioConfig.lighting.directionalPosition[2]}
+                    onChange={(value) => updateActiveScenarioConfig((current) => {
+                      const next = [...current.lighting.directionalPosition] as [number, number, number];
+                      next[2] = Number.isFinite(value) ? value : 0;
+                      return { ...current, lighting: { ...current.lighting, directionalPosition: next } };
+                    })}
+                  />
+                </div>
+              </div>
+
+              <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-950/70 p-4 text-sm text-slate-300">
+                <div className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-500">Atmosfera e Particulas</div>
+                <div className="mt-3 grid grid-cols-2 gap-3">
+                  <button
+                    onClick={() => updateActiveScenarioConfig((current) => ({
+                      ...current,
+                      atmosphere: {
+                        ...current.atmosphere,
+                        fogEnabled: !current.atmosphere.fogEnabled,
+                      },
+                    }))}
+                    className={`rounded-xl border px-3 py-3 text-xs font-black uppercase tracking-[0.18em] transition-colors ${activeScenarioConfig.atmosphere.fogEnabled ? 'border-cyan-400/30 bg-cyan-500/12 text-cyan-100' : 'border-slate-700 bg-slate-950/70 text-slate-400 hover:border-slate-500 hover:text-slate-200'}`}
+                  >
+                    {activeScenarioConfig.atmosphere.fogEnabled ? 'Fog ligado' : 'Fog desligado'}
+                  </button>
+                  <ColorField
+                    label="Cor fog"
+                    value={activeScenarioConfig.atmosphere.fogColor}
+                    onChange={(value) => updateActiveScenarioConfig((current) => ({
+                      ...current,
+                      atmosphere: {
+                        ...current.atmosphere,
+                        fogColor: normalizeHexColor(value, current.atmosphere.fogColor),
+                      },
+                    }))}
+                  />
+                  <NumberField
+                    label="Fog near"
+                    value={activeScenarioConfig.atmosphere.fogNear}
+                    onChange={(value) => updateActiveScenarioConfig((current) => ({
+                      ...current,
+                      atmosphere: {
+                        ...current.atmosphere,
+                        fogNear: Number.isFinite(value) ? Math.max(0.5, value) : current.atmosphere.fogNear,
+                      },
+                    }))}
+                  />
+                  <NumberField
+                    label="Fog far"
+                    value={activeScenarioConfig.atmosphere.fogFar}
+                    onChange={(value) => updateActiveScenarioConfig((current) => ({
+                      ...current,
+                      atmosphere: {
+                        ...current.atmosphere,
+                        fogFar: Number.isFinite(value) ? Math.max(current.atmosphere.fogNear + 1, value) : current.atmosphere.fogFar,
+                      },
+                    }))}
+                  />
+                  <button
+                    onClick={() => updateActiveScenarioConfig((current) => ({
+                      ...current,
+                      particles: {
+                        ...current.particles,
+                        mistEnabled: !current.particles.mistEnabled,
+                      },
+                    }))}
+                    className={`rounded-xl border px-3 py-3 text-xs font-black uppercase tracking-[0.18em] transition-colors ${activeScenarioConfig.particles.mistEnabled ? 'border-emerald-400/30 bg-emerald-500/12 text-emerald-100' : 'border-slate-700 bg-slate-950/70 text-slate-400 hover:border-slate-500 hover:text-slate-200'}`}
+                  >
+                    {activeScenarioConfig.particles.mistEnabled ? 'Neblina on' : 'Neblina off'}
+                  </button>
+                  <button
+                    onClick={() => updateActiveScenarioConfig((current) => ({
+                      ...current,
+                      particles: {
+                        ...current.particles,
+                        dustEnabled: !current.particles.dustEnabled,
+                      },
+                    }))}
+                    className={`rounded-xl border px-3 py-3 text-xs font-black uppercase tracking-[0.18em] transition-colors ${activeScenarioConfig.particles.dustEnabled ? 'border-amber-400/30 bg-amber-500/12 text-amber-100' : 'border-slate-700 bg-slate-950/70 text-slate-400 hover:border-slate-500 hover:text-slate-200'}`}
+                  >
+                    {activeScenarioConfig.particles.dustEnabled ? 'Poeira on' : 'Poeira off'}
+                  </button>
+                  <NumberField
+                    label="Densidade"
+                    value={activeScenarioConfig.particles.density}
+                    onChange={(value) => updateActiveScenarioConfig((current) => ({
+                      ...current,
+                      particles: {
+                        ...current.particles,
+                        density: Number.isFinite(value) ? Math.min(1, Math.max(0, value)) : current.particles.density,
+                      },
+                    }))}
+                  />
+                  <NumberField
+                    label="Velocidade"
+                    value={activeScenarioConfig.particles.speed}
+                    onChange={(value) => updateActiveScenarioConfig((current) => ({
+                      ...current,
+                      particles: {
+                        ...current.particles,
+                        speed: Number.isFinite(value) ? Math.min(2, Math.max(0, value)) : current.particles.speed,
+                      },
+                    }))}
+                  />
+                  <NumberField
+                    label="Opacidade"
+                    value={activeScenarioConfig.particles.opacity}
+                    onChange={(value) => updateActiveScenarioConfig((current) => ({
+                      ...current,
+                      particles: {
+                        ...current.particles,
+                        opacity: Number.isFinite(value) ? Math.min(1, Math.max(0, value)) : current.particles.opacity,
+                      },
+                    }))}
+                  />
+                </div>
+              </div>
+
+              <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-950/70 p-4 text-xs leading-5 text-slate-300">
+                <div className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-500">Resumo atual</div>
+                <div className="mt-2 font-mono text-[11px] text-slate-300">
+                  hero: [{activeScenarioConfig.heroBasePosition.map((value) => value.toFixed(2)).join(', ')}]<br />
+                  enemy: [{activeScenarioConfig.enemyBasePosition.map((value) => value.toFixed(2)).join(', ')}]<br />
+                  scenario position: [{activeScenarioConfig.scenarioTransform.position.map((value) => value.toFixed(2)).join(', ')}]<br />
+                  scenario rotation: [{activeScenarioConfig.scenarioTransform.rotation.map((value) => value.toFixed(2)).join(', ')}] / scale {activeScenarioConfig.scenarioTransform.scale.toFixed(3)}<br />
+                  portal global: pos [{menuPortalTransform.position.map((value) => value.toFixed(2)).join(', ')}], rot [{menuPortalTransform.rotation.map((value) => value.toFixed(2)).join(', ')}], scale {menuPortalTransform.scale.toFixed(4)}<br />
+                  objetos extras: {activeScenarioConfig.sceneObjects.length}<br />
+                  slots selecao: {activeScenarioConfig.heroSelectionSlots?.length ?? 0}
+                </div>
+              </div>
+
+              <div className="mt-6 grid grid-cols-3 gap-2">
+                <button
+                  onClick={handleResetScenarioConfig}
+                  className="rounded-xl border border-slate-700 bg-slate-950/80 px-3 py-3 text-xs font-black uppercase tracking-[0.16em] text-slate-200 transition-colors hover:border-slate-500 hover:text-white"
+                >
+                  Resetar
+                </button>
+                <button
+                  onClick={() => { void handleCopyScenarioJson(); }}
+                  className="rounded-xl border border-cyan-400/30 bg-cyan-500/12 px-3 py-3 text-xs font-black uppercase tracking-[0.16em] text-cyan-100 transition-colors hover:bg-cyan-500/18"
+                >
+                  {scenarioExportStatus === 'copied' ? 'JSON copiado' : 'Copiar JSON'}
+                </button>
+                <button
+                  onClick={handleDownloadScenarioJson}
+                  className="rounded-xl border border-emerald-400/30 bg-emerald-500/12 px-3 py-3 text-xs font-black uppercase tracking-[0.16em] text-emerald-100 transition-colors hover:bg-emerald-500/18"
+                >
+                  {scenarioExportStatus === 'downloaded' ? 'Baixado' : 'Baixar JSON'}
+                </button>
+              </div>
+              {scenarioExportStatus === 'error' ? (
+                <div className="mt-3 rounded-xl border border-rose-400/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-100">
+                  Nao foi possivel exportar o JSON. Tente novamente.
+                </div>
+              ) : null}
             </div>
           </section>
         )}

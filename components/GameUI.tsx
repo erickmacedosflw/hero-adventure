@@ -73,6 +73,7 @@ interface GameUIProps {
     onAcknowledgeItemsUnlock?: () => void;
     fleeUnlockPromptActive?: boolean;
     onAcknowledgeFleeUnlock?: () => void;
+    autoOpenProfileToken?: number;
     showDiamondHud?: boolean;
     diamondUnlockPromptActive?: boolean;
     onAcknowledgeDiamondUnlock?: () => void;
@@ -1036,6 +1037,8 @@ export const TavernScreen: React.FC<{
   onHunt: () => void, 
   onBoss: () => void, 
   onDungeon: () => void,
+    sceneRegion?: 'forest' | 'dungeon',
+    onNavigateSceneRegion?: (region: 'forest' | 'dungeon') => void,
   onShop: () => void,
   onShopFromInventory?: (filter: 'all' | 'equipment' | 'potion' | 'material') => void,
     onAlchemist: () => void,
@@ -1074,8 +1077,10 @@ export const TavernScreen: React.FC<{
   showSkillsAction?: boolean,
   autoOpenInventoryToken?: number,
   autoOpenInventoryFilter?: 'all' | 'equipment' | 'potion' | 'material',
+    autoOpenPortalTravelToken?: number,
+    autoOpenProfileToken?: number,
   showDiamondHud?: boolean,
-}> = ({ player, killCount, onHunt, onBoss, onDungeon, onShop, onShopFromInventory, onAlchemist, shopItems, autoOpenConstellationToken = 0, onEquipItem, onUnequipItem, onUseItem, onSellItem, onUnlockTalent, onResetTalents, campIntroOnly = false, restrictProfileToStatusOnly = false, inventoryUnlocked = false, inventoryUnlockPromptActive = false, onAcknowledgeInventoryUnlock, cardsUnlockPromptActive = false, onAcknowledgeCardsUnlock, skillsUnlockPromptActive = false, onAcknowledgeSkillsUnlock, constellationUnlockPromptActive = false, onAcknowledgeConstellationUnlock, constellationRespecUnlockPromptActive = false, onAcknowledgeConstellationRespecUnlock, allowCardsInProfile = false, fleeUnlocked = false, merchantUnlockPromptActive = false, onAcknowledgeMerchantUnlock, dungeonUnlockPromptActive = false, onAcknowledgeDungeonUnlock, alchemistUnlockPromptActive = false, onAcknowledgeAlchemistUnlock, merchantUnlocked = false, dungeonUnlocked = false, alchemistUnlocked = false, showSkillsAction = false, autoOpenInventoryToken = 0, autoOpenInventoryFilter = 'all', showDiamondHud = false }) => {
+}> = ({ player, killCount, onHunt, onBoss, onDungeon, sceneRegion = 'forest', onNavigateSceneRegion, onShop, onShopFromInventory, onAlchemist, shopItems, autoOpenConstellationToken = 0, onEquipItem, onUnequipItem, onUseItem, onSellItem, onUnlockTalent, onResetTalents, campIntroOnly = false, restrictProfileToStatusOnly = false, inventoryUnlocked = false, inventoryUnlockPromptActive = false, onAcknowledgeInventoryUnlock, cardsUnlockPromptActive = false, onAcknowledgeCardsUnlock, skillsUnlockPromptActive = false, onAcknowledgeSkillsUnlock, constellationUnlockPromptActive = false, onAcknowledgeConstellationUnlock, constellationRespecUnlockPromptActive = false, onAcknowledgeConstellationRespecUnlock, allowCardsInProfile = false, fleeUnlocked = false, merchantUnlockPromptActive = false, onAcknowledgeMerchantUnlock, dungeonUnlockPromptActive = false, onAcknowledgeDungeonUnlock, alchemistUnlockPromptActive = false, onAcknowledgeAlchemistUnlock, merchantUnlocked = false, dungeonUnlocked = false, alchemistUnlocked = false, showSkillsAction = false, autoOpenInventoryToken = 0, autoOpenInventoryFilter = 'all', autoOpenPortalTravelToken = 0, autoOpenProfileToken = 0, showDiamondHud = false }) => {
   const [showProfile, setShowProfile] = useState(false);
   const [showInventory, setShowInventory] = useState(false);
     const [returnToProfileOnInventoryClose, setReturnToProfileOnInventoryClose] = useState(false);
@@ -1091,9 +1096,18 @@ export const TavernScreen: React.FC<{
     const [showMerchantUnlockPrompt, setShowMerchantUnlockPrompt] = useState(false);
     const [showDungeonUnlockPrompt, setShowDungeonUnlockPrompt] = useState(false);
     const [showAlchemistUnlockPrompt, setShowAlchemistUnlockPrompt] = useState(false);
+    const [showPortalTravelModal, setShowPortalTravelModal] = useState(false);
+    const [isPortalTravelModalVisible, setIsPortalTravelModalVisible] = useState(false);
+    const portalTravelModalCloseTimerRef = useRef<number | null>(null);
     const showDiamondOnTopHud = showDiamondHud;
     const bossUnlocked = killCount >= 10;
     const canAccessDungeon = dungeonUnlocked;
+    const canNavigateDungeonFromPortal = canAccessDungeon && !dungeonUnlockPromptActive;
+    const canStartHuntFromCurrentRegion = sceneRegion === 'forest';
+    const canStartDungeonFromCurrentRegion = canAccessDungeon && sceneRegion === 'dungeon';
+    const canStartBossFromCurrentRegion = bossUnlocked && sceneRegion === 'forest';
+    const availableAdventureActionsCount = [canStartHuntFromCurrentRegion, canStartDungeonFromCurrentRegion, canStartBossFromCurrentRegion].filter(Boolean).length;
+    const currentRegionLabel = sceneRegion === 'dungeon' ? 'Dungeon' : 'Area de Caca';
     const killsRemaining = Math.max(0, 10 - killCount);
     const currentClass = getPlayerClassById(player.classId);
     const classAccentColor = currentClass.visualProfile.secondaryColor;
@@ -1224,6 +1238,50 @@ export const TavernScreen: React.FC<{
         return () => window.removeEventListener('keydown', handleBlockEscape, true);
     }, [showCardsUnlockPrompt, showConstellationUnlockPrompt, showInventoryUnlockPrompt, showSkillsUnlockPrompt, showMerchantUnlockPrompt, showDungeonUnlockPrompt, showAlchemistUnlockPrompt]);
 
+    const closePortalTravelModal = (onClosed?: () => void) => {
+        setIsPortalTravelModalVisible(false);
+
+        if (portalTravelModalCloseTimerRef.current !== null) {
+            window.clearTimeout(portalTravelModalCloseTimerRef.current);
+            portalTravelModalCloseTimerRef.current = null;
+        }
+
+        portalTravelModalCloseTimerRef.current = window.setTimeout(() => {
+            portalTravelModalCloseTimerRef.current = null;
+            setShowPortalTravelModal(false);
+            onClosed?.();
+        }, 220);
+    };
+
+    useEffect(() => () => {
+        if (portalTravelModalCloseTimerRef.current !== null) {
+            window.clearTimeout(portalTravelModalCloseTimerRef.current);
+        }
+    }, []);
+
+    const lastHandledPortalTravelTokenRef = useRef<number>(autoOpenPortalTravelToken);
+    useEffect(() => {
+        if (autoOpenPortalTravelToken <= 0) {
+            return;
+        }
+        if (autoOpenPortalTravelToken === lastHandledPortalTravelTokenRef.current) {
+            return;
+        }
+        lastHandledPortalTravelTokenRef.current = autoOpenPortalTravelToken;
+
+        if (portalTravelModalCloseTimerRef.current !== null) {
+            window.clearTimeout(portalTravelModalCloseTimerRef.current);
+            portalTravelModalCloseTimerRef.current = null;
+        }
+
+        setShowPortalTravelModal(true);
+        if (typeof window !== 'undefined') {
+            window.requestAnimationFrame(() => setIsPortalTravelModalVisible(true));
+        } else {
+            setIsPortalTravelModalVisible(true);
+        }
+    }, [autoOpenPortalTravelToken]);
+
     useEffect(() => {
         if (autoOpenConstellationToken <= 0) {
             return;
@@ -1231,6 +1289,17 @@ export const TavernScreen: React.FC<{
 
         openProfileModal('constellation');
     }, [autoOpenConstellationToken]);
+    const lastHandledProfileAutoOpenTokenRef = useRef<number>(autoOpenProfileToken);
+    useEffect(() => {
+        if (autoOpenProfileToken <= 0) {
+            return;
+        }
+        if (autoOpenProfileToken === lastHandledProfileAutoOpenTokenRef.current) {
+            return;
+        }
+        lastHandledProfileAutoOpenTokenRef.current = autoOpenProfileToken;
+        openProfileModal('overview');
+    }, [autoOpenProfileToken]);
     const lastHandledInventoryAutoOpenTokenRef = useRef<number>(0);
     useEffect(() => {
         if (autoOpenInventoryToken <= 0) {
@@ -1296,6 +1365,20 @@ export const TavernScreen: React.FC<{
         setIsClosing(true);
         setTimeout(() => { action(); }, 240);
     };
+
+    const handlePortalRegionTravel = (targetRegion: 'forest' | 'dungeon') => {
+        if (targetRegion === sceneRegion) {
+            return;
+        }
+        if (targetRegion === 'dungeon' && !canNavigateDungeonFromPortal) {
+            return;
+        }
+
+        uiSfx.play('confirm_hunt_dungeon');
+        closePortalTravelModal(() => {
+            onNavigateSceneRegion?.(targetRegion);
+        });
+    };
     const openShopFromInventory = () => {
         if (showInventory) {
             uiSfx.play('modal_close');
@@ -1311,7 +1394,7 @@ export const TavernScreen: React.FC<{
   
   return (
     <>
-     <div className={`absolute inset-0 z-40 text-white ${isClosing ? 'animate-[tavernBackdropOut_240ms_ease-in_forwards]' : 'animate-[tavernBackdropIn_280ms_ease-out_both]'}`}>
+    <div className={`absolute inset-0 z-40 pointer-events-none text-white ${isClosing ? 'animate-[tavernBackdropOut_240ms_ease-in_forwards]' : 'animate-[tavernBackdropIn_280ms_ease-out_both]'}`}>
                 <style>{`
                     @keyframes tavernBackdropIn {
                         0% { opacity: 0; }
@@ -1430,6 +1513,7 @@ export const TavernScreen: React.FC<{
                 <section className="absolute left-1/2 -translate-x-1/2 bottom-2 sm:bottom-6 w-[min(94vw,380px)] sm:w-[min(96vw,900px)] pointer-events-none">
                     <div className="text-center text-[#f8eddf] drop-shadow-[0_4px_12px_rgba(0,0,0,0.65)] mb-1.5 sm:mb-3 pointer-events-none">
                         <div className="text-[9px] sm:text-[11px] font-black uppercase tracking-[0.24em]">Aventura</div>
+                        <div className="mt-0.5 text-[9px] sm:text-[11px] font-black uppercase tracking-[0.16em] text-[#d9ecff]">Local atual: {currentRegionLabel}</div>
                         {!bossUnlocked && <div className="mt-0.5 text-[9px] sm:text-xs font-bold uppercase tracking-[0.16em] text-[#f8d9c1]">Faltam {killsRemaining} para liberar o chefao</div>}
                     </div>
                     <div className="grid grid-cols-2 gap-2 pointer-events-auto mb-2 sm:hidden">
@@ -1445,11 +1529,14 @@ export const TavernScreen: React.FC<{
                                 </div>
                             </button>
                         ))}
-                        <button onClick={() => handleMenuTransition('hunt')} className="rounded-xl border border-[#b26a2e] bg-[#b87a3a]/95 px-2.5 py-2.5 text-center transition-all hover:-translate-y-0.5 hover:bg-[#c88a4a]">
-                            <div className="flex items-center justify-center gap-1.5 text-xs font-black text-white"><Sword size={17} /> Cacar</div>
-                        </button>
 
-                        {canAccessDungeon && (
+                        {canStartHuntFromCurrentRegion && (
+                            <button onClick={() => handleMenuTransition('hunt')} className="rounded-xl border border-[#b26a2e] bg-[#b87a3a]/95 px-2.5 py-2.5 text-center transition-all hover:-translate-y-0.5 hover:bg-[#c88a4a]">
+                                <div className="flex items-center justify-center gap-1.5 text-xs font-black text-white"><Sword size={17} /> Cacar</div>
+                            </button>
+                        )}
+
+                        {canStartDungeonFromCurrentRegion && (
                             <button onClick={() => handleMenuTransition('dungeon')} className="rounded-xl border border-[#3b6580] bg-[#4d7a96]/95 px-2.5 py-2.5 text-center transition-all hover:-translate-y-0.5 hover:bg-[#5a8aa6]">
                                 <div className="flex items-center justify-center gap-1.5 text-xs font-black text-white"><Crosshair size={17} /> Dungeon</div>
                             </button>
@@ -1457,30 +1544,32 @@ export const TavernScreen: React.FC<{
 
                     </div>
 
-                    {!campIntroOnly && bossUnlocked && (
+                    {!campIntroOnly && canStartBossFromCurrentRegion && (
                         <button onClick={() => handleServiceTransition(onBoss)} className="mb-2 rounded-xl border border-[#a83a42] bg-[#c44b54]/95 px-2.5 py-2.5 text-center transition-all hover:-translate-y-0.5 hover:bg-[#b5424a] pointer-events-auto sm:hidden">
                             <div className="flex items-center justify-center gap-1.5 text-xs font-black text-white"><Skull size={17} /> Chefao</div>
                         </button>
                     )}
 
-                    <div className={`hidden sm:grid gap-2.5 pointer-events-auto ${canAccessDungeon && bossUnlocked ? 'sm:grid-cols-3' : canAccessDungeon ? 'sm:grid-cols-2' : 'sm:grid-cols-1'}`}>
-                        <button onClick={() => handleMenuTransition('hunt')} className="rounded-2xl border border-[#b26a2e] bg-[#b87a3a]/95 px-4 py-4 text-center transition-all hover:-translate-y-0.5 hover:bg-[#c88a4a]">
-                            <div className="flex items-center justify-center gap-2 text-base sm:text-lg font-black text-white"><Sword size={20} /> Cacar</div>
-                            <div className="mt-1 text-[10px] uppercase tracking-[0.2em] text-[#f8eddf]">Batalha rapida</div>
-                        </button>
+                    <div className={`hidden sm:grid gap-2.5 pointer-events-auto ${availableAdventureActionsCount >= 3 ? 'sm:grid-cols-3' : availableAdventureActionsCount === 2 ? 'sm:grid-cols-2' : 'sm:grid-cols-1'}`}>
+                        {canStartHuntFromCurrentRegion && (
+                            <button onClick={() => handleMenuTransition('hunt')} className="rounded-2xl border border-[#b26a2e] bg-[#b87a3a]/95 px-4 py-4 text-center transition-all hover:-translate-y-0.5 hover:bg-[#c88a4a]">
+                                <div className="flex items-center justify-center gap-2 text-base sm:text-lg font-black text-white"><Sword size={20} /> Cacar</div>
+                                <div className="mt-1 text-[10px] uppercase tracking-[0.2em] text-[#f8eddf]">Batalha rapida</div>
+                            </button>
+                        )}
 
-                        {canAccessDungeon && (
+                        {canStartDungeonFromCurrentRegion && (
                             <button onClick={() => handleMenuTransition('dungeon')} className="rounded-2xl border border-[#3b6580] bg-[#4d7a96]/95 px-4 py-4 text-center transition-all hover:-translate-y-0.5 hover:bg-[#5a8aa6]">
                                 <div className="flex items-center justify-center gap-2 text-base sm:text-lg font-black text-white"><Crosshair size={20} /> Dungeon</div>
                                 <div className="mt-1 text-[10px] uppercase tracking-[0.2em] text-sky-100">Modo progressivo</div>
                             </button>
                         )}
 
-                        {canAccessDungeon && bossUnlocked && (
-                        <button onClick={() => handleServiceTransition(onBoss)} className="rounded-2xl border px-4 py-4 text-center transition-all border-[#a83a42] bg-[#c44b54]/95 hover:-translate-y-0.5 hover:bg-[#b5424a]">
-                            <div className="flex items-center justify-center gap-2 text-base sm:text-lg font-black text-white"><Skull size={20} /> Chefao</div>
-                            <div className="mt-1 text-[10px] uppercase tracking-[0.2em] text-rose-100">Avanca fase</div>
-                        </button>
+                        {canStartBossFromCurrentRegion && (
+                            <button onClick={() => handleServiceTransition(onBoss)} className="rounded-2xl border px-4 py-4 text-center transition-all border-[#a83a42] bg-[#c44b54]/95 hover:-translate-y-0.5 hover:bg-[#b5424a]">
+                                <div className="flex items-center justify-center gap-2 text-base sm:text-lg font-black text-white"><Skull size={20} /> Chefao</div>
+                                <div className="mt-1 text-[10px] uppercase tracking-[0.2em] text-rose-100">Avanca fase</div>
+                            </button>
                         )}
                     </div>
                 </section>
@@ -1752,6 +1841,71 @@ export const TavernScreen: React.FC<{
                     </button>
                     <button onClick={confirmEnterDungeon} className="rounded-xl bg-[#4d7a96] px-4 py-3 font-black text-white shadow-[0_8px_24px_rgba(77,122,150,0.28)] transition-all hover:bg-[#5a8aa6]">
                         Entrar
+                    </button>
+                </div>
+            </div>
+        </div>
+    )}
+
+    {showPortalTravelModal && (
+        <div
+            className={`absolute inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-sm pointer-events-auto p-4 transition-opacity duration-200 ${isPortalTravelModalVisible ? 'opacity-100' : 'opacity-0'}`}
+            onClick={() => closePortalTravelModal()}
+        >
+            <div
+                className={`w-full max-w-md rounded-[28px] border border-[#8cb4c9] bg-[#eef8fe] shadow-[0_30px_80px_rgba(43,104,120,0.32)] overflow-hidden transition-all duration-200 ${isPortalTravelModalVisible ? 'translate-y-0 scale-100 opacity-100' : 'translate-y-2 scale-[0.985] opacity-0'}`}
+                onClick={(event) => event.stopPropagation()}
+            >
+                <div className="bg-[linear-gradient(135deg,#235a6c,#3f8aa5)] px-6 py-5 text-center">
+                    <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.3em] text-[#f2fbff]">
+                        <Orbit size={12} /> Portal
+                    </div>
+                    <h3 className="mt-3 text-2xl font-black text-white">Navegacao do Acampamento</h3>
+                    <p className="mt-1.5 text-sm text-[#ddf3ff]">Escolha para qual area voce quer se teleportar.</p>
+                </div>
+
+                <div className="flex flex-col gap-3 px-6 py-5">
+                    <button
+                        onClick={() => handlePortalRegionTravel('forest')}
+                        disabled={sceneRegion === 'forest'}
+                        className="rounded-xl border border-[#b26a2e] bg-[#b87a3a]/95 px-4 py-3 text-left font-black text-white transition-all hover:-translate-y-0.5 hover:bg-[#c88a4a] disabled:cursor-not-allowed disabled:opacity-45"
+                    >
+                        <div className="flex items-center justify-between gap-3">
+                            <span className="flex items-center gap-2"><Sword size={16} /> Area de Caca</span>
+                            <span className="text-[10px] uppercase tracking-[0.18em]">{sceneRegion === 'forest' ? 'Atual' : 'Ir'}</span>
+                        </div>
+                    </button>
+
+                    <button
+                        onClick={() => handlePortalRegionTravel('dungeon')}
+                        disabled={!canNavigateDungeonFromPortal || sceneRegion === 'dungeon'}
+                        className="rounded-xl border border-[#3b6580] bg-[#4d7a96]/95 px-4 py-3 text-left font-black text-white transition-all hover:-translate-y-0.5 hover:bg-[#5a8aa6] disabled:cursor-not-allowed disabled:opacity-45"
+                    >
+                        <div className="flex items-center justify-between gap-3">
+                            <span className="flex items-center gap-2"><Crosshair size={16} /> Area da Dungeon</span>
+                            <span className="text-[10px] uppercase tracking-[0.18em]">
+                                {sceneRegion === 'dungeon' ? 'Atual' : canNavigateDungeonFromPortal ? 'Ir' : 'Bloqueado'}
+                            </span>
+                        </div>
+                    </button>
+
+                    <button
+                        disabled
+                        className="rounded-xl border border-slate-500/40 bg-slate-700/55 px-4 py-3 text-left font-black text-slate-200 opacity-70 cursor-not-allowed"
+                    >
+                        <div className="flex items-center justify-between gap-3">
+                            <span className="flex items-center gap-2"><Home size={16} /> Torre</span>
+                            <span className="text-[10px] uppercase tracking-[0.18em]">Desabilitado</span>
+                        </div>
+                    </button>
+                </div>
+
+                <div className="px-6 pb-6">
+                    <button
+                        onClick={() => closePortalTravelModal()}
+                        className="w-full rounded-xl border border-[#cfab91] bg-[#f4e5d4] px-4 py-3 font-black text-[#6b3141] transition-colors hover:bg-[#e9d7c2]"
+                    >
+                        Fechar
                     </button>
                 </div>
             </div>
@@ -2697,7 +2851,7 @@ export const ShopScreen: React.FC<{ player: Player, items: Item[], huntStage: nu
 };
 
 export const BattleHUD: React.FC<GameUIProps> = (props) => {
-    const { player, enemy, turnState, logs, onAttack, onDefend, onChargeImpulse, onAbsorbImpulse, onSkill, onUseItem, enemyIntentPreview = null, onUnlockTalent, onResetTalents, currentNarration, gameState, shopItems, floatingTexts, onFlee, onStartBattle, stage, dungeonPhase = 1, killCount, onEquipItem, onUnequipItem, isDungeonRun, dungeonRewards, dungeonCleared = 0, dungeonTotal = 30, gameTime, restrictProfileToStatusOnly = false, limitBattleActionsToBasics = false, inventoryUnlocked = false, inventoryUnlockPromptActive = false, onAcknowledgeInventoryUnlock, cardsUnlockPromptActive = false, onAcknowledgeCardsUnlock, skillsUnlockPromptActive = false, onAcknowledgeSkillsUnlock, impulseUnlockPromptActive = null, onAcknowledgeImpulseUnlock, constellationUnlockPromptActive = false, onAcknowledgeConstellationUnlock, constellationRespecUnlockPromptActive = false, onAcknowledgeConstellationRespecUnlock, allowCardsInProfile = false, fleeUnlocked = false, showItemsAction = false, showSkillsAction = false, itemsUnlockPromptActive = false, onAcknowledgeItemsUnlock, fleeUnlockPromptActive = false, onAcknowledgeFleeUnlock, showDiamondHud = false, diamondUnlockPromptActive = false, onAcknowledgeDiamondUnlock, musicEnabled = true, sfxEnabled = true, renderQualityPreset = 'balanced', recommendedRenderQualityPreset = 'balanced', onUpdateBattleSettings } = props;
+    const { player, enemy, turnState, logs, onAttack, onDefend, onChargeImpulse, onAbsorbImpulse, onSkill, onUseItem, enemyIntentPreview = null, onUnlockTalent, onResetTalents, currentNarration, gameState, shopItems, floatingTexts, onFlee, onStartBattle, stage, dungeonPhase = 1, killCount, onEquipItem, onUnequipItem, isDungeonRun, dungeonRewards, dungeonCleared = 0, dungeonTotal = 30, gameTime, restrictProfileToStatusOnly = false, limitBattleActionsToBasics = false, inventoryUnlocked = false, inventoryUnlockPromptActive = false, onAcknowledgeInventoryUnlock, cardsUnlockPromptActive = false, onAcknowledgeCardsUnlock, skillsUnlockPromptActive = false, onAcknowledgeSkillsUnlock, impulseUnlockPromptActive = null, onAcknowledgeImpulseUnlock, constellationUnlockPromptActive = false, onAcknowledgeConstellationUnlock, constellationRespecUnlockPromptActive = false, onAcknowledgeConstellationRespecUnlock, allowCardsInProfile = false, fleeUnlocked = false, showItemsAction = false, showSkillsAction = false, itemsUnlockPromptActive = false, onAcknowledgeItemsUnlock, fleeUnlockPromptActive = false, onAcknowledgeFleeUnlock, autoOpenProfileToken = 0, showDiamondHud = false, diamondUnlockPromptActive = false, onAcknowledgeDiamondUnlock, musicEnabled = true, sfxEnabled = true, renderQualityPreset = 'balanced', recommendedRenderQualityPreset = 'balanced', onUpdateBattleSettings } = props;
   const [activeBattleMenu, setActiveBattleMenu] = useState<'skills' | 'items' | null>(null);
   const [showProfile, setShowProfile] = useState(false);
     const [showBattleSettings, setShowBattleSettings] = useState(false);
@@ -2762,6 +2916,17 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
         setShowProfile(false);
         uiSfx.play('modal_close');
     };
+    const lastHandledProfileAutoOpenTokenRef = useRef<number>(autoOpenProfileToken);
+    useEffect(() => {
+        if (autoOpenProfileToken <= 0) {
+            return;
+        }
+        if (autoOpenProfileToken === lastHandledProfileAutoOpenTokenRef.current) {
+            return;
+        }
+        lastHandledProfileAutoOpenTokenRef.current = autoOpenProfileToken;
+        openProfileModal('overview');
+    }, [autoOpenProfileToken]);
     const openInventoryModal = (initialFilter: 'all' | 'equipment' | 'potion' | 'material' = 'all', fromProfile = false) => {
         setInventoryInitialFilter(initialFilter);
         setReturnToProfileOnInventoryClose(fromProfile);

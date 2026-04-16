@@ -1,9 +1,11 @@
 import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { Canvas, useFrame, useLoader, useThree } from '@react-three/fiber';
 import { ContactShadows, Html, PerspectiveCamera } from '@react-three/drei';
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { ArrowLeft, ArrowRight, Crosshair, Heart, Shield, Star, Swords, WandSparkles, X, Zap } from 'lucide-react';
 import { getConstellationByClassId } from '../game/data/classTalents';
+import { getRuntimeScenarioPreset } from '../game/data/runtimeScenarios';
 import { getScenario } from '../game/data/scenarios';
 import { PlayerAnimationAction, PlayerClassDefinition, PlayerClassId, WeaponGripType } from '../types';
 import { hasRuntimeFbxAssets } from './scene3d/animation';
@@ -117,12 +119,90 @@ const HERO_CLICK_ACTIONS: Record<PlayerClassId, PlayerAnimationAction> = {
   rogue: 'skill',
 };
 
-const HERO_STAGE_LAYOUT: Record<PlayerClassId, { position: [number, number, number]; rotationY: number }> = {
+type HeroStageLayout = Record<PlayerClassId, { position: [number, number, number]; rotationY: number }>;
+
+const DEFAULT_HERO_STAGE_LAYOUT: HeroStageLayout = {
   knight: { position: [-7.2, -1.02, -0.7], rotationY: 0.34 },
   barbarian: { position: [-3.6, -1.02, -0.12], rotationY: 0.2 },
   mage: { position: [0, -1.02, 0.14], rotationY: 0.06 },
   ranger: { position: [3.6, -1.02, -0.12], rotationY: -0.2 },
   rogue: { position: [7.2, -1.02, -0.7], rotationY: -0.34 },
+};
+
+const buildHeroStageLayout = (
+  heroSelectionSlots?: Array<{ classId: PlayerClassId; position: [number, number, number]; rotationY: number }>,
+): HeroStageLayout => {
+  const layout: HeroStageLayout = {
+    knight: { ...DEFAULT_HERO_STAGE_LAYOUT.knight, position: [...DEFAULT_HERO_STAGE_LAYOUT.knight.position] as [number, number, number] },
+    barbarian: { ...DEFAULT_HERO_STAGE_LAYOUT.barbarian, position: [...DEFAULT_HERO_STAGE_LAYOUT.barbarian.position] as [number, number, number] },
+    mage: { ...DEFAULT_HERO_STAGE_LAYOUT.mage, position: [...DEFAULT_HERO_STAGE_LAYOUT.mage.position] as [number, number, number] },
+    ranger: { ...DEFAULT_HERO_STAGE_LAYOUT.ranger, position: [...DEFAULT_HERO_STAGE_LAYOUT.ranger.position] as [number, number, number] },
+    rogue: { ...DEFAULT_HERO_STAGE_LAYOUT.rogue, position: [...DEFAULT_HERO_STAGE_LAYOUT.rogue.position] as [number, number, number] },
+  };
+
+  if (!heroSelectionSlots || heroSelectionSlots.length === 0) {
+    return layout;
+  }
+
+  heroSelectionSlots.forEach((slot) => {
+    layout[slot.classId] = {
+      position: [...slot.position] as [number, number, number],
+      rotationY: slot.rotationY,
+    };
+  });
+
+  return layout;
+};
+
+const RuntimeSelectionScenarioGlb = ({
+  modelUrl,
+  transform,
+}: {
+  modelUrl: string;
+  transform: {
+    position: [number, number, number];
+    rotation: [number, number, number];
+    scale: number;
+  };
+}) => {
+  const gltf = useLoader(GLTFLoader, modelUrl) as { scene: THREE.Group };
+
+  const model = useMemo(() => {
+    const clone = gltf.scene.clone(true);
+    clone.traverse((node: any) => {
+      if (!node.isMesh) {
+        return;
+      }
+
+      const materials = Array.isArray(node.material) ? node.material : [node.material];
+      materials.forEach((material: any) => {
+        if (!material || !("fog" in material)) {
+          return;
+        }
+        material.fog = true;
+        material.needsUpdate = true;
+      });
+
+      // Selection scene models are decorative only; keep raycasting for heroes.
+      node.raycast = () => null;
+      node.castShadow = true;
+      node.receiveShadow = true;
+      node.frustumCulled = false;
+    });
+    return clone;
+  }, [gltf.scene]);
+
+  const clampedScale = Math.max(0.001, transform.scale);
+
+  return (
+    <group
+      position={transform.position}
+      rotation={transform.rotation}
+      scale={[clampedScale, clampedScale, clampedScale]}
+    >
+      <primitive object={model} />
+    </group>
+  );
 };
 
 const getTransitionProgress = (transitionState: SelectionTransitionState | null) => {
@@ -137,42 +217,48 @@ const AnimatedSelectionCamera = ({
   focusedClassId,
   detailsClassId,
   transitionState,
+  stageLayout,
 }: {
   focusedClassId: PlayerClassId;
   detailsClassId: PlayerClassId | null;
   transitionState: SelectionTransitionState | null;
+  stageLayout: HeroStageLayout;
 }) => {
   const { camera, size } = useThree();
   const activeClassId = transitionState?.classId ?? detailsClassId ?? focusedClassId;
-  const initialSlot = HERO_STAGE_LAYOUT[activeClassId];
+  const initialSlot = stageLayout[activeClassId];
   const lookTargetRef = useRef(new THREE.Vector3(initialSlot.position[0], 0.9, initialSlot.position[2] + 0.18));
   const currentLookTargetRef = useRef(new THREE.Vector3(initialSlot.position[0], 0.9, initialSlot.position[2] + 0.18));
   const detailViewProgressRef = useRef(0);
 
   useFrame(() => {
     const isMobile = size.width < 768;
-    const layout = HERO_STAGE_LAYOUT[activeClassId];
+    const layout = stageLayout[activeClassId];
     const [heroX, , heroZ] = layout.position;
+    const heroDepth = THREE.MathUtils.clamp(heroZ, -4, 6);
     const targetDetailProgress = detailsClassId ? 1 : 0;
     detailViewProgressRef.current = THREE.MathUtils.lerp(detailViewProgressRef.current, targetDetailProgress, 0.08);
     const detailProgress = detailViewProgressRef.current;
     const transitionProgress = transitionState
       ? THREE.MathUtils.smootherstep(getTransitionProgress(transitionState), 0, 1)
       : 0;
+    const defaultCameraDistance = (isMobile ? 11.9 : 10.9) + Math.abs(heroX) * 0.05;
+    const confirmCameraDistance = isMobile ? 7.9 : 7.1;
+    const detailCameraDistance = isMobile ? 7.55 : 6.55;
     const defaultPosition = new THREE.Vector3(
       heroX * (isMobile ? 0.5 : 0.4),
       isMobile ? 2.5 : 2.42,
-      (isMobile ? 11.9 : 10.9) + Math.abs(heroX) * 0.05 + Math.max(0, -heroZ) * 0.2,
+      heroDepth + defaultCameraDistance,
     );
     const confirmPosition = new THREE.Vector3(
       heroX * (isMobile ? 0.42 : 0.34),
       isMobile ? 2.34 : 2.28,
-      isMobile ? 7.9 : 7.1,
+      heroDepth + confirmCameraDistance,
     );
     const detailPosition = new THREE.Vector3(
       heroX * (isMobile ? 0.34 : 0.3),
       isMobile ? 1.84 : 2.62,
-      isMobile ? 7.55 : 6.55,
+      heroDepth + detailCameraDistance,
     );
     const targetPosition = defaultPosition
       .lerp(confirmPosition, transitionProgress)
@@ -223,6 +309,7 @@ const applyMeshOpacity = (group: THREE.Object3D, opacity: number) => {
 
 const StageHero = ({
   playerClass,
+  stageLayout,
   focused,
   selected,
   detailsClassId,
@@ -231,6 +318,7 @@ const StageHero = ({
   onActivate,
 }: {
   playerClass: PlayerClassDefinition;
+  stageLayout: HeroStageLayout;
   focused: boolean;
   selected: boolean;
   detailsClassId: PlayerClassId | null;
@@ -242,7 +330,7 @@ const StageHero = ({
   const heroRef = useRef<THREE.Group>(null);
   const runtimeAssets = hasRuntimeFbxAssets(playerClass.assets) ? playerClass.assets : null;
   const classNamePt = CLASS_NAME_PT[playerClass.id] ?? playerClass.name;
-  const stageSlot = HERO_STAGE_LAYOUT[playerClass.id];
+  const stageSlot = stageLayout[playerClass.id];
   const auraColor = playerClass.visualProfile.auraColor;
   const RoleIcon = CLASS_ROLE_ICONS[playerClass.id];
   const [ambientAction, setAmbientAction] = useState<PlayerAnimationAction>('idle');
@@ -398,7 +486,7 @@ const StageHero = ({
       </mesh>
 
       <mesh
-        position={[0, 1.92, 0.7]}
+        position={[0, 1.72, 0.42]}
         onPointerOver={(event) => {
           event.stopPropagation();
           if (detailsClassId && detailsClassId !== playerClass.id) {
@@ -429,7 +517,7 @@ const StageHero = ({
           onActivate();
         }}
       >
-        <planeGeometry args={[4.4, 6.2]} />
+        <planeGeometry args={[3.2, 5.3]} />
         <meshBasicMaterial transparent opacity={0} side={THREE.DoubleSide} depthWrite={false} />
       </mesh>
 
@@ -498,6 +586,21 @@ const ForestSelectionScene = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const quality = useMemo(() => getRenderQualityProfile(), []);
   const powerPreference = useMemo(() => getRenderPowerPreference(), []);
+  const selectionRuntimeScenarioPreset = useMemo(
+    () => getRuntimeScenarioPreset('hero-selection') ?? getRuntimeScenarioPreset('tower'),
+    [],
+  );
+  const selectionRuntimeConfig = selectionRuntimeScenarioPreset?.config ?? null;
+  const selectionLighting = selectionRuntimeConfig?.lighting;
+  const selectionAtmosphere = selectionRuntimeConfig?.atmosphere;
+  const selectionFogEnabled = selectionAtmosphere?.fogEnabled ?? false;
+  const selectionFogColor = selectionAtmosphere?.fogColor ?? '#d7e6c2';
+  const selectionFogNear = Math.max(1, selectionAtmosphere?.fogNear ?? 16);
+  const selectionFogFar = Math.max(selectionFogNear + 1, selectionAtmosphere?.fogFar ?? 46);
+  const heroStageLayout = useMemo(
+    () => buildHeroStageLayout(selectionRuntimeConfig?.heroSelectionSlots),
+    [selectionRuntimeConfig?.heroSelectionSlots],
+  );
   const scenario = useMemo(() => getScenario('forest'), []);
   const handleTimeUpdate = useCallback(() => {}, []);
 
@@ -584,24 +687,56 @@ const ForestSelectionScene = ({
         performance={{ min: 0.5 }}
       >
         <PerspectiveCamera makeDefault position={[0, 2.62, 17.2]} fov={33} rotation={[-0.075, 0, 0]} />
-        <AnimatedSelectionCamera focusedClassId={focusedClassId} detailsClassId={detailsClassId} transitionState={transitionState} />
+        <AnimatedSelectionCamera
+          focusedClassId={focusedClassId}
+          detailsClassId={detailsClassId}
+          transitionState={transitionState}
+          stageLayout={heroStageLayout}
+        />
         <SceneReadyProbe onReady={onSceneReady} />
         <SkyboxController />
-        <fog attach="fog" args={['#d7e6c2', 16, 46]} />
+        {selectionFogEnabled && <fog attach="fog" args={[selectionFogColor, selectionFogNear, selectionFogFar]} />}
         <DayNightCycle containerRef={containerRef} onTimeUpdate={handleTimeUpdate} quality={quality} />
 
-        <Suspense fallback={null}>
-          <BattleScenario scenario={scenario} lowQuality={quality.isLowQuality} />
-        </Suspense>
+        {selectionRuntimeScenarioPreset ? (
+          <Suspense fallback={null}>
+            <RuntimeSelectionScenarioGlb
+              modelUrl={selectionRuntimeScenarioPreset.scenarioModelUrl}
+              transform={selectionRuntimeConfig?.scenarioTransform ?? {
+                position: [0, 0, 0],
+                rotation: [0, 0, 0],
+                scale: 1,
+              }}
+            />
+            {selectionRuntimeConfig?.sceneObjects.map((sceneObject) => (
+              <RuntimeSelectionScenarioGlb
+                key={sceneObject.id}
+                modelUrl={sceneObject.modelUrl}
+                transform={sceneObject.transform}
+              />
+            ))}
+          </Suspense>
+        ) : (
+          <Suspense fallback={null}>
+            <BattleScenario scenario={scenario} lowQuality={quality.isLowQuality} />
+          </Suspense>
+        )}
 
-        <ambientLight intensity={0.6} />
-        <hemisphereLight intensity={0.5} groundColor="#243a20" color="#f4ffe6" />
+        <ambientLight intensity={selectionLighting?.ambientIntensity ?? 0.6} color={selectionLighting?.ambientColor ?? '#ffffff'} />
+        <directionalLight
+          castShadow
+          intensity={selectionLighting?.directionalIntensity ?? 0.9}
+          color={selectionLighting?.directionalColor ?? '#fff7e8'}
+          position={selectionLighting?.directionalPosition ?? [2.8, 5.6, 4.4]}
+        />
+        <hemisphereLight intensity={0.4} groundColor="#243a20" color="#f4ffe6" />
         <ContactShadows position={[0, -1.04, -0.2]} opacity={0.42} scale={30} blur={2.8} far={12} resolution={quality.contactShadowResolution} />
 
         {classes.map((playerClass) => (
           <StageHero
             key={playerClass.id}
             playerClass={playerClass}
+            stageLayout={heroStageLayout}
             focused={focusedClassId === playerClass.id}
             selected={selectedClassId === playerClass.id}
             detailsClassId={detailsClassId}

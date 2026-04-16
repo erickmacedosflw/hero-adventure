@@ -31,6 +31,7 @@ import { getDefaultRenderQualityPreset, type RenderQualityPreset } from './compo
 
 type BootWindow = Window & { __heroAdventureBootReady?: boolean };
 const MENU_CAMERA_TRANSITION_MS = 2500;
+const PORTAL_TRAVEL_CAMERA_ZOOM_MS = 720;
 type SceneRegion = 'forest' | 'dungeon';
 type OnboardingPhase = 'intro_camp' | 'post_first_hunt' | 'inventory_prompt' | 'inventory_unlocked' | 'cards_prompt' | 'cards_unlocked' | 'merchant_prompt' | 'merchant_unlocked' | 'items_prompt' | 'flee_prompt' | 'flee_unlocked' | 'dungeon_prompt' | 'dungeon_unlocked' | 'alchemist_prompt' | 'alchemist_unlocked';
 
@@ -763,9 +764,12 @@ export default function App() {
     const [shopReturnInventoryFilter, setShopReturnInventoryFilter] = useState<'all' | 'equipment' | 'potion' | 'material'>('all');
     const [openInventoryFromShopToken, setOpenInventoryFromShopToken] = useState(0);
     const [openInventoryFromShopFilter, setOpenInventoryFromShopFilter] = useState<'all' | 'equipment' | 'potion' | 'material'>('all');
+    const [openProfileFromHeroToken, setOpenProfileFromHeroToken] = useState(0);
     const huntEnemyBagRef = useRef<EnemyTemplate[]>([]);
     const dungeonEnemyBagRef = useRef<DungeonEnemyTemplate[]>([]);
     const [sceneRegion, setSceneRegion] = useState<SceneRegion>('forest');
+    const [openPortalTravelToken, setOpenPortalTravelToken] = useState(0);
+    const [menuPortalTravelCinematicToken, setMenuPortalTravelCinematicToken] = useState(0);
     const [onboardingPhase, setOnboardingPhase] = useState<OnboardingPhase>('intro_camp');
     const [hasPlayerDiedOnce, setHasPlayerDiedOnce] = useState(false);
     const [skillsUnlockPromptPending, setSkillsUnlockPromptPending] = useState(false);
@@ -782,6 +786,7 @@ export default function App() {
     const menuHeroActionResetTimerRef = useRef<number | null>(null);
     const autosaveTimerRef = useRef<number | null>(null);
     const levelUpModalTimerRef = useRef<number | null>(null);
+    const portalTravelRegionSwapTimerRef = useRef<number | null>(null);
     const lastSavedSignatureRef = useRef<string>('');
     const wasResourceUnlockedRef = useRef(player.classResource.max > 0);
     const particleBudgetRef = useRef({
@@ -814,6 +819,7 @@ export default function App() {
         }
 
         setMenuHeroAction('item');
+        setOpenProfileFromHeroToken((prev) => prev + 1);
         menuHeroActionResetTimerRef.current = window.setTimeout(() => {
             menuHeroActionResetTimerRef.current = null;
             setMenuHeroAction('idle');
@@ -1071,6 +1077,9 @@ export default function App() {
         }
         if (levelUpModalTimerRef.current !== null) {
             window.clearTimeout(levelUpModalTimerRef.current);
+        }
+        if (portalTravelRegionSwapTimerRef.current !== null) {
+            window.clearTimeout(portalTravelRegionSwapTimerRef.current);
         }
     }, []);
 
@@ -1983,6 +1992,39 @@ export default function App() {
             setEnemy(null);
             enterBattle(false, 'dungeon', 0);
   };
+
+  const handleOpenPortalTravel = useCallback(() => {
+            if (gameState !== GameState.TAVERN) {
+                return;
+            }
+
+            setOpenPortalTravelToken((prev) => prev + 1);
+  }, [gameState]);
+
+  const handleNavigateSceneRegion = useCallback((targetRegion: SceneRegion) => {
+            const dungeonPortalUnlocked = onboardingPhase === 'dungeon_prompt'
+                || onboardingPhase === 'dungeon_unlocked'
+                || onboardingPhase === 'alchemist_prompt'
+                || onboardingPhase === 'alchemist_unlocked';
+
+            if (targetRegion === 'dungeon' && !dungeonPortalUnlocked) {
+                return;
+            }
+            if (targetRegion === sceneRegion) {
+                return;
+            }
+
+            setMenuPortalTravelCinematicToken((prev) => prev + 1);
+
+            if (portalTravelRegionSwapTimerRef.current !== null) {
+                window.clearTimeout(portalTravelRegionSwapTimerRef.current);
+            }
+
+            portalTravelRegionSwapTimerRef.current = window.setTimeout(() => {
+                portalTravelRegionSwapTimerRef.current = null;
+                setSceneRegion(targetRegion);
+            }, PORTAL_TRAVEL_CAMERA_ZOOM_MS);
+  }, [onboardingPhase, sceneRegion]);
 
   const enterBattleImmediate = (isBoss: boolean, mode: 'hunt' | 'dungeon' = dungeonRun ? 'dungeon' : 'hunt', dungeonClearedOverride?: number) => {
             const isDungeonBattle = mode === 'dungeon';
@@ -3437,8 +3479,12 @@ export default function App() {
                         isMenuView={resolvedGameState === GameState.TAVERN}
                         menuCameraFocus={shouldMenuCameraFocus}
                         isDungeonScene={sceneRegion === 'dungeon'}
+                        showMenuNavigationPortal={resolvedGameState === GameState.TAVERN}
+                        menuPortalRegion={sceneRegion}
+                        menuPortalTravelCinematicToken={menuPortalTravelCinematicToken}
+                        onMenuPortalClick={handleOpenPortalTravel}
                         renderQualityPreset={battleSettings.renderQualityPreset}
-                        onMenuHeroClick={resolvedGameState === GameState.TAVERN ? handleMenuHeroClick : undefined}
+                        onMenuHeroClick={resolvedGameState === GameState.TAVERN || resolvedGameState === GameState.BATTLE ? handleMenuHeroClick : undefined}
                     />
             </SceneErrorBoundary>
 
@@ -3454,6 +3500,8 @@ export default function App() {
             onHunt={() => enterBattle(false)}
             onBoss={() => enterBattle(true)}
             onDungeon={startDungeon}
+            sceneRegion={sceneRegion}
+            onNavigateSceneRegion={handleNavigateSceneRegion}
             onShop={() => {
                 setShopReturnToInventory(false);
                 setOpenInventoryFromShopToken(0);
@@ -3481,6 +3529,8 @@ export default function App() {
             autoOpenConstellationToken={openConstellationToken}
             autoOpenInventoryToken={openInventoryFromShopToken}
             autoOpenInventoryFilter={openInventoryFromShopFilter}
+            autoOpenPortalTravelToken={openPortalTravelToken}
+            autoOpenProfileToken={openProfileFromHeroToken}
             onEquipItem={equipItem}
             onUnequipItem={unequipItem}
             onUseItem={handleUseItem}
@@ -3606,6 +3656,7 @@ export default function App() {
             dungeonCleared={dungeonRun?.rewards.clearedMonsters ?? 0}
             dungeonTotal={dungeonRun?.rewards.totalMonsters ?? 30}
             gameTime={gameTime}
+            autoOpenProfileToken={openProfileFromHeroToken}
                         restrictProfileToStatusOnly={isProfileStatusOnly}
                         limitBattleActionsToBasics={isFirstBattleActionRestricted}
                                                 showItemsAction={isItemsActionUnlocked}

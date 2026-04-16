@@ -1,10 +1,11 @@
 import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Sword, Shield, Zap, Sparkles, FlaskConical } from 'lucide-react';
 import { Canvas, useFrame, useLoader, useThree } from '@react-three/fiber';
-import { ContactShadows, Html, PerspectiveCamera, useAnimations, useFBX, useTexture } from '@react-three/drei';
+import { ContactShadows, Html, useAnimations, useFBX, useTexture } from '@react-three/drei';
 import { Bloom, DepthOfField, EffectComposer, Vignette } from '@react-three/postprocessing';
 import * as THREE from 'three';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { COMBAT_SPRITE_ANIMATION_DEFAULTS, SPRITE_ANIMATION_IDS, SPRITE_ANIMATION_REGISTRY } from '../game/data/sprite-animations/registry';
 import { resolveTrackPlaybackSnapshot } from '../game/mechanics/spriteOverlayPlayback';
 import { CardCategory, Enemy, EnemyIntentPreview, FloatingText, Particle, Player, PlayerAnimationAction, PlayerClassAnimationMap, PlayerClassAssets, PlayerClassId, SpriteOverlayAnimationDefinition, SpriteTrackDefinition, StatusEffect, TurnState } from '../types';
@@ -38,6 +39,8 @@ import {
   DeveloperHeroSceneRenderer,
   DeveloperKitbashSceneRenderer,
   DeveloperMonsterSceneRenderer,
+  DeveloperScenarioComposerSceneRenderer,
+  ScenarioParticleField,
   DeveloperWeaponCalibrationSceneRenderer,
 } from './scene3d/developer-scenes';
 import {
@@ -50,6 +53,7 @@ import type {
   DeveloperHeroSceneProps,
   DeveloperKitbashSceneProps,
   DeveloperMonsterSceneProps,
+  DeveloperScenarioComposerSceneProps,
 } from './scene3d/developer-scenes';
 import { MeshParticle, WorldFloatingTexts } from './scene3d/effects';
 import {
@@ -64,6 +68,15 @@ import {
 import { EquippedWeaponAttachment } from './scene3d/weapons';
 import { BattleScenario, DungeonScenario } from './scene3d/scenarios';
 import { getScenario } from '../game/data/scenarios';
+import { getRuntimeScenarioPreset } from '../game/data/runtimeScenarios';
+import {
+  getRuntimeMenuPortalPreset,
+  MENU_NAVIGATION_PORTAL_ALBEDO_URL,
+  MENU_NAVIGATION_PORTAL_EMISSIVE_URL,
+  MENU_NAVIGATION_PORTAL_METALLIC_URL,
+  MENU_NAVIGATION_PORTAL_MODEL_URL,
+  type RuntimeMenuPortalTransform,
+} from '../game/data/runtimeMenuPortal';
 import type {
   DeveloperAnimationRuntimeDiagnostic,
   DeveloperKitbashAnalysis,
@@ -142,11 +155,15 @@ interface SceneProps {
   levelUpCardCategory?: CardCategory;
   isMenuView?: boolean;
   menuCameraFocus?: boolean;
+  showMenuNavigationPortal?: boolean;
+  menuPortalRegion?: 'forest' | 'dungeon';
+  menuPortalTravelCinematicToken?: number;
   isDungeonScene?: boolean;
   stage?: number;
   isDungeonRun?: boolean;
   onGameTimeUpdate?: (time: string) => void;
   onMenuHeroClick?: () => void;
+  onMenuPortalClick?: () => void;
   playerState?: Player;
   enemyState?: Enemy | null;
   enemyIntentPreview?: EnemyIntentPreview | null;
@@ -2332,7 +2349,15 @@ const EnemyIntentOverlay = ({
   );
 };
 
-const HeroVoxel = ({ classId = 'knight', playerAnimationAction = 'idle', animationClipName, preferredAnimationBundle, onAvailableAnimationClipsChange, loadAllAnimationBundles = false, loadSecondaryAnimationBundles = true, previewLoopAllActions = false, isAttacking, isDefending, weaponId, armorId, helmetId, legsId, shieldId, isLevelingUp, levelUpCardCategory = 'especial', isMenuView = false, isHit, isPlayerCritHit, hasPerfectEvadeAura, hasDoubleAttackAura, impulseLevel = 0, activeImpulseLevel = 0, contactShadowResolution = 256, idlePositionX = -2, attackPositionX = 0.5, defendPositionX = -1.5, originPosition = [-2, -1, 0], baseRotationY = 0.5, hiddenPartSlots, visiblePartSlots, runtimeAssetsOverride, calibrationOverride, debugRuntimeId, debugRuntimeLabel, onRuntimeDiagnosticChange, statusOverlay, onHeroClick, playerState }: any) => {
+const HERO_CLASS_NAME_PT: Record<PlayerClassId, string> = {
+  knight: 'Cavaleiro',
+  barbarian: 'Barbaro',
+  mage: 'Mago',
+  ranger: 'Arqueiro',
+  rogue: 'Ladino',
+};
+
+const HeroVoxel = ({ classId = 'knight', playerAnimationAction = 'idle', animationClipName, preferredAnimationBundle, onAvailableAnimationClipsChange, loadAllAnimationBundles = false, loadSecondaryAnimationBundles = true, previewLoopAllActions = false, isAttacking, isDefending, weaponId, armorId, helmetId, legsId, shieldId, isLevelingUp, levelUpCardCategory = 'especial', isMenuView = false, isHit, isPlayerCritHit, hasPerfectEvadeAura, hasDoubleAttackAura, impulseLevel = 0, activeImpulseLevel = 0, contactShadowResolution = 256, idlePositionX = -2, attackPositionX = 0.5, defendPositionX = -1.5, idlePositionY = -1, attackPositionY = -1, defendPositionY = -1, originPosition = [-2, -1, 0], baseRotationY = 0.5, hiddenPartSlots, visiblePartSlots, runtimeAssetsOverride, calibrationOverride, debugRuntimeId, debugRuntimeLabel, onRuntimeDiagnosticChange, statusOverlay, onHeroClick, playerState }: any) => {
   const playerClass = getPlayerClassById(classId);
   const runtimeHeroAssets = runtimeAssetsOverride ?? (hasRuntimeFbxAssets(playerClass.assets) ? playerClass.assets : null);
   const group = useRef<THREE.Group>(null);
@@ -2340,11 +2365,16 @@ const HeroVoxel = ({ classId = 'knight', playerAnimationAction = 'idle', animati
   const defendImpulseAuraRef = useRef<THREE.Group>(null);
   const phantomAuraRef = useRef<THREE.Group>(null);
   const twinAuraRef = useRef<THREE.Group>(null);
+  const heroHighlightRingRef = useRef<THREE.Mesh>(null);
+  const heroHighlightTimeoutRef = useRef<number | null>(null);
   const flashRef = useRef<number>(0);
   const wasHitRef = useRef(false);
   const flashMaterialsRef = useRef<THREE.Material[]>([]);
   const damageLightRef = useRef<THREE.PointLight>(null);
   const healLightRef = useRef<THREE.PointLight>(null);
+  const [isHeroHighlighted, setIsHeroHighlighted] = useState(false);
+  const heroClassColor = playerClass.visualProfile.secondaryColor ?? '#60a5fa';
+  const heroClassLabel = HERO_CLASS_NAME_PT[playerClass.id] ?? playerClass.name;
   const defendImpulseLevel = useMemo(() => {
     if (!playerState?.buffs) return 0;
     if ((playerState.buffs.guaranteedCounterTurns ?? 0) > 0) return 3;
@@ -2384,6 +2414,16 @@ const HeroVoxel = ({ classId = 'knight', playerAnimationAction = 'idle', animati
     refreshFlashMaterials();
   }, [refreshFlashMaterials, runtimeHeroAssets]);
 
+  useEffect(() => () => {
+    if (typeof document !== 'undefined' && document.body.style.cursor === 'pointer') {
+      document.body.style.cursor = '';
+    }
+    if (heroHighlightTimeoutRef.current !== null) {
+      window.clearTimeout(heroHighlightTimeoutRef.current);
+      heroHighlightTimeoutRef.current = null;
+    }
+  }, []);
+
   useFrame((state) => {
     if (damageLightRef.current) {
       damageLightRef.current.intensity = THREE.MathUtils.lerp(damageLightRef.current.intensity, 0, 0.14);
@@ -2402,14 +2442,14 @@ const HeroVoxel = ({ classId = 'knight', playerAnimationAction = 'idle', animati
       const isInAttackAnimation = isAttacking;
       if (isInAttackAnimation) {
         group.current.position.x = THREE.MathUtils.lerp(group.current.position.x, attackPositionX, 0.2);
-        group.current.position.y = THREE.MathUtils.lerp(group.current.position.y, -1, 0.2);
+        group.current.position.y = THREE.MathUtils.lerp(group.current.position.y, attackPositionY, 0.2);
       } else if (isDefending) {
         group.current.position.x = THREE.MathUtils.lerp(group.current.position.x, defendPositionX, 0.1);
-        group.current.position.y = THREE.MathUtils.lerp(group.current.position.y, -1, 0.12);
+        group.current.position.y = THREE.MathUtils.lerp(group.current.position.y, defendPositionY, 0.12);
         group.current.rotation.x = 0.2;
       } else {
         group.current.position.x = THREE.MathUtils.lerp(group.current.position.x, idlePositionX, 0.1);
-        group.current.position.y = THREE.MathUtils.lerp(group.current.position.y, -1, 0.12);
+        group.current.position.y = THREE.MathUtils.lerp(group.current.position.y, idlePositionY, 0.12);
         group.current.rotation.x = 0;
       }
 
@@ -2473,20 +2513,86 @@ const HeroVoxel = ({ classId = 'knight', playerAnimationAction = 'idle', animati
       });
     }
 
+    if (heroHighlightRingRef.current) {
+      const ringMaterial = heroHighlightRingRef.current.material as THREE.MeshBasicMaterial;
+      const pulse = 1 + (Math.sin(state.clock.elapsedTime * 5.1) * 0.08);
+      heroHighlightRingRef.current.scale.set(pulse, pulse, 1);
+      ringMaterial.opacity = isHeroHighlighted
+        ? 0.72 + ((Math.sin(state.clock.elapsedTime * 6.2) + 1) * 0.08)
+        : 0;
+    }
+
   });
 
+  const handleHeroPointerDown = useCallback((event: any) => {
+    if (!onHeroClick) {
+      return;
+    }
+
+    event.stopPropagation();
+    if (heroHighlightTimeoutRef.current !== null) {
+      window.clearTimeout(heroHighlightTimeoutRef.current);
+      heroHighlightTimeoutRef.current = null;
+    }
+    setIsHeroHighlighted(true);
+    heroHighlightTimeoutRef.current = window.setTimeout(() => {
+      heroHighlightTimeoutRef.current = null;
+      setIsHeroHighlighted(false);
+    }, 1200);
+  }, [onHeroClick]);
+
+  const handleHeroPointerOver = useCallback((event: any) => {
+    if (!onHeroClick) {
+      return;
+    }
+
+    event.stopPropagation();
+    if (heroHighlightTimeoutRef.current !== null) {
+      window.clearTimeout(heroHighlightTimeoutRef.current);
+      heroHighlightTimeoutRef.current = null;
+    }
+    setIsHeroHighlighted(true);
+    if (typeof document !== 'undefined') {
+      document.body.style.cursor = 'pointer';
+    }
+  }, [onHeroClick]);
+
+  const handleHeroPointerOut = useCallback((event: any) => {
+    if (!onHeroClick) {
+      return;
+    }
+
+    event.stopPropagation();
+    if (heroHighlightTimeoutRef.current !== null) {
+      window.clearTimeout(heroHighlightTimeoutRef.current);
+      heroHighlightTimeoutRef.current = null;
+    }
+    setIsHeroHighlighted(false);
+    if (typeof document !== 'undefined') {
+      document.body.style.cursor = '';
+    }
+  }, [onHeroClick]);
+
   const handleHeroClick = useCallback((event: any) => {
-    if (!isMenuView || !onHeroClick) {
+    if (!onHeroClick) {
       return;
     }
 
     event.stopPropagation();
     onHeroClick();
-  }, [isMenuView, onHeroClick]);
+  }, [onHeroClick]);
 
   return (
     <group>
-      <group ref={group} position={originPosition} rotation={[0, baseRotationY, 0]} onClick={handleHeroClick}>
+      <group
+        ref={group}
+        position={originPosition}
+        rotation={[0, baseRotationY, 0]}
+        onPointerDown={handleHeroPointerDown}
+        onPointerOver={handleHeroPointerOver}
+        onPointerOut={handleHeroPointerOut}
+        onClick={handleHeroClick}
+      >
         {runtimeHeroAssets ? (
           <Suspense fallback={null}>
             <AnimatedClassHero
@@ -2567,6 +2673,32 @@ const HeroVoxel = ({ classId = 'knight', playerAnimationAction = 'idle', animati
         <ContactShadows opacity={0.35} scale={3} blur={1.8} far={2} resolution={contactShadowResolution} />
         <pointLight ref={damageLightRef} color="#ef4444" intensity={0} distance={8} decay={2.5} position={[0, 0.8, 0.3]} />
         <pointLight ref={healLightRef} color="#86efac" intensity={0} distance={9} decay={2.5} position={[0, 0.8, 0.3]} />
+        {onHeroClick ? (
+          <>
+            <mesh ref={heroHighlightRingRef} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.08, 0]} visible={isHeroHighlighted}>
+              <ringGeometry args={[0.82, 1.04, 56]} />
+              <meshBasicMaterial color="#ffffff" transparent opacity={0.86} depthWrite={false} side={THREE.DoubleSide} />
+            </mesh>
+            <Html center position={[0, 2.45, 0]} distanceFactor={8.4} zIndexRange={[170, 0]} style={{ pointerEvents: 'none' }}>
+              <div
+                style={{
+                  opacity: isHeroHighlighted ? 1 : 0,
+                  transform: `translateY(${isHeroHighlighted ? '0px' : '4px'}) scale(${isHeroHighlighted ? 1 : 0.96})`,
+                  transition: 'opacity 140ms ease, transform 140ms ease',
+                  fontSize: 'clamp(0.72rem, 1.7vw, 0.9rem)',
+                  fontWeight: 900,
+                  letterSpacing: '0.26em',
+                  textTransform: 'uppercase',
+                  color: heroClassColor,
+                  textShadow: '0 0 1px #ffffff, 0 0 2px #ffffff, 0 0 3px #ffffff, 2px 0 #ffffff, -2px 0 #ffffff, 0 2px #ffffff, 0 -2px #ffffff, 1.5px 1.5px #ffffff, -1.5px 1.5px #ffffff, 1.5px -1.5px #ffffff, -1.5px -1.5px #ffffff',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {heroClassLabel}
+              </div>
+            </Html>
+          </>
+        ) : null}
       </group>
       
       {/* Energy Shield Effect */}
@@ -2891,6 +3023,269 @@ const BackfaceHullOverlay = ({
   return null;
 };
 
+const RuntimeScenarioGlb = ({
+  modelUrl,
+  transform,
+  editorParity = false,
+}: {
+  modelUrl: string;
+  transform: {
+    position: [number, number, number];
+    rotation: [number, number, number];
+    scale: number;
+  };
+  editorParity?: boolean;
+}) => {
+  const gltf = useLoader(GLTFLoader, modelUrl) as { scene: THREE.Group };
+
+  const model = useMemo(() => {
+    const clone = gltf.scene.clone(true);
+    clone.traverse((node: any) => {
+      if (!node.isMesh) {
+        return;
+      }
+
+      const materials = Array.isArray(node.material) ? node.material : [node.material];
+      materials.forEach((material: any) => {
+        if (!material || !("fog" in material)) {
+          return;
+        }
+        material.fog = true;
+        material.needsUpdate = true;
+      });
+
+      if (editorParity) {
+        node.castShadow = true;
+        node.receiveShadow = true;
+        node.frustumCulled = false;
+        return;
+      }
+
+      // Imported runtime scenarios can be very dense; keep these meshes lightweight in battle.
+      node.castShadow = false;
+      node.receiveShadow = true;
+      node.frustumCulled = true;
+    });
+    return clone;
+  }, [editorParity, gltf.scene]);
+
+  const clampedScale = Math.max(0.001, transform.scale);
+
+  return (
+    <group
+      position={transform.position}
+      rotation={transform.rotation}
+      scale={[clampedScale, clampedScale, clampedScale]}
+    >
+      <primitive object={model} />
+    </group>
+  );
+};
+
+const MENU_PORTAL_FBX_URL = MENU_NAVIGATION_PORTAL_MODEL_URL;
+const MENU_PORTAL_ALBEDO_URL = MENU_NAVIGATION_PORTAL_ALBEDO_URL;
+const MENU_PORTAL_EMISSIVE_URL = MENU_NAVIGATION_PORTAL_EMISSIVE_URL;
+const MENU_PORTAL_METALLIC_URL = MENU_NAVIGATION_PORTAL_METALLIC_URL;
+
+const MenuNavigationPortal = ({
+  region,
+  transform,
+  onActivate,
+}: {
+  region: 'forest' | 'dungeon';
+  transform: RuntimeMenuPortalTransform;
+  onActivate?: () => void;
+}) => {
+  const sourcePortal = useFBX(MENU_PORTAL_FBX_URL);
+  const [albedoTexture, emissiveTexture, metallicTexture] = useTexture([
+    MENU_PORTAL_ALBEDO_URL,
+    MENU_PORTAL_EMISSIVE_URL,
+    MENU_PORTAL_METALLIC_URL,
+  ]) as [THREE.Texture, THREE.Texture, THREE.Texture];
+  const swayRef = useRef<THREE.Group>(null);
+  const glowRef = useRef<THREE.PointLight>(null);
+  const haloRef = useRef<THREE.Mesh>(null);
+  const highlightRingRef = useRef<THREE.Mesh>(null);
+  const highlightTimeoutRef = useRef<number | null>(null);
+  const [isPortalHighlighted, setIsPortalHighlighted] = useState(false);
+
+  const model = useMemo(() => {
+    albedoTexture.colorSpace = THREE.SRGBColorSpace;
+    emissiveTexture.colorSpace = THREE.SRGBColorSpace;
+    metallicTexture.colorSpace = THREE.NoColorSpace;
+    [albedoTexture, emissiveTexture, metallicTexture].forEach((texture) => {
+      texture.flipY = true;
+      texture.needsUpdate = true;
+    });
+
+    const clone = sourcePortal.clone(true);
+    clone.traverse((child: any) => {
+      if (!child.isMesh) {
+        return;
+      }
+
+      const mesh = child as THREE.Mesh;
+      const applyPortalMaterial = (material: THREE.Material) => {
+        const standard = material instanceof THREE.MeshStandardMaterial
+          ? material.clone()
+          : new THREE.MeshStandardMaterial({
+            color: (material as any).color?.clone?.() ?? new THREE.Color('#ffffff'),
+          });
+
+        standard.map = albedoTexture;
+        standard.emissiveMap = emissiveTexture;
+        standard.metalnessMap = metallicTexture;
+        standard.color = new THREE.Color('#ffffff');
+        standard.emissive = new THREE.Color('#67d3ff');
+        standard.emissiveIntensity = 1.35;
+        standard.metalness = 0.48;
+        standard.roughness = 0.38;
+        standard.vertexColors = false;
+        standard.fog = true;
+        standard.needsUpdate = true;
+        return standard;
+      };
+
+      if (Array.isArray(mesh.material)) {
+        mesh.material = mesh.material.map((material) => applyPortalMaterial(material));
+      } else if (mesh.material) {
+        mesh.material = applyPortalMaterial(mesh.material as THREE.Material);
+      }
+
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      mesh.frustumCulled = false;
+    });
+
+    return clone;
+  }, [albedoTexture, emissiveTexture, metallicTexture, sourcePortal]);
+
+  useEffect(() => () => {
+    if (typeof document !== 'undefined' && document.body.style.cursor === 'pointer') {
+      document.body.style.cursor = '';
+    }
+    if (highlightTimeoutRef.current !== null) {
+      window.clearTimeout(highlightTimeoutRef.current);
+      highlightTimeoutRef.current = null;
+    }
+  }, []);
+
+  useFrame((state) => {
+    const t = state.clock.elapsedTime;
+
+    if (swayRef.current) {
+      swayRef.current.position.y = Math.sin(t * 0.55) * 0.035;
+    }
+
+    if (glowRef.current) {
+      glowRef.current.intensity = 1.9 + (Math.sin(t * 3.15) * 0.55);
+      glowRef.current.distance = 5.4 + (Math.sin(t * 2.7) * 0.35);
+    }
+
+    if (haloRef.current) {
+      const pulse = 1.15 + (Math.sin(t * 2.8) * 0.11);
+      haloRef.current.scale.set(pulse, pulse, 1);
+      const haloMaterial = haloRef.current.material as THREE.MeshBasicMaterial;
+      haloMaterial.opacity = 0.18 + ((Math.sin(t * 3.15) + 1) * 0.08);
+    }
+
+    if (highlightRingRef.current) {
+      const ringMaterial = highlightRingRef.current.material as THREE.MeshBasicMaterial;
+      const pulse = 1 + (Math.sin(t * 5.2) * 0.08);
+      highlightRingRef.current.scale.set(pulse, pulse, 1);
+      ringMaterial.opacity = isPortalHighlighted
+        ? 0.72 + ((Math.sin(t * 6.1) + 1) * 0.08)
+        : 0;
+    }
+  });
+
+  const portalScale = Math.max(0.0001, transform.scale);
+  const regionZOffset = region === 'dungeon' ? 0 : 0;
+
+  return (
+    <group
+      position={[transform.position[0], transform.position[1], transform.position[2] + regionZOffset]}
+      rotation={transform.rotation}
+      scale={[portalScale, portalScale, portalScale]}
+      onPointerDown={(event) => {
+        if (!onActivate) {
+          return;
+        }
+        event.stopPropagation();
+        if (highlightTimeoutRef.current !== null) {
+          window.clearTimeout(highlightTimeoutRef.current);
+          highlightTimeoutRef.current = null;
+        }
+        setIsPortalHighlighted(true);
+        highlightTimeoutRef.current = window.setTimeout(() => {
+          highlightTimeoutRef.current = null;
+          setIsPortalHighlighted(false);
+        }, 1200);
+        onActivate?.();
+      }}
+      onPointerOver={(event) => {
+        if (!onActivate) {
+          return;
+        }
+        event.stopPropagation();
+        if (highlightTimeoutRef.current !== null) {
+          window.clearTimeout(highlightTimeoutRef.current);
+          highlightTimeoutRef.current = null;
+        }
+        setIsPortalHighlighted(true);
+        if (typeof document !== 'undefined') {
+          document.body.style.cursor = 'pointer';
+        }
+      }}
+      onPointerOut={(event) => {
+        if (!onActivate) {
+          return;
+        }
+        event.stopPropagation();
+        if (highlightTimeoutRef.current !== null) {
+          window.clearTimeout(highlightTimeoutRef.current);
+          highlightTimeoutRef.current = null;
+        }
+        setIsPortalHighlighted(false);
+        if (typeof document !== 'undefined') {
+          document.body.style.cursor = '';
+        }
+      }}
+    >
+      <group ref={swayRef}>
+        <primitive object={model} />
+      </group>
+      <pointLight ref={glowRef} position={[0, 1.55, 0.18]} color="#38bdf8" intensity={2.1} distance={5.7} decay={1.75} />
+      <mesh ref={haloRef} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.04, 0]}>
+        <circleGeometry args={[1.05, 48]} />
+        <meshBasicMaterial color="#7dd3fc" transparent opacity={0.24} depthWrite={false} />
+      </mesh>
+      <mesh ref={highlightRingRef} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.08, 0]} visible={isPortalHighlighted}>
+        <ringGeometry args={[1.08, 1.3, 64]} />
+        <meshBasicMaterial color="#ffffff" transparent opacity={0.86} depthWrite={false} side={THREE.DoubleSide} />
+      </mesh>
+      <Html center position={[0, 2.6, 0]} distanceFactor={8.8} zIndexRange={[170, 0]} style={{ pointerEvents: 'none' }}>
+        <div
+          style={{
+            opacity: isPortalHighlighted ? 1 : 0,
+            transform: `translateY(${isPortalHighlighted ? '0px' : '4px'}) scale(${isPortalHighlighted ? 1 : 0.96})`,
+            transition: 'opacity 140ms ease, transform 140ms ease',
+            fontSize: 'clamp(0.74rem, 1.8vw, 0.9rem)',
+            fontWeight: 900,
+            letterSpacing: '0.28em',
+            textTransform: 'uppercase',
+            color: '#38bdf8',
+            textShadow: '0 0 1px #ffffff, 0 0 2px #ffffff, 0 0 3px #ffffff, 2px 0 #ffffff, -2px 0 #ffffff, 0 2px #ffffff, 0 -2px #ffffff, 1.5px 1.5px #ffffff, -1.5px 1.5px #ffffff, 1.5px -1.5px #ffffff, -1.5px -1.5px #ffffff',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          Portal
+        </div>
+      </Html>
+    </group>
+  );
+};
+
 export const GameScene: React.FC<SceneProps> = (props) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const outlineHeroRef = useRef<THREE.Group>(null);
@@ -2906,8 +3301,8 @@ export const GameScene: React.FC<SceneProps> = (props) => {
   const isPerformanceMode = renderQualityPreset === 'performance';
   const isBalancedMode = renderQualityPreset === 'balanced';
   const isQualityMode = renderQualityPreset === 'quality';
-  const shouldUseForestDepthOfField = isQualityMode || (!isMobileDevice && !quality.isLowQuality);
-  const shouldUseDungeonDepthOfField = isQualityMode;
+  const shouldUseForestDepthOfField = false;
+  const shouldUseDungeonDepthOfField = false;
   const forestBloomIntensity = isQualityMode ? 0.5 : (isMobileDevice ? 0.34 : 0.44);
   const dungeonBloomIntensity = isQualityMode ? 0.34 : (isMobileDevice ? 0.22 : 0.28);
   const forestDepthOfFieldHeight = 440;
@@ -2956,6 +3351,48 @@ export const GameScene: React.FC<SceneProps> = (props) => {
   }, [isDungeonRun, props.stage]);
 
   const activeScenario = useMemo(() => getScenario('forest'), []);
+  const huntRuntimeScenarioPreset = useMemo(() => getRuntimeScenarioPreset('moutain'), []);
+  const huntRuntimeConfig = huntRuntimeScenarioPreset?.config ?? null;
+  const huntRuntimeSceneObjects = huntRuntimeConfig?.sceneObjects ?? [];
+  const dungeonRuntimeScenarioPreset = useMemo(() => getRuntimeScenarioPreset('dungeon'), []);
+  const dungeonRuntimeConfig = dungeonRuntimeScenarioPreset?.config ?? null;
+  const dungeonRuntimeSceneObjects = dungeonRuntimeConfig?.sceneObjects ?? [];
+  const menuPortalTransform = getRuntimeMenuPortalPreset().transform;
+  const menuPortalFocusPoint: [number, number, number] = [
+    menuPortalTransform.position[0],
+    menuPortalTransform.position[1] + 1.05,
+    menuPortalTransform.position[2],
+  ];
+  const shouldUseRuntimeScenarioEditorParity = Boolean(isDungeonRun && dungeonRuntimeConfig);
+  const dungeonHeroBasePosition: [number, number, number] = dungeonRuntimeConfig?.heroBasePosition ?? [-2, -1, 0];
+  const dungeonEnemyBasePosition: [number, number, number] = dungeonRuntimeConfig?.enemyBasePosition ?? [2, -1, 0];
+  const dungeonHeroAttackX = dungeonHeroBasePosition[0] + 2.5;
+  const dungeonHeroDefendX = dungeonHeroBasePosition[0] + 0.5;
+  const dungeonEnemyAttackX = dungeonEnemyBasePosition[0] - 2.35;
+  const dungeonEnemyDefendX = dungeonEnemyBasePosition[0] - 0.5;
+  const dungeonFogColor = dungeonRuntimeConfig?.atmosphere.fogColor ?? '#1f2937';
+  const dungeonFogNearBase = Math.max(1, dungeonRuntimeConfig?.atmosphere.fogNear ?? 14);
+  const dungeonFogFarBase = Math.max(dungeonFogNearBase + 1, dungeonRuntimeConfig?.atmosphere.fogFar ?? 32);
+  const dungeonFogNear = dungeonFogNearBase;
+  const dungeonFogFar = dungeonFogFarBase;
+  const dungeonAmbientColor = dungeonRuntimeConfig?.lighting.ambientColor ?? '#f8fafc';
+  const dungeonAmbientIntensity = dungeonRuntimeConfig?.lighting.ambientIntensity ?? 1.08;
+  const dungeonDirectionalColor = dungeonRuntimeConfig?.lighting.directionalColor ?? '#f8fafc';
+  const dungeonDirectionalIntensity = dungeonRuntimeConfig?.lighting.directionalIntensity ?? 0.78;
+  const dungeonDirectionalPosition = dungeonRuntimeConfig?.lighting.directionalPosition ?? [0, 6, 6] as [number, number, number];
+  const dungeonSceneBgColor = dungeonRuntimeConfig?.atmosphere.fogColor ?? bgColor;
+  const dungeonFogEnabled = dungeonRuntimeConfig?.atmosphere.fogEnabled ?? true;
+  const huntSceneBgColor = huntRuntimeConfig?.atmosphere.fogColor ?? bgColor;
+  const huntFogEnabled = huntRuntimeConfig?.atmosphere.fogEnabled ?? true;
+  const huntFogColor = huntRuntimeConfig?.atmosphere.fogColor ?? '#d7e6c2';
+  const huntFogNear = Math.max(1, huntRuntimeConfig?.atmosphere.fogNear ?? forestFogNear);
+  const huntFogFar = Math.max(huntFogNear + 1, huntRuntimeConfig?.atmosphere.fogFar ?? forestFogFar);
+  const sceneBackgroundColor = isDungeonRun && dungeonRuntimeConfig ? dungeonSceneBgColor : huntSceneBgColor;
+  const runtimeCameraMenuFocus = props.menuCameraFocus ?? Boolean(props.isMenuView);
+  const runtimeCameraScreenShake = shouldUseRuntimeScenarioEditorParity
+    ? undefined
+    : props.screenShake;
+  const shouldShowDungeonReferenceGround = false;
   const enemyOverlay = null;
   const latestEnemyImpactColor = useMemo(() => {
     for (let i = props.particles.length - 1; i >= 0; i -= 1) {
@@ -2968,7 +3405,7 @@ export const GameScene: React.FC<SceneProps> = (props) => {
   }, [props.particles]);
 
   return (
-    <div ref={containerRef} className="absolute inset-0 z-0 transition-colors duration-1000" style={{ backgroundColor: bgColor }}>
+    <div ref={containerRef} className="absolute inset-0 z-0 transition-colors duration-1000" style={{ backgroundColor: sceneBackgroundColor }}>
       {/* Time Display Overlay - Desktop only */}
       {!isDungeonRun && (
         <div className="absolute top-6 left-6 z-10 bg-black/40 border border-white/10 px-4 py-1 rounded-full hidden sm:flex items-center gap-3 pointer-events-none">
@@ -2984,25 +3421,103 @@ export const GameScene: React.FC<SceneProps> = (props) => {
         performance={{ min: 0.5 }}
         frameloop="always"
       >
-        <CameraController screenShake={props.screenShake} menuFocus={props.menuCameraFocus ?? Boolean(props.isMenuView)} />
+        <CameraController
+          screenShake={runtimeCameraScreenShake}
+          menuFocus={runtimeCameraMenuFocus}
+          menuPortalTravelCinematicToken={props.menuPortalTravelCinematicToken ?? 0}
+          menuPortalFocusPoint={menuPortalFocusPoint}
+        />
         <group>
           {isDungeonRun ? (
             <>
-              <color attach="background" args={[bgColor]} />
-              <fog attach="fog" args={['#1f2937', 14, 32]} />
-              <DungeonAtmosphere quality={quality} />
-              <DungeonScenario />
+              <color attach="background" args={[dungeonSceneBgColor]} />
+              {dungeonFogEnabled ? <fog attach="fog" args={[dungeonFogColor, dungeonFogNear, dungeonFogFar]} /> : null}
+              {shouldShowDungeonReferenceGround ? (
+                <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -1.16, 0]} receiveShadow>
+                  <planeGeometry args={[60, 60]} />
+                  <meshStandardMaterial color="#0f172a" roughness={0.95} metalness={0.02} />
+                </mesh>
+              ) : null}
+              {dungeonRuntimeConfig ? (
+                <>
+                  <ambientLight intensity={Math.max(0, dungeonAmbientIntensity)} color={dungeonAmbientColor} />
+                  <hemisphereLight intensity={Math.max(0.2, dungeonAmbientIntensity * 0.65)} color="#dbeafe" groundColor="#1f2937" />
+                  <directionalLight
+                    position={dungeonDirectionalPosition}
+                    intensity={Math.max(0, dungeonDirectionalIntensity)}
+                    color={dungeonDirectionalColor}
+                    castShadow
+                    shadow-mapSize={[quality.shadowMapSize, quality.shadowMapSize]}
+                  />
+                  <ScenarioParticleField particles={dungeonRuntimeConfig.particles} />
+                  <Suspense fallback={null}>
+                    <RuntimeScenarioGlb
+                      modelUrl={dungeonRuntimeScenarioPreset!.scenarioModelUrl}
+                      transform={dungeonRuntimeConfig.scenarioTransform}
+                      editorParity={shouldUseRuntimeScenarioEditorParity}
+                    />
+                  </Suspense>
+                  {dungeonRuntimeSceneObjects.map((sceneObject) => (
+                    <Suspense key={sceneObject.id} fallback={null}>
+                      <RuntimeScenarioGlb
+                        modelUrl={sceneObject.modelUrl}
+                        transform={sceneObject.transform}
+                        editorParity={shouldUseRuntimeScenarioEditorParity}
+                      />
+                    </Suspense>
+                  ))}
+                </>
+              ) : (
+                <>
+                  <DungeonAtmosphere quality={quality} />
+                  <DungeonScenario />
+                </>
+              )}
+              {!shouldUseRuntimeScenarioEditorParity ? (
+                <ContactShadows
+                  position={[0, -1.05, -0.2]}
+                  opacity={0.38}
+                  scale={24}
+                  blur={2.2}
+                  far={11}
+                  resolution={battleContactShadowResolution}
+                />
+              ) : null}
             </>
           ) : (
             <>
               <SkyboxController />
-              <fog attach="fog" args={['#d7e6c2', forestFogNear, forestFogFar]} />
+              {huntFogEnabled ? <fog attach="fog" args={[huntFogColor, huntFogNear, huntFogFar]} /> : null}
               <DayNightCycle containerRef={containerRef} onTimeUpdate={handleTimeUpdate} quality={quality} />
-              <ambientLight intensity={0.6} />
-              <hemisphereLight intensity={0.5} groundColor="#243a20" color="#f4ffe6" />
-              <Suspense fallback={null}>
-                <BattleScenario scenario={activeScenario} lowQuality={quality.isLowQuality} />
-              </Suspense>
+              {huntRuntimeConfig ? (
+                <>
+                  <ScenarioParticleField particles={huntRuntimeConfig.particles} />
+                  <Suspense fallback={null}>
+                    <RuntimeScenarioGlb
+                      modelUrl={huntRuntimeScenarioPreset!.scenarioModelUrl}
+                      transform={huntRuntimeConfig.scenarioTransform}
+                      editorParity
+                    />
+                  </Suspense>
+                  {huntRuntimeSceneObjects.map((sceneObject) => (
+                    <Suspense key={sceneObject.id} fallback={null}>
+                      <RuntimeScenarioGlb
+                        modelUrl={sceneObject.modelUrl}
+                        transform={sceneObject.transform}
+                        editorParity
+                      />
+                    </Suspense>
+                  ))}
+                </>
+              ) : (
+                <>
+                  <ambientLight intensity={0.6} />
+                  <hemisphereLight intensity={0.5} groundColor="#243a20" color="#f4ffe6" />
+                  <Suspense fallback={null}>
+                    <BattleScenario scenario={activeScenario} lowQuality={quality.isLowQuality} />
+                  </Suspense>
+                </>
+              )}
               <ContactShadows
                 position={[0, -1.04, -0.2]}
                 opacity={0.34}
@@ -3038,9 +3553,26 @@ export const GameScene: React.FC<SceneProps> = (props) => {
             playerState={props.playerState}
             contactShadowResolution={quality.contactShadowResolution}
             loadSecondaryAnimationBundles
-            onHeroClick={props.isMenuView ? props.onMenuHeroClick : undefined}
+            onHeroClick={props.onMenuHeroClick}
+            idlePositionX={isDungeonRun && dungeonRuntimeConfig ? dungeonHeroBasePosition[0] : undefined}
+            attackPositionX={isDungeonRun && dungeonRuntimeConfig ? dungeonHeroAttackX : undefined}
+            defendPositionX={isDungeonRun && dungeonRuntimeConfig ? dungeonHeroDefendX : undefined}
+            idlePositionY={isDungeonRun && dungeonRuntimeConfig ? dungeonHeroBasePosition[1] : undefined}
+            attackPositionY={isDungeonRun && dungeonRuntimeConfig ? dungeonHeroBasePosition[1] : undefined}
+            defendPositionY={isDungeonRun && dungeonRuntimeConfig ? dungeonHeroBasePosition[1] : undefined}
+            originPosition={isDungeonRun && dungeonRuntimeConfig ? dungeonHeroBasePosition : undefined}
           />
         </group>
+
+        {props.isMenuView && props.showMenuNavigationPortal ? (
+          <Suspense fallback={null}>
+            <MenuNavigationPortal
+              region={props.menuPortalRegion ?? 'forest'}
+              transform={menuPortalTransform}
+              onActivate={props.onMenuPortalClick}
+            />
+          </Suspense>
+        ) : null}
 
         <group ref={outlineEnemyRef}>
           {!props.isMenuView && (
@@ -3059,15 +3591,24 @@ export const GameScene: React.FC<SceneProps> = (props) => {
               attackStyle={props.enemyAttackStyle}
               contactShadowResolution={quality.contactShadowResolution}
               statusOverlay={enemyOverlay}
+              idlePositionX={isDungeonRun && dungeonRuntimeConfig ? dungeonEnemyBasePosition[0] : undefined}
+              attackPositionX={isDungeonRun && dungeonRuntimeConfig ? dungeonEnemyAttackX : undefined}
+              defendPositionX={isDungeonRun && dungeonRuntimeConfig ? dungeonEnemyDefendX : undefined}
+              idlePositionY={isDungeonRun && dungeonRuntimeConfig ? dungeonEnemyBasePosition[1] : undefined}
+              attackPositionY={isDungeonRun && dungeonRuntimeConfig ? dungeonEnemyBasePosition[1] : undefined}
+              defendPositionY={isDungeonRun && dungeonRuntimeConfig ? dungeonEnemyBasePosition[1] : undefined}
+              originPosition={isDungeonRun && dungeonRuntimeConfig ? dungeonEnemyBasePosition : undefined}
             />
           )}
         </group>
 
-        <BackfaceHullOverlay
-          targets={outlineTargets}
-          thickness={backfaceOutlineThickness}
-          color="#000000"
-        />
+        {!shouldUseRuntimeScenarioEditorParity ? (
+          <BackfaceHullOverlay
+            targets={outlineTargets}
+            thickness={backfaceOutlineThickness}
+            color="#000000"
+          />
+        ) : null}
 
         {!props.isMenuView && (
           <EnemyIntentOverlay
@@ -3110,14 +3651,14 @@ export const GameScene: React.FC<SceneProps> = (props) => {
             />
           </Suspense>
         )}
-        {shouldRenderAmbientDrift ? (
+        {shouldRenderAmbientDrift && !shouldUseRuntimeScenarioEditorParity ? (
           <AmbientDriftParticles isLowQuality={quality.isLowQuality} isDungeonRun={isDungeonRun} />
         ) : null}
 
         {visibleParticles.map((particle) => <MeshParticle key={particle.id} {...particle} />)}
         <WorldFloatingTexts texts={props.floatingTexts} />
 
-        {shouldUsePostProcessing ? (
+        {shouldUsePostProcessing && !shouldUseRuntimeScenarioEditorParity ? (
           <EffectComposer multisampling={postProcessingMultisampling}>
             {shouldUseDepthOfField ? (
               <DepthOfField
@@ -3539,6 +4080,14 @@ export const DeveloperClassBuilderScene: React.FC<DeveloperClassBuilderSceneProp
 );
 
 export const DeveloperWeaponCalibrationScene = DeveloperWeaponCalibrationSceneRenderer;
+
+export const DeveloperScenarioComposerScene: React.FC<DeveloperScenarioComposerSceneProps> = (props) => (
+  <DeveloperScenarioComposerSceneRenderer
+    {...props}
+    HeroVoxelComponent={HeroVoxel}
+    EnemyCharacterComponent={EnemyCharacter}
+  />
+);
 
 export const DeveloperKitbashScene: React.FC<DeveloperKitbashSceneProps> = (props) => (
   <DeveloperKitbashSceneRenderer

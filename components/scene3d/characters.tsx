@@ -416,6 +416,9 @@ interface EnemyCharacterProps {
   idlePositionX?: number;
   attackPositionX?: number;
   defendPositionX?: number;
+  idlePositionY?: number;
+  attackPositionY?: number;
+  defendPositionY?: number;
   originPosition?: [number, number, number];
   baseRotationY?: number;
   disableAmbientMotion?: boolean;
@@ -458,6 +461,9 @@ export const EnemyCharacter = ({
   idlePositionX = 2,
   attackPositionX = -0.35,
   defendPositionX = 1.5,
+  idlePositionY = -1,
+  attackPositionY = -1,
+  defendPositionY = -1,
   originPosition = [2, -1, 0],
   baseRotationY = -Math.PI - 0.35,
   disableAmbientMotion = true,
@@ -538,15 +544,15 @@ export const EnemyCharacter = ({
 
       if (shouldLungeAttack) {
         group.current.position.x = THREE.MathUtils.lerp(group.current.position.x, attackPositionX, 0.2);
-        group.current.position.y = THREE.MathUtils.lerp(group.current.position.y, -1, 0.16);
+        group.current.position.y = THREE.MathUtils.lerp(group.current.position.y, attackPositionY, 0.16);
         group.current.rotation.z = Math.sin(t * 20) * 0.05;
       } else if (isDefending) {
         group.current.position.x = THREE.MathUtils.lerp(group.current.position.x, defendPositionX, 0.1);
-        group.current.position.y = THREE.MathUtils.lerp(group.current.position.y, -1, 0.16);
+        group.current.position.y = THREE.MathUtils.lerp(group.current.position.y, defendPositionY, 0.16);
         group.current.rotation.x = 0.18;
       } else {
         group.current.position.x = THREE.MathUtils.lerp(group.current.position.x, idlePositionX, 0.1);
-        group.current.position.y = THREE.MathUtils.lerp(group.current.position.y, -1, 0.16);
+        group.current.position.y = THREE.MathUtils.lerp(group.current.position.y, idlePositionY, 0.16);
         group.current.rotation.z = THREE.MathUtils.lerp(group.current.rotation.z, 0, 0.1);
         group.current.rotation.x = 0;
       }
