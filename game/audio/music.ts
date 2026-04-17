@@ -6,12 +6,8 @@ const musicTracks = {
     src: new URL('../assets/Sounds/Music/Triha_Sonora.mp3', import.meta.url).href,
     volume: 0.42,
   },
-  forestDay: {
-    src: new URL('../assets/Sounds/Music/Florest_Day.mp3', import.meta.url).href,
-    volume: 0.4,
-  },
-  forestNight: {
-    src: new URL('../assets/Sounds/Music/Florest_Night.mp3', import.meta.url).href,
+  huntBattle: {
+    src: new URL('../assets/Sounds/Music/Montanha.mp3', import.meta.url).href,
     volume: 0.38,
   },
   dungeon: {

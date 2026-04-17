@@ -59,10 +59,12 @@ const getSkyboxFaceUrlsForThemes = (themes: SkyboxTheme[]) => (
 
 const MUSIC_TRACK_URLS = [
   new URL('../game/assets/Sounds/Music/Triha_Sonora.mp3', import.meta.url).href,
-  new URL('../game/assets/Sounds/Music/Florest_Day.mp3', import.meta.url).href,
-  new URL('../game/assets/Sounds/Music/Florest_Night.mp3', import.meta.url).href,
+  new URL('../game/assets/Sounds/Music/Montanha.mp3', import.meta.url).href,
   new URL('../game/assets/Sounds/Music/Dungeon.mp3', import.meta.url).href,
 ] as const;
+
+const MENU_BACKGROUND_IMAGE_URL = new URL('../game/assets/Imagens/Menu_Screen.png', import.meta.url).href;
+const MENU_LOGO_IMAGE_URL = new URL('../game/assets/Imagens/Logo_Hero_Tower.png', import.meta.url).href;
 
 const sanitizeUrlList = (urls: string[]) => (
   urls.filter((url) => typeof url === 'string' && url.length > 0 && !url.includes('undefined'))
@@ -93,6 +95,8 @@ const buildPreloadManifest = (): PreloadManifest => {
 
   FOREST_SCENARIO_MODEL_URLS.forEach((url) => modelUrls.add(url));
   FOREST_SCENARIO_TEXTURE_URLS.forEach((url) => textureUrls.add(url));
+  textureUrls.add(MENU_BACKGROUND_IMAGE_URL);
+  textureUrls.add(MENU_LOGO_IMAGE_URL);
   bootSkyboxFaceUrls.forEach((url) => textureUrls.add(url));
 
   const safeModelUrls = sanitizeUrlList([...modelUrls]);
@@ -241,8 +245,16 @@ export const OpeningScreen: React.FC<OpeningScreenProps> = ({ classes, enemies, 
         : 'Carregando';
 
   return (
-    <div className="absolute inset-0 z-[100] overflow-hidden bg-[#f8fafc] text-slate-950 pointer-events-auto">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(14,165,233,0.10),transparent_34%),linear-gradient(180deg,#f8fafc_0%,#eef2ff_52%,#e2e8f0_100%)]" />
+    <div className="absolute inset-0 z-[100] overflow-hidden pointer-events-auto hero-brand-root">
+      <img
+        src={MENU_BACKGROUND_IMAGE_URL}
+        alt=""
+        aria-hidden="true"
+        className="absolute inset-0 h-full w-full object-cover object-top select-none pointer-events-none"
+        draggable={false}
+      />
+      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(22,11,10,0.10)_0%,rgba(22,11,10,0.26)_100%)]" />
+      <div className="absolute inset-0 opacity-[0.09] bg-[radial-gradient(rgba(255,232,201,0.34)_0.5px,transparent_0.5px)] [background-size:3px_3px] pointer-events-none" />
 
       <Canvas
         frameloop="never"
@@ -255,24 +267,27 @@ export const OpeningScreen: React.FC<OpeningScreenProps> = ({ classes, enemies, 
         </Suspense>
       </Canvas>
 
-      <div className="relative z-10 flex h-full flex-col items-center justify-center px-6 text-center">
-        <div className="w-full max-w-xl animate-fade-in-down">
-          <h1 className="font-gamer text-5xl font-black tracking-tight text-slate-950 sm:text-7xl">
-            Hero Adventure
-          </h1>
+      <div className="relative z-10 flex h-full flex-col items-center justify-center px-5 text-center">
+        <div className="w-full max-w-2xl animate-fade-in-down">
+          <img
+            src={MENU_LOGO_IMAGE_URL}
+            alt="Hero Tower"
+            className="mx-auto w-full max-w-[340px] sm:max-w-[430px] hero-brand-logo-shadow hero-brand-logo-intro"
+            draggable={false}
+          />
 
-          <p className="mt-5 text-xs font-black uppercase tracking-[0.38em] text-slate-500 sm:text-sm">
+          <p className="mt-6 text-[10px] font-black uppercase tracking-[0.34em] text-[#f8e9d8] sm:text-xs">
             {loadingLabel}
           </p>
 
-          <div className="mx-auto mt-8 h-2.5 w-full overflow-hidden rounded-full bg-white/80 shadow-[inset_0_0_0_1px_rgba(148,163,184,0.22)]">
+          <div className="mx-auto mt-6 h-2.5 w-full max-w-lg overflow-hidden rounded-full bg-[#fff7ea]/22 shadow-[inset_0_0_0_1px_rgba(255,242,220,0.28)]">
             <div
-              className="h-full rounded-full bg-[linear-gradient(90deg,#0ea5e9_0%,#38bdf8_55%,#818cf8_100%)] transition-all duration-300"
+              className="h-full rounded-full bg-[linear-gradient(90deg,#f8d08c_0%,#f0b768_55%,#e18f51_100%)] transition-all duration-300"
               style={{ width: `${percentage}%` }}
             />
           </div>
 
-          <div className="mt-4 font-mono text-sm font-bold tracking-[0.18em] text-slate-600">
+          <div className="mt-4 font-mono text-xs font-bold tracking-[0.24em] text-[#ffe8c8] sm:text-sm">
             {percentage}%
           </div>
         </div>

@@ -29,6 +29,7 @@ interface SelectionTransitionState {
 const SELECTION_CONFIRM_DURATION_MS = 3600;
 const SELECTION_INTRO_OVERLAY_MS = 5000;
 const DETAILS_PANEL_ANIMATION_MS = 340;
+const CLASS_SELECTION_LOGO_URL = new URL('../game/assets/Imagens/Logo_Hero_Tower.png', import.meta.url).href;
 
 const utf8Decoder = typeof TextDecoder !== 'undefined' ? new TextDecoder('utf-8') : null;
 
@@ -485,42 +486,6 @@ const StageHero = ({
         <meshStandardMaterial color="#d8c7a7" transparent opacity={0.78} />
       </mesh>
 
-      <mesh
-        position={[0, 1.72, 0.42]}
-        onPointerOver={(event) => {
-          event.stopPropagation();
-          if (detailsClassId && detailsClassId !== playerClass.id) {
-            return;
-          }
-          onFocus();
-        }}
-        onPointerMove={(event) => {
-          event.stopPropagation();
-          if (detailsClassId && detailsClassId !== playerClass.id) {
-            return;
-          }
-          onFocus();
-        }}
-        onPointerDown={(event) => {
-          event.stopPropagation();
-          if (detailsClassId && detailsClassId !== playerClass.id) {
-            return;
-          }
-          onFocus();
-        }}
-        onClick={(event) => {
-          event.stopPropagation();
-          if (detailsClassId && detailsClassId !== playerClass.id) {
-            return;
-          }
-          triggerInteractionAction();
-          onActivate();
-        }}
-      >
-        <planeGeometry args={[3.2, 5.3]} />
-        <meshBasicMaterial transparent opacity={0} side={THREE.DoubleSide} depthWrite={false} />
-      </mesh>
-
       <group ref={heroRef} rotation={[0, stageSlot.rotationY, 0]}>
         <Suspense fallback={null}>
           <AnimatedClassHero assets={runtimeAssets} animationAction={ambientAction} />
@@ -561,6 +526,52 @@ const StageHero = ({
         </Html>
       )}
     </group>
+  );
+};
+
+const SelectionHeroAccentLights = ({
+  focusedClassId,
+  detailsClassId,
+  stageLayout,
+}: {
+  focusedClassId: PlayerClassId;
+  detailsClassId: PlayerClassId | null;
+  stageLayout: HeroStageLayout;
+}) => {
+  const warmKeyRef = useRef<THREE.PointLight>(null);
+  const coolFillRef = useRef<THREE.PointLight>(null);
+  const purpleRimRef = useRef<THREE.PointLight>(null);
+
+  useFrame(({ clock }) => {
+    const activeClassId = detailsClassId ?? focusedClassId;
+    const slot = stageLayout[activeClassId];
+    const targetX = slot.position[0];
+    const targetY = 0.78;
+    const targetZ = slot.position[2] + 0.22;
+    const pulse = 0.5 + ((Math.sin(clock.elapsedTime * 2.2) + 1) / 2);
+
+    if (warmKeyRef.current) {
+      warmKeyRef.current.intensity = 1.25 + (pulse * 0.42);
+      warmKeyRef.current.position.lerp(new THREE.Vector3(targetX + 1.35, targetY + 1.32, targetZ + 1.65), 0.09);
+    }
+
+    if (coolFillRef.current) {
+      coolFillRef.current.intensity = 0.8 + (pulse * 0.25);
+      coolFillRef.current.position.lerp(new THREE.Vector3(targetX - 1.18, targetY + 0.9, targetZ + 1.2), 0.09);
+    }
+
+    if (purpleRimRef.current) {
+      purpleRimRef.current.intensity = 0.56 + (pulse * 0.22);
+      purpleRimRef.current.position.lerp(new THREE.Vector3(targetX, targetY + 1.16, targetZ - 1.82), 0.09);
+    }
+  });
+
+  return (
+    <>
+      <pointLight ref={warmKeyRef} color="#ffd7b0" intensity={1.4} distance={11} decay={1.75} />
+      <pointLight ref={coolFillRef} color="#8ed8ff" intensity={0.86} distance={9} decay={1.75} />
+      <pointLight ref={purpleRimRef} color="#c8a9ff" intensity={0.62} distance={8.5} decay={1.9} />
+    </>
   );
 };
 
@@ -729,7 +740,13 @@ const ForestSelectionScene = ({
           color={selectionLighting?.directionalColor ?? '#fff7e8'}
           position={selectionLighting?.directionalPosition ?? [2.8, 5.6, 4.4]}
         />
-        <hemisphereLight intensity={0.4} groundColor="#243a20" color="#f4ffe6" />
+        <directionalLight intensity={0.42} color="#8fcff7" position={[-4.2, 3.2, -4.8]} />
+        <hemisphereLight intensity={0.45} groundColor="#243a20" color="#f4ffe6" />
+        <SelectionHeroAccentLights
+          focusedClassId={focusedClassId}
+          detailsClassId={detailsClassId}
+          stageLayout={heroStageLayout}
+        />
         <ContactShadows position={[0, -1.04, -0.2]} opacity={0.42} scale={30} blur={2.8} far={12} resolution={quality.contactShadowResolution} />
 
         {classes.map((playerClass) => (
@@ -1308,7 +1325,12 @@ export const ClassSelectionScreen: React.FC<ClassSelectionScreenProps> = ({
       {showIntroOverlay && (
         <div className="absolute inset-0 z-[170] pointer-events-auto flex flex-col items-center justify-center bg-[radial-gradient(circle_at_center,rgba(6,10,8,0.42)_0%,rgba(4,7,6,0.72)_42%,rgba(3,5,4,0.9)_100%)] backdrop-blur-[2px]">
           <div className="px-6 text-center animate-fade-in-down">
-            <h1 className="font-gamer text-5xl sm:text-7xl font-black tracking-tight text-white drop-shadow-[0_12px_28px_rgba(0,0,0,0.55)]">HERO ADVENTURE</h1>
+            <img
+              src={CLASS_SELECTION_LOGO_URL}
+              alt="Hero Tower"
+              className="mx-auto w-full max-w-[280px] sm:max-w-[420px] select-none drop-shadow-[0_12px_28px_rgba(0,0,0,0.55)]"
+              draggable={false}
+            />
             <p className="mt-4 text-[11px] sm:text-sm font-black uppercase tracking-[0.28em] text-emerald-100/85">Preparando arena e aventureiros</p>
             <div className="mx-auto mt-6 h-1.5 w-40 overflow-hidden rounded-full bg-white/20">
               <div className="h-full w-full bg-[linear-gradient(90deg,#22d3ee_0%,#60a5fa_55%,#a78bfa_100%)] animate-[loadingPulse_1.4s_ease-in-out_infinite]" />

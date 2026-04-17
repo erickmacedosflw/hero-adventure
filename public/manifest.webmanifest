@@ -1,7 +1,7 @@
 {
-  "name": "Lendas do Abismo RPG",
-  "short_name": "Lendas RPG",
-  "description": "RPG 3D com batalhas e sistema de animacoes por ID.",
+  "name": "Hero Tower",
+  "short_name": "Hero Tower",
+  "description": "Hero Tower: RPG tatico 3D com combate por turnos e progresso offline.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0f172a",

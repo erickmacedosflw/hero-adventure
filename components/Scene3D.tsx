@@ -2588,51 +2588,54 @@ const HeroVoxel = ({ classId = 'knight', playerAnimationAction = 'idle', animati
         ref={group}
         position={originPosition}
         rotation={[0, baseRotationY, 0]}
-        onPointerDown={handleHeroPointerDown}
-        onPointerOver={handleHeroPointerOver}
-        onPointerOut={handleHeroPointerOut}
-        onClick={handleHeroClick}
       >
-        {runtimeHeroAssets ? (
-          <Suspense fallback={null}>
-            <AnimatedClassHero
-              assets={runtimeHeroAssets}
-              equippedWeaponId={weaponId}
-              animationAction={playerAnimationAction}
-              animationClipName={animationClipName}
-              preferredAnimationBundle={preferredAnimationBundle}
-              hasWeapon={Boolean(weaponId)}
-              loadAllAnimationBundles={loadAllAnimationBundles}
-              loadSecondaryAnimationBundles={loadSecondaryAnimationBundles}
-              previewLoopAllActions={previewLoopAllActions}
-              onAvailableAnimationClipsChange={onAvailableAnimationClipsChange}
-              debugTargetId={classId}
-              debugRuntimeId={debugRuntimeId}
-              debugRuntimeLabel={debugRuntimeLabel}
-              onRuntimeDiagnosticChange={onRuntimeDiagnosticChange}
-              hiddenPartSlots={hiddenPartSlots}
-              visiblePartSlots={visiblePartSlots}
-              calibrationOverride={calibrationOverride}
-            />
-          </Suspense>
-        ) : (
-          <group>
-            <mesh position={[0, 0.9, 0]}>
-              <boxGeometry args={[0.7, 1.3, 0.52]} />
-              <meshStandardMaterial color="#60a5fa" wireframe transparent opacity={0.88} />
-            </mesh>
-            <mesh position={[0, 0.16, 0]} rotation={[Math.PI / 2, 0, 0]}>
-              <torusGeometry args={[0.7, 0.05, 10, 24]} />
-              <meshStandardMaterial color="#93c5fd" emissive="#93c5fd" emissiveIntensity={0.85} transparent opacity={0.6} />
-            </mesh>
-            <pointLight color="#93c5fd" intensity={1.1} distance={4.8} decay={2} position={[0, 1.35, 0.3]} />
-            <Html center sprite distanceFactor={8} position={[0, 2.25, 0]} zIndexRange={[170, 0]}>
-              <div className="rounded-lg border border-sky-200/70 bg-[#111827]/78 px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-sky-100 shadow-[0_10px_24px_rgba(0,0,0,0.45)]">
-                Modelo de heroi indisponivel
-              </div>
-            </Html>
-          </group>
-        )}
+        <group
+          onPointerDown={handleHeroPointerDown}
+          onPointerOver={handleHeroPointerOver}
+          onPointerOut={handleHeroPointerOut}
+          onClick={handleHeroClick}
+        >
+          {runtimeHeroAssets ? (
+            <Suspense fallback={null}>
+              <AnimatedClassHero
+                assets={runtimeHeroAssets}
+                equippedWeaponId={weaponId}
+                animationAction={playerAnimationAction}
+                animationClipName={animationClipName}
+                preferredAnimationBundle={preferredAnimationBundle}
+                hasWeapon={Boolean(weaponId)}
+                loadAllAnimationBundles={loadAllAnimationBundles}
+                loadSecondaryAnimationBundles={loadSecondaryAnimationBundles}
+                previewLoopAllActions={previewLoopAllActions}
+                onAvailableAnimationClipsChange={onAvailableAnimationClipsChange}
+                debugTargetId={classId}
+                debugRuntimeId={debugRuntimeId}
+                debugRuntimeLabel={debugRuntimeLabel}
+                onRuntimeDiagnosticChange={onRuntimeDiagnosticChange}
+                hiddenPartSlots={hiddenPartSlots}
+                visiblePartSlots={visiblePartSlots}
+                calibrationOverride={calibrationOverride}
+              />
+            </Suspense>
+          ) : (
+            <group>
+              <mesh position={[0, 0.9, 0]}>
+                <boxGeometry args={[0.7, 1.3, 0.52]} />
+                <meshStandardMaterial color="#60a5fa" wireframe transparent opacity={0.88} />
+              </mesh>
+              <mesh position={[0, 0.16, 0]} rotation={[Math.PI / 2, 0, 0]}>
+                <torusGeometry args={[0.7, 0.05, 10, 24]} />
+                <meshStandardMaterial color="#93c5fd" emissive="#93c5fd" emissiveIntensity={0.85} transparent opacity={0.6} />
+              </mesh>
+              <pointLight color="#93c5fd" intensity={1.1} distance={4.8} decay={2} position={[0, 1.35, 0.3]} />
+              <Html center sprite distanceFactor={8} position={[0, 2.25, 0]} zIndexRange={[170, 0]}>
+                <div className="rounded-lg border border-sky-200/70 bg-[#111827]/78 px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-sky-100 shadow-[0_10px_24px_rgba(0,0,0,0.45)]">
+                  Modelo de heroi indisponivel
+                </div>
+              </Html>
+            </group>
+          )}
+        </group>
         {isLevelingUp && <LevelUpEffect category={levelUpCardCategory} />}
         <LevelUpSpriteExecution isLevelingUp={isLevelingUp} />
         {statusOverlay}
@@ -3308,8 +3311,10 @@ export const GameScene: React.FC<SceneProps> = (props) => {
   const forestDepthOfFieldHeight = 440;
   const dungeonDepthOfFieldHeight = 440;
   const isDungeonRun = Boolean(props.isDungeonScene ?? props.isDungeonRun);
+  const runtimeCameraMenuFocus = props.menuCameraFocus ?? Boolean(props.isMenuView);
   const shouldUsePostProcessing = !isPerformanceMode;
   const shouldUseBloomAndVignette = !isPerformanceMode;
+  const shouldUseVignette = shouldUseBloomAndVignette && !runtimeCameraMenuFocus;
   const postProcessingMultisampling = isQualityMode ? 4 : (isBalancedMode ? 2 : 0);
   const backfaceOutlineThickness = isPerformanceMode
     ? (isMobileDevice ? 0.045 : 0.06)
@@ -3334,7 +3339,9 @@ export const GameScene: React.FC<SceneProps> = (props) => {
   const activeBloomThreshold = isDungeonRun ? 0.5 : (shouldUseDepthOfField ? 0.42 : 0.48);
   const activeBloomSmoothing = isDungeonRun ? 0.85 : (shouldUseDepthOfField ? 0.8 : 0.82);
   const activeVignetteOffset = isDungeonRun ? 0.1 : (shouldUseDepthOfField ? 0.06 : 0.08);
-  const activeVignetteDarkness = isDungeonRun ? 0.42 : (shouldUseDepthOfField ? 0.1 : 0.13);
+  const activeVignetteDarkness = runtimeCameraMenuFocus
+    ? 0
+    : (isDungeonRun ? 0.42 : (shouldUseDepthOfField ? 0.1 : 0.13));
   const forestFogNear = quality.isLowQuality ? 12 : 16;
   const forestFogFar = quality.isLowQuality ? 34 : 46;
   const shadowMapType = isPerformanceMode ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
@@ -3388,7 +3395,6 @@ export const GameScene: React.FC<SceneProps> = (props) => {
   const huntFogNear = Math.max(1, huntRuntimeConfig?.atmosphere.fogNear ?? forestFogNear);
   const huntFogFar = Math.max(huntFogNear + 1, huntRuntimeConfig?.atmosphere.fogFar ?? forestFogFar);
   const sceneBackgroundColor = isDungeonRun && dungeonRuntimeConfig ? dungeonSceneBgColor : huntSceneBgColor;
-  const runtimeCameraMenuFocus = props.menuCameraFocus ?? Boolean(props.isMenuView);
   const runtimeCameraScreenShake = shouldUseRuntimeScenarioEditorParity
     ? undefined
     : props.screenShake;
@@ -3671,7 +3677,9 @@ export const GameScene: React.FC<SceneProps> = (props) => {
             {shouldUseBloomAndVignette ? (
               <>
                 <Bloom intensity={activeBloomIntensity} luminanceThreshold={activeBloomThreshold} luminanceSmoothing={activeBloomSmoothing} mipmapBlur />
-                <Vignette eskil={false} offset={activeVignetteOffset} darkness={activeVignetteDarkness} />
+                {shouldUseVignette ? (
+                  <Vignette eskil={false} offset={activeVignetteOffset} darkness={activeVignetteDarkness} />
+                ) : null}
               </>
             ) : null}
           </EffectComposer>

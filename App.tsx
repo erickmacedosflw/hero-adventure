@@ -79,6 +79,8 @@ const LEGACY_WEAPON_ID_MAP: Record<string, string> = {
 };
 const ALL_ITEMS_BY_ID = new Map(ALL_ITEMS.map((item) => [item.id, item]));
 const BATTLE_SETTINGS_STORAGE_KEY = 'hero_adventure_battle_settings_v1';
+const MENU_BACKGROUND_IMAGE_URL = new URL('./game/assets/Imagens/Menu_Screen.png', import.meta.url).href;
+const MENU_LOGO_IMAGE_URL = new URL('./game/assets/Imagens/Logo_Hero_Tower.png', import.meta.url).href;
 
 interface BattleSettings {
     musicEnabled: boolean;
@@ -1088,9 +1090,9 @@ export default function App() {
             return;
         }
 
-        const slots = refreshSaveSlotCatalog();
+        refreshSaveSlotCatalog();
         setSelectedSaveSlotId(getActiveSaveSlotId());
-        setHasSavePromptDecision(!slots.some((slot) => slot.hasSave));
+        setHasSavePromptDecision(false);
         setIsSaveSlotCatalogReady(true);
     }, [hasConfirmedStartingClass, isBootReady, refreshSaveSlotCatalog]);
 
@@ -1885,7 +1887,11 @@ export default function App() {
   };
 
     const handleContinueFromSave = () => {
-        const restored = applyLoadedSave(selectedSaveSlotId);
+        if (!selectedSlotSummary?.hasSave) {
+            return;
+        }
+
+        const restored = applyLoadedSave(selectedSlotSummary.slotId);
         if (!restored) {
             const slots = refreshSaveSlotCatalog();
             setHasSavePromptDecision(!slots.some((slot) => slot.hasSave));
@@ -1893,10 +1899,29 @@ export default function App() {
     };
 
     const handleNewGameFromSlot = () => {
-        clearSlot(selectedSaveSlotId);
-        setActiveSaveSlotId(selectedSaveSlotId);
+        if (!firstAvailableEmptySlotId) {
+            return;
+        }
+
+        setSelectedSaveSlotId(firstAvailableEmptySlotId);
+        setActiveSaveSlotId(firstAvailableEmptySlotId);
         setHasSavePromptDecision(true);
-        refreshSaveSlotCatalog();
+        lastSavedSignatureRef.current = '';
+    };
+
+    const handleClearSelectedSaveSlot = () => {
+        if (!selectedSlotSummary?.hasSave) {
+            return;
+        }
+
+        clearSlot(selectedSlotSummary.slotId);
+        const slots = refreshSaveSlotCatalog();
+        const nextSlotId = slots.find((slot) => slot.hasSave)?.slotId
+            ?? slots.find((slot) => !slot.hasSave)?.slotId
+            ?? 1;
+
+        setSelectedSaveSlotId(nextSlotId);
+        setActiveSaveSlotId(nextSlotId);
         lastSavedSignatureRef.current = '';
     };
 
@@ -3068,7 +3093,7 @@ export default function App() {
         }
 
         if (resolvedGameState === GameState.BATTLE) {
-            return isNightTime(gameTime) ? 'forestNight' : 'forestDay';
+            return 'huntBattle';
         }
 
         return sceneRegion === 'dungeon' ? 'dungeon' : 'title';
@@ -3090,21 +3115,22 @@ export default function App() {
                 try {
                     const unlockResults = await Promise.allSettled([gameMusicManager.unlock(), battleSfx.unlock(), uiSfx.unlock()]);
                     const isContextReady = unlockResults.some((result) => result.status === 'fulfilled' && result.value);
-                    if (!isContextReady) {
-                        console.warn('[Audio] Contexto ainda bloqueado; aguardando nova interacao do usuario.');
-                        return;
-                    }
-
                     battleSfx.preload();
                     uiSfx.preload();
+
+                    // Keep recovery hooks active after first gesture even if resume fails on this exact event.
+                    setHasUnlockedMusic(true);
+
+                    if (!isContextReady) {
+                        console.warn('[Audio] Contexto ainda bloqueado; aguardando nova interacao do usuario.');
+                    }
 
                     if (targetMusicTrack && battleSettings.musicEnabled) {
                         // iOS exige uma tentativa de play imediatamente apos o gesto para liberar BGM no PWA.
                         gameMusicManager.transitionTo(targetMusicTrack, 0);
                     }
-
-                    setHasUnlockedMusic(true);
                 } catch (error) {
+                    setHasUnlockedMusic(true);
                     console.warn('[Audio] Falha ao desbloquear audio; nova tentativa sera feita na proxima interacao.', error);
                 } finally {
                     isAudioUnlockingRef.current = false;
@@ -3317,8 +3343,11 @@ export default function App() {
     ]);
 
     const hasAnySaveSlot = saveSlots.some((slot) => slot.hasSave);
-    const selectedSlotSummary = saveSlots.find((slot) => slot.slotId === selectedSaveSlotId) ?? null;
+    const existingSaveSlots = saveSlots.filter((slot) => slot.hasSave);
+    const selectedSlotSummary = saveSlots.find((slot) => slot.slotId === selectedSaveSlotId && slot.hasSave) ?? existingSaveSlots[0] ?? null;
     const canContinueSelectedSlot = Boolean(selectedSlotSummary?.hasSave);
+    const firstAvailableEmptySlotId = saveSlots.find((slot) => !slot.hasSave)?.slotId ?? null;
+    const canCreateNewSaveSlot = firstAvailableEmptySlotId !== null;
 
     if (pathname.startsWith('/developer')) {
         return <DeveloperConsole />;
@@ -3335,61 +3364,116 @@ export default function App() {
     if (!hasConfirmedStartingClass) {
         if (!isSaveSlotCatalogReady) {
             return (
-                <div className="w-full h-screen bg-[#ead6c2] overflow-hidden select-none flex items-center justify-center">
-                    <div className="rounded-[22px] border border-[#cfab91] bg-[#f7ecdd] px-6 py-5 text-center shadow-[0_18px_42px_rgba(54,26,33,0.2)]">
-                        <div className="text-[10px] font-black uppercase tracking-[0.24em] text-[#9a7068]">Sincronizando</div>
-                        <div className="mt-2 font-gamer text-2xl font-black text-[#6b3141]">Lendo slots locais</div>
+                <div className="relative w-full h-screen overflow-hidden select-none hero-brand-root">
+                    <div className="hero-brand-background" style={{ backgroundImage: `url(${MENU_BACKGROUND_IMAGE_URL})` }} />
+                    <div className="hero-brand-vignette" />
+                    <div className="hero-brand-noise" />
+
+                    <div className="relative z-10 flex h-full flex-col items-center justify-center px-6 text-center">
+                        <img
+                            src={MENU_LOGO_IMAGE_URL}
+                            alt="Hero Tower"
+                            className="w-full max-w-[300px] sm:max-w-[380px] hero-brand-logo-shadow hero-brand-logo-intro"
+                            draggable={false}
+                        />
+                        <div className="mt-6 rounded-[18px] border border-[#f8e6cc]/45 bg-[#2d1c18]/52 px-5 py-4 shadow-[0_20px_42px_rgba(16,8,8,0.36)]">
+                            <div className="text-[10px] font-black uppercase tracking-[0.24em] text-[#f9d5a8]">Sincronizando</div>
+                            <div className="mt-2 font-gamer text-xl font-black text-[#fff7ea] sm:text-2xl">Lendo save data local</div>
+                        </div>
                     </div>
                 </div>
             );
         }
 
-        if (hasAnySaveSlot && !hasSavePromptDecision) {
+        if (!hasSavePromptDecision) {
             return (
-                <div className="w-full h-screen bg-[#ead6c2] overflow-hidden select-none relative">
-                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(107,49,65,0.16),transparent_42%),linear-gradient(180deg,#f7ecdd_0%,#edd8c0_100%)]" />
-                    <div className="relative z-10 flex h-full items-center justify-center px-4">
-                        <div className="w-full max-w-3xl rounded-[30px] border border-[#cfab91] bg-[#fff8ef] p-5 shadow-[0_30px_80px_rgba(54,26,33,0.28)] sm:p-7">
-                            <div className="text-center">
-                                <div className="text-[10px] font-black uppercase tracking-[0.26em] text-[#9a7068]">Modo Offline</div>
-                                <h2 className="mt-2 font-gamer text-3xl font-black text-[#6b3141] sm:text-4xl">Selecionar save local</h2>
-                                <p className="mt-2 text-sm text-[#7f5b56]">Escolha um slot para continuar de onde parou ou iniciar uma nova jornada.</p>
+                <div className="relative w-full h-screen overflow-hidden select-none hero-brand-root">
+                    <div className="hero-brand-background" style={{ backgroundImage: `url(${MENU_BACKGROUND_IMAGE_URL})` }} />
+                    <div className="hero-brand-vignette" />
+                    <div className="hero-brand-noise" />
+
+                    <div className="relative z-10 flex h-full flex-col px-4 pb-4 pt-5 sm:px-8 sm:pt-8">
+                        <div className="mx-auto w-full max-w-5xl text-center animate-fade-in-down">
+                            <img
+                                src={MENU_LOGO_IMAGE_URL}
+                                alt="Hero Tower"
+                                className="mx-auto w-full max-w-[290px] sm:max-w-[390px] hero-brand-logo-shadow hero-brand-logo-intro"
+                                draggable={false}
+                            />
+                        </div>
+
+                        <div className="mx-auto mt-auto w-full max-w-5xl rounded-[26px] border border-[#f8dfbd]/36 bg-[#1f1210]/58 p-3 backdrop-blur-[1.5px] sm:p-5 shadow-[0_22px_64px_rgba(9,5,5,0.42)]">
+                            <div className="flex items-center justify-between gap-3 px-2">
+                                <div>
+                                    <div className="text-[10px] font-black uppercase tracking-[0.24em] text-[#f8d3a8]">Menu inicial</div>
+                                    <h2 className="mt-1 font-gamer text-xl font-black text-[#fff3df] sm:text-2xl">Continuar ou novo jogo</h2>
+                                </div>
+                                <div className="rounded-full border border-[#f7d2a5]/45 bg-[#2b1917]/68 px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-[#ffdcae]">
+                                    {!canCreateNewSaveSlot ? 'Limite de 3 slots' : hasAnySaveSlot ? 'Saves encontrados' : 'Sem saves ainda'}
+                                </div>
                             </div>
 
-                            <div className="mt-5 grid gap-3 sm:grid-cols-3">
-                                {saveSlots.map((slot) => {
-                                    const isSelected = selectedSaveSlotId === slot.slotId;
-                                    return (
-                                        <button
-                                            key={slot.slotId}
-                                            onClick={() => {
-                                                setSelectedSaveSlotId(slot.slotId);
-                                                setActiveSaveSlotId(slot.slotId);
-                                            }}
-                                            className={`rounded-[18px] border px-4 py-4 text-left transition-all ${isSelected ? 'border-[#6b3141] bg-[#f7ecdd] shadow-[0_10px_24px_rgba(107,49,65,0.22)]' : 'border-[#d9bda8] bg-[#fffdf9] hover:border-[#b88f7b]'}`}
-                                        >
-                                            <div className="text-[10px] font-black uppercase tracking-[0.22em] text-[#9a7068]">Slot {slot.slotId}</div>
-                                            <div className="mt-1 text-lg font-black text-[#6b3141]">{slot.hasSave ? `Lv ${slot.level ?? 1}` : 'Vazio'}</div>
-                                            <div className="mt-1 text-[11px] font-black uppercase tracking-[0.14em] text-[#8a5a57]">{slot.classId ?? 'sem classe'}</div>
-                                            <div className="mt-2 text-xs text-[#7f5b56]">{formatSaveDate(slot.savedAt)}</div>
-                                        </button>
-                                    );
-                                })}
-                            </div>
+                            {hasAnySaveSlot ? (
+                                <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                                    {existingSaveSlots.map((slot, index) => {
+                                        const isSelected = selectedSaveSlotId === slot.slotId;
+                                        return (
+                                            <button
+                                                key={slot.slotId}
+                                                onClick={() => {
+                                                    setSelectedSaveSlotId(slot.slotId);
+                                                    setActiveSaveSlotId(slot.slotId);
+                                                }}
+                                                className={`hero-save-card text-left ${isSelected ? 'hero-save-card-selected' : ''}`}
+                                                style={{ animationDelay: `${index * 55}ms` }}
+                                            >
+                                                <div className="flex items-start justify-between gap-2">
+                                                    <div>
+                                                        <div className="text-[10px] font-black uppercase tracking-[0.22em] text-[#f8dcb7]">Slot {slot.slotId}</div>
+                                                        <div className="mt-1 text-xl font-black text-[#fff6e8]">Nivel {slot.level ?? 1}</div>
+                                                    </div>
+                                                    <div className="rounded-full border border-[#f4c18a]/60 bg-[#513326]/58 px-2 py-1 text-[9px] font-black uppercase tracking-[0.18em] text-[#ffd7a9]">
+                                                        Continuar
+                                                    </div>
+                                                </div>
 
-                            <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+                                                <div className="mt-3 space-y-1">
+                                                    <div className="text-[11px] font-black uppercase tracking-[0.14em] text-[#ffe5c6]">{slot.classId ?? 'Sem classe'}</div>
+                                                    <div className="text-xs text-[#f8dbc0]/92">{formatSaveDate(slot.savedAt)}</div>
+                                                </div>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            ) : (
+                                <div className="mt-4 rounded-[18px] border border-[#f7d2a5]/32 bg-[#2a1815]/56 px-4 py-4 text-center text-sm text-[#f8dcc0]">
+                                    Nenhum save criado ainda. Clique em Novo jogo para criar o primeiro slot automaticamente.
+                                </div>
+                            )}
+
+                            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                                {canCreateNewSaveSlot ? (
+                                    <button
+                                        onClick={handleNewGameFromSlot}
+                                        className="hero-menu-action hero-menu-action-secondary"
+                                    >
+                                        <Sword size={16} className="shrink-0" /> Novo jogo
+                                    </button>
+                                ) : (
+                                    <button
+                                        onClick={handleClearSelectedSaveSlot}
+                                        disabled={!canContinueSelectedSlot}
+                                        className="hero-menu-action hero-menu-action-secondary"
+                                    >
+                                        Desfazer save
+                                    </button>
+                                )}
                                 <button
                                     onClick={handleContinueFromSave}
                                     disabled={!canContinueSelectedSlot}
-                                    className="flex-1 rounded-[16px] border-b-4 border-[#4f2430] bg-[#6b3141] px-5 py-3 text-sm font-black uppercase tracking-[0.16em] text-white transition-all hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-45"
+                                    className="hero-menu-action hero-menu-action-primary"
                                 >
-                                    Continuar slot selecionado
-                                </button>
-                                <button
-                                    onClick={handleNewGameFromSlot}
-                                    className="flex-1 rounded-[16px] border-b-4 border-[#8d6a55] bg-[#b98562] px-5 py-3 text-sm font-black uppercase tracking-[0.16em] text-white transition-all hover:brightness-105"
-                                >
-                                    Novo jogo neste slot
+                                    <Play size={16} className="shrink-0" /> Continuar jogo
                                 </button>
                             </div>
                         </div>

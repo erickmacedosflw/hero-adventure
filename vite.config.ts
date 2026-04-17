@@ -17,9 +17,9 @@ export default defineConfig(() => {
           registerType: 'autoUpdate',
           includeAssets: ['pwa-icon.svg', 'pwa-icon-maskable.svg', 'apple-touch-icon.svg'],
           manifest: {
-            name: 'Hero Adventure',
-            short_name: 'Hero Adventure',
-            description: 'Hero Adventure: RPG tatico 3D com combate por turnos e progresso offline.',
+            name: 'Hero Tower',
+            short_name: 'Hero Tower',
+            description: 'Hero Tower: RPG tatico 3D com combate por turnos e progresso offline.',
             theme_color: '#6b3141',
             background_color: '#ead6c2',
             display: 'standalone',

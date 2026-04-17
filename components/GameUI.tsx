@@ -249,6 +249,7 @@ const HeaderChip = ({ icon, children }: { icon: React.ReactNode, children: React
 );
 
 const MENU_MODAL_ANIM_MS = 220;
+const PORTAL_TRAVEL_MODAL_ANIM_MS = 320;
 
 const getRenderPresetLabel = (preset: RenderQualityPreset) => {
     if (preset === 'performance') return 'Performance';
@@ -1013,18 +1014,34 @@ const CharacterSheet = ({ player, shopItems, onClose, onOpenInventory }: { playe
 
 // --- SCREENS ---
 
+const MENU_BACKGROUND_IMAGE_URL = new URL('../game/assets/Imagens/Menu_Screen.png', import.meta.url).href;
+const MENU_LOGO_IMAGE_URL = new URL('../game/assets/Imagens/Logo_Hero_Tower.png', import.meta.url).href;
+const PORTAL_THUMB_MOUNTAIN_URL = new URL('../game/assets/Scenario/Moutain/cenario_thumbnail_montanha.png', import.meta.url).href;
+const PORTAL_THUMB_DUNGEON_URL = new URL('../game/assets/Scenario/Dungeon/cenario_thumbnail_dungeon.png', import.meta.url).href;
+const PORTAL_THUMB_TOWER_URL = new URL('../game/assets/Scenario/Tower/cenario_thumbnail_torre.png', import.meta.url).href;
+
 export const MenuScreen: React.FC<{ onStart: () => void }> = ({ onStart }) => (
-    <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black text-white pointer-events-auto px-6">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-cyan-900/35 via-slate-950 to-black" />
-        <HeaderChip icon={<Crosshair size={14} className="text-cyan-300" />}>ARENA PROTOCOL // ONLINE</HeaderChip>
-        <h1 className="font-gamer text-5xl sm:text-7xl md:text-8xl font-black text-transparent bg-clip-text bg-gradient-to-b from-cyan-300 via-indigo-300 to-blue-600 mb-4 tracking-tight text-center drop-shadow-[0_8px_16px_rgba(0,0,0,0.7)]">
-            HERO<br/>ADVENTURE
-    </h1>
-                <p className="mb-3 text-slate-300 font-semibold text-xs sm:text-sm tracking-[0.2em] uppercase text-center">RPG tatico de aventura em 3D</p>
-                <p className="mb-10 text-slate-500 text-sm sm:text-base text-center max-w-xl">Explore o combate por turnos, evolua sua build e enfrente a campanha com modelos 3D pré-carregados para uma entrada mais fluida.</p>
-        <button onClick={onStart} className="group relative w-full max-w-xs sm:max-w-sm px-8 sm:px-16 py-4 sm:py-6 bg-indigo-600 hover:bg-indigo-500 rounded-lg font-gamer font-black text-lg sm:text-2xl transition-all hover:translate-y-[-2px] shadow-[0_10px_24px_rgba(79,70,229,0.45)] flex items-center justify-center gap-4 panel-glow">
-      <span className="skew-x-[10deg] flex items-center gap-2"><Play fill="currentColor" /> INICIAR JORNADA</span>
-    </button>
+    <div className="absolute inset-0 z-50 overflow-hidden pointer-events-auto hero-brand-root">
+        <div className="hero-brand-background" style={{ backgroundImage: `url(${MENU_BACKGROUND_IMAGE_URL})` }} />
+        <div className="hero-brand-vignette" />
+        <div className="hero-brand-noise" />
+
+        <div className="relative z-10 flex h-full flex-col items-center justify-center px-6 text-center">
+            <img
+                src={MENU_LOGO_IMAGE_URL}
+                alt="Hero Tower"
+                className="w-full max-w-[300px] sm:max-w-[410px] hero-brand-logo-shadow hero-brand-logo-intro"
+                draggable={false}
+            />
+            <p className="mt-4 mb-8 text-[10px] font-black uppercase tracking-[0.26em] text-[#f7d6ae] sm:text-xs">RPG tatico de aventura em 3D</p>
+
+            <button
+                onClick={onStart}
+                className="hero-menu-action hero-menu-action-primary w-full max-w-xs sm:max-w-sm"
+            >
+                <Play size={18} fill="currentColor" className="shrink-0" /> Iniciar jornada
+            </button>
+        </div>
   </div>
 );
 
@@ -1099,6 +1116,8 @@ export const TavernScreen: React.FC<{
     const [showPortalTravelModal, setShowPortalTravelModal] = useState(false);
     const [isPortalTravelModalVisible, setIsPortalTravelModalVisible] = useState(false);
     const portalTravelModalCloseTimerRef = useRef<number | null>(null);
+    const [portalTapFeedbackId, setPortalTapFeedbackId] = useState<string | null>(null);
+    const portalTapFeedbackTimerRef = useRef<number | null>(null);
     const showDiamondOnTopHud = showDiamondHud;
     const bossUnlocked = killCount >= 10;
     const canAccessDungeon = dungeonUnlocked;
@@ -1240,6 +1259,7 @@ export const TavernScreen: React.FC<{
 
     const closePortalTravelModal = (onClosed?: () => void) => {
         setIsPortalTravelModalVisible(false);
+        setPortalTapFeedbackId(null);
 
         if (portalTravelModalCloseTimerRef.current !== null) {
             window.clearTimeout(portalTravelModalCloseTimerRef.current);
@@ -1250,12 +1270,15 @@ export const TavernScreen: React.FC<{
             portalTravelModalCloseTimerRef.current = null;
             setShowPortalTravelModal(false);
             onClosed?.();
-        }, 220);
+        }, PORTAL_TRAVEL_MODAL_ANIM_MS);
     };
 
     useEffect(() => () => {
         if (portalTravelModalCloseTimerRef.current !== null) {
             window.clearTimeout(portalTravelModalCloseTimerRef.current);
+        }
+        if (portalTapFeedbackTimerRef.current !== null) {
+            window.clearTimeout(portalTapFeedbackTimerRef.current);
         }
     }, []);
 
@@ -1312,7 +1335,7 @@ export const TavernScreen: React.FC<{
         openInventoryModal(autoOpenInventoryFilter, false);
     }, [autoOpenInventoryFilter, autoOpenInventoryToken]);
     const serviceActions = [
-        ...(merchantUnlocked ? [{
+        ...(merchantUnlocked && sceneRegion === 'forest' ? [{
             id: 'merchant',
             label: 'Mercador',
             subtitle: 'Loja de equipamentos',
@@ -1320,7 +1343,7 @@ export const TavernScreen: React.FC<{
             accent: 'border-amber-400/40 bg-amber-50 text-[#8d5e29] hover:bg-amber-100',
             onClick: onShop,
         }] : []),
-        ...(alchemistUnlocked ? [{
+        ...(alchemistUnlocked && sceneRegion === 'dungeon' ? [{
             id: 'alchemist',
             label: 'Alquimista',
             subtitle: 'Cartas e itens unicos',
@@ -1379,6 +1402,67 @@ export const TavernScreen: React.FC<{
             onNavigateSceneRegion?.(targetRegion);
         });
     };
+    const handlePortalDestinationCardPress = (destinationId: string, onSelect: () => void) => {
+        const isCoarsePointer = typeof window !== 'undefined'
+            && typeof window.matchMedia === 'function'
+            && window.matchMedia('(pointer: coarse)').matches;
+
+        if (portalTapFeedbackTimerRef.current !== null) {
+            window.clearTimeout(portalTapFeedbackTimerRef.current);
+            portalTapFeedbackTimerRef.current = null;
+        }
+
+        setPortalTapFeedbackId(destinationId);
+
+        if (isCoarsePointer) {
+            window.setTimeout(() => {
+                onSelect();
+            }, 110);
+        } else {
+            onSelect();
+        }
+
+        portalTapFeedbackTimerRef.current = window.setTimeout(() => {
+            portalTapFeedbackTimerRef.current = null;
+            setPortalTapFeedbackId((currentId) => (currentId === destinationId ? null : currentId));
+        }, 320);
+    };
+    const portalTravelDestinations = [
+        {
+            id: 'forest',
+            title: 'Montanha',
+            subtitle: 'Area de caca',
+            thumbnailUrl: PORTAL_THUMB_MOUNTAIN_URL,
+            accentColor: '#b87a3a',
+            isCurrent: sceneRegion === 'forest',
+            status: sceneRegion === 'forest' ? 'Atual' : 'Ir',
+            disabled: sceneRegion === 'forest',
+            onSelect: () => handlePortalRegionTravel('forest' as const),
+        },
+        {
+            id: 'dungeon',
+            title: 'Dungeon',
+            subtitle: 'Risco progressivo',
+            thumbnailUrl: PORTAL_THUMB_DUNGEON_URL,
+            accentColor: '#4d7a96',
+            isCurrent: sceneRegion === 'dungeon',
+            status: sceneRegion === 'dungeon' ? 'Atual' : (canNavigateDungeonFromPortal ? 'Ir' : 'Bloqueado'),
+            disabled: !canNavigateDungeonFromPortal || sceneRegion === 'dungeon',
+            onSelect: () => handlePortalRegionTravel('dungeon' as const),
+        },
+        {
+            id: 'tower',
+            title: 'Torre',
+            subtitle: 'Area central',
+            thumbnailUrl: PORTAL_THUMB_TOWER_URL,
+            accentColor: '#6b3141',
+            isCurrent: false,
+            status: 'Desabilitado',
+            disabled: true,
+            onSelect: () => undefined,
+        },
+    ] as const;
+    const portalTravelSelectableDestinations = portalTravelDestinations.filter((destination) => !destination.isCurrent);
     const openShopFromInventory = () => {
         if (showInventory) {
             uiSfx.play('modal_close');
@@ -1849,14 +1933,14 @@ export const TavernScreen: React.FC<{
 
     {showPortalTravelModal && (
         <div
-            className={`absolute inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-sm pointer-events-auto p-4 transition-opacity duration-200 ${isPortalTravelModalVisible ? 'opacity-100' : 'opacity-0'}`}
+            className={`absolute inset-0 z-50 flex items-start justify-center bg-black/55 pointer-events-auto p-3 pt-5 sm:items-center sm:p-4 transition-[opacity,backdrop-filter] duration-[320ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${isPortalTravelModalVisible ? 'opacity-100 backdrop-blur-sm' : 'opacity-0 backdrop-blur-0'}`}
             onClick={() => closePortalTravelModal()}
         >
             <div
-                className={`w-full max-w-md rounded-[28px] border border-[#8cb4c9] bg-[#eef8fe] shadow-[0_30px_80px_rgba(43,104,120,0.32)] overflow-hidden transition-all duration-200 ${isPortalTravelModalVisible ? 'translate-y-0 scale-100 opacity-100' : 'translate-y-2 scale-[0.985] opacity-0'}`}
+                className={`w-full max-w-5xl max-h-[calc(100vh-1.5rem)] sm:max-h-[calc(100vh-2rem)] rounded-[28px] border border-[#8cb4c9] bg-[#eef8fe] shadow-[0_30px_80px_rgba(43,104,120,0.32)] overflow-y-auto overflow-x-hidden transition-[opacity,transform,filter] duration-[320ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${isPortalTravelModalVisible ? 'translate-y-0 scale-100 opacity-100 blur-0' : 'translate-y-4 scale-[0.965] opacity-0 blur-[2px]'}`}
                 onClick={(event) => event.stopPropagation()}
             >
-                <div className="bg-[linear-gradient(135deg,#235a6c,#3f8aa5)] px-6 py-5 text-center">
+                <div className="bg-[linear-gradient(135deg,#235a6c,#3f8aa5)] px-4 py-4 text-center sm:px-6 sm:py-5">
                     <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.3em] text-[#f2fbff]">
                         <Orbit size={12} /> Portal
                     </div>
@@ -1864,43 +1948,46 @@ export const TavernScreen: React.FC<{
                     <p className="mt-1.5 text-sm text-[#ddf3ff]">Escolha para qual area voce quer se teleportar.</p>
                 </div>
 
-                <div className="flex flex-col gap-3 px-6 py-5">
-                    <button
-                        onClick={() => handlePortalRegionTravel('forest')}
-                        disabled={sceneRegion === 'forest'}
-                        className="rounded-xl border border-[#b26a2e] bg-[#b87a3a]/95 px-4 py-3 text-left font-black text-white transition-all hover:-translate-y-0.5 hover:bg-[#c88a4a] disabled:cursor-not-allowed disabled:opacity-45"
-                    >
-                        <div className="flex items-center justify-between gap-3">
-                            <span className="flex items-center gap-2"><Sword size={16} /> Area de Caca</span>
-                            <span className="text-[10px] uppercase tracking-[0.18em]">{sceneRegion === 'forest' ? 'Atual' : 'Ir'}</span>
+                <div className="grid grid-cols-1 gap-3 px-4 py-4 sm:px-6 sm:py-5 md:grid-cols-3 md:gap-4">
+                    {portalTravelSelectableDestinations.length === 0 ? (
+                        <div className="md:col-span-3 rounded-2xl border border-[#cfab91] bg-[#f4e5d4] p-5 text-center">
+                            <div className="text-sm font-black uppercase tracking-[0.2em] text-[#6b3141]">Sem destinos disponiveis</div>
+                            <div className="mt-1 text-xs text-[#8f6c67]">Nao ha outro local para teleportar no momento.</div>
                         </div>
-                    </button>
+                    ) : portalTravelSelectableDestinations.map((destination) => (
+                        <button
+                            key={destination.id}
+                            onClick={() => handlePortalDestinationCardPress(destination.id, destination.onSelect)}
+                            disabled={destination.disabled}
+                            className={`group relative h-44 sm:h-52 md:h-56 overflow-hidden rounded-2xl border text-left transition-all duration-300 ${destination.disabled ? 'cursor-not-allowed opacity-70 border-white/20' : 'border-white/35 active:scale-[0.985] hover:-translate-y-1 hover:scale-[1.01] hover:shadow-[0_24px_44px_rgba(0,0,0,0.34)]'} ${portalTapFeedbackId === destination.id ? 'scale-[0.988] shadow-[0_24px_44px_rgba(0,0,0,0.34)]' : ''}`}
+                        >
+                            <img
+                                src={destination.thumbnailUrl}
+                                alt={destination.title}
+                                className="absolute inset-0 h-full w-full object-cover object-center transition-transform duration-500 group-hover:scale-110"
+                                draggable={false}
+                            />
+                            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(5,8,13,0.12)_0%,rgba(5,8,13,0.28)_58%,rgba(5,8,13,0.74)_100%)]" />
 
-                    <button
-                        onClick={() => handlePortalRegionTravel('dungeon')}
-                        disabled={!canNavigateDungeonFromPortal || sceneRegion === 'dungeon'}
-                        className="rounded-xl border border-[#3b6580] bg-[#4d7a96]/95 px-4 py-3 text-left font-black text-white transition-all hover:-translate-y-0.5 hover:bg-[#5a8aa6] disabled:cursor-not-allowed disabled:opacity-45"
-                    >
-                        <div className="flex items-center justify-between gap-3">
-                            <span className="flex items-center gap-2"><Crosshair size={16} /> Area da Dungeon</span>
-                            <span className="text-[10px] uppercase tracking-[0.18em]">
-                                {sceneRegion === 'dungeon' ? 'Atual' : canNavigateDungeonFromPortal ? 'Ir' : 'Bloqueado'}
-                            </span>
-                        </div>
-                    </button>
+                            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                                <div className={`h-20 w-20 rounded-full border border-white/40 bg-white/10 blur-[0.2px] transition-all duration-300 ${portalTapFeedbackId === destination.id ? 'opacity-100 scale-100' : 'opacity-0 scale-75 group-hover:opacity-100 group-hover:scale-100'}`} />
+                            </div>
+                            <div className={`pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.22)_0%,rgba(255,255,255,0.1)_24%,rgba(255,255,255,0)_58%)] transition-opacity duration-300 ${portalTapFeedbackId === destination.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`} />
 
-                    <button
-                        disabled
-                        className="rounded-xl border border-slate-500/40 bg-slate-700/55 px-4 py-3 text-left font-black text-slate-200 opacity-70 cursor-not-allowed"
-                    >
-                        <div className="flex items-center justify-between gap-3">
-                            <span className="flex items-center gap-2"><Home size={16} /> Torre</span>
-                            <span className="text-[10px] uppercase tracking-[0.18em]">Desabilitado</span>
-                        </div>
-                    </button>
+                            <div className="absolute right-3 top-3 rounded-full border border-white/30 bg-black/35 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-white backdrop-blur-sm">
+                                {destination.status}
+                            </div>
+
+                            <div className="absolute inset-x-0 bottom-0 px-4 py-3" style={{ background: `linear-gradient(180deg, ${destination.accentColor}f0 0%, ${darkenHexColor(destination.accentColor, 0.16)}fa 100%)` }}>
+                                <div className="text-[10px] font-black uppercase tracking-[0.22em] text-white/85">Destino</div>
+                                <div className="mt-0.5 text-lg font-black text-white">{destination.title}</div>
+                                <div className="text-xs font-semibold text-white/86">{destination.subtitle}</div>
+                            </div>
+                        </button>
+                    ))}
                 </div>
 
-                <div className="px-6 pb-6">
+                <div className="px-4 pb-4 sm:px-6 sm:pb-6">
                     <button
                         onClick={() => closePortalTravelModal()}
                         className="w-full rounded-xl border border-[#cfab91] bg-[#f4e5d4] px-4 py-3 font-black text-[#6b3141] transition-colors hover:bg-[#e9d7c2]"
