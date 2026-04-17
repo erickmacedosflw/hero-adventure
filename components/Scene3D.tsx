@@ -3426,6 +3426,7 @@ export const GameScene: React.FC<SceneProps> = (props) => {
         gl={{ antialias: quality.antialias, powerPreference: glPowerPreference }}
         performance={{ min: 0.5 }}
         frameloop="always"
+        style={{ touchAction: 'none' }}
       >
         <CameraController
           screenShake={runtimeCameraScreenShake}
