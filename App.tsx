@@ -693,6 +693,7 @@ export default function App() {
     const [saveSlots, setSaveSlots] = useState<SaveSlotSummary[]>([]);
     const [selectedSaveSlotId, setSelectedSaveSlotId] = useState<SaveSlotId>(() => getActiveSaveSlotId());
     const [hasSavePromptDecision, setHasSavePromptDecision] = useState(false);
+    const [showClearSaveConfirmModal, setShowClearSaveConfirmModal] = useState(false);
     const [resourceUnlockModal, setResourceUnlockModal] = useState<{ name: string; color: string } | null>(null);
     const [levelUpModal, setLevelUpModal] = useState<{ levelsGained: number; nextLevel: number } | null>(null);
     const openConstellationToken = 0;
@@ -1923,6 +1924,7 @@ export default function App() {
         setSelectedSaveSlotId(nextSlotId);
         setActiveSaveSlotId(nextSlotId);
         lastSavedSignatureRef.current = '';
+        setShowClearSaveConfirmModal(false);
     };
 
     const startGame = (classId: Player['classId'] = selectedStartingClassId) => {
@@ -3084,8 +3086,11 @@ export default function App() {
             return null;
         }
 
-        if (!isBootReady || !hasConfirmedStartingClass || resolvedGameState === GameState.MENU) {
-            return 'title';
+        const campAndSelectionTrack: MusicTrackId = 'title';
+        const isInitialMenuFlow = !hasConfirmedStartingClass || resolvedGameState === GameState.MENU;
+
+        if (!isBootReady || isInitialMenuFlow) {
+            return campAndSelectionTrack;
         }
 
         if (dungeonRun) {
@@ -3096,7 +3101,7 @@ export default function App() {
             return 'huntBattle';
         }
 
-        return sceneRegion === 'dungeon' ? 'dungeon' : 'title';
+        return sceneRegion === 'dungeon' ? 'dungeon' : campAndSelectionTrack;
     }, [dungeonRun, gameTime, hasConfirmedStartingClass, isBootReady, pathname, resolvedGameState, sceneRegion]);
 
     const isAudioUnlockingRef = useRef(false);
@@ -3461,7 +3466,7 @@ export default function App() {
                                     </button>
                                 ) : (
                                     <button
-                                        onClick={handleClearSelectedSaveSlot}
+                                        onClick={() => setShowClearSaveConfirmModal(true)}
                                         disabled={!canContinueSelectedSlot}
                                         className="hero-menu-action hero-menu-action-secondary"
                                     >
@@ -3477,6 +3482,36 @@ export default function App() {
                                 </button>
                             </div>
                         </div>
+
+                        {showClearSaveConfirmModal && canContinueSelectedSlot ? (
+                            <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/60 px-4" onClick={() => setShowClearSaveConfirmModal(false)}>
+                                <div
+                                    className="w-full max-w-md rounded-[22px] border border-[#f7d2a5]/45 bg-[#221311]/94 p-5 shadow-[0_24px_64px_rgba(6,4,4,0.55)]"
+                                    onClick={(event) => event.stopPropagation()}
+                                >
+                                    <div className="text-[10px] font-black uppercase tracking-[0.24em] text-[#f8d3a8]">Confirmacao</div>
+                                    <h3 className="mt-2 font-gamer text-2xl font-black text-[#fff3df]">Desfazer este save?</h3>
+                                    <p className="mt-2 text-sm text-[#f8dcc0]">
+                                        O conteúdo do {selectedSlotSummary ? `slot ${selectedSlotSummary.slotId}` : 'slot selecionado'} será removido.
+                                    </p>
+
+                                    <div className="mt-5 grid grid-cols-2 gap-3">
+                                        <button
+                                            onClick={() => setShowClearSaveConfirmModal(false)}
+                                            className="hero-menu-action hero-menu-action-secondary"
+                                        >
+                                            Cancelar
+                                        </button>
+                                        <button
+                                            onClick={handleClearSelectedSaveSlot}
+                                            className="hero-menu-action hero-menu-action-primary"
+                                        >
+                                            Confirmar
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        ) : null}
                     </div>
                 </div>
             );

@@ -1978,10 +1978,9 @@ export const TavernScreen: React.FC<{
                                 {destination.status}
                             </div>
 
-                            <div className="absolute inset-x-0 bottom-0 px-4 py-3" style={{ background: `linear-gradient(180deg, ${destination.accentColor}f0 0%, ${darkenHexColor(destination.accentColor, 0.16)}fa 100%)` }}>
-                                <div className="text-[10px] font-black uppercase tracking-[0.22em] text-white/85">Destino</div>
-                                <div className="mt-0.5 text-lg font-black text-white">{destination.title}</div>
-                                <div className="text-xs font-semibold text-white/86">{destination.subtitle}</div>
+                            <div className="absolute inset-x-0 bottom-0 px-3 py-2 sm:px-4 sm:py-2.5" style={{ background: `linear-gradient(180deg, ${destination.accentColor}eb 0%, ${darkenHexColor(destination.accentColor, 0.16)}f8 100%)` }}>
+                                <div className="text-base font-black leading-tight text-white sm:text-[1.05rem]">{destination.title}</div>
+                                <div className="text-[11px] font-semibold leading-tight text-white/86 sm:text-xs">{destination.subtitle}</div>
                             </div>
                         </button>
                     ))}
