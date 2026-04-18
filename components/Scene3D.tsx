@@ -3432,7 +3432,7 @@ export const GameScene: React.FC<SceneProps> = (props) => {
   }, [props.particles]);
 
   return (
-    <div ref={containerRef} className="absolute inset-0 z-0 transition-colors duration-1000" style={{ backgroundColor: sceneBackgroundColor }}>
+    <div ref={containerRef} className="absolute inset-0 z-0 transition-colors duration-1000" style={{ backgroundColor: sceneBackgroundColor, touchAction: 'none' }}>
       {/* Time Display Overlay - Desktop only */}
       {!isDungeonRun && (
         <div className="absolute top-6 left-6 z-10 bg-black/40 border border-white/10 px-4 py-1 rounded-full hidden sm:flex items-center gap-3 pointer-events-none">

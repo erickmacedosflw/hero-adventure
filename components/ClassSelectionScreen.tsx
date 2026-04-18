@@ -696,6 +696,7 @@ const ForestSelectionScene = ({
         dpr={quality.dpr}
         gl={{ antialias: quality.antialias, powerPreference }}
         performance={{ min: 0.5 }}
+        style={{ touchAction: 'none' }}
       >
         <PerspectiveCamera makeDefault position={[0, 2.62, 17.2]} fov={33} rotation={[-0.075, 0, 0]} />
         <AnimatedSelectionCamera

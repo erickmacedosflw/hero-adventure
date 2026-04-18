@@ -24,6 +24,12 @@ if (import.meta.env.PROD) {
   clearServiceWorkers();
 }
 
+// Prevent iOS Safari from scrolling/bouncing the page when touching the 3D canvas.
+// Must be non-passive to call preventDefault().
+document.addEventListener('touchmove', (e) => {
+  if (e.cancelable) e.preventDefault();
+}, { passive: false });
+
 const rootElement = document.getElementById('root');
 if (!rootElement) throw new Error('Failed to find the root element');
 
