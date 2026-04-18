@@ -525,9 +525,8 @@ export const AlchemistScreen: React.FC<{
       <img
         src={ALCHEMIST_AVATAR_URL}
         alt=""
-        className="absolute left-1/2 -translate-x-1/2 z-[5] h-[72vh] max-h-[480px] w-auto object-contain object-bottom pointer-events-none select-none"
+        className="absolute bottom-[28%] md:bottom-[18%] left-1/2 -translate-x-1/2 z-[5] h-[72vh] max-h-[480px] w-auto object-contain object-bottom pointer-events-none select-none"
         style={{
-          bottom: '28%',
           filter:
             'drop-shadow(0 2px 6px rgba(0,0,0,0.9)) ' +
             'drop-shadow(0 8px 24px rgba(0,0,0,0.75)) ' +
