@@ -6,6 +6,16 @@ import { GameAssetIcon } from '../ui/game-asset-icon';
 import { isEquipmentType, ItemTypeIcon, ItemTypeLabel } from '../ui/game-display';
 import { getEquipmentBonuses } from '../../game/mechanics/equipmentBonuses';
 
+const BAG_POTION_URL = new URL('../../game/assets/Mochila/Mochila_Aberta_Consumiveis.png', import.meta.url).href;
+const BAG_EQUIPMENT_URL = new URL('../../game/assets/Mochila/Mochila_Aberta_Equipamentos.png', import.meta.url).href;
+const BAG_MATERIAL_URL = new URL('../../game/assets/Mochila/Mochila_Aberta_Materiais.png', import.meta.url).href;
+
+const BAG_IMAGE: Record<string, string> = {
+  potion: BAG_POTION_URL,
+  equipment: BAG_EQUIPMENT_URL,
+  material: BAG_MATERIAL_URL,
+};
+
 type InventoryScreenProps = {
   player: Player;
   shopItems: Item[];
@@ -633,9 +643,9 @@ export const InventoryScreen = ({
   return (
     <div className={`absolute inset-0 z-[80] flex flex-col overflow-hidden pointer-events-auto ${overlayFade}`}>
 
-      {/* TOP AREA — transparent, shows game scene behind, click anywhere to close */}
+      {/* TOP AREA — slight dark tint, bag image bottom-center, click to close */}
       <div
-        className="flex-1 min-h-0 flex items-start justify-end p-4 cursor-pointer"
+        className="relative flex-1 min-h-0 flex items-start justify-end p-4 cursor-pointer bg-black/30"
         onClick={onClose}
       >
         <button
@@ -644,6 +654,19 @@ export const InventoryScreen = ({
         >
           <ArrowLeft size={14} /> Fechar
         </button>
+
+        {/* Bag image — centered above the bottom panel */}
+        <img
+          src={BAG_IMAGE[filter]}
+          alt=""
+          className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[42vh] max-h-[280px] w-auto object-contain object-bottom pointer-events-none select-none transition-opacity duration-200"
+          style={{
+            filter:
+              'drop-shadow(0 2px 8px rgba(0,0,0,0.95)) ' +
+              'drop-shadow(0 8px 28px rgba(0,0,0,0.80)) ' +
+              'drop-shadow(0 18px 56px rgba(0,0,0,0.55))',
+          }}
+        />
       </div>
 
       {/* BOTTOM PANEL */}
