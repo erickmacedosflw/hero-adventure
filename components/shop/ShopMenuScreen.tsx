@@ -553,7 +553,7 @@ export const ShopMenuScreen: React.FC<ShopMenuScreenProps> = ({
       <img
         src={MERCHANT_AVATAR_URL}
         alt=""
-        className="absolute bottom-[28%] md:bottom-[18%] left-1/2 -translate-x-1/2 z-[5] h-[72vh] max-h-[480px] w-auto object-contain object-bottom pointer-events-none select-none"
+        className="absolute bottom-[32%] md:bottom-[18%] left-1/2 -translate-x-1/2 z-[5] h-[82vh] md:h-[72vh] max-h-[540px] md:max-h-[480px] w-auto object-contain object-bottom pointer-events-none select-none"
         style={{
           filter:
             'drop-shadow(0 2px 6px rgba(0,0,0,0.9)) ' +
