@@ -669,6 +669,10 @@ export const InventoryScreen = ({
     closeSellModal();
   };
 
+  // On first mount, trigger slide-up and bag-appear animations
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { const t = window.setTimeout(() => setMounted(true), 20); return () => window.clearTimeout(t); }, []);
+
   // Panel slide animation driven by isClosing prop from AnimatedModal
   // mounted drives the enter animation: starts off-screen (translate-y-full), slides up on mount
   const panelSlide = isClosing
@@ -680,10 +684,6 @@ export const InventoryScreen = ({
   const overlayFade = isClosing
     ? 'opacity-0 transition-opacity duration-[220ms]'
     : 'opacity-100';
-
-  // On first mount, trigger slide-up and bag-appear animations
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => { const t = window.setTimeout(() => setMounted(true), 20); return () => window.clearTimeout(t); }, []);
 
   const filterItemCount = (filterId: InventoryFilter) =>
     inventoryItems.filter(({ item }) => {
