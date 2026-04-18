@@ -258,7 +258,7 @@ const RUNTIME_SCENARIO_PRESETS: Record<string, RuntimeScenarioPreset> = {
         speed: 0.45,
         opacity: 0.22,
       },
-      cameraMode: 'battle-sim',
+      cameraMode: 'free',
       cameraState: {
         position: [4.495909189342535, 5.478608540250615, 11.338752852228687],
         target: [1.643459977668827, 2.719083847608313, -0.39648318544302874],
