@@ -670,15 +670,18 @@ export const InventoryScreen = ({
   };
 
   // Panel slide animation driven by isClosing prop from AnimatedModal
+  // mounted drives the enter animation: starts off-screen (translate-y-full), slides up on mount
   const panelSlide = isClosing
     ? 'translate-y-full transition-transform duration-[220ms] ease-in'
-    : 'translate-y-0 transition-transform duration-[280ms] ease-out';
+    : mounted
+      ? 'translate-y-0 transition-transform duration-[320ms] ease-out'
+      : 'translate-y-full';
 
   const overlayFade = isClosing
     ? 'opacity-0 transition-opacity duration-[220ms]'
     : 'opacity-100';
 
-  // On first mount, play bag appear animation
+  // On first mount, trigger slide-up and bag-appear animations
   const [mounted, setMounted] = useState(false);
   useEffect(() => { const t = window.setTimeout(() => setMounted(true), 20); return () => window.clearTimeout(t); }, []);
 
@@ -704,7 +707,7 @@ export const InventoryScreen = ({
         </button>
 
         {/* Bag image — fixed-size container keeps layout stable across filter changes */}
-        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[320px] h-[52vh] max-h-[360px] pointer-events-none select-none">
+        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[400px] h-[62vh] max-h-[440px] pointer-events-none select-none">
           <img
             key={bagPhase === 'open' ? `open-${bagAnimKey.current}` : 'closed'}
             src={bagPhase === 'closing' ? BAG_CLOSED_URL : BAG_IMAGE[filter]}
