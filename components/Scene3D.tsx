@@ -2881,12 +2881,15 @@ interface BackfaceHullOverlayProps {
   targets: Array<{ current: THREE.Object3D | null }>;
   thickness: number;
   color?: string;
+  /** Throttle the hull sync to this FPS (default: unlimited). Reduces CPU cost on mobile. */
+  throttleFps?: number;
 }
 
 const BackfaceHullOverlay = ({
   targets,
   thickness,
   color = '#000000',
+  throttleFps,
 }: BackfaceHullOverlayProps) => {
   const { scene } = useThree();
   const hullRootRef = useRef(new THREE.Group());
@@ -2991,8 +2994,15 @@ const BackfaceHullOverlay = ({
   const tmpPosition = useMemo(() => new THREE.Vector3(), []);
   const tmpQuaternion = useMemo(() => new THREE.Quaternion(), []);
   const tmpScale = useMemo(() => new THREE.Vector3(), []);
+  const hullThrottleRef = useRef(0);
+  const minHullInterval = throttleFps ? (1 / throttleFps) : 0;
 
-  useFrame(() => {
+  useFrame((_, delta) => {
+    if (minHullInterval > 0) {
+      hullThrottleRef.current += delta;
+      if (hullThrottleRef.current < minHullInterval) return;
+      hullThrottleRef.current = 0;
+    }
     for (const { source, hull } of pairsRef.current) {
       let visible = true;
       let current: THREE.Object3D | null = source;
@@ -3354,9 +3364,13 @@ export const GameScene: React.FC<SceneProps> = (props) => {
   const forestFogFar = quality.isLowQuality ? 34 : 46;
   // Mobile balanced uses PCFShadowMap (faster) instead of PCFSoftShadowMap to cut shadow pass cost.
   const shadowMapType = (isPerformanceMode || isMobileBalanced) ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
+  // On mobile non-quality, skip the main directional shadow map entirely (saves a full scene re-render pass per frame).
+  // ContactShadows still provides ground shadows for the characters.
+  const noMainShadow = isMobileDevice && !isQualityMode;
   const battleContactShadowResolution = useMemo(
-    () => isQualityMode ? quality.contactShadowResolution : (quality.isLowQuality ? 48 : Math.min(quality.contactShadowResolution, 96)),
-    [isQualityMode, quality.contactShadowResolution, quality.isLowQuality],
+    // Cap at 48 for all mobile non-quality — was 84 for mobile balanced, 44–48 for perf.
+    () => isQualityMode ? quality.contactShadowResolution : (isMobileDevice || quality.isLowQuality) ? 48 : Math.min(quality.contactShadowResolution, 96),
+    [isQualityMode, isMobileDevice, quality.contactShadowResolution, quality.isLowQuality],
   );
 
   const bgColor = useMemo(() => {
@@ -3485,7 +3499,7 @@ export const GameScene: React.FC<SceneProps> = (props) => {
                 </>
               ) : (
                 <>
-                  <DungeonAtmosphere quality={quality} />
+                  <DungeonAtmosphere quality={quality} noMainShadow={noMainShadow} />
                   <DungeonScenario />
                 </>
               )}
@@ -3504,7 +3518,7 @@ export const GameScene: React.FC<SceneProps> = (props) => {
             <>
               <SkyboxController />
               {huntFogEnabled ? <fog attach="fog" args={[huntFogColor, huntFogNear, huntFogFar]} /> : null}
-              <DayNightCycle containerRef={containerRef} onTimeUpdate={handleTimeUpdate} quality={quality} />
+              <DayNightCycle containerRef={containerRef} onTimeUpdate={handleTimeUpdate} quality={quality} noMainShadow={noMainShadow} />
               {huntRuntimeConfig ? (
                 <>
                   <ScenarioParticleField particles={huntRuntimeConfig.particles} />
@@ -3628,6 +3642,7 @@ export const GameScene: React.FC<SceneProps> = (props) => {
             targets={outlineTargets}
             thickness={backfaceOutlineThickness}
             color="#000000"
+            throttleFps={isMobileDevice && !isQualityMode ? 30 : undefined}
           />
         ) : null}
 

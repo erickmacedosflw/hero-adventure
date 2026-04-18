@@ -496,10 +496,13 @@ export const DayNightCycle = ({
   containerRef,
   onTimeUpdate,
   quality,
+  noMainShadow = false,
 }: {
   containerRef: React.RefObject<HTMLDivElement | null>;
   onTimeUpdate: (time: string) => void;
   quality: RenderQualityProfile;
+  /** When true the directional sun light does not cast shadows (saves the main shadow map render pass on mobile). */
+  noMainShadow?: boolean;
 }) => {
   const ambientRef = useRef<THREE.AmbientLight>(null);
   const hemiRef = useRef<THREE.HemisphereLight>(null);
@@ -688,7 +691,7 @@ export const DayNightCycle = ({
       <hemisphereLight ref={hemiRef} groundColor="#475569" />
       <directionalLight
         ref={sunLightRef}
-        castShadow
+        castShadow={!noMainShadow}
         shadow-mapSize={[quality.shadowMapSize, quality.shadowMapSize]}
         shadow-camera-left={-10}
         shadow-camera-right={10}
@@ -791,7 +794,7 @@ export const Torch = ({
   );
 };
 
-export const DungeonAtmosphere = ({ quality }: { quality: RenderQualityProfile }) => {
+export const DungeonAtmosphere = ({ quality, noMainShadow = false }: { quality: RenderQualityProfile; noMainShadow?: boolean }) => {
   const embers = useMemo(() => {
     const total = quality.isLowQuality ? 6 : 12;
     return Array.from({ length: total }, (_, index) => ({
@@ -809,7 +812,7 @@ export const DungeonAtmosphere = ({ quality }: { quality: RenderQualityProfile }
     <group>
       <ambientLight intensity={1.08} color="#f8fafc" />
       <hemisphereLight intensity={0.82} color="#e2e8f0" groundColor="#334155" />
-      <directionalLight position={[0, 6, 6]} intensity={0.78} color="#f8fafc" castShadow shadow-mapSize={[quality.shadowMapSize, quality.shadowMapSize]} />
+      <directionalLight position={[0, 6, 6]} intensity={0.78} color="#f8fafc" castShadow={!noMainShadow} shadow-mapSize={[quality.shadowMapSize, quality.shadowMapSize]} />
       <pointLight position={[0, 1.8, 3.5]} intensity={1.8} distance={18} decay={1.7} color="#fff7ed" />
       {embers.map((ember) => (
         <mesh key={ember.key} position={ember.position}>
@@ -821,46 +824,56 @@ export const DungeonAtmosphere = ({ quality }: { quality: RenderQualityProfile }
   );
 };
 
+// Pre-allocated outside the component to avoid per-frame GC allocations
+const FOG_COLORS = {
+  noite:  new THREE.Color('#0d1525'),
+  manha:  new THREE.Color('#d8c4a8'),
+  dia:    new THREE.Color('#c8dde8'),
+  sol:    new THREE.Color('#d8eaf2'),
+  tarde:  new THREE.Color('#e0a882'),
+};
+const FOG_T_MANHA  = 5 / 24;
+const FOG_T_DIA    = 8 / 24;
+const FOG_T_SOL    = 11 / 24;
+const FOG_T_SOLEND = 13 / 24;
+const FOG_T_TARDE  = 16 / 24;
+const FOG_T_NOITE  = 19 / 24;
+
 export const FogController: React.FC = () => {
   const { scene } = useThree();
+  // Reuse a single Color instance — no per-frame allocation.
+  const workColorRef = useRef(new THREE.Color());
+  const fogThrottleRef = useRef(0);
 
-  const FOG = {
-    noite: new THREE.Color('#0d1525'),
-    manha: new THREE.Color('#d8c4a8'),
-    dia: new THREE.Color('#c8dde8'),
-    sol: new THREE.Color('#d8eaf2'),
-    tarde: new THREE.Color('#e0a882'),
-  };
+  useFrame((state, delta) => {
+    // Fog transitions are imperceptible above 10fps — throttle to save CPU.
+    fogThrottleRef.current += delta;
+    if (fogThrottleRef.current < 0.1) return;
+    fogThrottleRef.current = 0;
 
-  useFrame((state) => {
-    const t = getGameT(state.clock.elapsedTime);
-    const T_MANHA = 5 / 24;
-    const T_DIA = 8 / 24;
-    const T_SOL = 11 / 24;
-    const T_SOLEND = 13 / 24;
-    const T_TARDE = 16 / 24;
-    const T_NOITE = 19 / 24;
     const fog = scene.fog as THREE.Fog | null;
     if (!fog) return;
 
-    let color = new THREE.Color();
-    if (t >= T_MANHA && t < T_DIA) {
-      color.lerpColors(FOG.noite, FOG.manha, (t - T_MANHA) / (T_DIA - T_MANHA));
-    } else if (t >= T_DIA && t < T_SOL) {
-      color.lerpColors(FOG.manha, FOG.dia, (t - T_DIA) / (T_SOL - T_DIA));
-    } else if (t >= T_SOL && t < T_SOLEND) {
-      color.copy(FOG.sol);
-    } else if (t >= T_SOLEND && t < T_TARDE) {
-      color.lerpColors(FOG.sol, FOG.dia, (t - T_SOLEND) / (T_TARDE - T_SOLEND));
-    } else if (t >= T_TARDE && t < T_NOITE) {
-      color.lerpColors(FOG.tarde, FOG.noite, (t - T_TARDE) / (T_NOITE - T_TARDE));
+    const t = getGameT(state.clock.elapsedTime);
+    const color = workColorRef.current;
+
+    if (t >= FOG_T_MANHA && t < FOG_T_DIA) {
+      color.lerpColors(FOG_COLORS.noite, FOG_COLORS.manha, (t - FOG_T_MANHA) / (FOG_T_DIA - FOG_T_MANHA));
+    } else if (t >= FOG_T_DIA && t < FOG_T_SOL) {
+      color.lerpColors(FOG_COLORS.manha, FOG_COLORS.dia, (t - FOG_T_DIA) / (FOG_T_SOL - FOG_T_DIA));
+    } else if (t >= FOG_T_SOL && t < FOG_T_SOLEND) {
+      color.copy(FOG_COLORS.sol);
+    } else if (t >= FOG_T_SOLEND && t < FOG_T_TARDE) {
+      color.lerpColors(FOG_COLORS.sol, FOG_COLORS.dia, (t - FOG_T_SOLEND) / (FOG_T_TARDE - FOG_T_SOLEND));
+    } else if (t >= FOG_T_TARDE && t < FOG_T_NOITE) {
+      color.lerpColors(FOG_COLORS.tarde, FOG_COLORS.noite, (t - FOG_T_TARDE) / (FOG_T_NOITE - FOG_T_TARDE));
     } else {
-      color.copy(FOG.noite);
+      color.copy(FOG_COLORS.noite);
     }
     fog.color.copy(color);
   });
 
-  return <fog attach="fog" args={[FOG.dia.getHex(), 14, 45]} />;
+  return <fog attach="fog" args={[FOG_COLORS.dia.getHex(), 14, 45]} />;
 };
 
 export const CameraController = ({
