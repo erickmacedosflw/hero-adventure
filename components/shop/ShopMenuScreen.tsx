@@ -495,8 +495,12 @@ export const ShopMenuScreen: React.FC<ShopMenuScreenProps> = ({
       });
   }, [filter, items, unlockedRarities]);
 
+  // Auto-open first item detail on mount and on filter change
   useEffect(() => {
     if (filteredItems.length > 0 && !filteredItems.some((i) => i.id === detailItemId)) {
+      setDetailClosing(false);
+      setDetailItemId(filteredItems[0].id);
+    } else if (filteredItems.length === 0) {
       setDetailItemId(null);
     }
   }, [filteredItems, detailItemId]);
