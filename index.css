@@ -4,6 +4,12 @@
   color-scheme: dark;
 }
 
+html {
+  /* iOS Safari needs -webkit-fill-available to respect the true visible viewport height.
+     Without this, 100% can exceed the screen and create scrollable overflow. */
+  height: -webkit-fill-available;
+}
+
 html,
 body,
 #root {
@@ -17,10 +23,25 @@ body,
   touch-action: none;
 }
 
-/* Allow touch scrolling inside in-game scroll panels */
+body,
+#root {
+  height: 100vh;
+  /* Fallback for iOS: use the available visual viewport height */
+  height: -webkit-fill-available;
+}
+
+/* Allow touch scrolling inside in-game scroll panels.
+   Use data-scrollable attribute on wrapper elements. */
+[data-scrollable] {
+  touch-action: pan-y;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
 .overflow-y-auto,
 .overflow-y-scroll {
   touch-action: pan-y;
+  overscroll-behavior: contain;
 }
 
 /* Prevent the Three.js canvas from triggering browser scroll/zoom */

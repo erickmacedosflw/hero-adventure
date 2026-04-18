@@ -24,10 +24,19 @@ if (import.meta.env.PROD) {
   clearServiceWorkers();
 }
 
-// Prevent iOS Safari from scrolling/bouncing the page when touching the 3D canvas.
-// Must be non-passive to call preventDefault().
+// iOS Safari PWA fix: registering a non-passive touchstart listener "claims" the touch
+// sequence, which makes all subsequent touchmove events cancelable (e.cancelable = true).
+// Without this, iOS marks touchmove as non-cancelable and preventDefault() has no effect.
+document.addEventListener('touchstart', (_e) => {
+  // intentionally empty — non-passive registration is what matters
+}, { passive: false });
+
+// Prevent iOS overscroll/bounce on the game viewport.
+// Allows scroll inside panels that have overflow-y-auto / overflow-y-scroll classes.
 document.addEventListener('touchmove', (e) => {
-  if (e.cancelable) e.preventDefault();
+  const target = e.target as Element | null;
+  if (target?.closest('.overflow-y-auto, .overflow-y-scroll, [data-scrollable]')) return;
+  e.preventDefault();
 }, { passive: false });
 
 const rootElement = document.getElementById('root');
