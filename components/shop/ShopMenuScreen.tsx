@@ -8,6 +8,7 @@ import { getUnlockedShopRaritiesByStage } from '../../game/mechanics/shopProgres
 import { getEquipmentBonuses } from '../../game/mechanics/equipmentBonuses';
 
 const MERCHANT_BG_URL = new URL('../../game/assets/Imagens/Background_Mercador.png', import.meta.url).href;
+const MERCHANT_AVATAR_URL = new URL('../../game/assets/Avatares/Personagem_Mercante.png', import.meta.url).href;
 
 type ShopFilter = 'weapon' | 'shield' | 'helmet' | 'armor' | 'legs' | 'potion';
 
@@ -547,6 +548,14 @@ export const ShopMenuScreen: React.FC<ShopMenuScreenProps> = ({
         style={{ backgroundImage: `url(${MERCHANT_BG_URL})` }}
       />
       <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/30 to-black/80" />
+
+      {/* Merchant avatar — lower half hidden behind bottom panel (z-10) */}
+      <img
+        src={MERCHANT_AVATAR_URL}
+        alt=""
+        className="absolute bottom-0 left-1/2 -translate-x-1/2 z-[5] h-[58vh] max-h-[400px] w-auto object-contain object-bottom pointer-events-none select-none"
+        style={{ filter: 'drop-shadow(0 12px 40px rgba(0,0,0,0.85))' }}
+      />
 
       {/* TOP BAR */}
       <header className="relative z-10 shrink-0 flex items-center justify-between gap-3 px-4 py-3 bg-black/50 backdrop-blur-sm border-b border-white/8">
