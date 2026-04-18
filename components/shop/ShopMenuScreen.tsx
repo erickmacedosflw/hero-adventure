@@ -549,12 +549,18 @@ export const ShopMenuScreen: React.FC<ShopMenuScreenProps> = ({
       />
       <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/30 to-black/80" />
 
-      {/* Merchant avatar — lower half hidden behind bottom panel (z-10) */}
+      {/* Merchant avatar — anchored so ~40% of figure shows above bottom panel */}
       <img
         src={MERCHANT_AVATAR_URL}
         alt=""
-        className="absolute bottom-0 left-1/2 -translate-x-1/2 z-[5] h-[58vh] max-h-[400px] w-auto object-contain object-bottom pointer-events-none select-none"
-        style={{ filter: 'drop-shadow(0 12px 40px rgba(0,0,0,0.85))' }}
+        className="absolute left-1/2 -translate-x-1/2 z-[5] h-[72vh] max-h-[480px] w-auto object-contain object-bottom pointer-events-none select-none"
+        style={{
+          bottom: '28%',
+          filter:
+            'drop-shadow(0 2px 6px rgba(0,0,0,0.9)) ' +
+            'drop-shadow(0 8px 24px rgba(0,0,0,0.75)) ' +
+            'drop-shadow(0 20px 60px rgba(0,0,0,0.55))',
+        }}
       />
 
       {/* TOP BAR */}
