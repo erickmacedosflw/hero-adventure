@@ -496,13 +496,15 @@ export const ShopMenuScreen: React.FC<ShopMenuScreenProps> = ({
       });
   }, [filter, items, unlockedRarities]);
 
-  // Auto-open first item detail only on mount and when filter changes (not when user closes the modal)
+  // Auto-open first item detail only when filter changes (not on initial mount)
   useEffect(() => {
-    const filterChanged = prevFilterRef.current !== null && prevFilterRef.current !== filter;
-    const isFirstMount = prevFilterRef.current === null;
-    prevFilterRef.current = filter;
-
-    if (filterChanged || isFirstMount) {
+    if (prevFilterRef.current === null) {
+      // First mount: just record the filter, don't open anything
+      prevFilterRef.current = filter;
+      return;
+    }
+    if (prevFilterRef.current !== filter) {
+      prevFilterRef.current = filter;
       if (filteredItems.length > 0) {
         setDetailClosing(false);
         setDetailItemId(filteredItems[0].id);
