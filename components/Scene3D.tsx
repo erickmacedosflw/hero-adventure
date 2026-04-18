@@ -3546,20 +3546,24 @@ export const GameScene: React.FC<SceneProps> = (props) => {
                   <Suspense fallback={null}>
                     <BattleScenario
                       scenario={activeScenario}
-                      lowQuality={quality.isLowQuality}
+                      lowQuality={quality.isLowQuality || (isMobileDevice && props.isMenuView === true)}
                       noShadows={isMobileDevice && !isQualityMode}
                     />
                   </Suspense>
                 </>
               )}
-              <ContactShadows
-                position={[0, -1.04, -0.2]}
-                opacity={0.34}
-                scale={22}
-                blur={2.2}
-                far={10}
-                resolution={battleContactShadowResolution}
-              />
+              {/* ContactShadows is expensive (full FBO + blur per frame). Skip during menu view
+                  where the HeroVoxel's own inner ContactShadows already covers the player. */}
+              {!props.isMenuView && (
+                <ContactShadows
+                  position={[0, -1.04, -0.2]}
+                  opacity={0.34}
+                  scale={22}
+                  blur={2.2}
+                  far={10}
+                  resolution={battleContactShadowResolution}
+                />
+              )}
             </>
           )}
         </group>
@@ -3637,7 +3641,7 @@ export const GameScene: React.FC<SceneProps> = (props) => {
           )}
         </group>
 
-        {!shouldUseRuntimeScenarioEditorParity ? (
+        {!shouldUseRuntimeScenarioEditorParity && !props.isMenuView ? (
           <BackfaceHullOverlay
             targets={outlineTargets}
             thickness={backfaceOutlineThickness}

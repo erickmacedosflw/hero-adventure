@@ -4,6 +4,8 @@
   "description": "Hero Tower: RPG tatico 3D com combate por turnos e progresso offline.",
   "start_url": "/",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "portrait-primary",
   "background_color": "#0f172a",
   "theme_color": "#111827",
   "icons": [

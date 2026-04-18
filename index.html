@@ -2,12 +2,14 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="application-name" content="Hero Adventure">
     <meta name="description" content="Hero Adventure: RPG tatico 3D com combate por turnos, progresso local e modo offline.">
     <meta name="theme-color" content="#6b3141">
+    <meta name="color-scheme" content="dark">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <!-- "default" instead of "black-translucent": avoids fullscreen GPU compositing layer on iOS -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="Hero Adventure">
     <title>Hero Adventure</title>
     <style>
@@ -21,6 +23,16 @@
       }
       .animate-fade-in-down { animation: fade-in-down 0.5s ease-out forwards; }
       .animate-fade-in-left { animation: fade-in-left 0.3s ease-out forwards; }
+      /* Respect OS reduced-motion preference — cuts CSS transitions/animations */
+      @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after {
+          animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
+          transition-duration: 0.01ms !important;
+          scroll-behavior: auto !important;
+        }
+        .animate-fade-in-down, .animate-fade-in-left { animation: none; }
+      }
     </style>
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="icon" href="/pwa-icon.svg" type="image/svg+xml">
