@@ -707,7 +707,7 @@ export const InventoryScreen = ({
         </button>
 
         {/* Bag image — fixed-size container keeps layout stable across filter changes */}
-        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[480px] md:w-[560px] h-[68vh] md:h-[70vh] max-h-[520px] md:max-h-[580px] pointer-events-none select-none">
+        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[580px] md:w-[560px] h-[75vh] md:h-[70vh] max-h-[620px] md:max-h-[580px] pointer-events-none select-none">
           <img
             key={bagPhase === 'open' ? `open-${bagAnimKey.current}` : 'closed'}
             src={bagPhase === 'closing' ? BAG_CLOSED_URL : BAG_IMAGE[filter]}
