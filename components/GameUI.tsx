@@ -1660,7 +1660,7 @@ export const TavernScreen: React.FC<{
             </div>
     <AnimatedModal open={showProfile}>
         {(isClosing) => (
-            <CharacterSheetModal player={player} shopItems={shopItems} onClose={closeProfileModal} onOpenInventory={(initialFilter) => { closeProfileModal(); openInventoryModal(initialFilter ?? 'all', true); }} onUnlockTalent={onUnlockTalent} onResetTalents={onResetTalents} respecUnlockPromptActive={constellationRespecUnlockPromptActive} onAcknowledgeRespecUnlock={onAcknowledgeConstellationRespecUnlock} isClosing={isClosing} restrictToStatusOnly={restrictProfileToStatusOnly} allowInventory={inventoryUnlocked} allowCardsTab={allowCardsInProfile} allowSkillsTab={showSkillsAction} allowConstellationTab={hasConstellationUnlocked} initialTab={profileInitialTab} />
+            <CharacterSheetModal player={player} shopItems={shopItems} onClose={closeProfileModal} onOpenInventory={(initialFilter) => { openInventoryModal(initialFilter ?? 'all', false); }} onUnlockTalent={onUnlockTalent} onResetTalents={onResetTalents} respecUnlockPromptActive={constellationRespecUnlockPromptActive} onAcknowledgeRespecUnlock={onAcknowledgeConstellationRespecUnlock} isClosing={isClosing} restrictToStatusOnly={restrictProfileToStatusOnly} allowInventory={inventoryUnlocked} allowCardsTab={allowCardsInProfile} allowSkillsTab={showSkillsAction} allowConstellationTab={hasConstellationUnlocked} initialTab={profileInitialTab} />
         )}
     </AnimatedModal>
     <AnimatedModal open={showInventory}>
@@ -4157,7 +4157,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
 
         <AnimatedModal open={showProfile}>
           {(isClosing) => (
-                        <CharacterSheetModal player={player} shopItems={shopItems} onClose={closeProfileModal} onOpenInventory={(initialFilter) => { closeProfileModal(); openInventoryModal(initialFilter ?? 'all', true); }} onUnlockTalent={onUnlockTalent} onResetTalents={onResetTalents} respecUnlockPromptActive={constellationRespecUnlockPromptActive} onAcknowledgeRespecUnlock={onAcknowledgeConstellationRespecUnlock} isClosing={isClosing} restrictToStatusOnly={restrictProfileToStatusOnly} allowInventory={inventoryUnlocked} allowCardsTab={allowCardsInProfile} allowSkillsTab={showSkillsAction} allowConstellationTab={hasConstellationUnlocked} initialTab={profileInitialTab} />
+                        <CharacterSheetModal player={player} shopItems={shopItems} onClose={closeProfileModal} onOpenInventory={(initialFilter) => { openInventoryModal(initialFilter ?? 'all', false); }} onUnlockTalent={onUnlockTalent} onResetTalents={onResetTalents} respecUnlockPromptActive={constellationRespecUnlockPromptActive} onAcknowledgeRespecUnlock={onAcknowledgeConstellationRespecUnlock} isClosing={isClosing} restrictToStatusOnly={restrictProfileToStatusOnly} allowInventory={inventoryUnlocked} allowCardsTab={allowCardsInProfile} allowSkillsTab={showSkillsAction} allowConstellationTab={hasConstellationUnlocked} initialTab={profileInitialTab} />
           )}
         </AnimatedModal>
         <AnimatedModal open={showInventory}>

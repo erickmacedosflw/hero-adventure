@@ -406,6 +406,8 @@ const ItemCard = ({
   const hasLevel = player.level >= item.minLevel;
   const trend = getEquipmentComparisonTrend(player, item);
   const ownedQty = player.inventory[item.id] ?? 0;
+  const effectCards = getItemEffectCards(item);
+  const statCards = effectCards.filter((e) => e.label !== 'TURNOS' && e.label !== 'ESPECIAL' && e.label !== 'CRAFT');
 
   return (
     <button
@@ -430,9 +432,20 @@ const ItemCard = ({
       <div className="mt-2 text-center text-[11px] font-black leading-tight text-white line-clamp-2 min-h-[2rem]">
         {item.name}
       </div>
-      <div className={`mt-1 text-center text-[9px] font-black uppercase tracking-widest ${getRarityLabelColor(item.rarity)}`}>
-        {getRarityLabel(item.rarity)}
-      </div>
+      {statCards.length > 0 ? (
+        <div className="mt-1.5 flex flex-wrap justify-center gap-1">
+          {statCards.slice(0, 2).map((s) => (
+            <span key={s.id} className={`inline-flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[9px] font-black ${s.panel} ${s.tone}`}>
+              {React.isValidElement(s.icon) ? React.cloneElement(s.icon as React.ReactElement<{ size?: number }>, { size: 10 }) : s.icon}
+              {s.value}
+            </span>
+          ))}
+        </div>
+      ) : (
+        <div className={`mt-1 text-center text-[9px] font-black uppercase tracking-widest ${getRarityLabelColor(item.rarity)}`}>
+          {getRarityLabel(item.rarity)}
+        </div>
+      )}
       <div className={`mt-2 inline-flex w-full items-center justify-center gap-1 rounded-lg border py-1 text-[10px] font-black ${!canAfford || !hasLevel || isEquipped ? 'border-white/10 bg-white/5 text-white/30' : 'border-amber-400/30 bg-amber-400/10 text-amber-300'}`}>
         <GameAssetIcon name="coin" size={12} />
         {isEquipped ? 'Equipado' : !hasLevel ? `Nv.${item.minLevel}` : item.cost}
