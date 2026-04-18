@@ -6,6 +6,7 @@ import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig(() => {
     return {
+      base: process.env.VITE_BASE_URL ?? '/',
       server: {
         port: 3000,
         host: '0.0.0.0',
