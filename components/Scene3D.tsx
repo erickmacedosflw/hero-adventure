@@ -66,8 +66,7 @@ import {
   resolveRuntimeClassAssets,
 } from './scene3d/developer';
 import { EquippedWeaponAttachment } from './scene3d/weapons';
-import { BattleScenario, DungeonScenario } from './scene3d/scenarios';
-import { getScenario } from '../game/data/scenarios';
+import { DungeonScenario } from './scene3d/scenarios';
 import { getRuntimeScenarioPreset } from '../game/data/runtimeScenarios';
 import {
   getRuntimeMenuPortalPreset,
@@ -3380,7 +3379,6 @@ export const GameScene: React.FC<SceneProps> = (props) => {
     return '#d7e6c2';
   }, [isDungeonRun, props.stage]);
 
-  const activeScenario = useMemo(() => getScenario('forest'), []);
   const huntRuntimeScenarioPreset = useMemo(() => getRuntimeScenarioPreset('moutain'), []);
   const huntRuntimeConfig = huntRuntimeScenarioPreset?.config ?? null;
   const huntRuntimeSceneObjects = huntRuntimeConfig?.sceneObjects ?? [];
@@ -3539,19 +3537,7 @@ export const GameScene: React.FC<SceneProps> = (props) => {
                     </Suspense>
                   ))}
                 </>
-              ) : (
-                <>
-                  {/* Note: DayNightCycle (rendered above) already mounts its own ambientLight
-                      and hemisphereLight, so no extra lights are needed here. */}
-                  <Suspense fallback={null}>
-                    <BattleScenario
-                      scenario={activeScenario}
-                      lowQuality={quality.isLowQuality || (isMobileDevice && props.isMenuView === true)}
-                      noShadows={isMobileDevice && !isQualityMode}
-                    />
-                  </Suspense>
-                </>
-              )}
+              ) : null}
               {/* ContactShadows is expensive (full FBO + blur per frame). Skip during menu view
                   where the HeroVoxel's own inner ContactShadows already covers the player. */}
               {!props.isMenuView && (
