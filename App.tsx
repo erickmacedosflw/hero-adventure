@@ -5,7 +5,8 @@ import { DeveloperConsole } from './components/DeveloperConsole';
 import { GameScene } from './components/Scene3D';
 import { OpeningScreen } from './components/OpeningScreen';
 import { ClassSelectionScreen } from './components/ClassSelectionScreen';
-import { BattleHUD, MenuScreen, ShopScreen, TavernScreen, KillLootOverlay, CardChoiceScreen, AlchemistScreen, DungeonResultScreen, BossVictoryModal } from './components/GameUI';
+import { BattleHUD, MenuScreen, ShopScreen, TavernScreen, KillLootOverlay, CardChoiceScreen, DungeonResultScreen, BossVictoryModal } from './components/GameUI';
+import { AlchemistScreen } from './components/shop/AlchemistMenuScreen';
 import { 
     Player, Enemy, EnemyIntentPreview, GameState, TurnState, BattleLog, Item, Skill, Stats, Particle, FloatingText, ProgressionCard, CardRewardOffer, AlchemistCardOffer, AlchemistItemOffer, DungeonRunState, DungeonResult, DungeonRewards, EnemyTemplate, DungeonEnemyTemplate, DungeonBossTemplate, PlayerAnimationAction, BossVictoryContext, CardCategory
 } from './types';
