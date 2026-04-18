@@ -461,6 +461,8 @@ export const ShopMenuScreen: React.FC<ShopMenuScreenProps> = ({
   player, items, huntStage, onBuy, onEquip, onSell, onLeave,
 }) => {
   const MODAL_CLOSE_MS = 180;
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { const t = window.setTimeout(() => setMounted(true), 20); return () => window.clearTimeout(t); }, []);
   const [filter, setFilter] = useState<ShopFilter>('potion');
   const [detailItemId, setDetailItemId] = useState<string | null>(null);
   const [detailClosing, setDetailClosing] = useState(false);
@@ -559,6 +561,7 @@ export const ShopMenuScreen: React.FC<ShopMenuScreenProps> = ({
             'drop-shadow(0 2px 6px rgba(0,0,0,0.9)) ' +
             'drop-shadow(0 8px 24px rgba(0,0,0,0.75)) ' +
             'drop-shadow(0 20px 60px rgba(0,0,0,0.55))',
+          animation: mounted ? 'bag-appear 0.42s cubic-bezier(0.22,1,0.36,1)' : 'none',
         }}
       />
 
@@ -586,7 +589,7 @@ export const ShopMenuScreen: React.FC<ShopMenuScreenProps> = ({
       <div className="relative z-0 flex-1 min-h-0" />
 
       {/* BOTTOM PANEL */}
-      <div className="relative z-10 shrink-0 flex flex-col bg-black/65 backdrop-blur-xl border-t border-white/8">
+      <div className={`relative z-10 shrink-0 flex flex-col bg-black/65 backdrop-blur-xl border-t border-white/8 transition-transform duration-[320ms] ease-out ${mounted ? 'translate-y-0' : 'translate-y-full'}`}>
 
         {/* Filter row */}
         <div className="flex items-center gap-2 overflow-x-auto px-4 py-3 no-scrollbar" data-scrollable>
