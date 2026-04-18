@@ -18,7 +18,7 @@ type CharacterSheetModalProps = {
   player: Player;
   shopItems: Item[];
   onClose: () => void;
-  onOpenInventory: (initialFilter?: 'all' | 'equipment' | 'potion' | 'material') => void;
+  onOpenInventory: (initialFilter?: 'all' | 'equipment' | 'potion' | 'material' | 'weapon' | 'shield' | 'helmet' | 'armor' | 'legs') => void;
   onUnlockTalent: (nodeId: string) => void;
   onResetTalents: () => void;
   isClosing?: boolean;
@@ -647,7 +647,7 @@ export const CharacterSheetModal = ({ player, shopItems: _shopItems, onClose, on
     animation: 'profileTabPanelIn 340ms cubic-bezier(0.22, 1, 0.36, 1)',
     willChange: 'transform, opacity',
   };
-  const handleOpenInventoryEquipment = () => onOpenInventory('equipment');
+  const handleOpenInventoryEquipment = (type: Item['type']) => onOpenInventory(type as 'weapon' | 'shield' | 'helmet' | 'armor' | 'legs');
 
   useEffect(() => {
     if (!respecUnlockPromptActive) {
@@ -875,7 +875,7 @@ export const CharacterSheetModal = ({ player, shopItems: _shopItems, onClose, on
             <div className="grid content-start gap-2.5">
               <RpgMenuSectionTitle className="px-1">Equipamentos</RpgMenuSectionTitle>
               {equipmentSlots.map((slot) => (
-                <EquipmentCard key={slot.label} label={slot.label} item={slot.item} type={slot.type} onClick={canOpenInventory ? handleOpenInventoryEquipment : undefined} />
+                <EquipmentCard key={slot.label} label={slot.label} item={slot.item} type={slot.type} onClick={canOpenInventory ? () => handleOpenInventoryEquipment(slot.type) : undefined} />
               ))}
             </div>
           </div>

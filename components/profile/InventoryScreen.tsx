@@ -15,6 +15,11 @@ const BAG_IMAGE: Record<string, string> = {
   potion: BAG_POTION_URL,
   equipment: BAG_EQUIPMENT_URL,
   material: BAG_MATERIAL_URL,
+  weapon: BAG_EQUIPMENT_URL,
+  shield: BAG_EQUIPMENT_URL,
+  helmet: BAG_EQUIPMENT_URL,
+  armor: BAG_EQUIPMENT_URL,
+  legs: BAG_EQUIPMENT_URL,
 };
 
 // Inject bag keyframes once
@@ -53,11 +58,12 @@ type InventoryScreenProps = {
   onUse: (itemId: string) => void;
   onSell?: (item: Item, quantity: number) => void;
   isBattleContext?: boolean;
-  initialFilter?: 'all' | 'equipment' | 'potion' | 'material';
+  initialFilter?: 'all' | 'equipment' | 'potion' | 'material' | 'weapon' | 'shield' | 'helmet' | 'armor' | 'legs';
   isClosing?: boolean;
 };
 
 type InventoryFilter = 'potion' | 'equipment' | 'material';
+type EquipmentSubType = 'weapon' | 'shield' | 'helmet' | 'armor' | 'legs';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -538,8 +544,14 @@ export const InventoryScreen = ({
 }: InventoryScreenProps) => {
   const MODAL_CLOSE_MS = 180;
 
+  const EQUIP_SUB_TYPES: EquipmentSubType[] = ['weapon', 'shield', 'helmet', 'armor', 'legs'];
+  const equipmentSubFilter: EquipmentSubType | null =
+    initialFilter && EQUIP_SUB_TYPES.includes(initialFilter as EquipmentSubType)
+      ? (initialFilter as EquipmentSubType)
+      : null;
+
   const resolveInitialFilter = (): InventoryFilter => {
-    if (initialFilter === 'equipment') return 'equipment';
+    if (initialFilter === 'equipment' || equipmentSubFilter) return 'equipment';
     if (initialFilter === 'material') return 'material';
     return 'potion';
   };
@@ -610,10 +622,13 @@ export const InventoryScreen = ({
 
   const filteredItems = useMemo(() => {
     return inventoryItems.filter(({ item }) => {
-      if (filter === 'equipment') return isEquipmentType(item.type);
+      if (filter === 'equipment') {
+        if (equipmentSubFilter) return item.type === equipmentSubFilter;
+        return isEquipmentType(item.type);
+      }
       return item.type === filter;
     });
-  }, [filter, inventoryItems]);
+  }, [filter, inventoryItems, equipmentSubFilter]);
 
   const totalItems = inventoryItems.reduce((s, e) => s + e.quantity, 0);
 
@@ -712,7 +727,7 @@ export const InventoryScreen = ({
         <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[440px] md:w-[560px] h-[64vh] md:h-[70vh] max-h-[480px] md:max-h-[580px] pointer-events-none select-none">
           <img
             key={bagPhase === 'open' ? `open-${bagAnimKey.current}` : 'closed'}
-            src={bagPhase === 'closing' ? BAG_CLOSED_URL : BAG_IMAGE[filter]}
+            src={bagPhase === 'closing' ? BAG_CLOSED_URL : BAG_IMAGE[equipmentSubFilter ?? filter]}
             alt=""
             className="absolute bottom-0 left-1/2 h-full w-auto object-contain object-bottom"
             style={{
@@ -749,28 +764,38 @@ export const InventoryScreen = ({
           </div>
         </div>
 
-        {/* Filter tabs */}
-        <div className="flex items-center gap-2 overflow-x-auto px-4 py-2 no-scrollbar" data-scrollable>
-          {FILTERS.map((entry) => {
-            const active = filter === entry.id;
-            const count = filterItemCount(entry.id);
-            return (
-              <button
-                key={entry.id}
-                onClick={() => { changeFilter(entry.id); }}
-                className={`shrink-0 inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-[11px] font-black uppercase tracking-widest transition-all active:scale-95 ${active ? 'border-white/30 bg-white/15 text-white shadow-[0_0_12px_rgba(255,255,255,0.1)]' : 'border-white/10 bg-white/5 text-white/50 hover:border-white/20 hover:text-white/80'}`}
-              >
-                {entry.icon}
-                {entry.label}
-                {count > 0 && (
-                  <span className={`rounded-full px-1.5 text-[9px] font-black ${active ? 'bg-white/20 text-white/80' : 'bg-white/10 text-white/40'}`}>
-                    {count}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
+        {/* Filter tabs — or locked sub-type header when opened from equipment slot */}
+        {equipmentSubFilter ? (
+          <div className="flex items-center gap-2 px-4 py-2">
+            <div className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/15 px-3.5 py-1.5 text-[11px] font-black uppercase tracking-widest text-white shadow-[0_0_10px_rgba(255,255,255,0.08)]">
+              <ItemTypeIcon type={equipmentSubFilter} size={13} />
+              <ItemTypeLabel type={equipmentSubFilter} />
+            </div>
+            <span className="text-[10px] text-white/30 font-black">— selecione para equipar</span>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 overflow-x-auto px-4 py-2 no-scrollbar" data-scrollable>
+            {FILTERS.map((entry) => {
+              const active = filter === entry.id;
+              const count = filterItemCount(entry.id);
+              return (
+                <button
+                  key={entry.id}
+                  onClick={() => { changeFilter(entry.id); }}
+                  className={`shrink-0 inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-[11px] font-black uppercase tracking-widest transition-all active:scale-95 ${active ? 'border-white/30 bg-white/15 text-white shadow-[0_0_12px_rgba(255,255,255,0.1)]' : 'border-white/10 bg-white/5 text-white/50 hover:border-white/20 hover:text-white/80'}`}
+                >
+                  {entry.icon}
+                  {entry.label}
+                  {count > 0 && (
+                    <span className={`rounded-full px-1.5 text-[9px] font-black ${active ? 'bg-white/20 text-white/80' : 'bg-white/10 text-white/40'}`}>
+                      {count}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         {/* Items horizontal scroll */}
         <div className="flex items-stretch gap-3 overflow-x-auto px-4 pb-5 no-scrollbar min-h-[212px]" data-scrollable>

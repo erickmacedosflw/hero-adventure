@@ -1101,7 +1101,7 @@ export const TavernScreen: React.FC<{
   const [showProfile, setShowProfile] = useState(false);
   const [showInventory, setShowInventory] = useState(false);
     const [returnToProfileOnInventoryClose, setReturnToProfileOnInventoryClose] = useState(false);
-    const [inventoryInitialFilter, setInventoryInitialFilter] = useState<'all' | 'equipment' | 'potion' | 'material'>('all');
+    const [inventoryInitialFilter, setInventoryInitialFilter] = useState<'all' | 'equipment' | 'potion' | 'material' | 'weapon' | 'shield' | 'helmet' | 'armor' | 'legs'>('all');
     const [profileInitialTab, setProfileInitialTab] = useState<'overview' | 'cards' | 'skills' | 'constellation' | undefined>(undefined);
     const [isClosing, setIsClosing] = useState(false);
     const [showDungeonConfirm, setShowDungeonConfirm] = useState(false);
@@ -2462,7 +2462,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
     const [profileInitialTab, setProfileInitialTab] = useState<'overview' | 'cards' | 'skills' | 'constellation' | undefined>(undefined);
   const [showInventory, setShowInventory] = useState(false);
     const [returnToProfileOnInventoryClose, setReturnToProfileOnInventoryClose] = useState(false);
-    const [inventoryInitialFilter, setInventoryInitialFilter] = useState<'all' | 'equipment' | 'potion' | 'material'>('all');
+    const [inventoryInitialFilter, setInventoryInitialFilter] = useState<'all' | 'equipment' | 'potion' | 'material' | 'weapon' | 'shield' | 'helmet' | 'armor' | 'legs'>('all');
     const [showInventoryUnlockPrompt, setShowInventoryUnlockPrompt] = useState(false);
         const [showCardsUnlockPrompt, setShowCardsUnlockPrompt] = useState(false);
                 const [showSkillsUnlockPrompt, setShowSkillsUnlockPrompt] = useState(false);
@@ -2531,7 +2531,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
         lastHandledProfileAutoOpenTokenRef.current = autoOpenProfileToken;
         openProfileModal('overview');
     }, [autoOpenProfileToken]);
-    const openInventoryModal = (initialFilter: 'all' | 'equipment' | 'potion' | 'material' = 'all', fromProfile = false) => {
+    const openInventoryModal = (initialFilter: 'all' | 'equipment' | 'potion' | 'material' | 'weapon' | 'shield' | 'helmet' | 'armor' | 'legs' = 'all', fromProfile = false) => {
         setInventoryInitialFilter(initialFilter);
         setReturnToProfileOnInventoryClose(fromProfile);
         if (!showInventory) {
