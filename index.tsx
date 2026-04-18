@@ -24,16 +24,15 @@ if (import.meta.env.PROD) {
   clearServiceWorkers();
 }
 
-// iOS Safari PWA fix: registering a non-passive touchstart listener "claims" the touch
-// sequence, which makes all subsequent touchmove events cancelable (e.cancelable = true).
-// Without this, iOS marks touchmove as non-cancelable and preventDefault() has no effect.
-document.addEventListener('touchstart', (_e) => {
-  // intentionally empty — non-passive registration is what matters
+// iOS PWA (WKWebView) fix: use window — fires before document, before browser
+// decides to handle the gesture natively. Non-passive touchstart "claims" the
+// touch sequence so subsequent touchmove events are cancelable.
+window.addEventListener('touchstart', () => {
+  // intentionally empty — non-passive claim is what matters
 }, { passive: false });
 
-// Prevent iOS overscroll/bounce on the game viewport.
-// Allows scroll inside panels that have overflow-y-auto / overflow-y-scroll classes.
-document.addEventListener('touchmove', (e) => {
+// Block viewport scroll/bounce on any element that is NOT a scrollable panel.
+window.addEventListener('touchmove', (e: TouchEvent) => {
   const target = e.target as Element | null;
   if (target?.closest('.overflow-y-auto, .overflow-y-scroll, [data-scrollable]')) return;
   e.preventDefault();

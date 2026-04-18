@@ -4,15 +4,15 @@
   color-scheme: dark;
 }
 
+/* iOS PWA: html just provides height context — do NOT position:fixed html (non-standard) */
 html {
-  /* iOS Safari needs -webkit-fill-available to respect the true visible viewport height.
-     Without this, 100% can exceed the screen and create scrollable overflow. */
-  height: -webkit-fill-available;
+  height: 100%;
+  overflow: hidden;
 }
 
-html,
-body,
-#root {
+/* body is position:fixed — the single most reliable iOS PWA scroll-lock technique.
+   Takes body out of document flow so there is no scrollable area at all. */
+body {
   position: fixed;
   top: 0;
   left: 0;
@@ -23,11 +23,11 @@ body,
   touch-action: none;
 }
 
-body,
 #root {
-  height: 100vh;
-  /* Fallback for iOS: use the available visual viewport height */
-  height: -webkit-fill-available;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  touch-action: none;
 }
 
 /* Allow touch scrolling inside in-game scroll panels.
