@@ -9,12 +9,34 @@ import { getEquipmentBonuses } from '../../game/mechanics/equipmentBonuses';
 const BAG_POTION_URL = new URL('../../game/assets/Mochila/Mochila_Aberta_Consumiveis.png', import.meta.url).href;
 const BAG_EQUIPMENT_URL = new URL('../../game/assets/Mochila/Mochila_Aberta_Equipamentos.png', import.meta.url).href;
 const BAG_MATERIAL_URL = new URL('../../game/assets/Mochila/Mochila_Aberta_Materiais.png', import.meta.url).href;
+const BAG_CLOSED_URL = new URL('../../game/assets/Mochila/Mochilla_Fechada.png', import.meta.url).href;
 
 const BAG_IMAGE: Record<string, string> = {
   potion: BAG_POTION_URL,
   equipment: BAG_EQUIPMENT_URL,
   material: BAG_MATERIAL_URL,
 };
+
+// Inject bag keyframes once
+if (typeof document !== 'undefined' && !document.getElementById('bag-anim-style')) {
+  const s = document.createElement('style');
+  s.id = 'bag-anim-style';
+  s.textContent = `
+    @keyframes bag-shake {
+      0%   { transform: translateX(-50%) rotate(0deg) scale(1); }
+      20%  { transform: translateX(calc(-50% - 4px)) rotate(-2deg) scale(0.97); }
+      40%  { transform: translateX(calc(-50% + 4px)) rotate(2deg) scale(0.97); }
+      60%  { transform: translateX(calc(-50% - 3px)) rotate(-1.5deg) scale(0.98); }
+      80%  { transform: translateX(calc(-50% + 3px)) rotate(1deg) scale(0.99); }
+      100% { transform: translateX(-50%) rotate(0deg) scale(1); }
+    }
+    @keyframes bag-open-in {
+      0%   { opacity: 0; transform: translateX(-50%) scale(0.92) translateY(8px); }
+      100% { opacity: 1; transform: translateX(-50%) scale(1) translateY(0); }
+    }
+  `;
+  document.head.appendChild(s);
+}
 
 type InventoryScreenProps = {
   player: Player;
@@ -519,13 +541,30 @@ export const InventoryScreen = ({
   const [detailClosing, setDetailClosing] = useState(false);
   const [sellingItem, setSellingItem] = useState<Item | null>(null);
   const [sellClosing, setSellClosing] = useState(false);
+  // bag animation: 'open' = show filter image, 'closing' = show closed bag
+  const [bagPhase, setBagPhase] = useState<'open' | 'closing'>('open');
+  const bagAnimKey = useRef(0);
+  const bagTimerRef = useRef<number | null>(null);
   const detailTimerRef = useRef<number | null>(null);
   const sellTimerRef = useRef<number | null>(null);
 
   useEffect(() => () => {
     if (detailTimerRef.current) window.clearTimeout(detailTimerRef.current);
     if (sellTimerRef.current) window.clearTimeout(sellTimerRef.current);
+    if (bagTimerRef.current) window.clearTimeout(bagTimerRef.current);
   }, []);
+
+  const changeFilter = (newFilter: InventoryFilter) => {
+    if (newFilter === filter) return;
+    if (bagTimerRef.current) window.clearTimeout(bagTimerRef.current);
+    setBagPhase('closing');
+    bagTimerRef.current = window.setTimeout(() => {
+      setFilter(newFilter);
+      setActiveItemId(null);
+      bagAnimKey.current += 1;
+      setBagPhase('open');
+    }, 200);
+  };
 
   // Build inventory entry list (include equipped items even if not in inventory dict)
   const inventoryItems = useMemo(() => {
@@ -655,18 +694,25 @@ export const InventoryScreen = ({
           <ArrowLeft size={14} /> Fechar
         </button>
 
-        {/* Bag image — centered above the bottom panel */}
-        <img
-          src={BAG_IMAGE[filter]}
-          alt=""
-          className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[42vh] max-h-[280px] w-auto object-contain object-bottom pointer-events-none select-none transition-opacity duration-200"
-          style={{
-            filter:
-              'drop-shadow(0 2px 8px rgba(0,0,0,0.95)) ' +
-              'drop-shadow(0 8px 28px rgba(0,0,0,0.80)) ' +
-              'drop-shadow(0 18px 56px rgba(0,0,0,0.55))',
-          }}
-        />
+        {/* Bag image — fixed-size container keeps layout stable across filter changes */}
+        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[220px] h-[42vh] max-h-[280px] pointer-events-none select-none">
+          <img
+            key={bagPhase === 'open' ? `open-${bagAnimKey.current}` : 'closed'}
+            src={bagPhase === 'closing' ? BAG_CLOSED_URL : BAG_IMAGE[filter]}
+            alt=""
+            className="absolute bottom-0 left-1/2 h-full w-auto object-contain object-bottom"
+            style={{
+              transform: 'translateX(-50%)',
+              filter:
+                'drop-shadow(0 2px 8px rgba(0,0,0,0.95)) ' +
+                'drop-shadow(0 8px 28px rgba(0,0,0,0.80)) ' +
+                'drop-shadow(0 18px 56px rgba(0,0,0,0.55))',
+              animation: bagPhase === 'closing'
+                ? 'bag-shake 0.2s ease-in-out'
+                : 'bag-open-in 0.22s ease-out',
+            }}
+          />
+        </div>
       </div>
 
       {/* BOTTOM PANEL */}
@@ -695,7 +741,7 @@ export const InventoryScreen = ({
             return (
               <button
                 key={entry.id}
-                onClick={() => { setFilter(entry.id); setActiveItemId(null); }}
+                onClick={() => { changeFilter(entry.id); }}
                 className={`shrink-0 inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-[11px] font-black uppercase tracking-widest transition-all active:scale-95 ${active ? 'border-white/30 bg-white/15 text-white shadow-[0_0_12px_rgba(255,255,255,0.1)]' : 'border-white/10 bg-white/5 text-white/50 hover:border-white/20 hover:text-white/80'}`}
               >
                 {entry.icon}
