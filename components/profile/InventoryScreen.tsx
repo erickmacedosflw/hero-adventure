@@ -34,6 +34,11 @@ if (typeof document !== 'undefined' && !document.getElementById('bag-anim-style'
       0%   { opacity: 0; transform: translateX(-50%) scale(0.92) translateY(8px); }
       100% { opacity: 1; transform: translateX(-50%) scale(1) translateY(0); }
     }
+    @keyframes bag-appear {
+      0%   { opacity: 0; transform: translateX(-50%) translateY(40px) scale(0.88); }
+      60%  { opacity: 1; transform: translateX(-50%) translateY(-6px) scale(1.02); }
+      100% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+    }
   `;
   document.head.appendChild(s);
 }
@@ -667,11 +672,15 @@ export const InventoryScreen = ({
   // Panel slide animation driven by isClosing prop from AnimatedModal
   const panelSlide = isClosing
     ? 'translate-y-full transition-transform duration-[220ms] ease-in'
-    : 'translate-y-0 transition-transform duration-[220ms] ease-out';
+    : 'translate-y-0 transition-transform duration-[280ms] ease-out';
 
   const overlayFade = isClosing
     ? 'opacity-0 transition-opacity duration-[220ms]'
     : 'opacity-100';
+
+  // On first mount, play bag appear animation
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { const t = window.setTimeout(() => setMounted(true), 20); return () => window.clearTimeout(t); }, []);
 
   const filterItemCount = (filterId: InventoryFilter) =>
     inventoryItems.filter(({ item }) => {
@@ -695,7 +704,7 @@ export const InventoryScreen = ({
         </button>
 
         {/* Bag image — fixed-size container keeps layout stable across filter changes */}
-        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[220px] h-[42vh] max-h-[280px] pointer-events-none select-none">
+        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[320px] h-[52vh] max-h-[360px] pointer-events-none select-none">
           <img
             key={bagPhase === 'open' ? `open-${bagAnimKey.current}` : 'closed'}
             src={bagPhase === 'closing' ? BAG_CLOSED_URL : BAG_IMAGE[filter]}
@@ -709,7 +718,9 @@ export const InventoryScreen = ({
                 'drop-shadow(0 18px 56px rgba(0,0,0,0.55))',
               animation: bagPhase === 'closing'
                 ? 'bag-shake 0.2s ease-in-out'
-                : 'bag-open-in 0.22s ease-out',
+                : (!mounted
+                  ? 'bag-appear 0.38s cubic-bezier(0.22,1,0.36,1)'
+                  : 'bag-open-in 0.22s ease-out'),
             }}
           />
         </div>
