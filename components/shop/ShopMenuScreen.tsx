@@ -480,6 +480,7 @@ export const ShopMenuScreen: React.FC<ShopMenuScreenProps> = ({
   const [sellConfirmClosing, setSellConfirmClosing] = useState(false);
   const detailCloseTimerRef = useRef<number | null>(null);
   const sellConfirmCloseTimerRef = useRef<number | null>(null);
+  const prevFilterRef = useRef<ShopFilter | null>(null);
 
   const unlockedRarities = useMemo(() => getUnlockedShopRaritiesByStage(huntStage), [huntStage]);
 
@@ -495,15 +496,21 @@ export const ShopMenuScreen: React.FC<ShopMenuScreenProps> = ({
       });
   }, [filter, items, unlockedRarities]);
 
-  // Auto-open first item detail on mount and on filter change
+  // Auto-open first item detail only on mount and when filter changes (not when user closes the modal)
   useEffect(() => {
-    if (filteredItems.length > 0 && !filteredItems.some((i) => i.id === detailItemId)) {
-      setDetailClosing(false);
-      setDetailItemId(filteredItems[0].id);
-    } else if (filteredItems.length === 0) {
-      setDetailItemId(null);
+    const filterChanged = prevFilterRef.current !== null && prevFilterRef.current !== filter;
+    const isFirstMount = prevFilterRef.current === null;
+    prevFilterRef.current = filter;
+
+    if (filterChanged || isFirstMount) {
+      if (filteredItems.length > 0) {
+        setDetailClosing(false);
+        setDetailItemId(filteredItems[0].id);
+      } else {
+        setDetailItemId(null);
+      }
     }
-  }, [filteredItems, detailItemId]);
+  }, [filter, filteredItems]);
 
   useEffect(() => () => {
     if (detailCloseTimerRef.current) window.clearTimeout(detailCloseTimerRef.current);
