@@ -477,7 +477,16 @@ export const AlchemistScreen: React.FC<{
   const MODAL_CLOSE_MS = 180;
   type Tab = 'card' | 'item';
   const [mounted, setMounted] = useState(false);
-  useEffect(() => { const t = window.setTimeout(() => setMounted(true), 20); return () => window.clearTimeout(t); }, []);
+  useEffect(() => {
+    if (!document.getElementById('shop-anim-style')) {
+      const s = document.createElement('style');
+      s.id = 'shop-anim-style';
+      s.textContent = '@keyframes avatar-fade-in{0%{opacity:0}100%{opacity:1}}';
+      document.head.appendChild(s);
+    }
+    const t = window.setTimeout(() => setMounted(true), 20);
+    return () => window.clearTimeout(t);
+  }, []);
   const [tab, setTab] = useState<Tab>(offers.length > 0 ? 'card' : 'item');
   const [activeOffer, setActiveOffer] = useState<ActiveOffer | null>(null);
   const [modalClosing, setModalClosing] = useState(false);
@@ -533,7 +542,7 @@ export const AlchemistScreen: React.FC<{
             'drop-shadow(0 2px 6px rgba(0,0,0,0.9)) ' +
             'drop-shadow(0 8px 24px rgba(0,0,0,0.75)) ' +
             'drop-shadow(0 20px 60px rgba(0,0,0,0.55))',
-          animation: mounted ? 'bag-appear 0.42s cubic-bezier(0.22,1,0.36,1)' : 'none',
+          animation: mounted ? 'none' : 'avatar-fade-in 0.5s ease-out forwards',
         }}
       />
 
