@@ -11,7 +11,10 @@ html {
 }
 
 /* body is position:fixed — the single most reliable iOS PWA scroll-lock technique.
-   Takes body out of document flow so there is no scrollable area at all. */
+   Takes body out of document flow so there is no scrollable area at all.
+   touch-action NOT set here: CSS touch-action is intersected down the DOM tree,
+   so setting none on body would block ALL child scroll panels. The touchmove
+   listener in index.tsx calls preventDefault() for non-scrollable areas instead. */
 body {
   position: fixed;
   top: 0;
@@ -20,20 +23,20 @@ body {
   height: 100%;
   overflow: hidden;
   overscroll-behavior: none;
-  touch-action: none;
 }
 
 #root {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  touch-action: none;
 }
 
 /* Allow touch scrolling inside in-game scroll panels.
-   Use data-scrollable attribute on wrapper elements. */
+   Use data-scrollable attribute on wrapper elements.
+   pan-x pan-y covers both vertical (item details, shop) and horizontal
+   (filter tabs, inventory row) scroll containers. */
 [data-scrollable] {
-  touch-action: pan-y;
+  touch-action: pan-x pan-y;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
 }
@@ -42,6 +45,14 @@ body {
 .overflow-y-scroll {
   touch-action: pan-y;
   overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.overflow-x-auto,
+.overflow-x-scroll {
+  touch-action: pan-x;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* Prevent the Three.js canvas from triggering browser scroll/zoom */

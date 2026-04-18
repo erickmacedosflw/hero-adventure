@@ -278,7 +278,7 @@ const ItemDetailModal: React.FC<{
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-5 pb-2">
+        <div className="flex-1 overflow-y-auto px-5 pb-2" data-scrollable>
           <p className="text-sm text-white/60 leading-relaxed">{item.description}</p>
 
           {/* 3D preview */}

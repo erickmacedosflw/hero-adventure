@@ -34,7 +34,7 @@ window.addEventListener('touchstart', () => {
 // Block viewport scroll/bounce on any element that is NOT a scrollable panel.
 window.addEventListener('touchmove', (e: TouchEvent) => {
   const target = e.target as Element | null;
-  if (target?.closest('.overflow-y-auto, .overflow-y-scroll, [data-scrollable]')) return;
+  if (target?.closest('.overflow-y-auto, .overflow-y-scroll, .overflow-x-auto, .overflow-x-scroll, [data-scrollable]')) return;
   e.preventDefault();
 }, { passive: false });
 
