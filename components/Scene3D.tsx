@@ -3094,10 +3094,12 @@ const MenuNavigationPortal = ({
   region,
   transform,
   onActivate,
+  reducedMotion = false,
 }: {
   region: 'forest' | 'dungeon';
   transform: RuntimeMenuPortalTransform;
   onActivate?: () => void;
+  reducedMotion?: boolean;
 }) => {
   const sourcePortal = useFBX(MENU_PORTAL_FBX_URL);
   const [albedoTexture, emissiveTexture, metallicTexture] = useTexture([
@@ -3157,7 +3159,6 @@ const MenuNavigationPortal = ({
 
       mesh.castShadow = true;
       mesh.receiveShadow = true;
-      mesh.frustumCulled = false;
     });
 
     return clone;
@@ -3182,7 +3183,11 @@ const MenuNavigationPortal = ({
 
     if (glowRef.current) {
       glowRef.current.intensity = 1.9 + (Math.sin(t * 3.15) * 0.55);
-      glowRef.current.distance = 5.4 + (Math.sin(t * 2.7) * 0.35);
+      // On mobile non-quality, skip animating the distance property each frame
+      // to save one uniform upload per frame on the shadow-casting pointLight.
+      if (!reducedMotion) {
+        glowRef.current.distance = 5.4 + (Math.sin(t * 2.7) * 0.35);
+      }
     }
 
     if (haloRef.current) {
@@ -3312,8 +3317,11 @@ export const GameScene: React.FC<SceneProps> = (props) => {
   const dungeonDepthOfFieldHeight = 440;
   const isDungeonRun = Boolean(props.isDungeonScene ?? props.isDungeonRun);
   const runtimeCameraMenuFocus = props.menuCameraFocus ?? Boolean(props.isMenuView);
-  const shouldUsePostProcessing = !isPerformanceMode;
-  const shouldUseBloomAndVignette = !isPerformanceMode;
+  // On mobile balanced, postprocessing (Bloom + MSAA) is disabled to reduce GPU heat.
+  // Desktop balanced and all quality presets retain full postprocessing.
+  const isMobileBalanced = isMobileDevice && isBalancedMode;
+  const shouldUsePostProcessing = !isPerformanceMode && !isMobileBalanced;
+  const shouldUseBloomAndVignette = !isPerformanceMode && !isMobileBalanced;
   const shouldUseVignette = shouldUseBloomAndVignette && !runtimeCameraMenuFocus;
   const postProcessingMultisampling = isQualityMode ? 4 : (isBalancedMode ? 2 : 0);
   const backfaceOutlineThickness = isPerformanceMode
@@ -3344,7 +3352,8 @@ export const GameScene: React.FC<SceneProps> = (props) => {
     : (isDungeonRun ? 0.42 : (shouldUseDepthOfField ? 0.1 : 0.13));
   const forestFogNear = quality.isLowQuality ? 12 : 16;
   const forestFogFar = quality.isLowQuality ? 34 : 46;
-  const shadowMapType = isPerformanceMode ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
+  // Mobile balanced uses PCFShadowMap (faster) instead of PCFSoftShadowMap to cut shadow pass cost.
+  const shadowMapType = (isPerformanceMode || isMobileBalanced) ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
   const battleContactShadowResolution = useMemo(
     () => isQualityMode ? quality.contactShadowResolution : (quality.isLowQuality ? 48 : Math.min(quality.contactShadowResolution, 96)),
     [isQualityMode, quality.contactShadowResolution, quality.isLowQuality],
@@ -3518,10 +3527,14 @@ export const GameScene: React.FC<SceneProps> = (props) => {
                 </>
               ) : (
                 <>
-                  <ambientLight intensity={0.6} />
-                  <hemisphereLight intensity={0.5} groundColor="#243a20" color="#f4ffe6" />
+                  {/* Note: DayNightCycle (rendered above) already mounts its own ambientLight
+                      and hemisphereLight, so no extra lights are needed here. */}
                   <Suspense fallback={null}>
-                    <BattleScenario scenario={activeScenario} lowQuality={quality.isLowQuality} />
+                    <BattleScenario
+                      scenario={activeScenario}
+                      lowQuality={quality.isLowQuality}
+                      noShadows={isMobileDevice && !isQualityMode}
+                    />
                   </Suspense>
                 </>
               )}
@@ -3577,6 +3590,7 @@ export const GameScene: React.FC<SceneProps> = (props) => {
               region={props.menuPortalRegion ?? 'forest'}
               transform={menuPortalTransform}
               onActivate={props.onMenuPortalClick}
+              reducedMotion={isMobileDevice && !isQualityMode}
             />
           </Suspense>
         ) : null}

@@ -27,7 +27,7 @@ const FOREST_URLS = {
 
 /* ─── Apply texture to existing FBX materials (preserves UVs and material setup) ─── */
 
-function cloneWithTexture(source: THREE.Group, texture: THREE.Texture): THREE.Group {
+function cloneWithTexture(source: THREE.Group, texture: THREE.Texture, noShadows = false): THREE.Group {
   const clone = source.clone(true);
   clone.traverse((child: any) => {
     if (!child.isMesh) return;
@@ -57,7 +57,7 @@ function cloneWithTexture(source: THREE.Group, texture: THREE.Texture): THREE.Gr
     } else if (child.material) {
       child.material = applyTexture(child.material);
     }
-    child.castShadow = true;
+    child.castShadow = !noShadows;
     child.receiveShadow = true;
     child.raycast = disableRaycast;
   });
@@ -208,7 +208,7 @@ const ScenarioGround = ({ color, colorAlt }: { color: string; colorAlt: string }
 
 /* ─── Forest Props (loads all 12 models once, then clones per placement) ─── */
 
-const ForestProps = ({ entries, lowQuality }: { entries: PropEntry[]; lowQuality: boolean }) => {
+const ForestProps = ({ entries, lowQuality, noShadows = false }: { entries: PropEntry[]; lowQuality: boolean; noShadows?: boolean }) => {
   const texture = useTexture(FOREST_TEXTURE);
 
   useMemo(() => {
@@ -258,9 +258,9 @@ const ForestProps = ({ entries, lowQuality }: { entries: PropEntry[]; lowQuality
   const clones = useMemo(() =>
     filtered.map((entry) => ({
       ...entry,
-      model: cloneWithTexture(sourceMap[entry.key], texture),
+      model: cloneWithTexture(sourceMap[entry.key], texture, noShadows),
     })),
-  [filtered, sourceMap, texture]);
+  [filtered, sourceMap, texture, noShadows]);
 
   return (
     <group>
@@ -279,11 +279,11 @@ const ForestProps = ({ entries, lowQuality }: { entries: PropEntry[]; lowQuality
 
 /* ─── Full Battle Scenario ─── */
 
-export const BattleScenario = ({ scenario, lowQuality = false }: { scenario: ScenarioDefinition; lowQuality?: boolean }) => (
+export const BattleScenario = ({ scenario, lowQuality = false, noShadows = false }: { scenario: ScenarioDefinition; lowQuality?: boolean; noShadows?: boolean }) => (
   <group>
     <ScenarioGround color={scenario.groundColor} colorAlt={scenario.groundColorAlt} />
     <Suspense fallback={null}>
-      <ForestProps entries={FOREST_LAYOUT} lowQuality={lowQuality} />
+      <ForestProps entries={FOREST_LAYOUT} lowQuality={lowQuality} noShadows={noShadows} />
     </Suspense>
   </group>
 );
