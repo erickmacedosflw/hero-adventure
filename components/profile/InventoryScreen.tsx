@@ -238,13 +238,16 @@ const InventoryCard: React.FC<{
 
       {/* Equip/Unequip inline button — equipment only, camp only */}
       {isEquipCard && !isBattleContext && onEquipToggle && (
-        <button
+        <div
+          role="button"
+          tabIndex={0}
           onClick={(e) => { e.stopPropagation(); onEquipToggle(item); }}
-          className={`mt-2 inline-flex w-full items-center justify-center gap-1 rounded-lg border px-2 py-1.5 text-[10px] font-black uppercase tracking-[0.1em] transition-all hover:-translate-y-0.5 active:scale-95 ${isEquipped ? 'border-amber-500/40 bg-amber-500/20 text-amber-300' : 'border-emerald-500/40 bg-emerald-500/20 text-emerald-300'}`}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); onEquipToggle(item); } }}
+          className={`mt-2 inline-flex w-full items-center justify-center gap-1 rounded-lg border px-2 py-1.5 text-[10px] font-black uppercase tracking-[0.1em] transition-all hover:-translate-y-0.5 active:scale-95 cursor-pointer ${isEquipped ? 'border-amber-500/40 bg-amber-500/20 text-amber-300' : 'border-emerald-500/40 bg-emerald-500/20 text-emerald-300'}`}
         >
           <Shield size={10} />
           {isEquipped ? 'Desequipar' : 'Equipar'}
-        </button>
+        </div>
       )}
     </button>
   );
@@ -548,6 +551,7 @@ export const InventoryScreen = ({
   const [sellClosing, setSellClosing] = useState(false);
   // bag animation: 'open' = show filter image, 'closing' = show closed bag
   const [bagPhase, setBagPhase] = useState<'open' | 'closing'>('open');
+  const [mounted, setMounted] = useState(false);
   const bagAnimKey = useRef(0);
   const bagTimerRef = useRef<number | null>(null);
   const detailTimerRef = useRef<number | null>(null);
@@ -558,6 +562,8 @@ export const InventoryScreen = ({
     if (sellTimerRef.current) window.clearTimeout(sellTimerRef.current);
     if (bagTimerRef.current) window.clearTimeout(bagTimerRef.current);
   }, []);
+
+  useEffect(() => { const t = window.setTimeout(() => setMounted(true), 20); return () => window.clearTimeout(t); }, []);
 
   const changeFilter = (newFilter: InventoryFilter) => {
     if (newFilter === filter) return;
@@ -668,10 +674,6 @@ export const InventoryScreen = ({
     onSell?.(item, qty);
     closeSellModal();
   };
-
-  // On first mount, trigger slide-up and bag-appear animations
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => { const t = window.setTimeout(() => setMounted(true), 20); return () => window.clearTimeout(t); }, []);
 
   // Panel slide animation driven by isClosing prop from AnimatedModal
   // mounted drives the enter animation: starts off-screen (translate-y-full), slides up on mount
