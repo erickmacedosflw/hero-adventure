@@ -572,20 +572,19 @@ export const AlchemistScreen: React.FC<{
       {/* BOTTOM PANEL */}
       <div className={`relative z-10 shrink-0 flex flex-col bg-black/65 backdrop-blur-xl border-t border-white/8 transition-transform duration-[320ms] ease-out ${mounted ? 'translate-y-0' : 'translate-y-full'}`}>
 
-        {/* Tab filter row */}
-        <div className="flex items-center gap-2 overflow-x-auto px-4 py-3 no-scrollbar" data-scrollable>
+        {/* Tab filter row — icon only */}
+        <div className="flex items-center gap-3 px-4 pt-3 pb-2">
           {TABS.map((entry) => {
             const active = tab === entry.id;
             return (
               <button
                 key={entry.id}
                 onClick={() => setTab(entry.id)}
-                className={`shrink-0 inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-[11px] font-black uppercase tracking-widest transition-all active:scale-95 ${active ? 'border-cyan-400/60 bg-cyan-400/20 text-cyan-300 shadow-[0_0_12px_rgba(34,211,238,0.25)]' : 'border-white/10 bg-white/5 text-white/50 hover:border-white/20 hover:text-white/80'}`}
+                className={`relative shrink-0 w-12 h-12 flex items-center justify-center rounded-xl border transition-all active:scale-95 ${active ? 'border-white bg-white/20 shadow-[0_0_14px_rgba(255,255,255,0.25)]' : 'border-white/25 bg-white/5 hover:border-white/50 hover:bg-white/10'}`}
               >
-                {entry.id === 'card' ? <span className="text-[13px] leading-none">📜</span> : <FlaskConical size={13} />}
-                {entry.label}
+                {entry.id === 'card' ? <span className="text-[24px] leading-none">📜</span> : <FlaskConical size={24} />}
                 {entry.count > 0 && (
-                  <span className={`rounded-full px-1.5 text-[9px] font-black ${active ? 'bg-cyan-400/30 text-cyan-200' : 'bg-white/10 text-white/40'}`}>
+                  <span className={`absolute -bottom-1 -right-1 min-w-[16px] h-4 flex items-center justify-center rounded-full px-1 text-[8px] font-black leading-none ${active ? 'bg-white text-black' : 'bg-white/20 text-white/60'}`}>
                     {entry.count}
                   </span>
                 )}
@@ -594,8 +593,15 @@ export const AlchemistScreen: React.FC<{
           })}
         </div>
 
+        {/* Active tab label */}
+        <div className="px-4 pb-2">
+          <span className="text-[10px] font-black uppercase tracking-widest text-white/55">
+            {TABS.find(t => t.id === tab)?.label ?? ''}
+          </span>
+        </div>
+
         {/* Cards horizontal scroll */}
-        <div className="flex items-stretch gap-3 overflow-x-auto px-4 pb-5 no-scrollbar" data-scrollable>
+        <div className="flex items-stretch gap-3 overflow-x-auto px-4 pb-5 no-scrollbar min-h-[220px]" data-scrollable>
           {tab === 'card' ? (
             offers.length === 0 ? (
               <div className="flex w-full items-center justify-center rounded-[20px] border border-dashed border-white/10 bg-white/3 px-6 py-8 text-sm text-white/30">

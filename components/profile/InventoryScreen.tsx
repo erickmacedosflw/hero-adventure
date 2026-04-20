@@ -68,9 +68,9 @@ type EquipmentSubType = 'weapon' | 'shield' | 'helmet' | 'armor' | 'legs';
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const FILTERS: Array<{ id: InventoryFilter; label: string; icon: React.ReactNode }> = [
-  { id: 'potion', label: 'Consumíveis', icon: <GameAssetIcon name="potionBlue" size={14} /> },
-  { id: 'equipment', label: 'Equipamentos', icon: <GameAssetIcon name="helm" size={14} /> },
-  { id: 'material', label: 'Materiais', icon: <GameAssetIcon name="gear" size={14} /> },
+  { id: 'potion', label: 'Consumíveis', icon: <GameAssetIcon name="potionBlue" size={22} /> },
+  { id: 'equipment', label: 'Equipamentos', icon: <GameAssetIcon name="helm" size={22} /> },
+  { id: 'material', label: 'Materiais', icon: <GameAssetIcon name="gear" size={22} /> },
 ];
 
 // ── Rarity helpers ────────────────────────────────────────────────────────────
@@ -561,8 +561,7 @@ export const InventoryScreen = ({
   const [detailClosing, setDetailClosing] = useState(false);
   const [sellingItem, setSellingItem] = useState<Item | null>(null);
   const [sellClosing, setSellClosing] = useState(false);
-  // bag animation: 'open' = show filter image, 'closing' = show closed bag
-  const [bagPhase, setBagPhase] = useState<'open' | 'closing'>('open');
+  const [shaking, setShaking] = useState(false);
   const [mounted, setMounted] = useState(false);
   const bagAnimKey = useRef(0);
   const bagTimerRef = useRef<number | null>(null);
@@ -580,12 +579,12 @@ export const InventoryScreen = ({
   const changeFilter = (newFilter: InventoryFilter) => {
     if (newFilter === filter) return;
     if (bagTimerRef.current) window.clearTimeout(bagTimerRef.current);
-    setBagPhase('closing');
+    bagAnimKey.current += 1;   // force img remount → replay shake animation
+    setShaking(true);
     bagTimerRef.current = window.setTimeout(() => {
       setFilter(newFilter);
       setActiveItemId(null);
-      bagAnimKey.current += 1;
-      setBagPhase('open');
+      setShaking(false);       // src swaps instantly, no appear animation
     }, 200);
   };
 
@@ -620,14 +619,24 @@ export const InventoryScreen = ({
     return Array.from(entryMap.values());
   }, [player.inventory, player.equippedWeapon, player.equippedArmor, player.equippedHelmet, player.equippedLegs, player.equippedShield, shopItems]);
 
+  const EQUIPMENT_TYPE_ORDER: Item['type'][] = ['weapon', 'shield', 'helmet', 'armor', 'legs'];
+
   const filteredItems = useMemo(() => {
-    return inventoryItems.filter(({ item }) => {
+    const filtered = inventoryItems.filter(({ item }) => {
       if (filter === 'equipment') {
         if (equipmentSubFilter) return item.type === equipmentSubFilter;
         return isEquipmentType(item.type);
       }
       return item.type === filter;
     });
+    if (filter === 'equipment') {
+      filtered.sort((a, b) => {
+        const ai = EQUIPMENT_TYPE_ORDER.indexOf(a.item.type as Item['type']);
+        const bi = EQUIPMENT_TYPE_ORDER.indexOf(b.item.type as Item['type']);
+        return ai - bi;
+      });
+    }
+    return filtered;
   }, [filter, inventoryItems, equipmentSubFilter]);
 
   const totalItems = inventoryItems.reduce((s, e) => s + e.quantity, 0);
@@ -726,8 +735,8 @@ export const InventoryScreen = ({
         {/* Bag image — fixed-size container keeps layout stable across filter changes */}
         <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[440px] md:w-[560px] h-[64vh] md:h-[70vh] max-h-[480px] md:max-h-[580px] pointer-events-none select-none">
           <img
-            key={bagPhase === 'open' ? `open-${bagAnimKey.current}` : 'closed'}
-            src={bagPhase === 'closing' ? BAG_CLOSED_URL : BAG_IMAGE[equipmentSubFilter ?? filter]}
+            key={bagAnimKey.current}
+            src={BAG_IMAGE[equipmentSubFilter ?? filter]}
             alt=""
             className="absolute bottom-0 left-1/2 h-full w-auto object-contain object-bottom"
             style={{
@@ -736,11 +745,11 @@ export const InventoryScreen = ({
                 'drop-shadow(0 2px 8px rgba(0,0,0,0.95)) ' +
                 'drop-shadow(0 8px 28px rgba(0,0,0,0.80)) ' +
                 'drop-shadow(0 18px 56px rgba(0,0,0,0.55))',
-              animation: bagPhase === 'closing'
+              animation: shaking
                 ? 'bag-shake 0.2s ease-in-out'
                 : (!mounted
                   ? 'bag-appear 0.38s cubic-bezier(0.22,1,0.36,1)'
-                  : 'bag-open-in 0.22s ease-out'),
+                  : 'none'),
             }}
           />
         </div>
@@ -750,7 +759,7 @@ export const InventoryScreen = ({
       <div className={`shrink-0 flex flex-col bg-black/75 backdrop-blur-xl border-t border-white/8 ${panelSlide}`}>
 
         {/* Header row: icon + title + count + gold */}
-        <div className="flex items-center justify-between gap-3 px-4 pt-3 pb-1">
+        <div className="flex items-center justify-between gap-3 px-4 pt-2 pb-0">
           <div className="flex items-center gap-2">
             <GameAssetIcon name="bag" size={18} />
             <span className="text-sm font-black uppercase tracking-[0.18em] text-white">Mochila</span>
@@ -774,7 +783,7 @@ export const InventoryScreen = ({
             <span className="text-[10px] text-white/30 font-black">— selecione para equipar</span>
           </div>
         ) : (
-          <div className="flex items-center gap-2 overflow-x-auto px-4 py-2 no-scrollbar" data-scrollable>
+          <div className="flex items-center gap-3 px-4 pt-1.5 pb-0">
             {FILTERS.map((entry) => {
               const active = filter === entry.id;
               const count = filterItemCount(entry.id);
@@ -782,12 +791,11 @@ export const InventoryScreen = ({
                 <button
                   key={entry.id}
                   onClick={() => { changeFilter(entry.id); }}
-                  className={`shrink-0 inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-[11px] font-black uppercase tracking-widest transition-all active:scale-95 ${active ? 'border-white/30 bg-white/15 text-white shadow-[0_0_12px_rgba(255,255,255,0.1)]' : 'border-white/10 bg-white/5 text-white/50 hover:border-white/20 hover:text-white/80'}`}
+                  className={`relative shrink-0 w-10 h-10 flex items-center justify-center rounded-xl border transition-all active:scale-95 ${active ? 'border-white bg-white/20 shadow-[0_0_14px_rgba(255,255,255,0.25)]' : 'border-white/25 bg-white/5 hover:border-white/50 hover:bg-white/10'}`}
                 >
                   {entry.icon}
-                  {entry.label}
                   {count > 0 && (
-                    <span className={`rounded-full px-1.5 text-[9px] font-black ${active ? 'bg-white/20 text-white/80' : 'bg-white/10 text-white/40'}`}>
+                    <span className={`absolute -bottom-1 -right-1 min-w-[16px] h-4 flex items-center justify-center rounded-full px-1 text-[8px] font-black leading-none ${active ? 'bg-white text-black' : 'bg-white/20 text-white/60'}`}>
                       {count}
                     </span>
                   )}
@@ -797,8 +805,17 @@ export const InventoryScreen = ({
           </div>
         )}
 
+        {/* Active filter label */}
+        {!equipmentSubFilter && (
+          <div className="px-4 pb-1">
+            <span className="text-[10px] font-black uppercase tracking-widest text-white/55">
+              {FILTERS.find(f => f.id === filter)?.label ?? ''}
+            </span>
+          </div>
+        )}
+
         {/* Items horizontal scroll */}
-        <div className="flex items-stretch gap-3 overflow-x-auto px-4 pb-5 no-scrollbar min-h-[212px]" data-scrollable>
+        <div className="flex items-start gap-3 overflow-x-auto px-4 pb-3 no-scrollbar min-h-[180px]" data-scrollable>
           {filteredItems.length === 0 ? (
             <div className="flex w-full items-center justify-center rounded-[20px] border border-dashed border-white/10 bg-white/3 px-6 py-8 text-sm text-white/30">
               Nenhum item nesta categoria.

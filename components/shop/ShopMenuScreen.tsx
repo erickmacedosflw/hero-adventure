@@ -594,25 +594,31 @@ export const ShopMenuScreen: React.FC<ShopMenuScreenProps> = ({
       {/* BOTTOM PANEL */}
       <div className={`relative z-10 shrink-0 flex flex-col bg-black/65 backdrop-blur-xl border-t border-white/8 transition-transform duration-[320ms] ease-out ${mounted ? 'translate-y-0' : 'translate-y-full'}`}>
 
-        {/* Filter row */}
-        <div className="flex items-center gap-2 overflow-x-auto px-4 py-3 no-scrollbar" data-scrollable>
+        {/* Filter row — icon only */}
+        <div className="flex items-center gap-3 px-4 pt-3 pb-2">
           {FILTERS.map((entry) => {
             const active = filter === entry.id;
             return (
               <button
                 key={entry.id}
                 onClick={() => setFilter(entry.id)}
-                className={`shrink-0 inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-[11px] font-black uppercase tracking-widest transition-all active:scale-95 ${active ? 'border-amber-400/60 bg-amber-400/20 text-amber-300 shadow-[0_0_12px_rgba(251,191,36,0.25)]' : 'border-white/10 bg-white/5 text-white/50 hover:border-white/20 hover:text-white/80'}`}
+                className={`shrink-0 w-12 h-12 flex items-center justify-center rounded-xl border transition-all active:scale-95 ${active ? 'border-white bg-white/20 shadow-[0_0_14px_rgba(255,255,255,0.30)]' : 'border-white/25 bg-white/5 hover:border-white/50 hover:bg-white/10'}`}
               >
-                <GameAssetIcon name={entry.iconName} size={15} />
-                {entry.label}
+                <GameAssetIcon name={entry.iconName} size={26} />
               </button>
             );
           })}
         </div>
 
+        {/* Active filter label */}
+        <div className="px-4 pb-2">
+          <span className="text-[10px] font-black uppercase tracking-widest text-white/55">
+            {FILTERS.find(f => f.id === filter)?.label ?? ''}
+          </span>
+        </div>
+
         {/* Cards horizontal scroll */}
-        <div className="flex items-stretch gap-3 overflow-x-auto px-4 pb-5 no-scrollbar" data-scrollable>
+        <div className="flex items-stretch gap-3 overflow-x-auto px-4 pb-5 no-scrollbar min-h-[240px]" data-scrollable>
           {filteredItems.length === 0 ? (
             <div className="flex w-full items-center justify-center rounded-[20px] border border-dashed border-white/10 bg-white/3 px-6 py-8 text-sm text-white/30">
               Nenhum item disponivel nesta categoria.
