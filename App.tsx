@@ -3887,7 +3887,7 @@ export default function App() {
                         menuPortalRegion={sceneRegion === 'tower' ? 'tower' : sceneRegion === 'dungeon' ? 'dungeon' : 'forest'}
                         menuPortalTravelCinematicToken={menuPortalTravelCinematicToken}
                         onMenuPortalClick={handleOpenPortalTravel}
-                        portalInspectMode={portalInspectMode || portalTransitioning}
+                        portalInspectMode={portalInspectMode}
                         currentSceneRegion={sceneRegion}
                         dungeonUnlocked={isDungeonUnlocked}
                         towerUnlocked={true}
@@ -3992,6 +3992,7 @@ export default function App() {
                         autoOpenHeroEquipToken={heroEquipOpenToken}
                         autoOpenHeroEquipFilter={heroEquipOpenFilter}
                         portalInspectMode={portalInspectMode}
+                        portalTransitioning={portalTransitioning}
           />
       )}
 

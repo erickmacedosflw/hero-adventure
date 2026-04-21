@@ -1107,7 +1107,8 @@ export const TavernScreen: React.FC<{
   autoOpenHeroEquipToken?: number,
   autoOpenHeroEquipFilter?: 'weapon' | 'shield' | 'helmet' | 'armor' | 'legs',
   portalInspectMode?: boolean,
-}> = ({ player, killCount, onHunt, onBoss, onDungeon, sceneRegion = 'forest', onNavigateSceneRegion, onShop, onShopFromInventory, onAlchemist, onTower, shopItems, autoOpenConstellationToken = 0, onEquipItem, onUnequipItem, onUseItem, onSellItem, onUnlockTalent, onResetTalents, campIntroOnly = false, restrictProfileToStatusOnly = false, inventoryUnlocked = false, inventoryUnlockPromptActive = false, onAcknowledgeInventoryUnlock, cardsUnlockPromptActive = false, onAcknowledgeCardsUnlock, skillsUnlockPromptActive = false, onAcknowledgeSkillsUnlock, constellationUnlockPromptActive = false, onAcknowledgeConstellationUnlock, constellationRespecUnlockPromptActive = false, onAcknowledgeConstellationRespecUnlock, allowCardsInProfile = false, fleeUnlocked = false, merchantUnlockPromptActive = false, onAcknowledgeMerchantUnlock, dungeonUnlockPromptActive = false, onAcknowledgeDungeonUnlock, alchemistUnlockPromptActive = false, onAcknowledgeAlchemistUnlock, merchantUnlocked = false, dungeonUnlocked = false, alchemistUnlocked = false, showSkillsAction = false, autoOpenInventoryToken = 0, autoOpenInventoryFilter = 'all', autoOpenPortalTravelToken = 0, autoOpenProfileToken = 0, showDiamondHud = false, towerEssence = 0, gameTime = '12:00', autoOpenHeroInspectToken = 0, onHeroInspectOpen, onHeroInspectClose, closeHeroInspectToken = 0, autoOpenHeroEquipToken = 0, autoOpenHeroEquipFilter = 'weapon', portalInspectMode = false }) => {
+  portalTransitioning?: boolean,
+}> = ({ player, killCount, onHunt, onBoss, onDungeon, sceneRegion = 'forest', onNavigateSceneRegion, onShop, onShopFromInventory, onAlchemist, onTower, shopItems, autoOpenConstellationToken = 0, onEquipItem, onUnequipItem, onUseItem, onSellItem, onUnlockTalent, onResetTalents, campIntroOnly = false, restrictProfileToStatusOnly = false, inventoryUnlocked = false, inventoryUnlockPromptActive = false, onAcknowledgeInventoryUnlock, cardsUnlockPromptActive = false, onAcknowledgeCardsUnlock, skillsUnlockPromptActive = false, onAcknowledgeSkillsUnlock, constellationUnlockPromptActive = false, onAcknowledgeConstellationUnlock, constellationRespecUnlockPromptActive = false, onAcknowledgeConstellationRespecUnlock, allowCardsInProfile = false, fleeUnlocked = false, merchantUnlockPromptActive = false, onAcknowledgeMerchantUnlock, dungeonUnlockPromptActive = false, onAcknowledgeDungeonUnlock, alchemistUnlockPromptActive = false, onAcknowledgeAlchemistUnlock, merchantUnlocked = false, dungeonUnlocked = false, alchemistUnlocked = false, showSkillsAction = false, autoOpenInventoryToken = 0, autoOpenInventoryFilter = 'all', autoOpenPortalTravelToken = 0, autoOpenProfileToken = 0, showDiamondHud = false, towerEssence = 0, gameTime = '12:00', autoOpenHeroInspectToken = 0, onHeroInspectOpen, onHeroInspectClose, closeHeroInspectToken = 0, autoOpenHeroEquipToken = 0, autoOpenHeroEquipFilter = 'weapon', portalInspectMode = false, portalTransitioning = false }) => {
   const [showProfile, setShowProfile] = useState(false);
   const [showInventory, setShowInventory] = useState(false);
   const [heroInspectOpen, setHeroInspectOpen] = useState(false);
@@ -1583,8 +1584,15 @@ export const TavernScreen: React.FC<{
                     </div>
                 </div>
 
-                {!heroInspectOpen && !showPortalTravelModal && !portalInspectMode && (
-                <section className="absolute left-1/2 -translate-x-1/2 bottom-2 sm:bottom-6 w-[min(94vw,380px)] sm:w-[min(96vw,900px)] pointer-events-none">
+                {!heroInspectOpen && !showPortalTravelModal && (
+                <section
+                    className="absolute left-1/2 -translate-x-1/2 bottom-2 sm:bottom-6 w-[min(94vw,380px)] sm:w-[min(96vw,900px)] pointer-events-none transition-[opacity,transform] duration-500 ease-out"
+                    style={{
+                        opacity: portalInspectMode || portalTransitioning ? 0 : 1,
+                        transform: portalInspectMode || portalTransitioning ? 'translateY(12px)' : 'translateY(0px)',
+                        pointerEvents: portalInspectMode || portalTransitioning ? 'none' : undefined,
+                    }}
+                >
                     {(() => {
                         const mobileActions = [
                             canStartHuntFromCurrentRegion,
