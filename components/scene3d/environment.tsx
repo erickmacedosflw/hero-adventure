@@ -881,24 +881,41 @@ export const CameraController = ({
   menuFocus = false,
   menuPortalTravelCinematicToken = 0,
   menuPortalFocusPoint,
+  runtimeBattleCamera,
+  heroInspectMode = false,
+  portalInspectMode = false,
 }: {
   screenShake?: number;
   menuFocus?: boolean;
   menuPortalTravelCinematicToken?: number;
   menuPortalFocusPoint?: [number, number, number];
+  runtimeBattleCamera?: { fov: number; distance: number; height: number };
+  heroInspectMode?: boolean;
+  portalInspectMode?: boolean;
 }) => {
   const cameraRef = useRef<THREE.PerspectiveCamera>(null);
   const clockRef = useRef(0);
   const isMobile = window.innerWidth < 768;
   const menuDistance = isMobile ? 10.6 : 6.8;
-  const battleDistance = isMobile ? 16.2 : 11;
-  const battleHeight = isMobile ? 4.1 : 2.5;
+  // Static defaults — these never change so the PerspectiveCamera element props stay stable
+  // and don't trigger R3F reconciler snaps during animations.
+  const defaultBattleDistance = isMobile ? 16.2 : 11;
+  const defaultBattleHeight = isMobile ? 4.1 : 2.5;
+  const defaultBattleFov = isMobile ? 54 : 50;
   const menuFov = isMobile ? 62 : 50;
-  const battleFov = isMobile ? 54 : 50;
+  const battleFov = defaultBattleFov;
   const focusBlendRef = useRef(menuFocus ? 1 : 0);
   const focusBlendTargetRef = useRef(menuFocus ? 1 : 0);
+  const inspectBlendRef = useRef(0);
+  const inspectBlendTargetRef = useRef(0);
+  const portalBlendRef = useRef(0);
+  const portalBlendTargetRef = useRef(0);
   const lookTarget = useMemo(() => new THREE.Vector3(0, isMobile ? 1.55 : 0.9, 0), [isMobile]);
   const menuLookTarget = useMemo(() => new THREE.Vector3(-2, 0.82, 0), []);
+  // Hero inspect: look at lower torso so legs stay in frame with bottom padding
+  const inspectLookTarget = useMemo(() => new THREE.Vector3(-2, 0.05, 0), []);
+  // Portal inspect: look at portal center
+  const portalLookTarget = useMemo(() => new THREE.Vector3(-4.22, 0.5, 0.58), []);
   const mixedLookTarget = useMemo(() => new THREE.Vector3(), []);
   const menuOrbitRef = useRef(0);
   const menuOrbitTargetRef = useRef(0);
@@ -923,6 +940,12 @@ export const CameraController = ({
   useEffect(() => {
     focusBlendTargetRef.current = menuFocus ? 1 : 0;
   }, [menuFocus]);
+  useEffect(() => {
+    inspectBlendTargetRef.current = heroInspectMode ? 1 : 0;
+  }, [heroInspectMode]);
+  useEffect(() => {
+    portalBlendTargetRef.current = portalInspectMode ? 1 : 0;
+  }, [portalInspectMode]);
   useEffect(() => {
     if (!menuFocus || typeof window === 'undefined') {
       dragActiveRef.current = false;
@@ -979,10 +1002,23 @@ export const CameraController = ({
     }
 
     cinematicTokenRef.current = menuPortalTravelCinematicToken;
+    // Snap portal blend back to 0 immediately so cinematic starts from menu position
+    portalBlendTargetRef.current = 0;
+    portalBlendRef.current = 0;
+    inspectBlendTargetRef.current = 0;
+    inspectBlendRef.current = 0;
     const camera = cameraRef.current;
     if (!camera) {
       return;
     }
+
+    // Snap camera to the approximate menu position so the cinematic zoom-in to the
+    // portal always starts from a sensible angle (not the portal-inspect camera).
+    const sway = 0;
+    const snapMenuX = (isMobile ? -0.6 : -0.95) + Math.sin(menuOrbitRef.current) * 0.55 + sway;
+    const snapMenuY = 1.65 + menuHeightRef.current;
+    const snapMenuZ = menuDistance + Math.cos(menuOrbitRef.current) * 0.25;
+    camera.position.set(snapMenuX, snapMenuY, snapMenuZ);
 
     const focusPoint = menuPortalFocusPoint ?? [-4.22, 0.08, 0.58];
     const portalLook = new THREE.Vector3(focusPoint[0], focusPoint[1], focusPoint[2]);
@@ -1023,28 +1059,74 @@ export const CameraController = ({
       focusBlendRef.current += Math.sign(blendDiff) * maxBlendStep;
     }
     const focusBlend = THREE.MathUtils.clamp(focusBlendRef.current, 0, 1);
+    // Inspect blend (zoom in when hero inspect is open)
+    const inspBlendDiff = inspectBlendTargetRef.current - inspectBlendRef.current;
+    const maxInspBlend = delta / 1.0;
+    if (Math.abs(inspBlendDiff) <= maxInspBlend) {
+      inspectBlendRef.current = inspectBlendTargetRef.current;
+    } else {
+      inspectBlendRef.current += Math.sign(inspBlendDiff) * maxInspBlend;
+    }
+    const inspectBlend = THREE.MathUtils.clamp(inspectBlendRef.current, 0, 1);
+    // Portal inspect blend
+    const portalBlendDiff = portalBlendTargetRef.current - portalBlendRef.current;
+    const maxPortalBlend = delta / 0.8;
+    if (Math.abs(portalBlendDiff) <= maxPortalBlend) {
+      portalBlendRef.current = portalBlendTargetRef.current;
+    } else {
+      portalBlendRef.current += Math.sign(portalBlendDiff) * maxPortalBlend;
+    }
+    const portalBlend = THREE.MathUtils.clamp(portalBlendRef.current, 0, 1);
     // Menu camera target
     menuOrbitRef.current = THREE.MathUtils.lerp(menuOrbitRef.current, menuOrbitTargetRef.current, 0.08);
     menuHeightRef.current = THREE.MathUtils.lerp(menuHeightRef.current, menuHeightTargetRef.current, 0.08);
     const sway = Math.sin(t * 0.4) * 0.06;
     const menuTargetX = (isMobile ? -0.6 : -0.95) + Math.sin(menuOrbitRef.current) * 0.55 + sway;
-    const menuTargetY = 1.62 + Math.sin(t * 0.35) * 0.04 + menuHeightRef.current;
+    const menuTargetY = 1.65 + Math.sin(t * 0.35) * 0.04 + menuHeightRef.current;
     const menuTargetZ = menuDistance + Math.cos(menuOrbitRef.current) * 0.25 + Math.cos(t * 0.45) * 0.05;
-    // Battle camera target
+    // Hero inspect: camera shifts right so hero is framed left, full body visible with leg padding
+    const inspectCamX = isMobile ? 0.7 : 1.0;
+    const inspectCamY = isMobile ? 1.4 : 1.4;
+    const heroInspectDistance = isMobile ? 5.2 : 4.9;
+    const heroInspectFov = isMobile ? 52 : 49;
+    // Portal inspect: camera faces the portal from the front-right
+    const portalInspectCamX = isMobile ? -2.8 : -2.2;
+    const portalInspectCamY = isMobile ? 1.8 : 1.6;
+    const portalInspectDistance = isMobile ? 6.5 : 5.8;
+    const portalInspectFov = isMobile ? 55 : 50;
+    const heroMenuX = THREE.MathUtils.lerp(menuTargetX, inspectCamX, inspectBlend);
+    const heroMenuY = THREE.MathUtils.lerp(menuTargetY, inspectCamY, inspectBlend);
+    const heroMenuZ = THREE.MathUtils.lerp(menuTargetZ, heroInspectDistance, inspectBlend);
+    const heroMenuFov = THREE.MathUtils.lerp(menuFov, heroInspectFov, inspectBlend);
+    const finalMenuX = THREE.MathUtils.lerp(heroMenuX, portalInspectCamX, portalBlend);
+    const finalMenuY = THREE.MathUtils.lerp(heroMenuY, portalInspectCamY, portalBlend);
+    const finalMenuZ = THREE.MathUtils.lerp(heroMenuZ, portalInspectDistance, portalBlend);
+    const finalMenuFov = THREE.MathUtils.lerp(heroMenuFov, portalInspectFov, portalBlend);
+    // Battle camera target — apply runtimeBattleCamera here (inside useFrame) to avoid
+    // R3F reconciler snapping the camera when the prop changes mid-cinematic.
+    const activeBattleDistance = runtimeBattleCamera
+      ? (isMobile ? runtimeBattleCamera.distance * (16.2 / 11) : runtimeBattleCamera.distance)
+      : defaultBattleDistance;
+    const activeBattleHeight = runtimeBattleCamera
+      ? (isMobile ? runtimeBattleCamera.height * (4.1 / 2.5) : runtimeBattleCamera.height)
+      : defaultBattleHeight;
+    const activeBattleFov = runtimeBattleCamera
+      ? (isMobile ? runtimeBattleCamera.fov + (54 - 50) : runtimeBattleCamera.fov)
+      : defaultBattleFov;
     const orbitAngle = Math.sin(t * 0.06) * 0.175;
-    const orbitX = Math.sin(orbitAngle) * battleDistance;
-    const orbitZ = Math.cos(orbitAngle) * battleDistance;
+    const orbitX = Math.sin(orbitAngle) * activeBattleDistance;
+    const orbitZ = Math.cos(orbitAngle) * activeBattleDistance;
     const driftX = Math.sin(t * 0.13) * 0.40 + Math.sin(t * 0.07) * 0.18;
     const driftY = Math.cos(t * 0.11) * 0.20 + Math.sin(t * 0.05) * 0.10;
     const driftZ = Math.sin(t * 0.09) * 0.22 + Math.cos(t * 0.14) * 0.08;
     const microX = Math.sin(t * 3.7) * 0.008 + Math.cos(t * 5.3) * 0.005;
     const microY = Math.cos(t * 4.1) * 0.006 + Math.sin(t * 6.7) * 0.004;
     const battleTargetX = orbitX + driftX + microX;
-    const battleTargetY = battleHeight + driftY + microY;
+    const battleTargetY = activeBattleHeight + driftY + microY;
     const battleTargetZ = orbitZ + driftZ;
-    const targetX = THREE.MathUtils.lerp(battleTargetX, menuTargetX, focusBlend);
-    const targetY = THREE.MathUtils.lerp(battleTargetY, menuTargetY, focusBlend);
-    const targetZ = THREE.MathUtils.lerp(battleTargetZ, menuTargetZ, focusBlend);
+    const targetX = THREE.MathUtils.lerp(battleTargetX, finalMenuX, focusBlend);
+    const targetY = THREE.MathUtils.lerp(battleTargetY, finalMenuY, focusBlend);
+    const targetZ = THREE.MathUtils.lerp(battleTargetZ, finalMenuZ, focusBlend);
 
     const cinematicState = cinematicStateRef.current;
     const hasActiveCinematic = Boolean(cameraRef.current && cinematicState.active);
@@ -1099,17 +1181,29 @@ export const CameraController = ({
 
     if (cameraRef.current) {
       if (!hasActiveCinematic) {
-        mixedLookTarget.lerpVectors(lookTarget, menuLookTarget, focusBlend);
+        // True pan: look target shifts by the same delta as camera moves from menu base.
+        // This keeps the view direction constant instead of orbiting the hero.
+        const menuBaseX = isMobile ? -0.6 : 0.95;
+        const menuBaseY = 1.65;
+        inspectLookTarget.set(
+          -2 + (inspectCamX - menuBaseX),
+          0.82 + (inspectCamY - menuBaseY),
+          0
+        );
+        // Blend look target: battle → menu → hero inspect → portal inspect
+        const blendedMenuLook = new THREE.Vector3().lerpVectors(menuLookTarget, inspectLookTarget, inspectBlend);
+        const blendedWithPortal = new THREE.Vector3().lerpVectors(blendedMenuLook, portalLookTarget, portalBlend);
+        mixedLookTarget.lerpVectors(lookTarget, blendedWithPortal, focusBlend);
       }
       cameraRef.current.lookAt(mixedLookTarget);
-      const targetFov = cinematicFov ?? THREE.MathUtils.lerp(battleFov, menuFov, focusBlend);
+      const targetFov = cinematicFov ?? THREE.MathUtils.lerp(activeBattleFov, finalMenuFov, focusBlend);
       if (Math.abs(cameraRef.current.fov - targetFov) > 0.01) {
         cameraRef.current.fov = targetFov;
         cameraRef.current.updateProjectionMatrix();
       }
     }
   });
-  return <PerspectiveCamera ref={cameraRef} makeDefault position={[0, battleHeight, battleDistance]} fov={battleFov} near={0.5} far={120} />;
+  return <PerspectiveCamera ref={cameraRef} makeDefault position={[0, defaultBattleHeight, defaultBattleDistance]} fov={defaultBattleFov} near={0.5} far={120} />;
 };
 export const NightEnemyGlow = ({ gameTime }: { gameTime: string }) => {
   const glowRef = useRef<THREE.PointLight>(null);

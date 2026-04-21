@@ -1,4 +1,4 @@
-import { BattleLog, BossVictoryContext, CardRewardOffer, DungeonResult, DungeonRunState, GameState, Player, ProgressionCard, TurnState } from '../../types';
+import { BattleLog, BossVictoryContext, CardRewardOffer, DungeonResult, DungeonRunState, GameState, Player, ProgressionCard, TowerMeta, TowerRunState, TurnState } from '../../types';
 
 const SAVE_STORAGE_KEY = 'hero-adventure-save-v1';
 const SAVE_SCHEMA_VERSION = 1;
@@ -35,9 +35,11 @@ export interface SavePayload {
   dungeonResult?: DungeonResult | null;
   bossVictoryContext?: BossVictoryContext | null;
   pendingDungeonQueue?: CardRewardOffer[];
+  towerRun?: TowerRunState | null;
+  towerMeta?: TowerMeta;
   logs?: BattleLog[];
   narration?: string;
-  sceneRegion: 'forest' | 'dungeon';
+  sceneRegion: 'forest' | 'dungeon' | 'tower';
 }
 
 interface SaveEnvelope {
@@ -234,7 +236,7 @@ const isSavePayloadLike = (value: unknown): value is SavePayload => {
     return false;
   }
 
-  if (payload.sceneRegion !== 'forest' && payload.sceneRegion !== 'dungeon') {
+  if (payload.sceneRegion !== 'forest' && payload.sceneRegion !== 'dungeon' && payload.sceneRegion !== 'tower') {
     return false;
   }
 

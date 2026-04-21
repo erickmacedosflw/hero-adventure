@@ -29,6 +29,7 @@ const ICONS = {
   wand: new URL('../../game/assets/Icons/Weapon & Tool/Magic Wand.png', import.meta.url).href,
   staff: new URL('../../game/assets/Icons/Weapon & Tool/Emerald Staff.png', import.meta.url).href,
   diamond: new URL('../../game/assets/Icons/Ore & Gem/Diamond.png', import.meta.url).href,
+  sapphire: new URL('../../game/assets/Icons/Ore & Gem/Cut Sapphire.png', import.meta.url).href,
 } as const;
 
 export type GameAssetIconName = keyof typeof ICONS;

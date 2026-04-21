@@ -1054,8 +1054,8 @@ export const TavernScreen: React.FC<{
   onHunt: () => void, 
   onBoss: () => void, 
   onDungeon: () => void,
-    sceneRegion?: 'forest' | 'dungeon',
-    onNavigateSceneRegion?: (region: 'forest' | 'dungeon') => void,
+    sceneRegion?: 'forest' | 'dungeon' | 'tower',
+    onNavigateSceneRegion?: (region: 'forest' | 'dungeon' | 'tower') => void,
   onShop: () => void,
   onShopFromInventory?: (filter: 'all' | 'equipment' | 'potion' | 'material') => void,
     onAlchemist: () => void,
@@ -1092,19 +1092,31 @@ export const TavernScreen: React.FC<{
     dungeonUnlocked?: boolean,
     alchemistUnlocked?: boolean,
   showSkillsAction?: boolean,
+  onTower?: () => void,
   autoOpenInventoryToken?: number,
   autoOpenInventoryFilter?: 'all' | 'equipment' | 'potion' | 'material',
     autoOpenPortalTravelToken?: number,
     autoOpenProfileToken?: number,
   showDiamondHud?: boolean,
-}> = ({ player, killCount, onHunt, onBoss, onDungeon, sceneRegion = 'forest', onNavigateSceneRegion, onShop, onShopFromInventory, onAlchemist, shopItems, autoOpenConstellationToken = 0, onEquipItem, onUnequipItem, onUseItem, onSellItem, onUnlockTalent, onResetTalents, campIntroOnly = false, restrictProfileToStatusOnly = false, inventoryUnlocked = false, inventoryUnlockPromptActive = false, onAcknowledgeInventoryUnlock, cardsUnlockPromptActive = false, onAcknowledgeCardsUnlock, skillsUnlockPromptActive = false, onAcknowledgeSkillsUnlock, constellationUnlockPromptActive = false, onAcknowledgeConstellationUnlock, constellationRespecUnlockPromptActive = false, onAcknowledgeConstellationRespecUnlock, allowCardsInProfile = false, fleeUnlocked = false, merchantUnlockPromptActive = false, onAcknowledgeMerchantUnlock, dungeonUnlockPromptActive = false, onAcknowledgeDungeonUnlock, alchemistUnlockPromptActive = false, onAcknowledgeAlchemistUnlock, merchantUnlocked = false, dungeonUnlocked = false, alchemistUnlocked = false, showSkillsAction = false, autoOpenInventoryToken = 0, autoOpenInventoryFilter = 'all', autoOpenPortalTravelToken = 0, autoOpenProfileToken = 0, showDiamondHud = false }) => {
+  towerEssence?: number,
+  gameTime?: string,
+  autoOpenHeroInspectToken?: number,
+  onHeroInspectOpen?: () => void,
+  onHeroInspectClose?: () => void,
+  closeHeroInspectToken?: number,
+  autoOpenHeroEquipToken?: number,
+  autoOpenHeroEquipFilter?: 'weapon' | 'shield' | 'helmet' | 'armor' | 'legs',
+  portalInspectMode?: boolean,
+}> = ({ player, killCount, onHunt, onBoss, onDungeon, sceneRegion = 'forest', onNavigateSceneRegion, onShop, onShopFromInventory, onAlchemist, onTower, shopItems, autoOpenConstellationToken = 0, onEquipItem, onUnequipItem, onUseItem, onSellItem, onUnlockTalent, onResetTalents, campIntroOnly = false, restrictProfileToStatusOnly = false, inventoryUnlocked = false, inventoryUnlockPromptActive = false, onAcknowledgeInventoryUnlock, cardsUnlockPromptActive = false, onAcknowledgeCardsUnlock, skillsUnlockPromptActive = false, onAcknowledgeSkillsUnlock, constellationUnlockPromptActive = false, onAcknowledgeConstellationUnlock, constellationRespecUnlockPromptActive = false, onAcknowledgeConstellationRespecUnlock, allowCardsInProfile = false, fleeUnlocked = false, merchantUnlockPromptActive = false, onAcknowledgeMerchantUnlock, dungeonUnlockPromptActive = false, onAcknowledgeDungeonUnlock, alchemistUnlockPromptActive = false, onAcknowledgeAlchemistUnlock, merchantUnlocked = false, dungeonUnlocked = false, alchemistUnlocked = false, showSkillsAction = false, autoOpenInventoryToken = 0, autoOpenInventoryFilter = 'all', autoOpenPortalTravelToken = 0, autoOpenProfileToken = 0, showDiamondHud = false, towerEssence = 0, gameTime = '12:00', autoOpenHeroInspectToken = 0, onHeroInspectOpen, onHeroInspectClose, closeHeroInspectToken = 0, autoOpenHeroEquipToken = 0, autoOpenHeroEquipFilter = 'weapon', portalInspectMode = false }) => {
   const [showProfile, setShowProfile] = useState(false);
   const [showInventory, setShowInventory] = useState(false);
+  const [heroInspectOpen, setHeroInspectOpen] = useState(false);
     const [returnToProfileOnInventoryClose, setReturnToProfileOnInventoryClose] = useState(false);
     const [inventoryInitialFilter, setInventoryInitialFilter] = useState<'all' | 'equipment' | 'potion' | 'material' | 'weapon' | 'shield' | 'helmet' | 'armor' | 'legs'>('all');
     const [profileInitialTab, setProfileInitialTab] = useState<'overview' | 'cards' | 'skills' | 'constellation' | undefined>(undefined);
     const [isClosing, setIsClosing] = useState(false);
     const [showDungeonConfirm, setShowDungeonConfirm] = useState(false);
+    const [showTowerConfirm, setShowTowerConfirm] = useState(false);
         const [showHuntIntroConfirm, setShowHuntIntroConfirm] = useState(false);
     const [showInventoryUnlockPrompt, setShowInventoryUnlockPrompt] = useState(false);
     const [showCardsUnlockPrompt, setShowCardsUnlockPrompt] = useState(false);
@@ -1125,9 +1137,8 @@ export const TavernScreen: React.FC<{
     const canStartHuntFromCurrentRegion = sceneRegion === 'forest';
     const canStartDungeonFromCurrentRegion = canAccessDungeon && sceneRegion === 'dungeon';
     const canStartBossFromCurrentRegion = bossUnlocked && sceneRegion === 'forest';
-    const availableAdventureActionsCount = [canStartHuntFromCurrentRegion, canStartDungeonFromCurrentRegion, canStartBossFromCurrentRegion].filter(Boolean).length;
-    const currentRegionLabel = sceneRegion === 'dungeon' ? 'Dungeon' : 'Area de Caca';
-    const killsRemaining = Math.max(0, 10 - killCount);
+    const canStartTowerFromCurrentRegion = sceneRegion === 'tower';
+    const availableAdventureActionsCount = [canStartHuntFromCurrentRegion, canStartDungeonFromCurrentRegion, canStartBossFromCurrentRegion, canStartTowerFromCurrentRegion].filter(Boolean).length;
     const currentClass = getPlayerClassById(player.classId);
     const classAccentColor = currentClass.visualProfile.secondaryColor;
     const hpPercent = player.stats.maxHp > 0 ? Math.min(100, (player.stats.hp / player.stats.maxHp) * 100) : 0;
@@ -1323,6 +1334,28 @@ export const TavernScreen: React.FC<{
         lastHandledProfileAutoOpenTokenRef.current = autoOpenProfileToken;
         openProfileModal('overview');
     }, [autoOpenProfileToken]);
+    const lastHandledHeroInspectTokenRef = useRef<number>(0);
+    useEffect(() => {
+        if (autoOpenHeroInspectToken <= 0) return;
+        if (autoOpenHeroInspectToken === lastHandledHeroInspectTokenRef.current) return;
+        lastHandledHeroInspectTokenRef.current = autoOpenHeroInspectToken;
+        setHeroInspectOpen(true);
+        onHeroInspectOpen?.();
+    }, [autoOpenHeroInspectToken]);
+    const lastHandledCloseHeroInspectTokenRef = useRef<number>(0);
+    useEffect(() => {
+        if (closeHeroInspectToken <= 0) return;
+        if (closeHeroInspectToken === lastHandledCloseHeroInspectTokenRef.current) return;
+        lastHandledCloseHeroInspectTokenRef.current = closeHeroInspectToken;
+        setHeroInspectOpen(false);
+    }, [closeHeroInspectToken]);
+    const lastHandledHeroEquipOpenTokenRef = useRef<number>(0);
+    useEffect(() => {
+        if (autoOpenHeroEquipToken <= 0) return;
+        if (autoOpenHeroEquipToken === lastHandledHeroEquipOpenTokenRef.current) return;
+        lastHandledHeroEquipOpenTokenRef.current = autoOpenHeroEquipToken;
+        openInventoryModal(autoOpenHeroEquipFilter, false);
+    }, [autoOpenHeroEquipToken]);
     const lastHandledInventoryAutoOpenTokenRef = useRef<number>(0);
     useEffect(() => {
         if (autoOpenInventoryToken <= 0) {
@@ -1351,6 +1384,7 @@ export const TavernScreen: React.FC<{
             accent: 'border-cyan-400/40 bg-cyan-50 text-[#2f6274] hover:bg-cyan-100',
             onClick: onAlchemist,
         }] : []),
+        ...(onTower && canStartTowerFromCurrentRegion ? [] : []),
     ];
 
     const handleMenuTransition = (target: 'hunt' | 'dungeon') => {
@@ -1377,6 +1411,13 @@ export const TavernScreen: React.FC<{
         setTimeout(() => { onDungeon(); }, 240);
     };
 
+    const confirmEnterTower = () => {
+        setShowTowerConfirm(false);
+        uiSfx.play('confirm_hunt_dungeon');
+        setIsClosing(true);
+        setTimeout(() => { onTower?.(); }, 240);
+    };
+
     const confirmEnterHunt = () => {
         setShowHuntIntroConfirm(false);
         uiSfx.play('confirm_hunt_dungeon');
@@ -1389,11 +1430,18 @@ export const TavernScreen: React.FC<{
         setTimeout(() => { action(); }, 240);
     };
 
-    const handlePortalRegionTravel = (targetRegion: 'forest' | 'dungeon') => {
+    const handlePortalRegionTravel = (targetRegion: 'forest' | 'dungeon' | 'tower') => {
         if (targetRegion === sceneRegion) {
             return;
         }
         if (targetRegion === 'dungeon' && !canNavigateDungeonFromPortal) {
+            return;
+        }
+        if (targetRegion === 'tower') {
+            uiSfx.play('confirm_hunt_dungeon');
+            closePortalTravelModal(() => {
+                onNavigateSceneRegion?.(targetRegion);
+            });
             return;
         }
 
@@ -1452,14 +1500,14 @@ export const TavernScreen: React.FC<{
         },
         {
             id: 'tower',
-            title: 'Torre',
-            subtitle: 'Area central',
+            title: 'Torre Heroica',
+            subtitle: 'Roguelike — ascensão',
             thumbnailUrl: PORTAL_THUMB_TOWER_URL,
-            accentColor: '#6b3141',
-            isCurrent: false,
-            status: 'Desabilitado',
-            disabled: true,
-            onSelect: () => undefined,
+            accentColor: '#6d28d9',
+            isCurrent: sceneRegion === 'tower',
+            status: sceneRegion === 'tower' ? 'Atual' : 'Ir',
+            disabled: sceneRegion === 'tower',
+            onSelect: () => handlePortalRegionTravel('tower' as const),
         },
     ] as const;
     const portalTravelSelectableDestinations = portalTravelDestinations.filter((destination) => !destination.isCurrent);
@@ -1475,6 +1523,19 @@ export const TavernScreen: React.FC<{
         }
         handleServiceTransition(onShop);
     };
+
+    // ── Clock (uses in-game time from DayNightCycle) ────────────────────────────
+    const [gtHours, gtMinutes] = gameTime.split(':').map(Number);
+    const clockHours = isNaN(gtHours) ? 12 : gtHours;
+    const clockMinutes = isNaN(gtMinutes) ? 0 : gtMinutes;
+    const clockTimeStr = `${String(clockHours).padStart(2, '0')}:${String(clockMinutes).padStart(2, '0')}`;
+    const clockPeriod = clockHours >= 5 && clockHours < 12
+        ? { label: 'MANHÃ', color: 'text-amber-300' }
+        : clockHours >= 12 && clockHours < 18
+        ? { label: 'TARDE', color: 'text-orange-400' }
+        : clockHours >= 18 && clockHours < 22
+        ? { label: 'NOITE', color: 'text-indigo-300' }
+        : { label: 'MADRUGADA', color: 'text-blue-400' };
   
   return (
     <>
@@ -1491,142 +1552,75 @@ export const TavernScreen: React.FC<{
                 `}</style>
                 <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(10,16,28,0.04)_0%,rgba(8,12,18,0.46)_64%,rgba(0,0,0,0.62)_100%)] pointer-events-none" />
 
-                <section className="absolute top-2 left-1/2 -translate-x-1/2 sm:translate-x-0 sm:top-5 sm:left-5 w-[min(94vw,320px)] sm:w-[min(92vw,360px)] rounded-2xl border border-[#cfab91] bg-[#fff7ed]/95 p-2.5 sm:p-4 shadow-[0_20px_40px_rgba(0,0,0,0.25)] pointer-events-auto">
-                    <div className="flex items-start justify-between gap-3">
+                {/* CLOCK WIDGET — only in forest/mountain */}
+                {sceneRegion === 'forest' && (
+                <div className="absolute top-3 left-3 sm:top-5 sm:left-5 z-10 pointer-events-none">
+                    <div className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-black/50 backdrop-blur-sm px-3 py-2 shadow-[0_8px_24px_rgba(0,0,0,0.4)]">
+                        <Clock size={22} className="text-white/60 shrink-0" />
                         <div>
-                            <div className="text-[9px] font-black uppercase tracking-[0.22em] text-[#9a7068]">Painel do jogador</div>
-                            <h2 className="mt-1 font-gamer text-lg sm:text-2xl text-[#6b3141]">{player.name}</h2>
-                            <p className="mt-0.5 text-[11px] sm:text-xs text-[#8f6c67]">{currentClass.name} • {currentClass.title}</p>
-                        </div>
-                        <div className="rounded-xl border border-[#cfab91] bg-[#f4e5d4] px-2.5 py-1.5 text-center min-w-[4rem]">
-                            <div className="text-[9px] uppercase tracking-[0.18em] text-[#9a7068]">Nv</div>
-                            <div className="text-lg font-black text-[#6b3141]">{player.level}</div>
+                            <div className="text-sm font-black tracking-[0.12em] text-white leading-none">{clockTimeStr}</div>
+                            <div className={`text-[8px] uppercase tracking-[0.25em] mt-0.5 font-bold ${clockPeriod.color}`}>{clockPeriod.label}</div>
                         </div>
                     </div>
+                </div>
+                )}
 
-                    <div className="mt-3 space-y-2.5">
-                        <div>
-                            <div className="mb-1 flex items-center justify-between text-[10px] font-bold uppercase tracking-[0.14em] text-[#9a4151]">
-                                <span>Vida</span>
-                                <span>{player.stats.hp}/{player.stats.maxHp}</span>
-                            </div>
-                            <div className="h-2 rounded-full bg-[#e9d7c2] overflow-hidden border border-[#dcc0aa]">
-                                <div className="h-full rounded-full bg-[linear-gradient(90deg,#8d2f46,#d17482)] transition-all" style={{ width: `${hpPercent}%` }} />
-                            </div>
-                        </div>
-                        <div>
-                            <div className="mb-1 flex items-center justify-between text-[10px] font-bold uppercase tracking-[0.14em] text-[#346c7f]">
-                                <span>Mana</span>
-                                <span>{player.stats.mp}/{player.stats.maxMp}</span>
-                            </div>
-                            <div className="h-2 rounded-full bg-[#e9d7c2] overflow-hidden border border-[#dcc0aa]">
-                                <div className="h-full rounded-full bg-[linear-gradient(90deg,#2b6878,#66b8d2)] transition-all" style={{ width: `${mpPercent}%` }} />
-                            </div>
-                        </div>
-                        <div>
-                            <div className="mb-1 flex items-center justify-between text-[10px] font-bold uppercase tracking-[0.14em] text-[#8d5e29]">
-                                <span>XP</span>
-                                <span>{player.xp}/{player.xpToNext}</span>
-                            </div>
-                            <div className="h-2 rounded-full bg-[#e9d7c2] overflow-hidden border border-[#dcc0aa]">
-                                <div className="h-full rounded-full bg-[linear-gradient(90deg,#7d3d4d,#c89a66)] transition-all" style={{ width: `${xpPercent}%` }} />
-                            </div>
-                        </div>
+                {/* TOP-RIGHT CURRENCY BAR */}
+                <div className="absolute top-3 right-3 sm:top-5 sm:right-5 z-10 pointer-events-none inline-flex items-center gap-1.5 sm:gap-2">
+                    <div className="inline-flex items-center gap-1.5 rounded-xl border border-amber-400/30 bg-amber-400/10 backdrop-blur-sm px-2.5 py-1.5 text-sm font-black text-amber-300 shadow-[0_4px_12px_rgba(0,0,0,0.25)]">
+                        <GameAssetIcon name="coin" size={18} />
+                        {player.gold}
                     </div>
-                </section>
-
-                <section className="absolute top-[8.8rem] left-1/2 -translate-x-1/2 sm:translate-x-0 sm:top-5 sm:left-auto sm:right-5 w-[min(94vw,320px)] sm:w-[min(92vw,340px)] flex flex-col gap-2 pointer-events-auto">
-                    <div className={`rounded-2xl border border-[#cfab91] bg-[#fff7ed]/95 p-2.5 sm:p-3 shadow-[0_20px_40px_rgba(0,0,0,0.25)] ${showDiamondOnTopHud ? 'grid grid-cols-2 gap-2' : 'grid grid-cols-1'}`}>
-                        <div className="rounded-xl border border-[#cfab91] bg-[#f4e5d4] px-3 py-2">
-                            <div className="text-[9px] uppercase tracking-[0.2em] text-[#9a7068]">Ouro</div>
-                            <div className="mt-1 flex items-center gap-1.5 text-lg font-black text-[#8d5e29]">
-                                <GameAssetIcon name="coin" size={16} /> {player.gold}
-                            </div>
+                    {showDiamondOnTopHud && (
+                        <div className="inline-flex items-center gap-1.5 rounded-xl border border-sky-400/30 bg-sky-400/10 backdrop-blur-sm px-2.5 py-1.5 text-sm font-black text-sky-300 shadow-[0_4px_12px_rgba(0,0,0,0.25)]">
+                            <GameAssetIcon name="diamond" size={18} />
+                            {player.diamonds}
                         </div>
-                        {showDiamondOnTopHud && (
-                            <div className="rounded-xl border border-[#cfab91] bg-[#f4e5d4] px-3 py-2">
-                                <div className="text-[9px] uppercase tracking-[0.2em] text-[#9a7068]">Diamante</div>
-                                <div className="mt-1 flex items-center gap-1.5 text-lg font-black text-[#346c7f]">
-                                    <GameAssetIcon name="diamond" size={16} /> {player.diamonds}
-                                </div>
-                            </div>
-                        )}
+                    )}
+                    <div className="inline-flex items-center gap-1.5 rounded-xl border border-violet-400/30 bg-violet-400/10 backdrop-blur-sm px-2.5 py-1.5 text-sm font-black text-violet-300 shadow-[0_4px_12px_rgba(0,0,0,0.25)]">
+                        <GameAssetIcon name="sapphire" size={18} />
+                        {towerEssence}
                     </div>
+                </div>
 
-                    <div className="rounded-2xl border border-[#cfab91] bg-[#fff7ed]/95 p-2.5 sm:p-3 shadow-[0_20px_40px_rgba(0,0,0,0.25)]">
-                        <div className="text-[9px] font-black uppercase tracking-[0.22em] text-[#9a7068] mb-2">Perfil e mochila</div>
-                        <div className={`grid gap-2 ${profileActions.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
-                            {profileActions.map((action) => (
-                                <button
-                                    key={action.id}
-                                    onClick={action.onClick}
-                                    className={`relative rounded-xl border px-2.5 sm:px-3 py-2 transition-all flex items-center justify-center gap-2 font-black uppercase tracking-[0.12em] text-[9px] sm:text-[10px] ${action.accent}`}
-                                >
-                                    {action.icon}
-                                    <span>{action.label}</span>
-                                    {action.badge && (
-                                        <span
-                                            className="absolute -top-1.5 -right-1.5 inline-flex min-w-[18px] h-[18px] items-center justify-center rounded-full border px-1 text-[10px] font-black text-white"
-                                            style={{ borderColor: `${classAccentColor}cc`, backgroundColor: classAccentColor, boxShadow: `0 4px 10px ${classAccentColor}55` }}
-                                        >
-                                            {action.badge}
-                                        </span>
-                                    )}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-
-                    {!campIntroOnly && serviceActions.map((action) => (
-                        <button
-                            key={action.id}
-                            onClick={() => handleServiceTransition(action.onClick)}
-                            className={`hidden sm:block rounded-2xl border px-4 py-3 transition-all hover:-translate-y-0.5 pointer-events-auto ${action.accent}`}
-                        >
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-xl border border-[#dcc0aa] bg-[#f7ecdd] flex items-center justify-center shrink-0">{action.icon}</div>
-                                <div className="text-left">
-                                    <div className="text-sm font-black uppercase tracking-[0.12em]">{action.label}</div>
-                                    <div className="text-[11px] font-semibold opacity-80">{action.subtitle}</div>
-                                </div>
-                            </div>
-                        </button>
-                    ))}
-                </section>
-
+                {!heroInspectOpen && !showPortalTravelModal && !portalInspectMode && (
                 <section className="absolute left-1/2 -translate-x-1/2 bottom-2 sm:bottom-6 w-[min(94vw,380px)] sm:w-[min(96vw,900px)] pointer-events-none">
-                    <div className="text-center text-[#f8eddf] drop-shadow-[0_4px_12px_rgba(0,0,0,0.65)] mb-1.5 sm:mb-3 pointer-events-none">
-                        <div className="text-[9px] sm:text-[11px] font-black uppercase tracking-[0.24em]">Aventura</div>
-                        <div className="mt-0.5 text-[9px] sm:text-[11px] font-black uppercase tracking-[0.16em] text-[#d9ecff]">Local atual: {currentRegionLabel}</div>
-                        {!bossUnlocked && <div className="mt-0.5 text-[9px] sm:text-xs font-bold uppercase tracking-[0.16em] text-[#f8d9c1]">Faltam {killsRemaining} para liberar o chefao</div>}
-                    </div>
-                    <div className="grid grid-cols-2 gap-2 pointer-events-auto mb-2 sm:hidden">
-                        {!campIntroOnly && serviceActions.map((action) => (
-                            <button
-                                key={`mobile_${action.id}`}
-                                onClick={() => handleServiceTransition(action.onClick)}
-                                className={`rounded-xl border px-2.5 py-2.5 text-center transition-all hover:-translate-y-0.5 ${action.accent}`}
-                            >
-                                <div className="flex items-center justify-center gap-1.5 text-xs font-black uppercase tracking-[0.1em]">
-                                    {action.icon}
-                                    {action.label}
-                                </div>
-                            </button>
-                        ))}
-
-                        {canStartHuntFromCurrentRegion && (
-                            <button onClick={() => handleMenuTransition('hunt')} className="rounded-xl border border-[#b26a2e] bg-[#b87a3a]/95 px-2.5 py-2.5 text-center transition-all hover:-translate-y-0.5 hover:bg-[#c88a4a]">
-                                <div className="flex items-center justify-center gap-1.5 text-xs font-black text-white"><Sword size={17} /> Cacar</div>
-                            </button>
-                        )}
-
-                        {canStartDungeonFromCurrentRegion && (
-                            <button onClick={() => handleMenuTransition('dungeon')} className="rounded-xl border border-[#3b6580] bg-[#4d7a96]/95 px-2.5 py-2.5 text-center transition-all hover:-translate-y-0.5 hover:bg-[#5a8aa6]">
-                                <div className="flex items-center justify-center gap-1.5 text-xs font-black text-white"><Crosshair size={17} /> Dungeon</div>
-                            </button>
-                        )}
-
-                    </div>
+                    {(() => {
+                        const mobileActions = [
+                            canStartHuntFromCurrentRegion,
+                            canStartDungeonFromCurrentRegion,
+                            canStartTowerFromCurrentRegion && !!onTower,
+                        ].filter(Boolean).length;
+                        const mobileCols = mobileActions >= 3 ? 'grid-cols-3' : mobileActions === 2 ? 'grid-cols-2' : 'grid-cols-1';
+                        return (
+                        <div className={`grid ${mobileCols} gap-1.5 pointer-events-auto mb-2 sm:hidden`}>
+                            {canStartHuntFromCurrentRegion && (
+                                <button onClick={() => handleMenuTransition('hunt')} className="rounded-xl border border-[#b26a2e] bg-[#b87a3a]/95 px-1.5 py-2.5 text-center transition-all hover:-translate-y-0.5 hover:bg-[#c88a4a]">
+                                    <div className="flex flex-col items-center gap-0.5">
+                                        <Sword size={16} className="text-white" />
+                                        <span className="text-[10px] font-black text-white leading-none">Caçar</span>
+                                    </div>
+                                </button>
+                            )}
+                            {canStartDungeonFromCurrentRegion && (
+                                <button onClick={() => handleMenuTransition('dungeon')} className="rounded-xl border border-[#3b6580] bg-[#4d7a96]/95 px-1.5 py-2.5 text-center transition-all hover:-translate-y-0.5 hover:bg-[#5a8aa6]">
+                                    <div className="flex flex-col items-center gap-0.5">
+                                        <Crosshair size={16} className="text-white" />
+                                        <span className="text-[10px] font-black text-white leading-none">Dungeon</span>
+                                    </div>
+                                </button>
+                            )}
+                            {canStartTowerFromCurrentRegion && onTower && (
+                                <button onClick={() => setShowTowerConfirm(true)} className="rounded-xl border border-violet-700 bg-[#6d28d9]/95 px-1.5 py-2.5 text-center transition-all hover:-translate-y-0.5 hover:bg-[#7c3aed]">
+                                    <div className="flex flex-col items-center gap-0.5">
+                                        <Crown size={16} className="text-white" />
+                                        <span className="text-[10px] font-black text-white leading-none">Torre</span>
+                                    </div>
+                                </button>
+                            )}
+                        </div>
+                        );
+                    })()}
 
                     {!campIntroOnly && canStartBossFromCurrentRegion && (
                         <button onClick={() => handleServiceTransition(onBoss)} className="mb-2 rounded-xl border border-[#a83a42] bg-[#c44b54]/95 px-2.5 py-2.5 text-center transition-all hover:-translate-y-0.5 hover:bg-[#b5424a] pointer-events-auto sm:hidden">
@@ -1649,6 +1643,13 @@ export const TavernScreen: React.FC<{
                             </button>
                         )}
 
+                        {canStartTowerFromCurrentRegion && onTower && (
+                            <button onClick={() => setShowTowerConfirm(true)} className="rounded-2xl border border-violet-700 bg-[#6d28d9]/95 px-4 py-4 text-center transition-all hover:-translate-y-0.5 hover:bg-[#7c3aed]">
+                                <div className="flex items-center justify-center gap-2 text-base sm:text-lg font-black text-white"><Crown size={20} /> Torre</div>
+                                <div className="mt-1 text-[10px] uppercase tracking-[0.2em] text-violet-200">Roguelike</div>
+                            </button>
+                        )}
+
                         {canStartBossFromCurrentRegion && (
                             <button onClick={() => handleServiceTransition(onBoss)} className="rounded-2xl border px-4 py-4 text-center transition-all border-[#a83a42] bg-[#c44b54]/95 hover:-translate-y-0.5 hover:bg-[#b5424a]">
                                 <div className="flex items-center justify-center gap-2 text-base sm:text-lg font-black text-white"><Skull size={20} /> Chefao</div>
@@ -1657,6 +1658,7 @@ export const TavernScreen: React.FC<{
                         )}
                     </div>
                 </section>
+                )}
             </div>
     <AnimatedModal open={showProfile}>
         {(isClosing) => (
@@ -1925,6 +1927,44 @@ export const TavernScreen: React.FC<{
                     </button>
                     <button onClick={confirmEnterDungeon} className="rounded-xl bg-[#4d7a96] px-4 py-3 font-black text-white shadow-[0_8px_24px_rgba(77,122,150,0.28)] transition-all hover:bg-[#5a8aa6]">
                         Entrar
+                    </button>
+                </div>
+            </div>
+        </div>
+    )}
+
+    {showTowerConfirm && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-sm pointer-events-auto p-4" onClick={() => setShowTowerConfirm(false)}>
+            <div className="w-full max-w-sm rounded-[28px] border border-violet-300/30 bg-[#f5f0ff] shadow-[0_30px_80px_rgba(91,33,182,0.28)] overflow-hidden" onClick={e => e.stopPropagation()}>
+                <div className="bg-gradient-to-br from-[#4c1d95] to-[#6d28d9] px-6 py-5 text-center">
+                    <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.3em] text-violet-100">
+                        <Crown size={12} /> Torre Heroica
+                    </div>
+                    <h3 className="mt-3 text-2xl font-black text-white">Entrar na Torre?</h3>
+                    <p className="mt-1.5 text-sm text-violet-200">Um desafio roguelike único — suba o mais alto que puder.</p>
+                </div>
+
+                <div className="flex flex-col gap-3 px-6 py-5">
+                    <div className="flex items-start gap-3 rounded-2xl border border-violet-400/25 bg-violet-400/8 px-4 py-3">
+                        <Star size={16} className="text-violet-600 mt-0.5 shrink-0" />
+                        <p className="text-sm text-[#3b0764] leading-snug"><span className="font-black">15 andares.</span> Cada andar traz um novo inimigo e recompensas únicas. Suba o mais longe possível.</p>
+                    </div>
+                    <div className="flex items-start gap-3 rounded-2xl border border-violet-400/25 bg-violet-400/8 px-4 py-3">
+                        <Sparkles size={16} className="text-violet-600 mt-0.5 shrink-0" />
+                        <p className="text-sm text-[#3b0764] leading-snug"><span className="font-black">Essência.</span> Moeda exclusiva da torre — usada para melhorar slots e desbloquear cartas de run.</p>
+                    </div>
+                    <div className="flex items-start gap-3 rounded-2xl border border-violet-400/25 bg-violet-400/8 px-4 py-3">
+                        <AlertTriangle size={16} className="text-violet-600 mt-0.5 shrink-0" />
+                        <p className="text-sm text-[#3b0764] leading-snug"><span className="font-black">Ao morrer, perde-se a run.</span> Progresso interno da torre é zerado, mas Essência acumulada é preservada.</p>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 px-6 pb-6">
+                    <button onClick={() => setShowTowerConfirm(false)} className="rounded-xl border border-violet-200 bg-violet-50 px-4 py-3 font-black text-violet-700 transition-colors hover:bg-violet-100">
+                        Cancelar
+                    </button>
+                    <button onClick={confirmEnterTower} className="rounded-xl bg-gradient-to-br from-[#5b21b6] to-[#7c3aed] px-4 py-3 font-black text-white shadow-[0_8px_24px_rgba(109,40,217,0.35)] transition-all hover:from-[#6d28d9] hover:to-[#8b5cf6]">
+                        Entrar na Torre
                     </button>
                 </div>
             </div>

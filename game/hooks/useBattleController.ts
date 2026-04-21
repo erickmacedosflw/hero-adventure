@@ -120,6 +120,7 @@ interface UseBattleControllerParams {
   setEnemyBowShotDidHit: Dispatch<SetStateAction<boolean>>;
   enemyIntentPreview?: EnemyIntentPreview | null;
   onPlayerDefeat?: () => void;
+  onTowerDefeat?: () => void;
 }
 
 const getMarkedBonus = (statuses: Enemy['statusEffects'] | undefined, value: number) => (
@@ -386,6 +387,7 @@ export const useBattleController = ({
   setEnemyBowShotDidHit,
   enemyIntentPreview,
   onPlayerDefeat,
+  onTowerDefeat,
 }: UseBattleControllerParams) => {
   const handleVictoryRef = useRef(handleVictory);
   const lastPlayerActionRef = useRef<'attack' | 'defend' | 'skill' | 'item' | null>(null);
@@ -2154,7 +2156,11 @@ export const useBattleController = ({
               if (remainingHpAfterHit <= 0) {
                 onPlayerDefeat?.();
                 window.setTimeout(() => {
-                  if (dungeonRun) {
+                  if (onTowerDefeat) {
+                    setEnemy(null);
+                    setEnemyIntentPreview(null);
+                    onTowerDefeat();
+                  } else if (dungeonRun) {
                     setKillCount(0);
                     setPlayer((prev) => ({
                       ...clonePlayer(dungeonRun.entrySnapshot),
@@ -2415,7 +2421,11 @@ export const useBattleController = ({
             if (remainingHpAfterHit <= 0) {
               onPlayerDefeat?.();
               window.setTimeout(() => {
-                if (dungeonRun) {
+                if (onTowerDefeat) {
+                  setEnemy(null);
+                  setEnemyIntentPreview(null);
+                  onTowerDefeat();
+                } else if (dungeonRun) {
                   setKillCount(0);
                   setPlayer((prev) => ({
                     ...clonePlayer(dungeonRun.entrySnapshot),

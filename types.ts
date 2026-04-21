@@ -9,7 +9,22 @@ export enum GameState {
   GAME_OVER,
   VICTORY,
   BOSS_VICTORY,
-  CARD_REWARD
+  CARD_REWARD,
+  TOWER_HUB,
+  TOWER_MAP,
+  TOWER_SANCTUARY,
+  TOWER_RESULT
+}
+
+export enum TowerNodeType {
+  COMBAT = 'COMBAT',
+  ELITE = 'ELITE',
+  EVENT = 'EVENT',
+  CHEST = 'CHEST',
+  UPGRADE = 'UPGRADE',
+  SHOP = 'SHOP',
+  HEAL = 'HEAL',
+  RANDOM = 'RANDOM'
 }
 
 export enum TurnState {
@@ -651,4 +666,128 @@ export interface SpriteOverlayAnimationDefinition {
     frames: SpriteFrameRect[];
   };
   spriteTracks: SpriteTrackDefinition[];
+}
+
+// ─── TOWER / ROGUELIKE TYPES ────────────────────────────────────────────────
+
+export interface TowerNode {
+  id: string;
+  type: TowerNodeType;
+  column: number;
+  row: number;
+  connections: string[]; // IDs of nodes in next column this connects to
+  completed: boolean;
+  available: boolean;
+  difficulty?: number; // 1-3 relative difficulty modifier
+}
+
+export interface TowerFloorMap {
+  floorNumber: number;
+  act: number;
+  nodeColumns: TowerNode[][];  // array of columns, each column is an array of nodes
+  bossNodeId: string;          // ID of the boss node (final column)
+}
+
+export interface ConsumableSlot {
+  itemId: string | null;
+  quantity: number;
+  maxQuantity: number;
+}
+
+export type RunCardType = 'attack' | 'defense' | 'passive' | 'special';
+
+export interface RunCardEffect {
+  stat?: keyof Stats;
+  statBonus?: number;
+  bonusKey?: string;
+  bonusValue?: number;
+  goldGainBonus?: number;
+  healBonus?: number;
+  mpRegenBonus?: number;
+  hpRegenBonus?: number;
+}
+
+export interface RunCard {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  type: RunCardType;
+  rarity: Rarity;
+  effects: RunCardEffect[];
+}
+
+export interface TowerRunRewards {
+  gold: number;
+  xp: number;
+  essenceEarned: number;
+  drops: Record<string, number>;
+}
+
+export type TowerRunPhase = 'map' | 'node' | 'sanctuary' | 'complete';
+
+export interface TowerRunState {
+  floor: number;
+  act: number;
+  loop: number;
+  currentFloorMap: TowerFloorMap;
+  completedNodeIds: string[];
+  selectedNodeId: string | null;    // node currently being resolved
+  entrySnapshot: Player;            // HUB equipment snapshot — restored on death/exit
+  runEquipment: {
+    weapon: Item | null;
+    armor: Item | null;
+    helmet: Item | null;
+    legs: Item | null;
+    shield: Item | null;
+  };
+  consumableSlots: ConsumableSlot[];
+  runCards: RunCard[];
+  accumulatedRewards: TowerRunRewards;
+  phase: TowerRunPhase;
+}
+
+export interface TowerMeta {
+  essence: number;
+  consumableSlotsLevel: number;    // 1 = 3 slots, 2 = 4 slots, 3 = 5 slots
+  highestFloor: number;
+  highestLoop: number;
+}
+
+export type TowerSanctuaryOptionKind = 'heal' | 'card' | 'merchant' | 'gold' | 'relic' | 'tradeoff';
+
+export interface TowerSanctuaryOption {
+  id: string;
+  kind: TowerSanctuaryOptionKind;
+  label: string;
+  description: string;
+  icon: string;
+  // Inline effect data
+  healPercent?: number;         // for 'heal'
+  cardId?: string;              // for 'card'
+  goldAmount?: number;          // for 'gold'
+  relicCardId?: string;         // for 'relic'
+  tradeHpForAtk?: number;       // for 'tradeoff'
+}
+
+export type TowerEventOptionEffect =
+  | { type: 'gold'; amount: number }
+  | { type: 'heal'; percent: number }
+  | { type: 'card'; cardId: string }
+  | { type: 'item'; itemId: string }
+  | { type: 'hp_loss'; percent: number }
+  | { type: 'nothing' };
+
+export interface TowerEventOption {
+  label: string;
+  description: string;
+  effect: TowerEventOptionEffect;
+}
+
+export interface TowerEvent {
+  id: string;
+  title: string;
+  description: string;
+  icon: string;
+  options: TowerEventOption[];
 }

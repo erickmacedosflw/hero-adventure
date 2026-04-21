@@ -54,6 +54,8 @@ interface UseBattleResolutionParams {
   shouldTriggerConstellationUnlockTutorial: boolean;
   onTriggerConstellationUnlockTutorial: () => void;
   allowPotionDrops: boolean;
+  isTowerBattle?: boolean;
+  onTowerVictory?: () => void;
 }
 
 export const useBattleResolution = ({
@@ -95,9 +97,24 @@ export const useBattleResolution = ({
   shouldTriggerConstellationUnlockTutorial,
   onTriggerConstellationUnlockTutorial,
   allowPotionDrops,
+  isTowerBattle,
+  onTowerVictory,
 }: UseBattleResolutionParams) => {
   const handleVictory = useCallback(async (delayMs = 0) => {
     if (!enemy) return;
+
+    if (isTowerBattle && onTowerVictory) {
+      setPlayerAnimationAction('idle');
+      if (delayMs > 0) {
+        await new Promise<void>((resolve) => { window.setTimeout(() => resolve(), delayMs); });
+      }
+      const xpGain = Math.floor(enemy.xpReward * (1 + player.cardBonuses.xpGainMultiplier));
+      const goldGain = Math.floor(enemy.goldReward * (1 + player.cardBonuses.goldGainMultiplier));
+      setPlayer(prev => ({ ...prev, xp: prev.xp + xpGain, gold: prev.gold + goldGain }));
+      setEnemy(null);
+      onTowerVictory();
+      return;
+    }
 
     setPlayerAnimationAction('idle');
 

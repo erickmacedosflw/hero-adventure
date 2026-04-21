@@ -163,39 +163,45 @@ const DEFAULT_HERO_SELECTION_SLOTS: DeveloperScenarioComposerHeroSlot[] = [
 
 const createDefaultScenarioComposerConfig = (scenarioId: DeveloperScenarioComposerId): DeveloperScenarioComposerConfig => {
   if (scenarioId === 'tower') {
+    // Synchronized with runtimeScenarios.ts tower preset (exportedAt: 2026-04-21T05:34:03.223Z)
     return {
       scenarioId,
       scenarioTransform: {
-        position: [0, -1.15, 0],
-        rotation: [0, 0, 0],
-        scale: 1,
+        position: [-1.0421131349766313, 5.338599053769031, -0.20450430643063555],
+        rotation: [0, -1.4152377086023438, 0],
+        scale: 17.658567621858744,
       },
       sceneObjects: [],
       heroBasePosition: [-2.1, -1, 0],
       enemyBasePosition: [2.1, -1, 0],
+      menuPortalTransform: {
+        position: [-4.22, -0.97, 0.58],
+        rotation: [0, 1.36, 0],
+        scale: 1.0596,
+      },
       lighting: {
-        ambientColor: '#e2e8f0',
+        ambientColor: '#fffff5',
         ambientIntensity: 0.58,
-        directionalColor: '#c7d2fe',
+        directionalColor: '#ac97e2',
         directionalIntensity: 1.12,
         directionalPosition: [3.2, 6.1, 5.2],
       },
       atmosphere: {
         fogEnabled: true,
-        fogColor: '#1f2937',
+        fogColor: '#7d6991',
         fogNear: 12,
         fogFar: 42,
       },
       particles: {
         dustEnabled: true,
-        mistEnabled: true,
+        mistEnabled: false,
         density: 0.5,
         speed: 0.42,
         opacity: 0.22,
       },
-      cameraMode: 'battle-sim',
+      cameraMode: 'free',
       cameraState: {
-        position: [0, 2.2, 11],
+        position: [1.761540986929978, 2.892757405084535, 11.962994558348678],
         target: [0, 0.2, 0],
         fov: 45,
       },
@@ -530,7 +536,6 @@ export const DeveloperConsole: React.FC = () => {
   const [scenarioObjectTemplateId, setScenarioObjectTemplateId] = useState<DeveloperScenarioObjectTemplateId>('forest');
   const [scenarioSelectedObjectId, setScenarioSelectedObjectId] = useState('');
   const [scenarioExportStatus, setScenarioExportStatus] = useState<'idle' | 'copied' | 'downloaded' | 'error'>('idle');
-  const [menuPortalTransform, setMenuPortalTransform] = useState<RuntimeMenuPortalTransform>(createDefaultMenuPortalTransform);
   const [menuPortalExportStatus, setMenuPortalExportStatus] = useState<'idle' | 'copied' | 'downloaded' | 'error'>('idle');
   const selectedClass = useMemo(() => getPlayerClassById(classId), [classId]);
   const monsterCatalog = useMemo(() => {
@@ -559,6 +564,10 @@ export const DeveloperConsole: React.FC = () => {
   );
   const activeScenarioConfig = scenarioEditorConfigs[scenarioEditorScenarioId];
   const activeScenarioCatalogEntry = DEVELOPER_SCENARIO_CATALOG[scenarioEditorScenarioId];
+  // menuPortalTransform is stored per-scenario inside activeScenarioConfig so it gets
+  // included in the scenario JSON export automatically.
+  const menuPortalTransform: RuntimeMenuPortalTransform =
+    activeScenarioConfig.menuPortalTransform ?? createDefaultMenuPortalTransform();
   const activeScenarioSelectedObject = useMemo(
     () => activeScenarioConfig?.sceneObjects.find((entry) => entry.id === scenarioSelectedObjectId),
     [activeScenarioConfig?.sceneObjects, scenarioSelectedObjectId],
@@ -945,10 +954,13 @@ export const DeveloperConsole: React.FC = () => {
     rotation: [number, number, number];
     scale: number;
   }) => {
-    setMenuPortalTransform((current) => ({
-      position: [...transform.position] as [number, number, number],
-      rotation: [...transform.rotation] as [number, number, number],
-      scale: Number.isFinite(transform.scale) ? Math.max(0.0001, transform.scale) : current.scale,
+    updateActiveScenarioConfig((current) => ({
+      ...current,
+      menuPortalTransform: {
+        position: [...transform.position] as [number, number, number],
+        rotation: [...transform.rotation] as [number, number, number],
+        scale: Number.isFinite(transform.scale) ? Math.max(0.0001, transform.scale) : (current.menuPortalTransform?.scale ?? 1),
+      },
     }));
   };
 
@@ -1072,7 +1084,11 @@ export const DeveloperConsole: React.FC = () => {
   };
 
   const handleResetMenuPortalTransform = () => {
-    setMenuPortalTransform(createDefaultMenuPortalTransform());
+    updateActiveScenarioConfig((current) => {
+      const next = { ...current };
+      delete next.menuPortalTransform;
+      return next;
+    });
     setMenuPortalExportStatus('idle');
   };
 

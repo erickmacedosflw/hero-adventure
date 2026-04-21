@@ -28,12 +28,20 @@ import { SavePayload, SaveSlotId, SaveSlotSummary, getActiveSaveSlotId, listSave
 import { useBattleController } from './game/hooks/useBattleController';
 import { useBattleResolution } from './game/hooks/useBattleResolution';
 import { generateBattleDescription, generateVictorySpeech } from './services/battleNarrationService';
+import { TowerRunState, TowerMeta, TowerNode, TowerNodeType, TowerSanctuaryOption, TowerEventOption, RunCard, ConsumableSlot } from './types';
+import { DEFAULT_TOWER_META, TOWER_CONSUMABLE_UPGRADE_COST } from './constants';
+import { TowerHubScreen } from './components/tower/TowerHubScreen';
+import { TowerMapScreen } from './components/tower/TowerMapScreen';
+import { TowerSanctuaryScreen } from './components/tower/TowerSanctuaryScreen';
+import { TowerResultScreen } from './components/tower/TowerResultScreen';
+import { buildTowerRunState, getDefaultTowerMeta, resolveTowerDeath, completeNode, getSanctuaryOptions, getRunCardOffer, getTowerShopItems, advanceToNextFloor, calculateEssenceReward, applyTowerRunRewardsToPlayer, scaleEnemyForTower } from './game/mechanics/towerEngine';
+import { TOWER_RUN_CARDS, TOWER_EVENTS } from './game/data/tower';
 import { getDefaultRenderQualityPreset, type RenderQualityPreset } from './components/scene3d/environment';
 
 type BootWindow = Window & { __heroAdventureBootReady?: boolean };
 const MENU_CAMERA_TRANSITION_MS = 2500;
 const PORTAL_TRAVEL_CAMERA_ZOOM_MS = 720;
-type SceneRegion = 'forest' | 'dungeon';
+type SceneRegion = 'forest' | 'dungeon' | 'tower';
 type OnboardingPhase = 'intro_camp' | 'post_first_hunt' | 'inventory_prompt' | 'inventory_unlocked' | 'cards_prompt' | 'cards_unlocked' | 'merchant_prompt' | 'merchant_unlocked' | 'items_prompt' | 'flee_prompt' | 'flee_unlocked' | 'dungeon_prompt' | 'dungeon_unlocked' | 'alchemist_prompt' | 'alchemist_unlocked';
 
 const ONBOARDING_PHASES: OnboardingPhase[] = [
@@ -683,6 +691,16 @@ export default function App() {
     const [dungeonRun, setDungeonRun] = useState<DungeonRunState | null>(null);
     const [dungeonResult, setDungeonResult] = useState<DungeonResult | null>(null);
     const [bossVictoryContext, setBossVictoryContext] = useState<BossVictoryContext | null>(null);
+    // Tower state
+    const [towerRun, setTowerRun] = useState<TowerRunState | null>(null);
+    const [towerMeta, setTowerMeta] = useState<TowerMeta>(() => getDefaultTowerMeta());
+    const [towerActiveEvent, setTowerActiveEvent] = useState<typeof TOWER_EVENTS[number] | null>(null);
+    const [towerCardOffer, setTowerCardOffer] = useState<RunCard[] | null>(null);
+    const [towerShopItems, setTowerShopItems] = useState<Item[] | null>(null);
+    const [towerSanctuaryOptions, setTowerSanctuaryOptions] = useState<TowerSanctuaryOption[]>([]);
+    const [towerRunItems, setTowerRunItems] = useState<Item[]>([]);
+    const [towerResultOutcome, setTowerResultOutcome] = useState<'victory' | 'defeat' | 'withdrawal'>('defeat');
+    const towerRunRef = useRef<TowerRunState | null>(null);
     const postCardFlowRef = useRef<'tavern' | 'boss-victory' | 'resume-hunt' | null>(null);
     const bossVictoryContextRef = useRef<BossVictoryContext | null>(null);
     const [pendingDungeonQueue, setPendingDungeonQueue] = useState<CardRewardOffer[]>([]);
@@ -769,10 +787,18 @@ export default function App() {
     const [openInventoryFromShopToken, setOpenInventoryFromShopToken] = useState(0);
     const [openInventoryFromShopFilter, setOpenInventoryFromShopFilter] = useState<'all' | 'equipment' | 'potion' | 'material'>('all');
     const [openProfileFromHeroToken, setOpenProfileFromHeroToken] = useState(0);
+    const [openHeroInspectToken, setOpenHeroInspectToken] = useState(0);
+    const [heroInspectMode, setHeroInspectMode] = useState(false);
+    const [heroInspectCloseToken, setHeroInspectCloseToken] = useState(0);
+    const [heroEquipOpenToken, setHeroEquipOpenToken] = useState(0);
+    const [heroEquipOpenFilter, setHeroEquipOpenFilter] = useState<'weapon' | 'shield' | 'helmet' | 'armor' | 'legs'>('weapon');
     const huntEnemyBagRef = useRef<EnemyTemplate[]>([]);
     const dungeonEnemyBagRef = useRef<DungeonEnemyTemplate[]>([]);
     const [sceneRegion, setSceneRegion] = useState<SceneRegion>('forest');
     const [openPortalTravelToken, setOpenPortalTravelToken] = useState(0);
+    const [portalInspectMode, setPortalInspectMode] = useState(false);
+    const [portalTransitioning, setPortalTransitioning] = useState(false);
+    const portalTransitionClearTimerRef = useRef<number | null>(null);
     const [menuPortalTravelCinematicToken, setMenuPortalTravelCinematicToken] = useState(0);
     const [onboardingPhase, setOnboardingPhase] = useState<OnboardingPhase>('intro_camp');
     const [hasPlayerDiedOnce, setHasPlayerDiedOnce] = useState(false);
@@ -822,8 +848,9 @@ export default function App() {
             menuHeroActionResetTimerRef.current = null;
         }
 
+        setPortalInspectMode(false);
         setMenuHeroAction('item');
-        setOpenProfileFromHeroToken((prev) => prev + 1);
+        setOpenHeroInspectToken((prev) => prev + 1);
         menuHeroActionResetTimerRef.current = window.setTimeout(() => {
             menuHeroActionResetTimerRef.current = null;
             setMenuHeroAction('idle');
@@ -864,6 +891,8 @@ export default function App() {
         dungeonResult: cloneDungeonResultState(dungeonResult),
         bossVictoryContext: cloneBossVictoryContextState(bossVictoryContext),
         pendingDungeonQueue: cloneCardRewardOffers(pendingDungeonQueue),
+        towerRun: towerRun ? JSON.parse(JSON.stringify(towerRun)) as TowerRunState : null,
+        towerMeta: { ...towerMeta },
         logs: cloneBattleLogs(logs),
         narration,
         sceneRegion,
@@ -898,6 +927,8 @@ export default function App() {
         impulseUnlockPromptQueue,
         stage,
         turnState,
+        towerRun,
+        towerMeta,
     ]);
 
     const persistSaveNow = useCallback((stateOverride?: Partial<SavePayload>) => {
@@ -1000,6 +1031,8 @@ export default function App() {
         setDungeonResult(wasInterrupted ? null : restoredDungeonResult);
         setBossVictoryContext(wasInterrupted ? null : restoredBossVictoryContext);
         setPendingDungeonQueue(wasInterrupted ? [] : restoredPendingDungeonQueue);
+        setTowerRun(wasInterrupted ? null : (payload.towerRun ?? null));
+        setTowerMeta(payload.towerMeta ?? getDefaultTowerMeta());
         setCardRewardQueue(wasInterrupted ? [] : restoredCardRewardQueue);
         setCurrentCardOffer(wasInterrupted ? null : restoredCurrentCardOffer);
         setCurrentCardChoices(wasInterrupted ? [] : restoredCurrentCardChoices);
@@ -1019,6 +1052,10 @@ export default function App() {
                 || payload.gameState === GameState.CARD_REWARD
                 || payload.gameState === GameState.BOSS_VICTORY
                 || payload.gameState === GameState.DUNGEON_RESULT
+                || payload.gameState === GameState.TOWER_HUB
+                || payload.gameState === GameState.TOWER_MAP
+                || payload.gameState === GameState.TOWER_SANCTUARY
+                || payload.gameState === GameState.TOWER_RESULT
                 ? payload.gameState
                 : GameState.TAVERN;
             setGameState(resumableState);
@@ -1229,6 +1266,10 @@ export default function App() {
     useEffect(() => {
         bossVictoryContextRef.current = bossVictoryContext;
     }, [bossVictoryContext]);
+
+    useEffect(() => {
+        towerRunRef.current = towerRun;
+    }, [towerRun]);
 
   // --- VFX SYSTEM ---
   const spawnParticles = (position: [number, number, number], count: number, color: string, type: 'explode' | 'heal' | 'spark') => {
@@ -2025,8 +2066,7 @@ export default function App() {
             if (gameState !== GameState.TAVERN) {
                 return;
             }
-
-            setOpenPortalTravelToken((prev) => prev + 1);
+            setPortalInspectMode(true);
   }, [gameState]);
 
   const handleNavigateSceneRegion = useCallback((targetRegion: SceneRegion) => {
@@ -2039,6 +2079,31 @@ export default function App() {
                 return;
             }
             if (targetRegion === sceneRegion) {
+                return;
+            }
+
+            // Hide action buttons for the full cinematic duration (zoom-in 0.72s +
+            // hold 0.24s + zoom-out 0.82s ≈ 1.8s) plus a small buffer.
+            setPortalTransitioning(true);
+            if (portalTransitionClearTimerRef.current !== null) {
+                window.clearTimeout(portalTransitionClearTimerRef.current);
+            }
+            portalTransitionClearTimerRef.current = window.setTimeout(() => {
+                portalTransitionClearTimerRef.current = null;
+                setPortalTransitioning(false);
+            }, 2200);
+
+            if (targetRegion === 'tower') {
+                setMenuPortalTravelCinematicToken((prev) => prev + 1);
+
+                if (portalTravelRegionSwapTimerRef.current !== null) {
+                    window.clearTimeout(portalTravelRegionSwapTimerRef.current);
+                }
+
+                portalTravelRegionSwapTimerRef.current = window.setTimeout(() => {
+                    portalTravelRegionSwapTimerRef.current = null;
+                    setSceneRegion('tower');
+                }, PORTAL_TRAVEL_CAMERA_ZOOM_MS);
                 return;
             }
 
@@ -2194,7 +2259,210 @@ export default function App() {
     }, 800);
   };
 
+  // ---- Tower handlers ----
+
+  const handleEnterTower = useCallback(() => {
+      uiSfx.play('modal_open');
+      setSceneRegion('tower');
+      setGameState(GameState.TOWER_HUB);
+  }, []);
+
+  const handleStartTowerRun = useCallback((slots: ConsumableSlot[]) => {
+      const run = buildTowerRunState(player, towerMeta, slots);
+      setTowerRun(run);
+      setTowerRunItems([]);
+      setGameState(GameState.TOWER_MAP);
+  }, [player, towerMeta]);
+
+  const handleUpgradeTowerSlots = useCallback(() => {
+      const nextLevel = towerMeta.consumableSlotsLevel + 1;
+      const cost = TOWER_CONSUMABLE_UPGRADE_COST[nextLevel];
+      if (!cost || towerMeta.essence < cost) return;
+      setTowerMeta(prev => ({ ...prev, essence: prev.essence - cost, consumableSlotsLevel: nextLevel }));
+  }, [towerMeta]);
+
+  const handleTowerVictory = useCallback(() => {
+      const run = towerRunRef.current;
+      if (!run) return;
+      const nodeId = run.selectedNodeId;
+      if (!nodeId) return;
+      const newMap = completeNode(run.currentFloorMap, nodeId);
+      const isBossFloor = [5, 10, 15].includes(run.floor);
+      const essenceEarned = calculateEssenceReward(run.floor);
+      const updatedRun: TowerRunState = {
+          ...run,
+          currentFloorMap: newMap,
+          completedNodeIds: [...run.completedNodeIds, nodeId],
+          selectedNodeId: null,
+          accumulatedRewards: { ...run.accumulatedRewards, essenceEarned: run.accumulatedRewards.essenceEarned + essenceEarned },
+      };
+      setTowerRun(updatedRun);
+      setSceneRegion('forest');
+      if (isBossFloor) {
+          const sanctuaryOpts = getSanctuaryOptions(run.floor, run.act);
+          setTowerSanctuaryOptions(sanctuaryOpts);
+          setGameState(GameState.TOWER_SANCTUARY);
+      } else {
+          setGameState(GameState.TOWER_MAP);
+      }
+  }, []);
+
+  const handleTowerDeath = useCallback(() => {
+      const run = towerRunRef.current;
+      if (!run) return;
+      const restoredPlayer = resolveTowerDeath(run);
+      setPlayer(clonePlayer(restoredPlayer));
+      setTowerResultOutcome('defeat');
+      setGameState(GameState.TOWER_RESULT);
+  }, []);
+
+  const handleTowerSanctuaryChoose = useCallback((option: TowerSanctuaryOption) => {
+      setTowerRun(prev => {
+          if (!prev) return null;
+          let updatedRun = { ...prev };
+          if (option.cardId) {
+              const card = TOWER_RUN_CARDS.find(c => c.id === option.cardId);
+              if (card) updatedRun.runCards = [...updatedRun.runCards, card];
+          }
+          return advanceToNextFloor(updatedRun);
+      });
+      if (option.healPercent) {
+          const pct = option.healPercent;
+          setPlayer(prev => ({ ...prev, stats: { ...prev.stats, hp: Math.min(prev.stats.maxHp, prev.stats.hp + Math.floor(prev.stats.maxHp * (pct / 100))) } }));
+      }
+      if (option.goldAmount && option.goldAmount > 0) {
+          const amt = option.goldAmount;
+          setPlayer(prev => ({ ...prev, gold: prev.gold + amt }));
+      }
+      if (option.tradeHpForAtk) {
+          const loss = option.tradeHpForAtk;
+          setPlayer(prev => ({ ...prev, stats: { ...prev.stats, maxHp: prev.stats.maxHp - loss, atk: prev.stats.atk + 12 } }));
+      }
+      setGameState(GameState.TOWER_MAP);
+  }, []);
+
+  const handleTowerNodeSelect = useCallback((node: TowerNode) => {
+      setTowerRun(prev => prev ? { ...prev, selectedNodeId: node.id } : null);
+      switch (node.type) {
+          case TowerNodeType.HEAL: {
+              setPlayer(prev => ({ ...prev, stats: { ...prev.stats, hp: Math.min(prev.stats.maxHp, prev.stats.hp + Math.floor(prev.stats.maxHp * 0.30)) } }));
+              setTowerRun(prev => {
+                  if (!prev) return null;
+                  const newMap = completeNode(prev.currentFloorMap, node.id);
+                  return { ...prev, currentFloorMap: newMap, selectedNodeId: null, completedNodeIds: [...prev.completedNodeIds, node.id] };
+              });
+              break;
+          }
+          case TowerNodeType.EVENT: {
+              const event = TOWER_EVENTS[Math.floor(Math.random() * TOWER_EVENTS.length)];
+              setTowerActiveEvent(event);
+              break;
+          }
+          case TowerNodeType.UPGRADE: {
+              setTowerRun(prev => {
+                  if (!prev) return null;
+                  const offer = getRunCardOffer(prev.runCards.map(c => c.id));
+                  setTowerCardOffer(offer);
+                  return prev;
+              });
+              break;
+          }
+          case TowerNodeType.SHOP: {
+              const shopItems = getTowerShopItems(ALL_ITEMS);
+              setTowerShopItems(shopItems);
+              break;
+          }
+          case TowerNodeType.CHEST: {
+              const goldReward = 50 + Math.floor(Math.random() * 80);
+              setPlayer(prev => ({ ...prev, gold: prev.gold + goldReward }));
+              setTowerRun(prev => {
+                  if (!prev) return null;
+                  const newMap = completeNode(prev.currentFloorMap, node.id);
+                  return { ...prev, currentFloorMap: newMap, selectedNodeId: null, completedNodeIds: [...prev.completedNodeIds, node.id], accumulatedRewards: { ...prev.accumulatedRewards, gold: prev.accumulatedRewards.gold + goldReward } };
+              });
+              break;
+          }
+          default: {
+              // COMBAT, ELITE, RANDOM — enter battle
+              const run = towerRunRef.current;
+              if (!run) break;
+              const isBoss = run.floor % 5 === 0;
+              enterBattle(isBoss, 'dungeon');
+              break;
+          }
+      }
+  }, [enterBattle]);
+
+  const handleTowerEventChoice = useCallback((option: TowerEventOption) => {
+      const effect = option.effect;
+      if (effect.type === 'gold' && effect.amount > 0) {
+          setPlayer(prev => ({ ...prev, gold: prev.gold + effect.amount }));
+      } else if (effect.type === 'heal') {
+          const pct = effect.percent;
+          setPlayer(prev => ({ ...prev, stats: { ...prev.stats, hp: Math.min(prev.stats.maxHp, prev.stats.hp + Math.floor(prev.stats.maxHp * (pct / 100))) } }));
+      } else if (effect.type === 'hp_loss') {
+          const pct = effect.percent;
+          setPlayer(prev => ({ ...prev, stats: { ...prev.stats, hp: Math.max(1, prev.stats.hp - Math.floor(prev.stats.maxHp * (pct / 100))) } }));
+      } else if (effect.type === 'card') {
+          const card = TOWER_RUN_CARDS.find(c => c.id === effect.cardId);
+          if (card) setTowerRun(prev => prev ? { ...prev, runCards: [...prev.runCards, card] } : null);
+      }
+      setTowerActiveEvent(null);
+      setTowerRun(prev => {
+          if (!prev || !prev.selectedNodeId) return prev;
+          const nodeId = prev.selectedNodeId;
+          const newMap = completeNode(prev.currentFloorMap, nodeId);
+          return { ...prev, currentFloorMap: newMap, selectedNodeId: null, completedNodeIds: [...prev.completedNodeIds, nodeId] };
+      });
+  }, []);
+
+  const handleTowerCardPick = useCallback((card: RunCard) => {
+      setTowerRun(prev => {
+          if (!prev || !prev.selectedNodeId) return prev;
+          const nodeId = prev.selectedNodeId;
+          const newMap = completeNode(prev.currentFloorMap, nodeId);
+          return { ...prev, currentFloorMap: newMap, selectedNodeId: null, completedNodeIds: [...prev.completedNodeIds, nodeId], runCards: [...prev.runCards, card] };
+      });
+      setTowerCardOffer(null);
+  }, []);
+
+  const handleTowerShopBuy = useCallback((item: Item) => {
+      setPlayer(prev => {
+          if (prev.gold < item.cost) return prev;
+          return { ...prev, gold: prev.gold - item.cost, inventory: { ...prev.inventory, [item.id]: (prev.inventory[item.id] ?? 0) + 1 } };
+      });
+  }, []);
+
+  const handleTowerReturnToHub = useCallback(() => {
+      const run = towerRunRef.current;
+      if (!run) { setGameState(GameState.TAVERN); return; }
+      const rewards = run.accumulatedRewards;
+      const restoredPlayer = resolveTowerDeath(run);
+      const withRewards = applyTowerRunRewardsToPlayer(restoredPlayer, rewards);
+      setPlayer(clonePlayer(withRewards));
+      setTowerMeta(prev => ({
+          ...prev,
+          essence: prev.essence + rewards.essenceEarned,
+          highestFloor: Math.max(prev.highestFloor, run.floor),
+          highestLoop: Math.max(prev.highestLoop, run.loop),
+      }));
+      setTowerRun(null);
+      setTowerActiveEvent(null);
+      setTowerCardOffer(null);
+      setTowerShopItems(null);
+      setGameState(GameState.TAVERN);
+      setSceneRegion('forest');
+  }, []);
+
+  // ---- End tower handlers ----
+
   const handleFlee = () => {
+      if (towerRun) {
+          // In tower — flee is a withdrawal
+          handleTowerDeath();
+          setTowerResultOutcome('withdrawal');
+          return;
+      }
       if (dungeonRun) {
           return;
       }
@@ -2496,6 +2764,8 @@ export default function App() {
         shouldTriggerConstellationUnlockTutorial: player.talentPoints === 0 && player.unlockedTalentNodeIds.length === 0,
         onTriggerConstellationUnlockTutorial: () => setConstellationUnlockPromptPending(true),
           allowPotionDrops: hasPlayerDiedOnce,
+        isTowerBattle: Boolean(towerRun),
+        onTowerVictory: handleTowerVictory,
   });
 
   const {
@@ -2556,6 +2826,7 @@ export default function App() {
     setEnemyBowShotDidHit,
     enemyIntentPreview,
         onPlayerDefeat: () => setHasPlayerDiedOnce(true),
+        onTowerDefeat: towerRun ? handleTowerDeath : undefined,
   });
 
   useEffect(() => {
@@ -3356,7 +3627,11 @@ export default function App() {
     const canCreateNewSaveSlot = firstAvailableEmptySlotId !== null;
 
     if (pathname.startsWith('/developer')) {
-        return <DeveloperConsole />;
+        return (
+            <div className="absolute inset-0 overflow-y-auto" data-scrollable>
+                <DeveloperConsole />
+            </div>
+        );
     }
 
     if (!isBootReady) {
@@ -3598,11 +3873,29 @@ export default function App() {
                         enemyIntentPreview={enemyIntentPreview}
                         isMenuView={resolvedGameState === GameState.TAVERN}
                         menuCameraFocus={shouldMenuCameraFocus}
-                        isDungeonScene={sceneRegion === 'dungeon'}
+                        heroInspectMode={heroInspectMode}
+                        onHeroInspectClose={() => {
+                            setHeroInspectMode(false);
+                            setHeroInspectCloseToken((prev) => prev + 1);
+                        }}
+                        onHeroEquipSlotClick={(slot) => {
+                            setHeroEquipOpenFilter(slot);
+                            setHeroEquipOpenToken((prev) => prev + 1);
+                        }}
+                        isDungeonScene={sceneRegion === 'dungeon' || sceneRegion === 'tower'}
                         showMenuNavigationPortal={resolvedGameState === GameState.TAVERN}
-                        menuPortalRegion={sceneRegion}
+                        menuPortalRegion={sceneRegion === 'tower' ? 'tower' : sceneRegion === 'dungeon' ? 'dungeon' : 'forest'}
                         menuPortalTravelCinematicToken={menuPortalTravelCinematicToken}
                         onMenuPortalClick={handleOpenPortalTravel}
+                        portalInspectMode={portalInspectMode || portalTransitioning}
+                        currentSceneRegion={sceneRegion}
+                        dungeonUnlocked={isDungeonUnlocked}
+                        towerUnlocked={true}
+                        onPortalInspectClose={() => setPortalInspectMode(false)}
+                        onPortalTravelTo={(region) => {
+                            setPortalInspectMode(false);
+                            handleNavigateSceneRegion(region);
+                        }}
                         renderQualityPreset={battleSettings.renderQualityPreset}
                         onMenuHeroClick={resolvedGameState === GameState.TAVERN || resolvedGameState === GameState.BATTLE ? handleMenuHeroClick : undefined}
                     />
@@ -3689,6 +3982,16 @@ export default function App() {
                         alchemistUnlocked={isAlchemistUnlocked}
                         showSkillsAction={isSkillsActionUnlocked}
                         showDiamondHud={hasDiamondHudUnlocked}
+                        onTower={handleEnterTower}
+                        towerEssence={towerMeta.essence}
+                        gameTime={gameTime}
+                        autoOpenHeroInspectToken={openHeroInspectToken}
+                        onHeroInspectOpen={() => setHeroInspectMode(true)}
+                        onHeroInspectClose={() => setHeroInspectMode(false)}
+                        closeHeroInspectToken={heroInspectCloseToken}
+                        autoOpenHeroEquipToken={heroEquipOpenToken}
+                        autoOpenHeroEquipFilter={heroEquipOpenFilter}
+                        portalInspectMode={portalInspectMode}
           />
       )}
 
@@ -3978,6 +4281,56 @@ export default function App() {
       )}
 
       {lootResult && <KillLootOverlay loot={lootResult} />}
+
+      {resolvedGameState === GameState.TOWER_HUB && (
+          <TowerHubScreen
+              player={player}
+              towerMeta={towerMeta}
+              availableConsumables={ALL_ITEMS.filter(i => i.type === 'potion')}
+              onStartRun={handleStartTowerRun}
+              onUpgradeSlots={handleUpgradeTowerSlots}
+              onBack={() => setGameState(GameState.TAVERN)}
+          />
+      )}
+      {resolvedGameState === GameState.TOWER_MAP && towerRun && (
+          <TowerMapScreen
+              player={player}
+              towerRun={towerRun}
+              activeEvent={towerActiveEvent}
+              cardOffer={towerCardOffer}
+              shopItems={towerShopItems}
+              onNodeSelect={handleTowerNodeSelect}
+              onEventChoice={handleTowerEventChoice}
+              onCardPick={handleTowerCardPick}
+              onShopBuy={handleTowerShopBuy}
+              onShopClose={() => {
+                  setTowerShopItems(null);
+                  setTowerRun(prev => {
+                      if (!prev || !prev.selectedNodeId) return prev;
+                      const nodeId = prev.selectedNodeId;
+                      const newMap = completeNode(prev.currentFloorMap, nodeId);
+                      return { ...prev, currentFloorMap: newMap, selectedNodeId: null, completedNodeIds: [...prev.completedNodeIds, nodeId] };
+                  });
+              }}
+              onFlee={() => { setTowerResultOutcome('withdrawal'); handleTowerReturnToHub(); }}
+          />
+      )}
+      {resolvedGameState === GameState.TOWER_SANCTUARY && towerRun && (
+          <TowerSanctuaryScreen
+              floor={towerRun.floor}
+              act={towerRun.act}
+              options={towerSanctuaryOptions}
+              onChoose={handleTowerSanctuaryChoose}
+          />
+      )}
+      {resolvedGameState === GameState.TOWER_RESULT && towerRun && (
+          <TowerResultScreen
+              towerRun={towerRun}
+              outcome={towerResultOutcome}
+              runItems={towerRunItems}
+              onReturnToHub={handleTowerReturnToHub}
+          />
+      )}
     </div>
   );
 }

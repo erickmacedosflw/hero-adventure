@@ -42,6 +42,7 @@ export interface RuntimeScenarioConfig {
   heroSelectionSlots?: RuntimeScenarioHeroSlot[];
   heroBasePosition: [number, number, number];
   enemyBasePosition: [number, number, number];
+  menuPortalTransform?: RuntimeScenarioTransform;
   lighting: RuntimeScenarioLighting;
   atmosphere: RuntimeScenarioAtmosphere;
   particles: RuntimeScenarioParticles;
@@ -125,30 +126,35 @@ const RUNTIME_SCENARIO_PRESETS: Record<string, RuntimeScenarioPreset> = {
   },
   tower: {
     version: 1,
-    exportedAt: '2026-04-16T02:08:41.793Z',
+    exportedAt: '2026-04-21T05:34:03.223Z',
     scenarioId: 'tower',
     scenarioName: 'Tower',
     scenarioModelUrl: new URL('../assets/Scenario/Tower/cenario_3d_torre.glb', import.meta.url).href,
     config: {
       scenarioId: 'tower',
       scenarioTransform: {
-        position: [-0.8782786604688742, 5.484000234294957, -0.20775746777177284],
-        rotation: [0.028583256286450552, -1.5498129813442971, 0],
-        scale: 17.882588560424573,
+        position: [-1.0421131349766313, 5.338599053769031, -0.20450430643063555],
+        rotation: [0, -1.4152377086023438, 0],
+        scale: 17.658567621858744,
       },
       sceneObjects: [],
       heroBasePosition: [-2.1, -1, 0],
       enemyBasePosition: [2.1, -1, 0],
+      menuPortalTransform: {
+        position: [-4.22, -0.97, 0.58],
+        rotation: [0, 1.36, 0],
+        scale: 1.0596,
+      },
       lighting: {
-        ambientColor: '#e5f1ff',
+        ambientColor: '#fffff5',
         ambientIntensity: 0.58,
-        directionalColor: '#fefadc',
+        directionalColor: '#ac97e2',
         directionalIntensity: 1.12,
         directionalPosition: [3.2, 6.1, 5.2],
       },
       atmosphere: {
         fogEnabled: true,
-        fogColor: '#5a5735',
+        fogColor: '#7d6991',
         fogNear: 12,
         fogFar: 42,
       },
@@ -159,9 +165,9 @@ const RUNTIME_SCENARIO_PRESETS: Record<string, RuntimeScenarioPreset> = {
         speed: 0.42,
         opacity: 0.22,
       },
-      cameraMode: 'battle-sim',
+      cameraMode: 'free',
       cameraState: {
-        position: [0, 2.2, 11],
+        position: [1.761540986929978, 2.892757405084535, 11.962994558348678],
         target: [0, 0.2, 0],
         fov: 45,
       },

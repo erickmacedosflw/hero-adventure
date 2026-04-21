@@ -361,3 +361,46 @@ export const ENEMY_COLORS = [
   "#f59e0b", // amber
 ];
 
+// ─── TOWER / ROGUELIKE CONSTANTS ─────────────────────────────────────────────
+
+export const TOWER_FLOORS_PER_ACT = 5;
+export const TOWER_ACTS = 3;
+export const TOWER_TOTAL_FLOORS = TOWER_FLOORS_PER_ACT * TOWER_ACTS;
+export const TOWER_BOSS_FLOORS = [5, 10, 15] as const;
+export const TOWER_ESSENCE_PER_ACT = 1;
+
+// Consumable slots by level: level 1 → 3 slots, level 2 → 4 slots, level 3 → 5 slots
+export const TOWER_CONSUMABLE_SLOTS_BY_LEVEL: Record<number, number> = { 1: 3, 2: 4, 3: 5 };
+// Essência cost to upgrade: to unlock level 2 costs 3 Essência, level 3 costs 6
+export const TOWER_CONSUMABLE_UPGRADE_COST: Record<number, number> = { 2: 3, 3: 6 };
+export const TOWER_MAX_CONSUMABLE_SLOT_LEVEL = 3;
+
+// Node counts per floor range
+export const TOWER_NODES_PER_FLOOR: Record<'early' | 'mid' | 'late', number> = {
+  early: 4,
+  mid: 5,
+  late: 6,
+};
+
+// Paths (branching columns) per act
+export const TOWER_PATHS_PER_ACT: Record<number, number> = { 1: 2, 2: 3, 3: 4 };
+
+// Difficulty scaling per loop (applied multiplicatively each completed loop)
+export const TOWER_DIFFICULTY_SCALE_PER_LOOP = {
+  hp:  1.25,
+  atk: 1.15,
+  def: 1.10,
+} as const;
+
+// Consumable max stack in a slot
+export const TOWER_CONSUMABLE_MAX_STACK = 3;
+
+// Default TowerMeta for new players
+export const DEFAULT_TOWER_META = {
+  essence: 0,
+  consumableSlotsLevel: 1,
+  highestFloor: 0,
+  highestLoop: 0,
+} as const;
+
+

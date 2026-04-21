@@ -1,5 +1,5 @@
 import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Sword, Shield, Zap, Sparkles, FlaskConical } from 'lucide-react';
+import { Sword, Shield, Zap, Sparkles, FlaskConical, Crosshair, Shirt, Footprints, Layers, RefreshCw, Swords, Wind, Clover } from 'lucide-react';
 import { Canvas, useFrame, useLoader, useThree } from '@react-three/fiber';
 import { ContactShadows, Html, useAnimations, useFBX, useTexture } from '@react-three/drei';
 import { Bloom, DepthOfField, EffectComposer, Vignette } from '@react-three/postprocessing';
@@ -89,6 +89,7 @@ import type {
   DeveloperWeaponTransformOverride,
 } from './scene3d/types';
 import { VoxelPart } from './items/VoxelPart';
+import { getEquipmentBonuses } from '../game/mechanics/equipmentBonuses';
 import { getPlayerClassById } from '../game/data/classes';
 import { getEquippedWeaponGrip, getRegisteredWeapon3DByItemId } from '../game/data/weaponCatalog';
 export { ItemPreviewCanvas } from './items/ItemPreviewCanvas';
@@ -155,7 +156,7 @@ interface SceneProps {
   isMenuView?: boolean;
   menuCameraFocus?: boolean;
   showMenuNavigationPortal?: boolean;
-  menuPortalRegion?: 'forest' | 'dungeon';
+  menuPortalRegion?: 'forest' | 'dungeon' | 'tower';
   menuPortalTravelCinematicToken?: number;
   isDungeonScene?: boolean;
   stage?: number;
@@ -167,6 +168,15 @@ interface SceneProps {
   enemyState?: Enemy | null;
   enemyIntentPreview?: EnemyIntentPreview | null;
   renderQualityPreset?: RenderQualityPreset;
+  heroInspectMode?: boolean;
+  onHeroInspectClose?: () => void;
+  onHeroEquipSlotClick?: (slot: 'weapon' | 'shield' | 'helmet' | 'armor' | 'legs') => void;
+  portalInspectMode?: boolean;
+  currentSceneRegion?: 'forest' | 'dungeon' | 'tower';
+  dungeonUnlocked?: boolean;
+  towerUnlocked?: boolean;
+  onPortalInspectClose?: () => void;
+  onPortalTravelTo?: (region: 'forest' | 'dungeon' | 'tower') => void;
 }
 
 // --- MAIN COMPONENTS ---
@@ -2356,6 +2366,572 @@ const HERO_CLASS_NAME_PT: Record<PlayerClassId, string> = {
   rogue: 'Ladino',
 };
 
+const INSPECT_CLASS_ICON: Record<PlayerClassId, React.ComponentType<{ size?: number }>> = {
+  knight: Shield,
+  barbarian: Sword,
+  mage: Sparkles,
+  ranger: Crosshair,
+  rogue: Zap,
+};
+
+// Slot type icons — always shown even when empty
+const SLOT_ICON: Record<string, React.ComponentType<{ size?: number; color?: string }>> = {
+  weapon: Sword,
+  shield: Shield,
+  helmet: Layers,
+  armor: Shirt,
+  legs: Footprints,
+};
+
+type EquipSlotKey = 'weapon' | 'shield' | 'helmet' | 'armor' | 'legs';
+
+// ── Portal thumbnail URLs ──────────────────────────────────────────────────
+const PORTAL_THUMB_MOUNTAIN = new URL('../game/assets/Scenario/Moutain/cenario_thumbnail_montanha.png', import.meta.url).href;
+const PORTAL_THUMB_DUNGEON  = new URL('../game/assets/Scenario/Dungeon/cenario_thumbnail_dungeon.png', import.meta.url).href;
+const PORTAL_THUMB_TOWER_3D = new URL('../game/assets/Scenario/Tower/cenario_thumbnail_torre.png', import.meta.url).href;
+
+type PortalRegion = 'forest' | 'dungeon' | 'tower';
+
+// All three destinations; PortalInspectCanvas filters out the current region
+const PORTAL_DESTINATIONS: { region: PortalRegion; name: string; color: string; thumb: string }[] = [
+  { region: 'forest',  name: 'Montanha',     color: '#b87a3a', thumb: PORTAL_THUMB_MOUNTAIN },
+  { region: 'dungeon', name: 'Dungeon',       color: '#4d7a96', thumb: PORTAL_THUMB_DUNGEON  },
+  { region: 'tower',   name: 'Torre Heroica', color: '#6d28d9', thumb: PORTAL_THUMB_TOWER_3D },
+];
+
+const PortalInspectCanvas = ({
+  currentRegion = 'forest',
+  dungeonUnlocked = false,
+  towerUnlocked = false,
+  onClose,
+  onTravelTo,
+}: {
+  currentRegion?: PortalRegion;
+  dungeonUnlocked?: boolean;
+  towerUnlocked?: boolean;
+  onClose: () => void;
+  onTravelTo: (region: PortalRegion) => void;
+}) => {
+  const { viewport } = useThree();
+  const isMobile = viewport.width < 9;
+  const font: React.CSSProperties = { fontFamily: "'Segoe UI',system-ui,sans-serif" };
+
+  // Portal world position: [-4.22, -0.97, 0.58] — cards float in front/above
+  const panelX = isMobile ? -4.2 : -4.2;
+  const panelY = isMobile ? 1.8 : 2.0;
+  const df = isMobile ? 7.5 : 6.5;
+
+  // Only show destinations that aren't the current region
+  const visibleDestinations = PORTAL_DESTINATIONS.filter(d => d.region !== currentRegion);
+
+  return (
+    <Html center sprite distanceFactor={df} position={[panelX, panelY, 0.58]} zIndexRange={[210, 0]}>
+      <div style={{ ...font }} onClick={(e) => e.stopPropagation()}>
+        {/* Destination cards row */}
+        <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+          {visibleDestinations.map((dest) => {
+            const locked = dest.region === 'dungeon' && !dungeonUnlocked;
+            return (
+              <div
+                key={dest.region}
+                onClick={() => { if (!locked) onTravelTo(dest.region); }}
+                style={{
+                  width: isMobile ? '120px' : '140px',
+                  borderRadius: '16px',
+                  background: locked ? 'rgba(0,0,0,0.25)' : `${dest.color}18`,
+                  backdropFilter: 'blur(20px)',
+                  WebkitBackdropFilter: 'blur(20px)',
+                  border: `1.5px solid ${locked ? 'rgba(255,255,255,0.15)' : `${dest.color}80`}`,
+                  boxShadow: locked ? 'none' : `0 0 20px ${dest.color}45, 0 6px 24px rgba(0,0,0,0.55)`,
+                  overflow: 'hidden',
+                  cursor: locked ? 'default' : 'pointer',
+                  opacity: locked ? 0.45 : 1,
+                  transition: 'transform 0.18s ease, box-shadow 0.18s ease',
+                  userSelect: 'none' as const,
+                }}
+                onMouseEnter={e => { if (!locked) (e.currentTarget as HTMLElement).style.transform = 'translateY(-5px) scale(1.05)'; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = ''; }}
+              >
+                {/* Thumbnail */}
+                <div style={{ width: '100%', height: isMobile ? '90px' : '106px', overflow: 'hidden', position: 'relative' }}>
+                  <img
+                    src={dest.thumb}
+                    alt={dest.name}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block',
+                      filter: locked ? 'grayscale(70%) brightness(0.45)' : 'brightness(0.88)' }}
+                  />
+                  {locked && (
+                    <div style={{
+                      position: 'absolute', inset: 0,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      background: 'rgba(0,0,0,0.35)', fontSize: '22px',
+                    }}>🔒</div>
+                  )}
+                  {/* Color gradient overlay at bottom */}
+                  {!locked && (
+                    <div style={{
+                      position: 'absolute', bottom: 0, left: 0, right: 0, height: '36px',
+                      background: `linear-gradient(to top, ${dest.color}70, transparent)`,
+                    }} />
+                  )}
+                </div>
+                {/* Name */}
+                <div style={{ padding: '10px 12px 12px', textAlign: 'center' }}>
+                  <div style={{
+                    fontSize: '13px', fontWeight: 900,
+                    color: locked ? 'rgba(255,255,255,0.35)' : dest.color,
+                    lineHeight: 1.2, letterSpacing: '0.04em',
+                    textShadow: locked ? 'none' : `0 0 14px ${dest.color}90`,
+                  }}>{dest.name}</div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </Html>
+  );
+};
+
+const HeroInspectCanvas = ({
+  player,
+  onClose,
+  onEquipSlot,
+}: {
+  player: Player;
+  onClose: () => void;
+  onEquipSlot: (slot: EquipSlotKey) => void;
+}) => {
+  const { viewport } = useThree();
+  // viewport.width is in world units; mobile portrait is typically < 9 world units
+  const isMobile = viewport.width < 9;
+  const [showAttrs, setShowAttrs] = useState(false);
+  const pClass = getPlayerClassById(player.classId);
+  const ClassIcon = INSPECT_CLASS_ICON[player.classId as PlayerClassId] ?? Shield;
+  const classNamePt = HERO_CLASS_NAME_PT[player.classId as PlayerClassId] ?? player.classId;
+  const accentColor = pClass.visualProfile.secondaryColor;
+
+  const hpPct = player.stats.maxHp > 0 ? Math.min(100, (player.stats.hp / player.stats.maxHp) * 100) : 0;
+  const mpPct = player.stats.maxMp > 0 ? Math.min(100, (player.stats.mp / player.stats.maxMp) * 100) : 0;
+  const xpPct = player.xpToNext > 0 ? Math.min(100, (player.xp / player.xpToNext) * 100) : 0;
+
+  const slots: { key: EquipSlotKey; label: string; item: any }[] = [
+    { key: 'weapon',  label: 'Arma',     item: player.equippedWeapon  },
+    { key: 'shield',  label: 'Escudo',   item: player.equippedShield  },
+    { key: 'helmet',  label: 'Capacete', item: player.equippedHelmet  },
+    { key: 'armor',   label: 'Armadura', item: player.equippedArmor   },
+    { key: 'legs',    label: 'Pernas',   item: player.equippedLegs    },
+  ];
+
+  const rarityBorder = (r?: string) =>
+    r === 'gold' ? 'rgba(251,191,36,0.6)' : r === 'silver' ? 'rgba(148,163,184,0.6)' : r ? 'rgba(184,137,86,0.6)' : 'rgba(255,255,255,0.10)';
+  const rarityBg = (r?: string) =>
+    r === 'gold' ? 'rgba(100,40,5,0.55)' : r === 'silver' ? 'rgba(20,30,50,0.65)' : r ? 'rgba(50,30,8,0.55)' : 'rgba(0,0,0,0.14)';
+  const rarityLabel = (r?: string) =>
+    r === 'gold' ? 'Lendário' : r === 'silver' ? 'Raro' : r ? 'Comum' : '';
+  const rarityLabelColor = (r?: string) =>
+    r === 'gold' ? '#fbbf24' : r === 'silver' ? '#94a3b8' : '#d4a56a';
+  const slotIconColor = (r?: string) =>
+    r === 'gold' ? '#fbbf24' : r === 'silver' ? '#94a3b8' : r ? '#d4a56a' : 'rgba(255,255,255,0.72)';
+
+  const font: React.CSSProperties = { fontFamily: "'Segoe UI',system-ui,sans-serif" };
+  // Hero model origin is at (-2, -1, 0); model is ~2.2u tall → head ≈ y 1.2
+  // Equipment panel anchored at mid-body height, right of hero (closer to model)
+  // Mobile: panel closer to hero on the right side
+  const equipX = isMobile ? -0.30 : -0.20;
+  const equipY = isMobile ? -0.30 : 0.1;
+  // On mobile, stats card stacks above equipment panel (same X, higher Y — no overlap)
+  const statsX = isMobile ? equipX : -2.0;
+  const statsY = isMobile ? equipY + 2.24 : 2.0;
+  // distanceFactor controls apparent panel size; larger = smaller panels on screen
+  // On mobile with tighter zoom, use larger factor to keep panels inside the screen
+  const df = isMobile ? 6.0 : 5.8;
+  // Stats card uses a larger distanceFactor on mobile → appears smaller
+  const dfStats = isMobile ? 5.4 : df;
+
+  return (
+    <>
+      {/* ── Profile card — above head (desktop) or above equipment list (mobile) */}
+      <Html
+        center
+        sprite
+        distanceFactor={dfStats}
+        position={[statsX, statsY, 0]}
+        zIndexRange={[200, 0]}
+        style={{ pointerEvents: 'none' }}>
+        <div style={{ ...font, width: '220px' }}>
+          <div style={{
+            background: 'rgba(6,4,18,0.52)',
+            backdropFilter: 'blur(24px)',
+            WebkitBackdropFilter: 'blur(24px)',
+            borderRadius: '16px',
+            border: `2px solid ${accentColor}90`,
+            padding: '12px 14px',
+            boxShadow: `0 10px 40px rgba(0,0,0,0.70), 0 0 0 1px ${accentColor}20, 0 0 32px ${accentColor}40`,
+          }}>
+            {/* Class icon + name + level */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+              <div style={{
+                width: '38px', height: '38px', flexShrink: 0,
+                background: `${accentColor}25`,
+                border: `1.5px solid ${accentColor}55`,
+                borderRadius: '10px',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: accentColor,
+              }}>
+                <ClassIcon size={19} />
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: '7px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.22em', color: accentColor, opacity: 0.9, lineHeight: 1.2 }}>{classNamePt}</div>
+                <div style={{ fontSize: '15px', fontWeight: 900, color: '#fff', lineHeight: 1.15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{player.name}</div>
+              </div>
+              <div style={{
+                flexShrink: 0,
+                background: `${accentColor}30`,
+                border: `1px solid ${accentColor}50`,
+                borderRadius: '8px',
+                padding: '4px 9px',
+                fontSize: '13px',
+                fontWeight: 900,
+                color: accentColor,
+                lineHeight: 1.3,
+              }}>Nv {player.level}</div>
+            </div>
+            {/* Stat bars */}
+            {[
+              { label: 'HP', cur: player.stats.hp, max: player.stats.maxHp, pct: hpPct, color: '#f43f5e', grad: 'linear-gradient(90deg,#9f1239,#f43f5e)' },
+              { label: 'MP', cur: player.stats.mp, max: player.stats.maxMp, pct: mpPct, color: '#3b82f6', grad: 'linear-gradient(90deg,#1e40af,#3b82f6)' },
+              { label: 'XP', cur: player.xp,       max: player.xpToNext,    pct: xpPct, color: '#f59e0b', grad: 'linear-gradient(90deg,#92400e,#f59e0b)' },
+            ].map(bar => (
+              <div key={bar.label} style={{ marginBottom: '7px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '4px' }}>
+                  <span style={{ fontSize: '9px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.14em', color: bar.color, opacity: 0.85 }}>{bar.label}</span>
+                  <span style={{ fontSize: '12px', fontWeight: 900, color: '#fff', letterSpacing: '0.03em' }}>{bar.cur}<span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.45)', fontWeight: 700 }}>/{bar.max}</span></span>
+                </div>
+                <div style={{ height: '7px', borderRadius: '99px', background: 'rgba(255,255,255,0.08)', overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${bar.pct}%`, background: bar.grad, borderRadius: '99px', transition: 'width 0.5s' }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </Html>
+
+      {/* ── Equipment / Attributes panel ─────────────────── */}
+      <Html
+        center
+        sprite
+        distanceFactor={df}
+        position={[equipX, equipY, 0]}
+        zIndexRange={[200, 0]}
+      >
+        <div style={{ ...font, width: '196px', position: 'relative', overflow: 'hidden' }} onClick={(e) => e.stopPropagation()}>
+
+          {/* ── Equipment Card ── */}
+          <div style={{
+            borderRadius: '16px',
+            background: 'rgba(8,4,24,0.30)',
+            backdropFilter: 'blur(22px)',
+            WebkitBackdropFilter: 'blur(22px)',
+            border: '1px solid rgba(255,255,255,0.14)',
+            padding: '10px',
+            boxSizing: 'border-box' as const,
+            pointerEvents: showAttrs ? 'none' : 'auto',
+            opacity: showAttrs ? 0 : 1,
+            transform: showAttrs ? 'translateX(-24px) scale(0.97)' : 'translateX(0px) scale(1)',
+            transition: 'opacity 0.32s ease, transform 0.32s cubic-bezier(0.4,0,0.2,1)',
+            position: showAttrs ? 'absolute' : 'relative',
+            top: 0, left: 0, width: '100%',
+          }}>
+            {/* Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '7px', padding: '0 2px' }}>
+              <span style={{ fontSize: '8px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.25em', color: 'rgba(255,255,255,0.40)' }}>Equipamento</span>
+              <button
+                onClick={(e) => { e.stopPropagation(); setShowAttrs(true); }}
+                title="Ver atributos"
+                style={{
+                  background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.15)',
+                  borderRadius: '7px', padding: '4px 7px', cursor: 'pointer',
+                  color: 'rgba(255,255,255,0.55)', display: 'flex', alignItems: 'center', lineHeight: 1,
+                }}
+              ><RefreshCw size={10} /></button>
+            </div>
+            {/* Slot rows */}
+            {slots.map((slot, i) => {
+              const it = slot.item as any;
+              const rb = rarityBorder(it?.rarity);
+              const bg = rarityBg(it?.rarity);
+              const rl = rarityLabel(it?.rarity);
+              const rlc = rarityLabelColor(it?.rarity);
+              const ic = slotIconColor(it?.rarity);
+              const SlotIcon = SLOT_ICON[slot.key];
+              return (
+                <button
+                  key={slot.key}
+                  onClick={(e) => { e.stopPropagation(); onEquipSlot(slot.key); }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '9px',
+                    borderRadius: '11px',
+                    border: `1px solid ${rb}`,
+                    background: bg,
+                    padding: '8px 10px',
+                    cursor: 'pointer',
+                    backdropFilter: 'blur(16px)',
+                    WebkitBackdropFilter: 'blur(16px)',
+                    textAlign: 'left',
+                    width: '100%',
+                    marginBottom: i < slots.length - 1 ? '5px' : '0',
+                    boxSizing: 'border-box',
+                    transition: 'filter 0.12s',
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.filter = 'brightness(1.3)')}
+                  onMouseLeave={e => (e.currentTarget.style.filter = 'brightness(1)')}
+                >
+                  <div style={{
+                    width: '36px', height: '36px', flexShrink: 0,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    borderRadius: '9px',
+                    border: `1px solid ${rb}`,
+                    background: 'rgba(0,0,0,0.50)',
+                    position: 'relative',
+                  }}>
+                    <span style={{ color: ic, opacity: it ? 0.28 : 1, position: 'absolute' }}>
+                      <SlotIcon size={18} />
+                    </span>
+                    {it && (
+                      <span style={{ fontSize: '17px', lineHeight: 1, position: 'relative', zIndex: 1 }}>{it.icon}</span>
+                    )}
+                  </div>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ fontSize: '6px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.18em', color: 'rgba(255,255,255,0.62)', lineHeight: 1.3 }}>{slot.label}</div>
+                    <div style={{ fontSize: '10px', fontWeight: 900, color: it ? '#fff' : 'rgba(255,255,255,0.20)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.25 }}>{it ? it.name : 'Vazio'}</div>
+                    {it && <div style={{ fontSize: '7px', fontWeight: 700, color: rlc, lineHeight: 1.2 }}>{rl}</div>}
+                  </div>
+                  <span style={{ color: 'rgba(255,255,255,0.22)', fontSize: '14px', flexShrink: 0 }}>›</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* ── Attributes Card ── */}
+          <div style={{
+            borderRadius: '16px',
+            background: 'rgba(8,4,24,0.30)',
+            backdropFilter: 'blur(22px)',
+            WebkitBackdropFilter: 'blur(22px)',
+            border: '1px solid rgba(255,255,255,0.14)',
+            padding: '10px',
+            boxSizing: 'border-box' as const,
+            pointerEvents: showAttrs ? 'auto' : 'none',
+            opacity: showAttrs ? 1 : 0,
+            transform: showAttrs ? 'translateX(0px) scale(1)' : 'translateX(24px) scale(0.97)',
+            transition: 'opacity 0.32s ease, transform 0.32s cubic-bezier(0.4,0,0.2,1)',
+            position: showAttrs ? 'relative' : 'absolute',
+            top: 0, left: 0, width: '100%',
+          }}>
+            {/* Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '7px', padding: '0 2px' }}>
+              <span style={{ fontSize: '8px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.25em', color: 'rgba(255,255,255,0.40)' }}>Atributos</span>
+              <button
+                onClick={(e) => { e.stopPropagation(); setShowAttrs(false); }}
+                title="Ver equipamentos"
+                style={{
+                  background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.15)',
+                  borderRadius: '7px', padding: '4px 7px', cursor: 'pointer',
+                  color: 'rgba(255,255,255,0.55)', display: 'flex', alignItems: 'center', lineHeight: 1,
+                }}
+              ><RefreshCw size={10} /></button>
+            </div>
+
+            {/* ── Mini stat cards ── */}
+            {(() => {
+              const ms = [
+                { abbr: 'ATQ', value: player.stats.atk,   color: '#f43f5e', Icon: Swords as React.FC<{size?: number}> },
+                { abbr: 'DEF', value: player.stats.def,   color: '#3b82f6', Icon: Shield as React.FC<{size?: number}> },
+                { abbr: 'MAG', value: player.stats.magic, color: '#a855f7', Icon: Sparkles as React.FC<{size?: number}> },
+                { abbr: 'VEL', value: player.stats.speed, color: '#10b981', Icon: Wind as React.FC<{size?: number}> },
+                { abbr: 'SRT', value: player.stats.luck,  color: '#f59e0b', Icon: Clover as React.FC<{size?: number}> },
+              ] as { abbr: string; value: number; color: string; Icon: React.FC<{size?: number}> }[];
+              return (
+                <div style={{ display: 'flex', gap: '4px', marginBottom: '10px' }}>
+                  {ms.map(s => (
+                    <div key={s.abbr} style={{
+                      flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px',
+                      borderRadius: '9px', padding: '5px 2px',
+                      background: `${s.color}14`,
+                      border: `1px solid ${s.color}30`,
+                      boxSizing: 'border-box' as const,
+                    }}>
+                      <span style={{ color: s.color, display: 'flex' }}><s.Icon size={10} /></span>
+                      <span style={{ fontSize: '5px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: s.color, opacity: 0.75, lineHeight: 1 }}>{s.abbr}</span>
+                      <span style={{ fontSize: '10px', fontWeight: 900, color: '#fff', lineHeight: 1 }}>{s.value}</span>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
+
+            {/* ── Radar Chart (base + equipment overlay) ── */}
+            {(() => {
+              // Calc total equipment bonus per stat
+              const eqItems = [player.equippedWeapon, player.equippedArmor, player.equippedHelmet, player.equippedLegs, player.equippedShield];
+              const eqBonus = { atk: 0, def: 0, speed: 0, magic: 0, luck: 0 };
+              eqItems.forEach((it: any) => {
+                if (!it) return;
+                const b = getEquipmentBonuses(it);
+                eqBonus.atk   += b.atk;
+                eqBonus.def   += b.def;
+                eqBonus.speed += b.speed;
+                eqBonus.magic += b.magic;
+              });
+              const hasEquip = eqItems.some(Boolean);
+
+              const ra = [
+                { value: player.stats.atk,   base: player.stats.atk - eqBonus.atk,   bonus: eqBonus.atk,   color: '#f43f5e', Icon: Swords as React.FC<{size?: number}> },
+                { value: player.stats.magic, base: player.stats.magic - eqBonus.magic, bonus: eqBonus.magic, color: '#a855f7', Icon: Sparkles as React.FC<{size?: number}> },
+                { value: player.stats.luck,  base: player.stats.luck,                  bonus: 0,             color: '#f59e0b', Icon: Clover as React.FC<{size?: number}> },
+                { value: player.stats.speed, base: player.stats.speed - eqBonus.speed, bonus: eqBonus.speed, color: '#10b981', Icon: Wind as React.FC<{size?: number}> },
+                { value: player.stats.def,   base: player.stats.def - eqBonus.def,    bonus: eqBonus.def,   color: '#3b82f6', Icon: Shield as React.FC<{size?: number}> },
+              ] as { value: number; base: number; bonus: number; color: string; Icon: React.FC<{size?: number}> }[];
+
+              const maxVal = Math.max(...ra.map(a => a.value)) + 10;
+              const cx = 88, cy = 94, r = 64;
+              const angles = ra.map((_, i) => -Math.PI / 2 + (i * 2 * Math.PI / ra.length));
+              const tip = (dist: number, i: number) => ({
+                x: cx + dist * Math.cos(angles[i]),
+                y: cy + dist * Math.sin(angles[i]),
+              });
+              const vpTotal = (i: number) => tip(r * (ra[i].value / maxVal), i);
+              const vpBase  = (i: number) => tip(r * (Math.max(0, ra[i].base) / maxVal), i);
+              const totalPts = ra.map((_, i) => { const p = vpTotal(i); return `${p.x.toFixed(1)},${p.y.toFixed(1)}`; }).join(' ');
+              const basePts  = ra.map((_, i) => { const p = vpBase(i);  return `${p.x.toFixed(1)},${p.y.toFixed(1)}`; }).join(' ');
+              const gridPts  = (lv: number) => ra.map((_, i) => { const p = tip(r * lv, i); return `${p.x.toFixed(1)},${p.y.toFixed(1)}`; }).join(' ');
+
+              return (
+                <svg width="176" height="202" style={{ display: 'block', overflow: 'visible' as any }} overflow="visible">
+                  {/* Grid rings */}
+                  {[0.25, 0.5, 0.75, 1].map(lv => (
+                    <polygon key={lv} points={gridPts(lv)} fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth="0.8" />
+                  ))}
+                  {/* Axis lines */}
+                  {ra.map((_, i) => { const t = tip(r, i); return <line key={i} x1={cx} y1={cy} x2={t.x.toFixed(1)} y2={t.y.toFixed(1)} stroke="rgba(255,255,255,0.08)" strokeWidth="0.8" />; })}
+                  {/* Equipment bonus outer polygon (gold) */}
+                  {hasEquip && (
+                    <polygon points={totalPts} fill="rgba(251,191,36,0.16)" stroke="rgba(251,191,36,0.65)" strokeWidth="1.2" strokeLinejoin="round" strokeDasharray="3 2" />
+                  )}
+                  {/* Base stats polygon (purple) */}
+                  <polygon points={basePts} fill="rgba(130,80,255,0.22)" stroke="rgba(165,105,255,0.85)" strokeWidth="1.5" strokeLinejoin="round" />
+                  {/* Vertex dots — base */}
+                  {ra.map((a, i) => { const p = vpBase(i); return <circle key={i} cx={p.x.toFixed(1)} cy={p.y.toFixed(1)} r="2.5" fill={a.color} stroke="rgba(0,0,0,0.45)" strokeWidth="0.7" />; })}
+                  {/* Vertex dots — total (if different) */}
+                  {hasEquip && ra.map((a, i) => {
+                    if (a.bonus <= 0) return null;
+                    const p = vpTotal(i);
+                    return <circle key={`t${i}`} cx={p.x.toFixed(1)} cy={p.y.toFixed(1)} r="2.5" fill="#fbbf24" stroke="rgba(0,0,0,0.45)" strokeWidth="0.7" />;
+                  })}
+                  {/* Icons only at tips — no values */}
+                  {ra.map((a, i) => {
+                    const ip = tip(r + 16, i);
+                    return (
+                      <foreignObject key={i} x={(ip.x - 6).toFixed(1)} y={(ip.y - 6).toFixed(1)} width="12" height="12">
+                        <div style={{ width: '12px', height: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: a.color }}>
+                          <a.Icon size={10} />
+                        </div>
+                      </foreignObject>
+                    );
+                  })}
+                  {/* Center label */}
+                  <text x={cx} y={cy} textAnchor="middle" dominantBaseline="middle" fontSize="4.5" fill="rgba(255,255,255,0.18)" style={{ fontFamily: 'inherit', letterSpacing: '0.1em' }}>STATS</text>
+                </svg>
+              );
+            })()}
+
+            {/* ── Equipment slot strip with bonus chips ── */}
+            <div style={{ display: 'flex', gap: '4px', marginTop: '10px', justifyContent: 'center' }}>
+              {slots.map(slot => {
+                const it = slot.item as any;
+                const rb = rarityBorder(it?.rarity);
+                const SlotIcon = SLOT_ICON[slot.key];
+                const bonusChips: { label: string; val: number; color: string }[] = [];
+                if (it) {
+                  const b = getEquipmentBonuses(it);
+                  if (b.atk   > 0) bonusChips.push({ label: 'ATQ', val: b.atk,   color: '#f43f5e' });
+                  if (b.def   > 0) bonusChips.push({ label: 'DEF', val: b.def,   color: '#3b82f6' });
+                  if (b.magic > 0) bonusChips.push({ label: 'MAG', val: b.magic, color: '#a855f7' });
+                  if (b.speed > 0) bonusChips.push({ label: 'VEL', val: b.speed, color: '#10b981' });
+                  if (b.maxHp > 0) bonusChips.push({ label: 'HP',  val: b.maxHp, color: '#22c55e' });
+                  if (b.maxMp > 0) bonusChips.push({ label: 'MP',  val: b.maxMp, color: '#818cf8' });
+                }
+                return (
+                  <div key={slot.key} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px' }}>
+                    <button onClick={(e) => { e.stopPropagation(); onEquipSlot(slot.key); }}
+                      style={{
+                        width: '30px', height: '30px', borderRadius: '8px', padding: 0,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        border: `1px solid ${rb}`,
+                        background: it ? 'rgba(0,0,0,0.45)' : 'rgba(255,255,255,0.04)',
+                        cursor: 'pointer', flexShrink: 0,
+                        transition: 'filter 0.12s',
+                        boxSizing: 'border-box' as const,
+                      }}
+                      onMouseEnter={e => (e.currentTarget.style.filter = 'brightness(1.4)')}
+                      onMouseLeave={e => (e.currentTarget.style.filter = 'brightness(1)')}
+                    >
+                      {it
+                        ? <span style={{ fontSize: '15px', lineHeight: 1 }}>{it.icon}</span>
+                        : <span style={{ color: 'rgba(255,255,255,0.28)', display: 'flex' }}><SlotIcon size={13} /></span>
+                      }
+                    </button>
+                    {/* Bonus chips */}
+                    {bonusChips.map(chip => (
+                      <div key={chip.label} style={{
+                        fontSize: '8px', fontWeight: 900, lineHeight: 1,
+                        color: chip.color,
+                        background: `${chip.color}1a`,
+                        border: `1px solid ${chip.color}50`,
+                        borderRadius: '5px', padding: '2px 4px',
+                        whiteSpace: 'nowrap',
+                        letterSpacing: '0.02em',
+                      }}>
+                        +{chip.val}
+                      </div>
+                    ))}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* ── Pagination dots ── */}
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', marginTop: '8px' }}>
+            <button
+              onClick={(e) => { e.stopPropagation(); setShowAttrs(false); }}
+              style={{
+                width: !showAttrs ? '16px' : '6px', height: '6px',
+                borderRadius: '99px',
+                background: !showAttrs ? 'rgba(255,255,255,0.90)' : 'rgba(255,255,255,0.28)',
+                border: 'none', padding: 0, cursor: 'pointer',
+                transition: 'all 0.3s cubic-bezier(0.4,0,0.2,1)',
+              }}
+            />
+            <button
+              onClick={(e) => { e.stopPropagation(); setShowAttrs(true); }}
+              style={{
+                width: showAttrs ? '16px' : '6px', height: '6px',
+                borderRadius: '99px',
+                background: showAttrs ? 'rgba(255,255,255,0.90)' : 'rgba(255,255,255,0.28)',
+                border: 'none', padding: 0, cursor: 'pointer',
+                transition: 'all 0.3s cubic-bezier(0.4,0,0.2,1)',
+              }}
+            />
+          </div>
+
+        </div>
+      </Html>
+    </>
+  );
+};
+
 const HeroVoxel = ({ classId = 'knight', playerAnimationAction = 'idle', animationClipName, preferredAnimationBundle, onAvailableAnimationClipsChange, loadAllAnimationBundles = false, loadSecondaryAnimationBundles = true, previewLoopAllActions = false, isAttacking, isDefending, weaponId, armorId, helmetId, legsId, shieldId, isLevelingUp, levelUpCardCategory = 'especial', isMenuView = false, isHit, isPlayerCritHit, hasPerfectEvadeAura, hasDoubleAttackAura, impulseLevel = 0, activeImpulseLevel = 0, contactShadowResolution = 256, idlePositionX = -2, attackPositionX = 0.5, defendPositionX = -1.5, idlePositionY = -1, attackPositionY = -1, defendPositionY = -1, originPosition = [-2, -1, 0], baseRotationY = 0.5, hiddenPartSlots, visiblePartSlots, runtimeAssetsOverride, calibrationOverride, debugRuntimeId, debugRuntimeLabel, onRuntimeDiagnosticChange, statusOverlay, onHeroClick, playerState }: any) => {
   const playerClass = getPlayerClassById(classId);
   const runtimeHeroAssets = runtimeAssetsOverride ?? (hasRuntimeFbxAssets(playerClass.assets) ? playerClass.assets : null);
@@ -3105,7 +3681,7 @@ const MenuNavigationPortal = ({
   onActivate,
   reducedMotion = false,
 }: {
-  region: 'forest' | 'dungeon';
+  region: 'forest' | 'dungeon' | 'tower';
   transform: RuntimeMenuPortalTransform;
   onActivate?: () => void;
   reducedMotion?: boolean;
@@ -3150,7 +3726,7 @@ const MenuNavigationPortal = ({
         standard.emissiveMap = emissiveTexture;
         standard.metalnessMap = metallicTexture;
         standard.color = new THREE.Color('#ffffff');
-        standard.emissive = new THREE.Color('#67d3ff');
+        standard.emissive = new THREE.Color(region === 'tower' ? '#a78bfa' : '#67d3ff');
         standard.emissiveIntensity = 1.35;
         standard.metalness = 0.48;
         standard.roughness = 0.38;
@@ -3171,7 +3747,7 @@ const MenuNavigationPortal = ({
     });
 
     return clone;
-  }, [albedoTexture, emissiveTexture, metallicTexture, sourcePortal]);
+  }, [albedoTexture, emissiveTexture, metallicTexture, sourcePortal, region]);
 
   useEffect(() => () => {
     if (typeof document !== 'undefined' && document.body.style.cursor === 'pointer') {
@@ -3272,10 +3848,10 @@ const MenuNavigationPortal = ({
       <group ref={swayRef}>
         <primitive object={model} />
       </group>
-      <pointLight ref={glowRef} position={[0, 1.55, 0.18]} color="#38bdf8" intensity={2.1} distance={5.7} decay={1.75} />
+      <pointLight ref={glowRef} position={[0, 1.55, 0.18]} color={region === 'tower' ? '#a78bfa' : '#38bdf8'} intensity={2.1} distance={5.7} decay={1.75} />
       <mesh ref={haloRef} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.04, 0]}>
         <circleGeometry args={[1.05, 48]} />
-        <meshBasicMaterial color="#7dd3fc" transparent opacity={0.24} depthWrite={false} />
+        <meshBasicMaterial color={region === 'tower' ? '#c4b5fd' : '#7dd3fc'} transparent opacity={0.24} depthWrite={false} />
       </mesh>
       <mesh ref={highlightRingRef} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.08, 0]} visible={isPortalHighlighted}>
         <ringGeometry args={[1.08, 1.3, 64]} />
@@ -3385,40 +3961,57 @@ export const GameScene: React.FC<SceneProps> = (props) => {
   const dungeonRuntimeScenarioPreset = useMemo(() => getRuntimeScenarioPreset('dungeon'), []);
   const dungeonRuntimeConfig = dungeonRuntimeScenarioPreset?.config ?? null;
   const dungeonRuntimeSceneObjects = dungeonRuntimeConfig?.sceneObjects ?? [];
-  const menuPortalTransform = getRuntimeMenuPortalPreset().transform;
+  const towerRuntimeScenarioPreset = useMemo(() => getRuntimeScenarioPreset('tower'), []);
+  const towerRuntimeConfig = towerRuntimeScenarioPreset?.config ?? null;
+  const isTowerScene = props.menuPortalRegion === 'tower';
+  const activeScenarioConfig = isTowerScene ? towerRuntimeConfig : dungeonRuntimeConfig;
+  const activeScenarioPreset = isTowerScene ? towerRuntimeScenarioPreset : dungeonRuntimeScenarioPreset;
+  const activeSceneObjects = activeScenarioConfig?.sceneObjects ?? [];
+  const globalMenuPortalTransform = getRuntimeMenuPortalPreset().transform;
+  const menuPortalTransform = activeScenarioConfig?.menuPortalTransform ?? globalMenuPortalTransform;
   const menuPortalFocusPoint: [number, number, number] = [
     menuPortalTransform.position[0],
     menuPortalTransform.position[1] + 1.05,
     menuPortalTransform.position[2],
   ];
-  const shouldUseRuntimeScenarioEditorParity = Boolean(isDungeonRun && dungeonRuntimeConfig);
-  const dungeonHeroBasePosition: [number, number, number] = dungeonRuntimeConfig?.heroBasePosition ?? [-2, -1, 0];
-  const dungeonEnemyBasePosition: [number, number, number] = dungeonRuntimeConfig?.enemyBasePosition ?? [2, -1, 0];
+  const shouldUseRuntimeScenarioEditorParity = Boolean(isDungeonRun && activeScenarioConfig);
+  const dungeonHeroBasePosition: [number, number, number] = activeScenarioConfig?.heroBasePosition ?? [-2, -1, 0];
+  const dungeonEnemyBasePosition: [number, number, number] = activeScenarioConfig?.enemyBasePosition ?? [2, -1, 0];
   const dungeonHeroAttackX = dungeonHeroBasePosition[0] + 2.5;
   const dungeonHeroDefendX = dungeonHeroBasePosition[0] + 0.5;
   const dungeonEnemyAttackX = dungeonEnemyBasePosition[0] - 2.35;
   const dungeonEnemyDefendX = dungeonEnemyBasePosition[0] - 0.5;
-  const dungeonFogColor = dungeonRuntimeConfig?.atmosphere.fogColor ?? '#1f2937';
-  const dungeonFogNearBase = Math.max(1, dungeonRuntimeConfig?.atmosphere.fogNear ?? 14);
-  const dungeonFogFarBase = Math.max(dungeonFogNearBase + 1, dungeonRuntimeConfig?.atmosphere.fogFar ?? 32);
+  const dungeonFogColor = activeScenarioConfig?.atmosphere.fogColor ?? '#1f2937';
+  const dungeonFogNearBase = Math.max(1, activeScenarioConfig?.atmosphere.fogNear ?? 14);
+  const dungeonFogFarBase = Math.max(dungeonFogNearBase + 1, activeScenarioConfig?.atmosphere.fogFar ?? 32);
   const dungeonFogNear = dungeonFogNearBase;
   const dungeonFogFar = dungeonFogFarBase;
-  const dungeonAmbientColor = dungeonRuntimeConfig?.lighting.ambientColor ?? '#f8fafc';
-  const dungeonAmbientIntensity = dungeonRuntimeConfig?.lighting.ambientIntensity ?? 1.08;
-  const dungeonDirectionalColor = dungeonRuntimeConfig?.lighting.directionalColor ?? '#f8fafc';
-  const dungeonDirectionalIntensity = dungeonRuntimeConfig?.lighting.directionalIntensity ?? 0.78;
-  const dungeonDirectionalPosition = dungeonRuntimeConfig?.lighting.directionalPosition ?? [0, 6, 6] as [number, number, number];
-  const dungeonSceneBgColor = dungeonRuntimeConfig?.atmosphere.fogColor ?? bgColor;
-  const dungeonFogEnabled = dungeonRuntimeConfig?.atmosphere.fogEnabled ?? true;
+  const dungeonAmbientColor = activeScenarioConfig?.lighting.ambientColor ?? '#f8fafc';
+  const dungeonAmbientIntensity = activeScenarioConfig?.lighting.ambientIntensity ?? 1.08;
+  const dungeonDirectionalColor = activeScenarioConfig?.lighting.directionalColor ?? '#f8fafc';
+  const dungeonDirectionalIntensity = activeScenarioConfig?.lighting.directionalIntensity ?? 0.78;
+  const dungeonDirectionalPosition = activeScenarioConfig?.lighting.directionalPosition ?? [0, 6, 6] as [number, number, number];
+  const dungeonSceneBgColor = activeScenarioConfig?.atmosphere.fogColor ?? bgColor;
+  const dungeonFogEnabled = activeScenarioConfig?.atmosphere.fogEnabled ?? true;
   const huntSceneBgColor = huntRuntimeConfig?.atmosphere.fogColor ?? bgColor;
   const huntFogEnabled = huntRuntimeConfig?.atmosphere.fogEnabled ?? true;
   const huntFogColor = huntRuntimeConfig?.atmosphere.fogColor ?? '#d7e6c2';
   const huntFogNear = Math.max(1, huntRuntimeConfig?.atmosphere.fogNear ?? forestFogNear);
   const huntFogFar = Math.max(huntFogNear + 1, huntRuntimeConfig?.atmosphere.fogFar ?? forestFogFar);
-  const sceneBackgroundColor = isDungeonRun && dungeonRuntimeConfig ? dungeonSceneBgColor : huntSceneBgColor;
+  const sceneBackgroundColor = isDungeonRun && activeScenarioConfig ? dungeonSceneBgColor : huntSceneBgColor;
   const runtimeCameraScreenShake = shouldUseRuntimeScenarioEditorParity
     ? undefined
     : props.screenShake;
+  const runtimeBattleCamera = useMemo(() => {
+    const cs = activeScenarioConfig?.cameraState;
+    if (!cs || !isDungeonRun) return undefined;
+    const dist = Math.sqrt(cs.position[0] ** 2 + cs.position[2] ** 2);
+    return {
+      fov: cs.fov,
+      distance: dist > 0.01 ? dist : Math.abs(cs.position[2]),
+      height: cs.position[1],
+    };
+  }, [activeScenarioConfig, isDungeonRun]);
   const shouldShowDungeonReferenceGround = false;
   const enemyOverlay = null;
   const latestEnemyImpactColor = useMemo(() => {
@@ -3432,7 +4025,12 @@ export const GameScene: React.FC<SceneProps> = (props) => {
   }, [props.particles]);
 
   return (
-    <div ref={containerRef} className="absolute inset-0 z-0 transition-colors duration-1000" style={{ backgroundColor: sceneBackgroundColor, touchAction: 'none' }}>
+    <div
+      ref={containerRef}
+      className="absolute inset-0 z-0 transition-colors duration-1000"
+      style={{ backgroundColor: sceneBackgroundColor, touchAction: 'none' }}
+      onClick={() => { if (props.heroInspectMode) props.onHeroInspectClose?.(); }}
+    >
       {/* Time Display Overlay - Desktop only */}
       {!isDungeonRun && (
         <div className="absolute top-6 left-6 z-10 bg-black/40 border border-white/10 px-4 py-1 rounded-full hidden sm:flex items-center gap-3 pointer-events-none">
@@ -3454,6 +4052,9 @@ export const GameScene: React.FC<SceneProps> = (props) => {
           menuFocus={runtimeCameraMenuFocus}
           menuPortalTravelCinematicToken={props.menuPortalTravelCinematicToken ?? 0}
           menuPortalFocusPoint={menuPortalFocusPoint}
+          runtimeBattleCamera={runtimeBattleCamera}
+          heroInspectMode={props.heroInspectMode}
+          portalInspectMode={props.portalInspectMode}
         />
         <group>
           {isDungeonRun ? (
@@ -3466,7 +4067,7 @@ export const GameScene: React.FC<SceneProps> = (props) => {
                   <meshStandardMaterial color="#0f172a" roughness={0.95} metalness={0.02} />
                 </mesh>
               ) : null}
-              {dungeonRuntimeConfig ? (
+              {dungeonRuntimeConfig || towerRuntimeConfig ? (
                 <>
                   <ambientLight intensity={Math.max(0, dungeonAmbientIntensity)} color={dungeonAmbientColor} />
                   <hemisphereLight intensity={Math.max(0.2, dungeonAmbientIntensity * 0.65)} color="#dbeafe" groundColor="#1f2937" />
@@ -3477,15 +4078,15 @@ export const GameScene: React.FC<SceneProps> = (props) => {
                     castShadow
                     shadow-mapSize={[quality.shadowMapSize, quality.shadowMapSize]}
                   />
-                  <ScenarioParticleField particles={dungeonRuntimeConfig.particles} />
+                  <ScenarioParticleField particles={activeScenarioConfig!.particles} />
                   <Suspense fallback={null}>
                     <RuntimeScenarioGlb
-                      modelUrl={dungeonRuntimeScenarioPreset!.scenarioModelUrl}
-                      transform={dungeonRuntimeConfig.scenarioTransform}
+                      modelUrl={activeScenarioPreset!.scenarioModelUrl}
+                      transform={activeScenarioConfig!.scenarioTransform}
                       editorParity={shouldUseRuntimeScenarioEditorParity}
                     />
                   </Suspense>
-                  {dungeonRuntimeSceneObjects.map((sceneObject) => (
+                  {activeSceneObjects.map((sceneObject) => (
                     <Suspense key={sceneObject.id} fallback={null}>
                       <RuntimeScenarioGlb
                         modelUrl={sceneObject.modelUrl}
@@ -3578,13 +4179,13 @@ export const GameScene: React.FC<SceneProps> = (props) => {
             contactShadowResolution={quality.contactShadowResolution}
             loadSecondaryAnimationBundles
             onHeroClick={props.onMenuHeroClick}
-            idlePositionX={isDungeonRun && dungeonRuntimeConfig ? dungeonHeroBasePosition[0] : undefined}
-            attackPositionX={isDungeonRun && dungeonRuntimeConfig ? dungeonHeroAttackX : undefined}
-            defendPositionX={isDungeonRun && dungeonRuntimeConfig ? dungeonHeroDefendX : undefined}
-            idlePositionY={isDungeonRun && dungeonRuntimeConfig ? dungeonHeroBasePosition[1] : undefined}
-            attackPositionY={isDungeonRun && dungeonRuntimeConfig ? dungeonHeroBasePosition[1] : undefined}
-            defendPositionY={isDungeonRun && dungeonRuntimeConfig ? dungeonHeroBasePosition[1] : undefined}
-            originPosition={isDungeonRun && dungeonRuntimeConfig ? dungeonHeroBasePosition : undefined}
+            idlePositionX={isDungeonRun && activeScenarioConfig ? dungeonHeroBasePosition[0] : undefined}
+            attackPositionX={isDungeonRun && activeScenarioConfig ? dungeonHeroAttackX : undefined}
+            defendPositionX={isDungeonRun && activeScenarioConfig ? dungeonHeroDefendX : undefined}
+            idlePositionY={isDungeonRun && activeScenarioConfig ? dungeonHeroBasePosition[1] : undefined}
+            attackPositionY={isDungeonRun && activeScenarioConfig ? dungeonHeroBasePosition[1] : undefined}
+            defendPositionY={isDungeonRun && activeScenarioConfig ? dungeonHeroBasePosition[1] : undefined}
+            originPosition={isDungeonRun && activeScenarioConfig ? dungeonHeroBasePosition : undefined}
           />
         </group>
 
@@ -3598,6 +4199,38 @@ export const GameScene: React.FC<SceneProps> = (props) => {
             />
           </Suspense>
         ) : null}
+
+        {props.heroInspectMode && props.isMenuView && props.playerState && (
+          <HeroInspectCanvas
+            player={props.playerState}
+            onClose={() => props.onHeroInspectClose?.()}
+            onEquipSlot={(slot) => props.onHeroEquipSlotClick?.(slot)}
+          />
+        )}
+
+        {props.portalInspectMode && props.isMenuView && (
+          <>
+            {/* Transparent backdrop: click OUTSIDE cards closes portal.
+                Uses onClick (not onPointerDown) so it only fires when the canvas
+                itself is the click target — HTML card clicks go to the DOM element
+                and never reach the canvas, avoiding a race condition where the
+                backdrop unmounts the Html before the card onClick fires. */}
+            <mesh
+              position={[0, 0, -1]}
+              onClick={(e) => { e.stopPropagation(); props.onPortalInspectClose?.(); }}
+            >
+              <planeGeometry args={[200, 200]} />
+              <meshBasicMaterial transparent opacity={0} />
+            </mesh>
+            <PortalInspectCanvas
+              currentRegion={props.currentSceneRegion ?? 'forest'}
+              dungeonUnlocked={props.dungeonUnlocked ?? false}
+              towerUnlocked={props.towerUnlocked ?? true}
+              onClose={() => props.onPortalInspectClose?.()}
+              onTravelTo={(region) => { props.onPortalTravelTo?.(region); props.onPortalInspectClose?.(); }}
+            />
+          </>
+        )}
 
         <group ref={outlineEnemyRef}>
           {!props.isMenuView && (
@@ -3616,13 +4249,13 @@ export const GameScene: React.FC<SceneProps> = (props) => {
               attackStyle={props.enemyAttackStyle}
               contactShadowResolution={quality.contactShadowResolution}
               statusOverlay={enemyOverlay}
-              idlePositionX={isDungeonRun && dungeonRuntimeConfig ? dungeonEnemyBasePosition[0] : undefined}
-              attackPositionX={isDungeonRun && dungeonRuntimeConfig ? dungeonEnemyAttackX : undefined}
-              defendPositionX={isDungeonRun && dungeonRuntimeConfig ? dungeonEnemyDefendX : undefined}
-              idlePositionY={isDungeonRun && dungeonRuntimeConfig ? dungeonEnemyBasePosition[1] : undefined}
-              attackPositionY={isDungeonRun && dungeonRuntimeConfig ? dungeonEnemyBasePosition[1] : undefined}
-              defendPositionY={isDungeonRun && dungeonRuntimeConfig ? dungeonEnemyBasePosition[1] : undefined}
-              originPosition={isDungeonRun && dungeonRuntimeConfig ? dungeonEnemyBasePosition : undefined}
+              idlePositionX={isDungeonRun && activeScenarioConfig ? dungeonEnemyBasePosition[0] : undefined}
+              attackPositionX={isDungeonRun && activeScenarioConfig ? dungeonEnemyAttackX : undefined}
+              defendPositionX={isDungeonRun && activeScenarioConfig ? dungeonEnemyDefendX : undefined}
+              idlePositionY={isDungeonRun && activeScenarioConfig ? dungeonEnemyBasePosition[1] : undefined}
+              attackPositionY={isDungeonRun && activeScenarioConfig ? dungeonEnemyBasePosition[1] : undefined}
+              defendPositionY={isDungeonRun && activeScenarioConfig ? dungeonEnemyBasePosition[1] : undefined}
+              originPosition={isDungeonRun && activeScenarioConfig ? dungeonEnemyBasePosition : undefined}
             />
           )}
         </group>

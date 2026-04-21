@@ -671,6 +671,7 @@ export const InventoryScreen = ({
       onUnequip(item);
     } else {
       onEquip(item);
+      onClose();
     }
   };
 

@@ -126,6 +126,7 @@ export interface DeveloperScenarioComposerConfig {
   heroSelectionSlots?: DeveloperScenarioComposerHeroSlot[];
   heroBasePosition: [number, number, number];
   enemyBasePosition: [number, number, number];
+  menuPortalTransform?: DeveloperScenarioComposerTransform;
   lighting: DeveloperScenarioComposerLighting;
   atmosphere: DeveloperScenarioComposerAtmosphere;
   particles: DeveloperScenarioComposerParticles;
