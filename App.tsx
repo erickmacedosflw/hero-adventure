@@ -29,7 +29,7 @@ import { useBattleController } from './game/hooks/useBattleController';
 import { useBattleResolution } from './game/hooks/useBattleResolution';
 import { generateBattleDescription, generateVictorySpeech } from './services/battleNarrationService';
 import { TowerRunState, TowerMeta, TowerNode, TowerNodeType, TowerSanctuaryOption, TowerEventOption, RunCard, ConsumableSlot } from './types';
-import { DEFAULT_TOWER_META, TOWER_CONSUMABLE_UPGRADE_COST } from './constants';
+import { DEFAULT_TOWER_META, TOWER_CONSUMABLE_UPGRADE_COST, getClassSlots } from './constants';
 import { TowerHubScreen } from './components/tower/TowerHubScreen';
 import { TowerMapScreen } from './components/tower/TowerMapScreen';
 import { TowerSanctuaryScreen } from './components/tower/TowerSanctuaryScreen';
@@ -223,16 +223,16 @@ const normalizeSavedPlayerForCurrentBuild = (source: Player): Player => {
         impulsoAtivo: Math.max(0, Math.min(maxImpulse, source.impulsoAtivo ?? 0)),
         equippedSkillIds: (() => {
             const ids = Array.isArray((source as any).equippedSkillIds) ? (source as any).equippedSkillIds : [];
-            const result: string[] = ['', '', ''];
-            for (let i = 0; i < 3; i++) result[i] = typeof ids[i] === 'string' ? ids[i] : '';
+            const maxSkills = getClassSlots(source.classId).skills;
+            const result: string[] = Array.from({ length: maxSkills }, () => '');
+            for (let i = 0; i < maxSkills; i++) result[i] = typeof ids[i] === 'string' ? ids[i] : '';
             return result;
         })(),
         equippedItemSlots: (() => {
             const raw = Array.isArray((source as any).equippedItemSlots) ? (source as any).equippedItemSlots : [];
-            const result: Array<{ itemId: string; qty: number }> = [
-                { itemId: '', qty: 0 }, { itemId: '', qty: 0 }, { itemId: '', qty: 0 }, { itemId: '', qty: 0 },
-            ];
-            for (let i = 0; i < 4; i++) {
+            const maxItems = getClassSlots(source.classId).items;
+            const result: Array<{ itemId: string; qty: number }> = Array.from({ length: maxItems }, () => ({ itemId: '', qty: 0 }));
+            for (let i = 0; i < maxItems; i++) {
                 const s = raw[i];
                 if (s && typeof s.itemId === 'string' && typeof s.qty === 'number') {
                     result[i] = { itemId: s.itemId, qty: Math.max(0, s.qty) };
@@ -3175,8 +3175,9 @@ export default function App() {
 
   const equipSkillToSlot = (slotIndex: number, skillId: string | null) => {
       setPlayer((p) => {
-          const ids = [...(p.equippedSkillIds ?? ['', '', ''])];
-          while (ids.length < 3) ids.push('');
+          const maxSkills = getClassSlots(p.classId).skills;
+          const ids = [...(p.equippedSkillIds ?? [])];
+          while (ids.length < maxSkills) ids.push('');
           // Remove from any other slot first (each skill can only occupy one slot)
           const newId = skillId ?? '';
           if (newId) {
@@ -3191,10 +3192,9 @@ export default function App() {
 
   const equipItemToSlot = (slotIndex: number, itemId: string | null) => {
       setPlayer((p) => {
-          const slots = (p.equippedItemSlots ?? [
-              { itemId: '', qty: 0 }, { itemId: '', qty: 0 }, { itemId: '', qty: 0 }, { itemId: '', qty: 0 },
-          ]).map(s => ({ ...s }));
-          while (slots.length < 4) slots.push({ itemId: '', qty: 0 });
+          const maxItems = getClassSlots(p.classId).items;
+          const slots = (p.equippedItemSlots ?? []).map(s => ({ ...s }));
+          while (slots.length < maxItems) slots.push({ itemId: '', qty: 0 });
           const newInv = { ...p.inventory };
 
           // Return existing slot item to inventory

@@ -375,6 +375,27 @@ export const TOWER_CONSUMABLE_SLOTS_BY_LEVEL: Record<number, number> = { 1: 3, 2
 export const TOWER_CONSUMABLE_UPGRADE_COST: Record<number, number> = { 2: 3, 3: 6 };
 export const TOWER_MAX_CONSUMABLE_SLOT_LEVEL = 3;
 
+// ── Per-class slot counts ────────────────────────────────────────────
+export const CLASS_SKILL_SLOTS: Record<string, number> = {
+  mage:      6,
+  knight:    3,
+  barbarian: 2,
+  ranger:    4,
+  rogue:     3,
+};
+export const CLASS_ITEM_SLOTS: Record<string, number> = {
+  mage:      2,
+  knight:    4,
+  barbarian: 3,
+  ranger:    3,
+  rogue:     6,
+};
+/** Returns the skill and item slot counts for a given classId. Falls back to 3/4 for unknown ids. */
+export const getClassSlots = (classId: string): { skills: number; items: number } => ({
+  skills: CLASS_SKILL_SLOTS[classId] ?? 3,
+  items:  CLASS_ITEM_SLOTS[classId]  ?? 4,
+});
+
 // Node counts per floor range
 export const TOWER_NODES_PER_FLOOR: Record<'early' | 'mid' | 'late', number> = {
   early: 4,

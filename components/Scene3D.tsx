@@ -92,7 +92,7 @@ import { VoxelPart } from './items/VoxelPart';
 import { getEquipmentBonuses } from '../game/mechanics/equipmentBonuses';
 import { getPlayerClassById } from '../game/data/classes';
 import { getEquippedWeaponGrip, getRegisteredWeapon3DByItemId } from '../game/data/weaponCatalog';
-import { ALL_ITEMS } from '../constants';
+import { ALL_ITEMS, getClassSlots } from '../constants';
 export { ItemPreviewCanvas } from './items/ItemPreviewCanvas';
 export type {
   DeveloperAnimationRuntimeDiagnostic,
@@ -2962,8 +2962,8 @@ const HeroInspectCanvas = ({
 
           {/* ── Skills Card (page 2) ── */}
           {(() => {
-            const equippedIds: string[] = player.equippedSkillIds ?? ['', '', ''];
-            const MAX_SLOTS = 3;
+            const equippedIds: string[] = player.equippedSkillIds ?? [];
+            const MAX_SLOTS = getClassSlots(player.classId).skills;
             const paddedIds = [...equippedIds];
             while (paddedIds.length < MAX_SLOTS) paddedIds.push('');
             const availableSkills = player.skills ?? [];
@@ -3072,10 +3072,8 @@ const HeroInspectCanvas = ({
 
           {/* ── Items card (page 3) ── */}
           {(() => {
-            const equippedItemSlots: Array<{ itemId: string; qty: number }> = player.equippedItemSlots ?? [
-              { itemId: '', qty: 0 }, { itemId: '', qty: 0 }, { itemId: '', qty: 0 }, { itemId: '', qty: 0 },
-            ];
-            const MAX_ITEM_SLOTS = 4;
+            const equippedItemSlots: Array<{ itemId: string; qty: number }> = player.equippedItemSlots ?? [];
+            const MAX_ITEM_SLOTS = getClassSlots(player.classId).items;
             const itemColor = '#fb923c';
             const itemBg = 'rgba(251,146,60,0.14)';
             return (

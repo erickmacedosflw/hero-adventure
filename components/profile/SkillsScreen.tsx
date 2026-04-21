@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { ArrowLeft, Sparkles, Zap, Sword, Heart } from 'lucide-react';
 import { Player, Skill } from '../../types';
+import { getClassSlots } from '../../constants';
 
 const BOOK_IMAGE_URL = new URL('../../game/assets/Icons/Habilidades/Book_habilidades.png', import.meta.url).href;
 const BOOK_ICON_URL = new URL('../../game/assets/Icons/Misc/Book 3.png', import.meta.url).href;
@@ -169,8 +170,9 @@ export const SkillsScreen: React.FC<SkillsScreenProps> = ({ player, onClose, isC
 
   const skills = player.skills ?? [];
   const equippedIds: string[] = player.equippedSkillIds ?? [];
+  const maxSkillSlots = getClassSlots(player.classId).skills;
   const paddedIds = [...equippedIds];
-  while (paddedIds.length < 3) paddedIds.push('');
+  while (paddedIds.length < maxSkillSlots) paddedIds.push('');
 
   const getSkillSlotIndex = (skillId: string): number | null => {
     const idx = paddedIds.findIndex(id => id === skillId);

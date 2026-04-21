@@ -8,7 +8,7 @@ import { CharacterSheetModal } from './profile/CharacterSheetModal';
 import { InventoryScreen as InventoryModal } from './profile/InventoryScreen';
 import { SkillsScreen as SkillsModal } from './profile/SkillsScreen';
 import { ShopMenuScreen } from './shop/ShopMenuScreen';
-import { ALL_ITEMS, SKILLS } from '../constants';
+import { ALL_ITEMS, SKILLS, getClassSlots } from '../constants';
 import { ALL_CARDS } from '../game/data/cards';
 import { getPlayerClassById } from '../game/data/classes';
 import { getTalentBonuses } from '../game/mechanics/classProgression';
@@ -4236,7 +4236,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
 
                                                             {/* Skill slot rows */}
                                                             {(() => {
-                                                                const MAX_SLOTS = 3;
+                                                                const MAX_SLOTS = getClassSlots(player.classId).skills;
                                                                 const ids = [...(player.equippedSkillIds ?? [])];
                                                                 while (ids.length < MAX_SLOTS) ids.push('');
                                                                 return (
