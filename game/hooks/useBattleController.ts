@@ -1312,8 +1312,11 @@ export const useBattleController = ({
     lastPlayerActionRef.current = 'item';
 
     const item = ALL_ITEMS.find((entry) => entry.id === itemId);
-    const qty = player.inventory[itemId] || 0;
-    if (!item || qty <= 0) return;
+    const invQty = player.inventory[itemId] || 0;
+    const slotQty = (player.equippedItemSlots ?? []).reduce((sum, s) => s.itemId === itemId ? sum + s.qty : sum, 0);
+    if (!item || (invQty <= 0 && slotQty <= 0)) return;
+    // prefer consuming from inventory first; if none there, consume from slot
+    const consumeFromSlot = invQty <= 0;
 
     if (item.id === 'pot_dg_recall') {
       if (!dungeonRun) {
@@ -1399,11 +1402,26 @@ export const useBattleController = ({
     }
 
     setPlayer((prev) => {
-      const currentQty = prev.inventory[itemId] || 0;
-      if (currentQty <= 0) return prev;
-
+      const currentInvQty = prev.inventory[itemId] || 0;
       const newInv = { ...prev.inventory };
-      newInv[itemId] = currentQty - 1;
+      let newSlots = prev.equippedItemSlots ? [...prev.equippedItemSlots] : undefined;
+
+      if (!consumeFromSlot && currentInvQty > 0) {
+        newInv[itemId] = currentInvQty - 1;
+      } else if (consumeFromSlot && newSlots) {
+        // find the first slot with this item and decrement its qty
+        const slotIdx = newSlots.findIndex(s => s.itemId === itemId && s.qty > 0);
+        if (slotIdx !== -1) {
+          newSlots = newSlots.map((s, i) =>
+            i === slotIdx ? { ...s, qty: s.qty - 1 } : s
+          );
+        } else {
+          return prev; // nothing to consume
+        }
+      } else {
+        return prev;
+      }
+
       let newHp = prev.stats.hp;
       let newMp = prev.stats.mp;
       const newBuffs = { ...prev.buffs };
@@ -1431,7 +1449,7 @@ export const useBattleController = ({
         newBuffs.doubleAttackTurns = Math.max(newBuffs.doubleAttackTurns, item.duration || 6);
       }
 
-      return { ...prev, inventory: newInv, stats: { ...prev.stats, hp: newHp, mp: newMp }, buffs: newBuffs };
+      return { ...prev, inventory: newInv, ...(newSlots ? { equippedItemSlots: newSlots } : {}), stats: { ...prev.stats, hp: newHp, mp: newMp }, buffs: newBuffs };
     });
 
     if (gameState === GameState.BATTLE) {

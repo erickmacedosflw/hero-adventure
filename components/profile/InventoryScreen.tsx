@@ -60,6 +60,8 @@ type InventoryScreenProps = {
   isBattleContext?: boolean;
   initialFilter?: 'all' | 'equipment' | 'potion' | 'material' | 'weapon' | 'shield' | 'helmet' | 'armor' | 'legs';
   isClosing?: boolean;
+  targetItemSlotIndex?: number | null;
+  onEquipItemToSlot?: (slotIndex: number, itemId: string | null) => void;
 };
 
 type InventoryFilter = 'potion' | 'equipment' | 'material';
@@ -185,31 +187,39 @@ const InventoryCard: React.FC<{
   onClick: () => void;
   onEquipToggle?: (item: Item) => void;
   isBattleContext: boolean;
-}> = ({ item, quantity, player, isSelected, isEquipped, onClick, onEquipToggle, isBattleContext }) => {
+  inSlotIndex?: number;
+  isPicking?: boolean;
+}> = ({ item, quantity, player, isSelected, isEquipped, onClick, onEquipToggle, isBattleContext, inSlotIndex, isPicking }) => {
   const trend = getEquipmentComparisonTrend(player, item);
   const isEquipCard = isEquipmentType(item.type);
   const effectCards = getItemEffectCards(item);
   const statCards = effectCards.filter((e) => e.label !== 'TURNOS' && e.label !== 'ESPECIAL' && e.label !== 'CRAFT');
+  const isInSlot = inSlotIndex !== undefined && inSlotIndex >= 0;
 
   return (
     <button
       onClick={onClick}
-      className={`relative shrink-0 w-[130px] flex flex-col rounded-[20px] border-2 ${getRarityBorder(item.rarity)} bg-black/50 backdrop-blur-md p-3 text-left transition-all duration-200 hover:-translate-y-1 active:scale-95 ${getRarityGlow(item.rarity)} ${isSelected ? 'ring-2 ring-white/30 shadow-[0_0_20px_rgba(255,255,255,0.15)]' : 'opacity-85 hover:opacity-100'}`}
+      className={`relative shrink-0 w-[130px] flex flex-col rounded-[20px] border-2 ${isPicking ? 'border-amber-400/60' : getRarityBorder(item.rarity)} bg-black/50 backdrop-blur-md p-3 text-left transition-all duration-200 hover:-translate-y-1 active:scale-95 ${getRarityGlow(item.rarity)} ${isSelected ? 'ring-2 ring-white/30 shadow-[0_0_20px_rgba(255,255,255,0.15)]' : 'opacity-85 hover:opacity-100'}`}
     >
       {/* Quantity badge */}
       <span className="absolute right-2 top-2 z-10 rounded-full border border-white/20 bg-black/60 px-1.5 py-0.5 text-[9px] font-black text-white">
         x{quantity}
       </span>
 
+      {/* Slot badge — top-left (potion in a slot) */}
+      {isInSlot && !isPicking && (
+        <span className="absolute left-2 top-2 z-10 rounded-full border border-amber-400/50 bg-amber-500/25 px-1.5 py-0.5 text-[8px] font-black text-amber-300 uppercase tracking-widest">S{(inSlotIndex ?? 0) + 1}</span>
+      )}
+
       {/* Trend badge — equipment only (not equipped), top-left */}
-      {trend && !isEquipped && (
+      {!isInSlot && trend && !isEquipped && !isPicking && (
         <span className={`absolute left-2 top-2 z-10 inline-flex h-5 w-5 items-center justify-center rounded-full border border-white/20 ${trend === 'up' ? 'bg-emerald-500/80 text-white' : trend === 'down' ? 'bg-rose-500/80 text-white' : 'bg-amber-500/80 text-white'}`}>
           {trend === 'up' ? <ArrowUp size={10} /> : trend === 'down' ? <ArrowDown size={10} /> : <span className="text-[10px] leading-none font-black">—</span>}
         </span>
       )}
 
       {/* Equipped badge — top-left */}
-      {isEquipped && (
+      {isEquipped && !isInSlot && !isPicking && (
         <span className="absolute left-2 top-2 z-10 rounded-full border border-emerald-400/40 bg-emerald-500/20 px-1.5 py-0.5 text-[8px] font-black text-emerald-400 uppercase tracking-widest">E</span>
       )}
 
@@ -242,8 +252,16 @@ const InventoryCard: React.FC<{
         </div>
       )}
 
-      {/* Equip/Unequip inline button — equipment only, camp only */}
-      {isEquipCard && !isBattleContext && onEquipToggle && (
+      {/* Picking mode button — potion only */}
+      {isPicking && item.type === 'potion' && (
+        <div className={`mt-2 inline-flex w-full items-center justify-center gap-1 rounded-lg border px-2 py-1.5 text-[10px] font-black uppercase tracking-[0.1em] transition-all hover:-translate-y-0.5 active:scale-95 cursor-pointer ${isInSlot ? 'border-amber-500/40 bg-amber-500/20 text-amber-300' : 'border-emerald-500/40 bg-emerald-500/20 text-emerald-300'}`}>
+          <FlaskConical size={10} />
+          {isInSlot ? 'Desequipar' : 'Equipar'}
+        </div>
+      )}
+
+      {/* Equip/Unequip inline button — equipment only, camp only, not picking */}
+      {!isPicking && isEquipCard && !isBattleContext && onEquipToggle && (
         <div
           role="button"
           tabIndex={0}
@@ -541,6 +559,8 @@ export const InventoryScreen = ({
   isBattleContext = false,
   initialFilter = 'all',
   isClosing = false,
+  targetItemSlotIndex = null,
+  onEquipItemToSlot,
 }: InventoryScreenProps) => {
   const MODAL_CLOSE_MS = 180;
 
@@ -586,6 +606,28 @@ export const InventoryScreen = ({
       setActiveItemId(null);
       setShaking(false);       // src swaps instantly, no appear animation
     }, 200);
+  };
+
+  // Auto-switch to potion tab when entering item slot picking mode
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { if (targetItemSlotIndex !== null) changeFilter('potion'); }, [targetItemSlotIndex]);
+
+  const isPicking = targetItemSlotIndex !== null;
+  const equippedItemSlots = player.equippedItemSlots ?? [];
+
+  const getItemSlotIndex = (itemId: string) =>
+    equippedItemSlots.findIndex((s) => s.itemId === itemId);
+
+  const handlePickingClick = (item: Item) => {
+    if (!isPicking || targetItemSlotIndex === null || !onEquipItemToSlot) return;
+    const existingSlot = getItemSlotIndex(item.id);
+    if (existingSlot === targetItemSlotIndex) {
+      // Desequipar from this slot
+      onEquipItemToSlot(targetItemSlotIndex, null);
+    } else {
+      onEquipItemToSlot(targetItemSlotIndex, item.id);
+    }
+    onClose();
   };
 
   // Build inventory entry list (include equipped items even if not in inventory dict)
@@ -774,6 +816,26 @@ export const InventoryScreen = ({
           </div>
         </div>
 
+        {/* Picking mode banner */}
+        {isPicking && (() => {
+          const currentSlotItem = targetItemSlotIndex !== null ? (equippedItemSlots[targetItemSlotIndex]?.itemId ?? '') : '';
+          const hasCurrentItem = !!currentSlotItem;
+          return (
+            <div className="mx-4 mt-2 flex items-center gap-2 rounded-xl border border-amber-400/30 bg-amber-500/10 px-3 py-2">
+              <FlaskConical size={13} className="shrink-0 text-amber-300" />
+              <span className="flex-1 text-[11px] font-black text-amber-200">Escolhendo para Slot {(targetItemSlotIndex ?? 0) + 1} — toque num item</span>
+              {hasCurrentItem && (
+                <button
+                  onClick={() => { if (onEquipItemToSlot && targetItemSlotIndex !== null) { onEquipItemToSlot(targetItemSlotIndex, null); } onClose(); }}
+                  className="shrink-0 rounded-lg border border-amber-400/30 bg-amber-500/15 px-2 py-1 text-[10px] font-black uppercase tracking-widest text-amber-300 hover:bg-amber-500/25 active:scale-95"
+                >
+                  × Remover
+                </button>
+              )}
+            </div>
+          );
+        })()}
+
         {/* Filter tabs — or locked sub-type header when opened from equipment slot */}
         {equipmentSubFilter ? (
           <div className="flex items-center gap-2 px-4 py-2">
@@ -785,7 +847,7 @@ export const InventoryScreen = ({
           </div>
         ) : (
           <div className="flex items-center gap-3 px-4 pt-1.5 pb-0">
-            {FILTERS.map((entry) => {
+            {FILTERS.filter(entry => !isPicking || entry.id === 'potion').map((entry) => {
               const active = filter === entry.id;
               const count = filterItemCount(entry.id);
               return (
@@ -830,9 +892,11 @@ export const InventoryScreen = ({
                 player={player}
                 isSelected={activeItemId === item.id}
                 isEquipped={isItemEquipped(item)}
-                onClick={() => openDetail(item)}
+                onClick={isPicking && item.type === 'potion' ? () => handlePickingClick(item) : () => openDetail(item)}
                 onEquipToggle={handleEquipToggle}
                 isBattleContext={isBattleContext}
+                inSlotIndex={getItemSlotIndex(item.id)}
+                isPicking={isPicking && item.type === 'potion'}
               />
             ))
           )}

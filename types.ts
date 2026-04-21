@@ -463,6 +463,8 @@ export interface Player {
   equippedLegs: Item | null;
   equippedShield: Item | null;
   skills: Skill[];
+  equippedSkillIds: string[]; // per-slot: '' = empty, 'skill_id' = assigned
+  equippedItemSlots: Array<{ itemId: string; qty: number }>; // 4 slots, empty = { itemId: '', qty: 0 }
   talentPoints: number;
   unlockedTalentNodeIds: string[];
   classResource: ClassResourceState;

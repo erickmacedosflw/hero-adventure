@@ -18,6 +18,13 @@ export const INITIAL_PLAYER: Player = {
   equippedLegs: null,
   equippedShield: null,
   skills: [],
+  equippedSkillIds: ['', '', ''],
+  equippedItemSlots: [
+    { itemId: '', qty: 0 },
+    { itemId: '', qty: 0 },
+    { itemId: '', qty: 0 },
+    { itemId: '', qty: 0 },
+  ],
   talentPoints: 0,
   unlockedTalentNodeIds: [],
   classResource: createClassResourceState(DEFAULT_PLAYER_CLASS_ID),

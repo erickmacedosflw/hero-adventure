@@ -229,7 +229,7 @@ const getEquipmentBonusMeta = (item: Item | null): Array<{ icon: React.ReactNode
       icon: <Sword size={12} />,
       label: 'ATK',
       value: `+${bonuses.atk}`,
-      chip: 'border-[#e4adb6] bg-[#fbe9ec]',
+      chip: 'border-[#e4adb6] bg-[#f5cdd6]',
       valueTone: 'text-[#b83a4b]',
     });
   }
@@ -238,7 +238,7 @@ const getEquipmentBonusMeta = (item: Item | null): Array<{ icon: React.ReactNode
       icon: <Shield size={12} />,
       label: 'DEF',
       value: `+${bonuses.def}`,
-      chip: 'border-[#b9c8d7] bg-[#ebf2f8]',
+      chip: 'border-[#b9c8d7] bg-[#c4ddef]',
       valueTone: 'text-[#4d6780]',
     });
   }
@@ -247,7 +247,7 @@ const getEquipmentBonusMeta = (item: Item | null): Array<{ icon: React.ReactNode
       icon: <Zap size={12} />,
       label: 'VEL',
       value: `+${bonuses.speed}`,
-      chip: 'border-[#d3bfd8] bg-[#f3eaf5]',
+      chip: 'border-[#d3bfd8] bg-[#d9c4e3]',
       valueTone: 'text-[#7c4c76]',
     });
   }
@@ -256,7 +256,7 @@ const getEquipmentBonusMeta = (item: Item | null): Array<{ icon: React.ReactNode
       icon: <Heart size={12} />,
       label: 'HP',
       value: `+${bonuses.maxHp}`,
-      chip: 'border-[#b9d8b9] bg-[#eaf8ea]',
+      chip: 'border-[#b9d8b9] bg-[#bde8bd]',
       valueTone: 'text-[#2f7d32]',
     });
   }
@@ -265,7 +265,7 @@ const getEquipmentBonusMeta = (item: Item | null): Array<{ icon: React.ReactNode
       icon: <WandSparkles size={12} />,
       label: 'MP',
       value: `+${bonuses.maxMp}`,
-      chip: 'border-[#b9d1df] bg-[#e8f4fb]',
+      chip: 'border-[#b9d1df] bg-[#b8ddf0]',
       valueTone: 'text-[#346c7f]',
     });
   }
@@ -274,7 +274,7 @@ const getEquipmentBonusMeta = (item: Item | null): Array<{ icon: React.ReactNode
       icon: <WandSparkles size={12} />,
       label: 'MAG',
       value: `+${bonuses.magic}`,
-      chip: 'border-[#c7bee6] bg-[#f1eefb]',
+      chip: 'border-[#c7bee6] bg-[#cfc7ef]',
       valueTone: 'text-[#5f4ab3]',
     });
   }
@@ -848,11 +848,11 @@ export const CharacterSheetModal = ({ player, shopItems: _shopItems, onClose, on
               </div>
 
               <div className="grid grid-cols-2 gap-1.5">
-                <SummaryCard compact label="Ataque" value={player.stats.atk} tone="text-[#b83a4b]" icon={<Sword size={13} className="text-[#b83a4b]" />} panel="border-[#e4adb6] bg-[#fbe9ec]" bonusPercent={getProficiencyPercent('atk')} bonusChipClass="border-[#d98a98] bg-[#f6d9df] text-[#b83a4b]" />
-                <SummaryCard compact label="Defesa" value={player.stats.def} tone="text-[#4d6780]" icon={<Shield size={13} className="text-[#4d6780]" />} panel="border-[#b9c8d7] bg-[#ebf2f8]" bonusPercent={getProficiencyPercent('def')} bonusChipClass="border-[#99b4cc] bg-[#dfeaf4] text-[#4d6780]" />
-                <SummaryCard compact label="Magia" value={player.stats.magic} tone="text-[#5f4ab3]" icon={<WandSparkles size={13} className="text-[#5f4ab3]" />} panel="border-[#c7bee6] bg-[#f1eefb]" bonusPercent={getProficiencyPercent('magic')} bonusChipClass="border-[#ac9de0] bg-[#e7e0f9] text-[#5f4ab3]" />
-                <SummaryCard compact label="Velocidade" value={player.stats.speed} tone="text-[#7c4c76]" icon={<Zap size={13} className="text-[#7c4c76]" />} panel="border-[#d3bfd8] bg-[#f3eaf5]" bonusPercent={getProficiencyPercent('speed')} bonusChipClass="border-[#b993c2] bg-[#eadcf0] text-[#7c4c76]" />
-                <SummaryCard compact label="Sorte" value={player.stats.luck} tone="text-[#b26a2e]" icon={<Star size={13} className="text-[#b26a2e]" />} panel="border-[#dfc89e] bg-[#f9efdf]" bonusPercent={getProficiencyPercent('luck')} bonusChipClass="border-[#d7b16f] bg-[#f6e7c8] text-[#b26a2e]" />
+                <SummaryCard compact label="Ataque" value={player.stats.atk} tone="text-[#b83a4b]" icon={<Sword size={13} className="text-[#b83a4b]" />} panel="border-[#e4adb6] bg-[#f5cdd6]" bonusPercent={getProficiencyPercent('atk')} bonusChipClass="border-[#d98a98] bg-[#f0bec8] text-[#b83a4b]" />
+                <SummaryCard compact label="Defesa" value={player.stats.def} tone="text-[#4d6780]" icon={<Shield size={13} className="text-[#4d6780]" />} panel="border-[#b9c8d7] bg-[#d4e7f5]" bonusPercent={getProficiencyPercent('def')} bonusChipClass="border-[#99b4cc] bg-[#c4ddef] text-[#4d6780]" />
+                <SummaryCard compact label="Magia" value={player.stats.magic} tone="text-[#5f4ab3]" icon={<WandSparkles size={13} className="text-[#5f4ab3]" />} panel="border-[#c7bee6] bg-[#ddd7f5]" bonusPercent={getProficiencyPercent('magic')} bonusChipClass="border-[#ac9de0] bg-[#cfc7ef] text-[#5f4ab3]" />
+                <SummaryCard compact label="Velocidade" value={player.stats.speed} tone="text-[#7c4c76]" icon={<Zap size={13} className="text-[#7c4c76]" />} panel="border-[#d3bfd8] bg-[#e8d8ef]" bonusPercent={getProficiencyPercent('speed')} bonusChipClass="border-[#b993c2] bg-[#d9c4e3] text-[#7c4c76]" />
+                <SummaryCard compact label="Sorte" value={player.stats.luck} tone="text-[#b26a2e]" icon={<Star size={13} className="text-[#b26a2e]" />} panel="border-[#dfc89e] bg-[#f4e4c5]" bonusPercent={getProficiencyPercent('luck')} bonusChipClass="border-[#d7b16f] bg-[#edcf9a] text-[#b26a2e]" />
               </div>
             </div>
 

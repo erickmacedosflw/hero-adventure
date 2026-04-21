@@ -221,6 +221,25 @@ const normalizeSavedPlayerForCurrentBuild = (source: Player): Player => {
         xpToNext: normalizedXpToNext,
         impulso: Math.max(0, Math.min(maxImpulse, source.impulso ?? 0)),
         impulsoAtivo: Math.max(0, Math.min(maxImpulse, source.impulsoAtivo ?? 0)),
+        equippedSkillIds: (() => {
+            const ids = Array.isArray((source as any).equippedSkillIds) ? (source as any).equippedSkillIds : [];
+            const result: string[] = ['', '', ''];
+            for (let i = 0; i < 3; i++) result[i] = typeof ids[i] === 'string' ? ids[i] : '';
+            return result;
+        })(),
+        equippedItemSlots: (() => {
+            const raw = Array.isArray((source as any).equippedItemSlots) ? (source as any).equippedItemSlots : [];
+            const result: Array<{ itemId: string; qty: number }> = [
+                { itemId: '', qty: 0 }, { itemId: '', qty: 0 }, { itemId: '', qty: 0 }, { itemId: '', qty: 0 },
+            ];
+            for (let i = 0; i < 4; i++) {
+                const s = raw[i];
+                if (s && typeof s.itemId === 'string' && typeof s.qty === 'number') {
+                    result[i] = { itemId: s.itemId, qty: Math.max(0, s.qty) };
+                }
+            }
+            return result;
+        })(),
     };
 };
 
@@ -792,6 +811,10 @@ export default function App() {
     const [heroInspectCloseToken, setHeroInspectCloseToken] = useState(0);
     const [heroEquipOpenToken, setHeroEquipOpenToken] = useState(0);
     const [heroEquipOpenFilter, setHeroEquipOpenFilter] = useState<'weapon' | 'shield' | 'helmet' | 'armor' | 'legs'>('weapon');
+    const [heroSkillSlotOpenToken, setHeroSkillSlotOpenToken] = useState(0);
+    const [heroSkillSlotOpenIndex, setHeroSkillSlotOpenIndex] = useState(0);
+    const [heroItemSlotOpenToken, setHeroItemSlotOpenToken] = useState(0);
+    const [heroItemSlotOpenIndex, setHeroItemSlotOpenIndex] = useState(0);
     const huntEnemyBagRef = useRef<EnemyTemplate[]>([]);
     const dungeonEnemyBagRef = useRef<DungeonEnemyTemplate[]>([]);
     const [sceneRegion, setSceneRegion] = useState<SceneRegion>('forest');
@@ -3150,6 +3173,59 @@ export default function App() {
       }
   };
 
+  const equipSkillToSlot = (slotIndex: number, skillId: string | null) => {
+      setPlayer((p) => {
+          const ids = [...(p.equippedSkillIds ?? ['', '', ''])];
+          while (ids.length < 3) ids.push('');
+          // Remove from any other slot first (each skill can only occupy one slot)
+          const newId = skillId ?? '';
+          if (newId) {
+              for (let i = 0; i < ids.length; i++) {
+                  if (ids[i] === newId && i !== slotIndex) ids[i] = '';
+              }
+          }
+          ids[slotIndex] = newId;
+          return { ...p, equippedSkillIds: ids };
+      });
+  };
+
+  const equipItemToSlot = (slotIndex: number, itemId: string | null) => {
+      setPlayer((p) => {
+          const slots = (p.equippedItemSlots ?? [
+              { itemId: '', qty: 0 }, { itemId: '', qty: 0 }, { itemId: '', qty: 0 }, { itemId: '', qty: 0 },
+          ]).map(s => ({ ...s }));
+          while (slots.length < 4) slots.push({ itemId: '', qty: 0 });
+          const newInv = { ...p.inventory };
+
+          // Return existing slot item to inventory
+          const existing = slots[slotIndex];
+          if (existing.itemId && existing.qty > 0) {
+              newInv[existing.itemId] = (newInv[existing.itemId] ?? 0) + existing.qty;
+          }
+
+          if (!itemId) {
+              slots[slotIndex] = { itemId: '', qty: 0 };
+          } else {
+              // Same item can't be in two slots — remove from any other slot first, returning qty
+              for (let i = 0; i < slots.length; i++) {
+                  if (i !== slotIndex && slots[i].itemId === itemId) {
+                      newInv[itemId] = (newInv[itemId] ?? 0) + slots[i].qty;
+                      slots[i] = { itemId: '', qty: 0 };
+                  }
+              }
+              const available = newInv[itemId] ?? 0;
+              const transfer = Math.min(available, 5);
+              newInv[itemId] = available - transfer;
+              slots[slotIndex] = { itemId, qty: transfer };
+          }
+
+          return { ...p, inventory: newInv, equippedItemSlots: slots };
+      });
+      if (hasUnlockedMusic) {
+          uiSfx.play('item_equip_off');
+      }
+  };
+
   const sellItem = (item: Item, quantity = 1) => {
       const safeQuantity = Math.max(1, Math.floor(quantity));
       setPlayer((p) => sellItemFromPlayer(p, item, safeQuantity));
@@ -3882,6 +3958,14 @@ export default function App() {
                             setHeroEquipOpenFilter(slot);
                             setHeroEquipOpenToken((prev) => prev + 1);
                         }}
+                        onHeroSkillSlotClick={(slotIndex) => {
+                            setHeroSkillSlotOpenIndex(slotIndex);
+                            setHeroSkillSlotOpenToken((prev) => prev + 1);
+                        }}
+                        onHeroItemSlotClick={(slotIndex) => {
+                            setHeroItemSlotOpenIndex(slotIndex);
+                            setHeroItemSlotOpenToken((prev) => prev + 1);
+                        }}
                         isDungeonScene={sceneRegion === 'dungeon' || sceneRegion === 'tower'}
                         showMenuNavigationPortal={resolvedGameState === GameState.TAVERN}
                         menuPortalRegion={sceneRegion === 'tower' ? 'tower' : sceneRegion === 'dungeon' ? 'dungeon' : 'forest'}
@@ -3991,8 +4075,14 @@ export default function App() {
                         closeHeroInspectToken={heroInspectCloseToken}
                         autoOpenHeroEquipToken={heroEquipOpenToken}
                         autoOpenHeroEquipFilter={heroEquipOpenFilter}
+                        autoOpenSkillsToken={heroSkillSlotOpenToken}
+                        autoOpenSkillsSlotIndex={heroSkillSlotOpenIndex}
+                        autoOpenItemSlotToken={heroItemSlotOpenToken}
+                        autoOpenItemSlotIndex={heroItemSlotOpenIndex}
                         portalInspectMode={portalInspectMode}
                         portalTransitioning={portalTransitioning}
+                        onEquipSkillToSlot={equipSkillToSlot}
+                        onEquipItemToSlot={equipItemToSlot}
           />
       )}
 
@@ -4117,6 +4207,7 @@ export default function App() {
                                                                                                 renderQualityPreset={battleSettings.renderQualityPreset}
                                                                                                 recommendedRenderQualityPreset={recommendedRenderQualityPreset}
                                                                                                 onUpdateBattleSettings={updateBattleSettings}
+                                                                                                onEquipSkillToSlot={equipSkillToSlot}
         />
       )}
 

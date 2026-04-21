@@ -1,11 +1,12 @@
-﻿
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Player, Enemy, EnemyIntentPreview, BattleLog, TurnState, Item, Skill, GameState, FloatingText, Rarity, ProgressionCard, CardRewardOffer, AlchemistCardOffer, AlchemistItemOffer, DungeonResult, DungeonRewards, BossVictoryContext } from '../types';
-import { Sword, Shield, Zap, Heart, Coins, ShoppingBag, Skull, Play, Plus, FlaskConical, User, X, Home, LogOut, DollarSign, AlertTriangle, MousePointerClick, Shirt, Footprints, Crown, LayoutGrid, Sparkles, Crosshair, ArrowLeft, Star, Clock, Orbit } from 'lucide-react';
+import { Sword, Shield, Zap, Heart, Coins, ShoppingBag, Skull, Play, Plus, FlaskConical, User, X, Home, LogOut, DollarSign, AlertTriangle, MousePointerClick, Shirt, Footprints, Crown, LayoutGrid, Sparkles, Crosshair, ArrowLeft, Star, Clock, Orbit, Info } from 'lucide-react';
 import { ItemPreviewThree } from './items/ItemPreviewThree';
 import { GameAssetIcon } from './ui/game-asset-icon';
 import { CharacterSheetModal } from './profile/CharacterSheetModal';
 import { InventoryScreen as InventoryModal } from './profile/InventoryScreen';
+import { SkillsScreen as SkillsModal } from './profile/SkillsScreen';
 import { ShopMenuScreen } from './shop/ShopMenuScreen';
 import { ALL_ITEMS, SKILLS } from '../constants';
 import { ALL_CARDS } from '../game/data/cards';
@@ -86,6 +87,8 @@ interface GameUIProps {
         sfxEnabled: boolean;
         renderQualityPreset: RenderQualityPreset;
     }>) => void;
+    onEquipSkillToSlot?: (slotIndex: number, skillId: string | null) => void;
+    onEquipItemToSlot?: (slotIndex: number, itemId: string | null) => void;
 }
 
 // --- HELPERS ---
@@ -219,8 +222,8 @@ const getCardEffectPreview = (card: ProgressionCard) => {
     switch (primaryEffect.type) {
         case 'gold_instant': return `+${value} ouro`;
         case 'xp_instant': return `+${value} XP`;
-        case 'max_hp': return `+${value} vida máxima`;
-        case 'max_mp': return `+${value} mana máxima`;
+        case 'max_hp': return `+${value} vida m�xima`;
+        case 'max_mp': return `+${value} mana m�xima`;
         case 'atk': return `+${value} ataque`;
         case 'magic': return `+${value} magia`;
         case 'def': return `+${value} defesa`;
@@ -420,12 +423,12 @@ export const KillLootOverlay = ({ loot }: { loot: LootResult | null }) => {
 
                 <div className="relative mb-3 sm:mb-4">
                     <div className="text-3xl sm:text-5xl mb-1.5" style={{ animation: 'lootIconPulse 1.2s ease-in-out infinite' }}>
-                        {loot.isBoss ? '⚔️' : '🏆'}
+                        {loot.isBoss ? '??' : '??'}
                     </div>
                     <div className={`font-black text-sm sm:text-lg tracking-[0.18em] uppercase
                         ${loot.isBoss ? 'text-amber-700' : 'text-[#6b3141]'}
                     `}>
-                        {loot.isBoss ? 'CHEFÃO DERROTADO!' : 'INIMIGO DERROTADO'}
+                        {loot.isBoss ? 'CHEF�O DERROTADO!' : 'INIMIGO DERROTADO'}
                     </div>
                     <div className="text-[#9a7068] text-[10px] sm:text-xs mt-0.5 font-bold uppercase tracking-wider">{loot.enemyName}</div>
                 </div>
@@ -439,7 +442,7 @@ export const KillLootOverlay = ({ loot }: { loot: LootResult | null }) => {
                         </div>
                     </div>
                     <div className="flex items-center gap-1.5 bg-[#f4e5d4] border border-[#d6b9a3] px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-[14px]">
-                        <span className="text-base sm:text-lg">⭐</span>
+                        <span className="text-base sm:text-lg">?</span>
                         <div className="text-left">
                             <div className="text-[8px] sm:text-[9px] text-[#9a7068] font-black uppercase tracking-wider">XP</div>
                             <div className="text-[#7c4c76] font-mono font-black text-sm sm:text-base">+{loot.xp}</div>
@@ -458,7 +461,7 @@ export const KillLootOverlay = ({ loot }: { loot: LootResult | null }) => {
 
                 {loot.drops.length > 0 && (
                     <div className="relative border-t border-[#dcc0aa] pt-2.5 sm:pt-3">
-                        <div className="text-[8px] sm:text-[9px] text-[#9a7068] uppercase tracking-[0.25em] mb-1.5 sm:mb-2 font-black">— Espólio —</div>
+                        <div className="text-[8px] sm:text-[9px] text-[#9a7068] uppercase tracking-[0.25em] mb-1.5 sm:mb-2 font-black">� Esp�lio �</div>
                         <div className="flex gap-1.5 justify-center flex-wrap">
                             {loot.drops.map((item, i) => (
                                 <div key={i} className={`flex items-center gap-1 px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-[10px] border text-[10px] sm:text-xs font-bold
@@ -705,7 +708,7 @@ const InventoryScreen = ({ player, shopItems, onClose, onEquip, onUse }: { playe
                                     <div className="flex justify-center items-center gap-4 bg-slate-950 p-4 rounded-xl border border-slate-800">
                                         <span className="text-slate-500 font-bold uppercase text-xs tracking-widest">Poder</span>
                                         <span className="text-2xl font-black text-emerald-400">+{selectedItem.value}</span>
-                                        <span className="text-slate-500 text-xs">{selectedItem.type === 'weapon' ? 'ATK' : selectedItem.type === 'potion' ? 'RECUPERAÇÃO' : 'DEF'}</span>
+                                        <span className="text-slate-500 text-xs">{selectedItem.type === 'weapon' ? 'ATK' : selectedItem.type === 'potion' ? 'RECUPERA��O' : 'DEF'}</span>
                                     </div>
                                 )}
                             </div>
@@ -761,7 +764,7 @@ const InventoryScreen = ({ player, shopItems, onClose, onEquip, onUse }: { playe
                                 <div className="flex justify-center items-center gap-3 bg-slate-950 p-3 rounded-xl border border-slate-800">
                                     <span className="text-slate-500 font-bold uppercase text-[10px] tracking-widest">Poder</span>
                                     <span className="text-xl font-black text-emerald-400">+{mobileDetailItem.value}</span>
-                                    <span className="text-slate-500 text-[10px]">{mobileDetailItem.type === 'weapon' ? 'ATK' : mobileDetailItem.type === 'potion' ? 'RECUPERAÇÃO' : 'DEF'}</span>
+                                    <span className="text-slate-500 text-[10px]">{mobileDetailItem.type === 'weapon' ? 'ATK' : mobileDetailItem.type === 'potion' ? 'RECUPERA��O' : 'DEF'}</span>
                                 </div>
                             )}
                         </div>
@@ -836,7 +839,7 @@ const CharacterSheet = ({ player, shopItems, onClose, onOpenInventory }: { playe
               </h2>
               <div className="mt-2 bg-slate-800/50 p-3 rounded-lg border border-slate-700 max-w-md">
                   <div className="flex justify-between text-sm text-slate-300 mb-1">
-                      <span>Nível {player.level}</span>
+                      <span>N�vel {player.level}</span>
                       <span>{player.xp} / {player.xpToNext} XP</span>
                   </div>
                   <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
@@ -854,12 +857,12 @@ const CharacterSheet = ({ player, shopItems, onClose, onOpenInventory }: { playe
            <div>
               <h3 className="font-bold text-amber-400 mb-3 border-b border-slate-700 pb-1 flex items-center gap-2"><Zap size={16}/> Atributos</h3>
               <div className="space-y-2 text-sm bg-slate-800/30 p-3 rounded-lg">
-                 <div className="flex justify-between border-b border-slate-700/50 pb-1"><span>Força (ATK)</span> <span className="font-mono text-white text-amber-200">{player.stats.atk}</span></div>
+                 <div className="flex justify-between border-b border-slate-700/50 pb-1"><span>For�a (ATK)</span> <span className="font-mono text-white text-amber-200">{player.stats.atk}</span></div>
                  <div className="flex justify-between border-b border-slate-700/50 pb-1"><span>Defesa (DEF)</span> <span className="font-mono text-white text-blue-200">{player.stats.def}</span></div>
                  <div className="flex justify-between border-b border-slate-700/50 pb-1"><span>Velocidade (SPD)</span> <span className="font-mono text-white text-green-200">{player.stats.speed}</span></div>
                  <div className="flex justify-between border-b border-slate-700/50 pb-1"><span>Sorte (LUCK)</span> <span className="font-mono text-white text-purple-200">{player.stats.luck}</span></div>
-                 <div className="flex justify-between border-b border-slate-700/50 pb-1"><span>Vida Máx.</span> <span className="font-mono text-white text-red-200">{player.stats.maxHp}</span></div>
-                 <div className="flex justify-between"><span>Mana Máx.</span> <span className="font-mono text-white text-blue-200">{player.stats.maxMp}</span></div>
+                 <div className="flex justify-between border-b border-slate-700/50 pb-1"><span>Vida M�x.</span> <span className="font-mono text-white text-red-200">{player.stats.maxHp}</span></div>
+                 <div className="flex justify-between"><span>Mana M�x.</span> <span className="font-mono text-white text-blue-200">{player.stats.maxMp}</span></div>
               </div>
            </div>
 
@@ -935,8 +938,8 @@ const CharacterSheet = ({ player, shopItems, onClose, onOpenInventory }: { playe
         <div className="mt-6 rounded-2xl border border-cyan-500/20 bg-[radial-gradient(circle_at_top,_rgba(34,211,238,0.14),_transparent_38%),linear-gradient(180deg,rgba(15,23,42,0.94),rgba(2,6,23,0.98))] overflow-hidden">
             <div className="border-b border-slate-700/70 px-5 py-4 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                 <div>
-                    <h3 className="font-black text-cyan-100 text-xl flex items-center gap-2"><Sparkles size={18} className="text-cyan-300" /> Grimório de Cartas</h3>
-                    <p className="text-sm text-slate-400 mt-1">Seu histórico de escolhas mostra a build real do personagem, incluindo cartas repetidas e o quanto cada efeito foi empilhado.</p>
+                    <h3 className="font-black text-cyan-100 text-xl flex items-center gap-2"><Sparkles size={18} className="text-cyan-300" /> Grim�rio de Cartas</h3>
+                    <p className="text-sm text-slate-400 mt-1">Seu hist�rico de escolhas mostra a build real do personagem, incluindo cartas repetidas e o quanto cada efeito foi empilhado.</p>
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 w-full lg:w-auto">
                     <div className="rounded-xl border border-slate-700 bg-slate-950/70 px-4 py-3">
@@ -944,7 +947,7 @@ const CharacterSheet = ({ player, shopItems, onClose, onOpenInventory }: { playe
                         <div className="text-2xl font-black text-white">{totalCardPicks}</div>
                     </div>
                     <div className="rounded-xl border border-slate-700 bg-slate-950/70 px-4 py-3">
-                        <div className="text-[10px] uppercase tracking-[0.24em] text-slate-500">Únicas</div>
+                        <div className="text-[10px] uppercase tracking-[0.24em] text-slate-500">�nicas</div>
                         <div className="text-2xl font-black text-cyan-200">{selectedCards.length}</div>
                     </div>
                     <div className="rounded-xl border border-slate-700 bg-slate-950/70 px-4 py-3">
@@ -1002,7 +1005,7 @@ const CharacterSheet = ({ player, shopItems, onClose, onOpenInventory }: { playe
                             <Sparkles size={28} />
                         </div>
                         <h4 className="text-lg font-black text-white">Nenhuma carta registrada ainda</h4>
-                        <p className="mt-2 text-sm text-slate-400 max-w-md mx-auto">As cartas escolhidas em level up e chefes vão aparecer aqui com contador de repetições para facilitar a leitura da build.</p>
+                        <p className="mt-2 text-sm text-slate-400 max-w-md mx-auto">As cartas escolhidas em level up e chefes v�o aparecer aqui com contador de repeti��es para facilitar a leitura da build.</p>
                     </div>
                 )}
             </div>
@@ -1092,6 +1095,10 @@ export const TavernScreen: React.FC<{
     dungeonUnlocked?: boolean,
     alchemistUnlocked?: boolean,
   showSkillsAction?: boolean,
+  onEquipSkillToSlot?: (slotIndex: number, skillId: string | null) => void,
+  onEquipItemToSlot?: (slotIndex: number, itemId: string | null) => void,
+  autoOpenItemSlotToken?: number,
+  autoOpenItemSlotIndex?: number,
   onTower?: () => void,
   autoOpenInventoryToken?: number,
   autoOpenInventoryFilter?: 'all' | 'equipment' | 'potion' | 'material',
@@ -1106,11 +1113,15 @@ export const TavernScreen: React.FC<{
   closeHeroInspectToken?: number,
   autoOpenHeroEquipToken?: number,
   autoOpenHeroEquipFilter?: 'weapon' | 'shield' | 'helmet' | 'armor' | 'legs',
+  autoOpenSkillsToken?: number,
+  autoOpenSkillsSlotIndex?: number,
   portalInspectMode?: boolean,
   portalTransitioning?: boolean,
-}> = ({ player, killCount, onHunt, onBoss, onDungeon, sceneRegion = 'forest', onNavigateSceneRegion, onShop, onShopFromInventory, onAlchemist, onTower, shopItems, autoOpenConstellationToken = 0, onEquipItem, onUnequipItem, onUseItem, onSellItem, onUnlockTalent, onResetTalents, campIntroOnly = false, restrictProfileToStatusOnly = false, inventoryUnlocked = false, inventoryUnlockPromptActive = false, onAcknowledgeInventoryUnlock, cardsUnlockPromptActive = false, onAcknowledgeCardsUnlock, skillsUnlockPromptActive = false, onAcknowledgeSkillsUnlock, constellationUnlockPromptActive = false, onAcknowledgeConstellationUnlock, constellationRespecUnlockPromptActive = false, onAcknowledgeConstellationRespecUnlock, allowCardsInProfile = false, fleeUnlocked = false, merchantUnlockPromptActive = false, onAcknowledgeMerchantUnlock, dungeonUnlockPromptActive = false, onAcknowledgeDungeonUnlock, alchemistUnlockPromptActive = false, onAcknowledgeAlchemistUnlock, merchantUnlocked = false, dungeonUnlocked = false, alchemistUnlocked = false, showSkillsAction = false, autoOpenInventoryToken = 0, autoOpenInventoryFilter = 'all', autoOpenPortalTravelToken = 0, autoOpenProfileToken = 0, showDiamondHud = false, towerEssence = 0, gameTime = '12:00', autoOpenHeroInspectToken = 0, onHeroInspectOpen, onHeroInspectClose, closeHeroInspectToken = 0, autoOpenHeroEquipToken = 0, autoOpenHeroEquipFilter = 'weapon', portalInspectMode = false, portalTransitioning = false }) => {
+}> = ({ player, killCount, onHunt, onBoss, onDungeon, sceneRegion = 'forest', onNavigateSceneRegion, onShop, onShopFromInventory, onAlchemist, onTower, shopItems, autoOpenConstellationToken = 0, onEquipItem, onUnequipItem, onUseItem, onSellItem, onUnlockTalent, onResetTalents, campIntroOnly = false, restrictProfileToStatusOnly = false, inventoryUnlocked = false, inventoryUnlockPromptActive = false, onAcknowledgeInventoryUnlock, cardsUnlockPromptActive = false, onAcknowledgeCardsUnlock, skillsUnlockPromptActive = false, onAcknowledgeSkillsUnlock, constellationUnlockPromptActive = false, onAcknowledgeConstellationUnlock, constellationRespecUnlockPromptActive = false, onAcknowledgeConstellationRespecUnlock, allowCardsInProfile = false, fleeUnlocked = false, merchantUnlockPromptActive = false, onAcknowledgeMerchantUnlock, dungeonUnlockPromptActive = false, onAcknowledgeDungeonUnlock, alchemistUnlockPromptActive = false, onAcknowledgeAlchemistUnlock, merchantUnlocked = false, dungeonUnlocked = false, alchemistUnlocked = false, showSkillsAction = false, onEquipSkillToSlot, onEquipItemToSlot, autoOpenItemSlotToken = 0, autoOpenItemSlotIndex = 0, autoOpenInventoryToken = 0, autoOpenInventoryFilter = 'all', autoOpenPortalTravelToken = 0, autoOpenProfileToken = 0, showDiamondHud = false, towerEssence = 0, gameTime = '12:00', autoOpenHeroInspectToken = 0, onHeroInspectOpen, onHeroInspectClose, closeHeroInspectToken = 0, autoOpenHeroEquipToken = 0, autoOpenHeroEquipFilter = 'weapon', autoOpenSkillsToken = 0, autoOpenSkillsSlotIndex = 0, portalInspectMode = false, portalTransitioning = false }) => {
   const [showProfile, setShowProfile] = useState(false);
   const [showInventory, setShowInventory] = useState(false);
+  const [showSkillsScreen, setShowSkillsScreen] = useState(false);
+  const [skillsTargetSlotIndex, setSkillsTargetSlotIndex] = useState<number | null>(null);
   const [heroInspectOpen, setHeroInspectOpen] = useState(false);
     const [returnToProfileOnInventoryClose, setReturnToProfileOnInventoryClose] = useState(false);
     const [inventoryInitialFilter, setInventoryInitialFilter] = useState<'all' | 'equipment' | 'potion' | 'material' | 'weapon' | 'shield' | 'helmet' | 'armor' | 'legs'>('all');
@@ -1180,6 +1191,21 @@ export const TavernScreen: React.FC<{
             setShowProfile(true);
         }
     };
+    const openSkillsScreenModal = (slotIndex?: number) => {
+        uiSfx.play('modal_open');
+        setSkillsTargetSlotIndex(slotIndex !== undefined ? slotIndex : null);
+        setShowSkillsScreen(true);
+    };
+    const closeSkillsScreenModal = () => { uiSfx.play('modal_close'); setShowSkillsScreen(false); setSkillsTargetSlotIndex(null); };
+    const [itemSlotTargetIndex, setItemSlotTargetIndex] = useState<number | null>(null);
+    const openInventoryForItemSlot = (slotIndex: number) => {
+        setItemSlotTargetIndex(slotIndex);
+        openInventoryModal('potion', false);
+    };
+    const closeInventoryModalAndClearSlot = () => {
+        setItemSlotTargetIndex(null);
+        closeInventoryModal();
+    };
     const profileActions = [
         {
             id: 'profile',
@@ -1208,6 +1234,13 @@ export const TavernScreen: React.FC<{
             onClick: () => {
                 openInventoryModal('all');
             },
+        }] : []),
+        ...(showSkillsAction ? [{
+            id: 'skills',
+            label: 'Habilidades',
+            icon: <Sparkles size={20} />,
+            accent: 'border-violet-400/50 bg-violet-900/60 text-violet-200 hover:bg-violet-800/70',
+            onClick: openSkillsScreenModal,
         }] : []),
     ];
 
@@ -1335,7 +1368,7 @@ export const TavernScreen: React.FC<{
         lastHandledProfileAutoOpenTokenRef.current = autoOpenProfileToken;
         openProfileModal('overview');
     }, [autoOpenProfileToken]);
-    const lastHandledHeroInspectTokenRef = useRef<number>(0);
+    const lastHandledHeroInspectTokenRef = useRef<number>(autoOpenHeroInspectToken);
     useEffect(() => {
         if (autoOpenHeroInspectToken <= 0) return;
         if (autoOpenHeroInspectToken === lastHandledHeroInspectTokenRef.current) return;
@@ -1343,21 +1376,35 @@ export const TavernScreen: React.FC<{
         setHeroInspectOpen(true);
         onHeroInspectOpen?.();
     }, [autoOpenHeroInspectToken]);
-    const lastHandledCloseHeroInspectTokenRef = useRef<number>(0);
+    const lastHandledCloseHeroInspectTokenRef = useRef<number>(closeHeroInspectToken);
     useEffect(() => {
         if (closeHeroInspectToken <= 0) return;
         if (closeHeroInspectToken === lastHandledCloseHeroInspectTokenRef.current) return;
         lastHandledCloseHeroInspectTokenRef.current = closeHeroInspectToken;
         setHeroInspectOpen(false);
     }, [closeHeroInspectToken]);
-    const lastHandledHeroEquipOpenTokenRef = useRef<number>(0);
+    const lastHandledHeroEquipOpenTokenRef = useRef<number>(autoOpenHeroEquipToken);
     useEffect(() => {
         if (autoOpenHeroEquipToken <= 0) return;
         if (autoOpenHeroEquipToken === lastHandledHeroEquipOpenTokenRef.current) return;
         lastHandledHeroEquipOpenTokenRef.current = autoOpenHeroEquipToken;
         openInventoryModal(autoOpenHeroEquipFilter, false);
     }, [autoOpenHeroEquipToken]);
-    const lastHandledInventoryAutoOpenTokenRef = useRef<number>(0);
+    const lastHandledSkillsSlotTokenRef = useRef<number>(autoOpenSkillsToken);
+    useEffect(() => {
+        if (autoOpenSkillsToken <= 0) return;
+        if (autoOpenSkillsToken === lastHandledSkillsSlotTokenRef.current) return;
+        lastHandledSkillsSlotTokenRef.current = autoOpenSkillsToken;
+        openSkillsScreenModal(autoOpenSkillsSlotIndex);
+    }, [autoOpenSkillsToken]);
+    const lastHandledItemSlotTokenRef = useRef<number>(autoOpenItemSlotToken);
+    useEffect(() => {
+        if (autoOpenItemSlotToken <= 0) return;
+        if (autoOpenItemSlotToken === lastHandledItemSlotTokenRef.current) return;
+        lastHandledItemSlotTokenRef.current = autoOpenItemSlotToken;
+        openInventoryForItemSlot(autoOpenItemSlotIndex);
+    }, [autoOpenItemSlotToken]);
+    const lastHandledInventoryAutoOpenTokenRef = useRef<number>(autoOpenInventoryToken);
     useEffect(() => {
         if (autoOpenInventoryToken <= 0) {
             return;
@@ -1502,7 +1549,7 @@ export const TavernScreen: React.FC<{
         {
             id: 'tower',
             title: 'Torre Heroica',
-            subtitle: 'Roguelike — ascensão',
+            subtitle: 'Roguelike � ascens�o',
             thumbnailUrl: PORTAL_THUMB_TOWER_URL,
             accentColor: '#6d28d9',
             isCurrent: sceneRegion === 'tower',
@@ -1525,13 +1572,13 @@ export const TavernScreen: React.FC<{
         handleServiceTransition(onShop);
     };
 
-    // ── Clock (uses in-game time from DayNightCycle) ────────────────────────────
+    // -- Clock (uses in-game time from DayNightCycle) ----------------------------
     const [gtHours, gtMinutes] = gameTime.split(':').map(Number);
     const clockHours = isNaN(gtHours) ? 12 : gtHours;
     const clockMinutes = isNaN(gtMinutes) ? 0 : gtMinutes;
     const clockTimeStr = `${String(clockHours).padStart(2, '0')}:${String(clockMinutes).padStart(2, '0')}`;
     const clockPeriod = clockHours >= 5 && clockHours < 12
-        ? { label: 'MANHÃ', color: 'text-amber-300' }
+        ? { label: 'MANH�', color: 'text-amber-300' }
         : clockHours >= 12 && clockHours < 18
         ? { label: 'TARDE', color: 'text-orange-400' }
         : clockHours >= 18 && clockHours < 22
@@ -1553,7 +1600,7 @@ export const TavernScreen: React.FC<{
                 `}</style>
                 <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(10,16,28,0.04)_0%,rgba(8,12,18,0.46)_64%,rgba(0,0,0,0.62)_100%)] pointer-events-none" />
 
-                {/* CLOCK WIDGET — only in forest/mountain */}
+                {/* CLOCK WIDGET � only in forest/mountain */}
                 {sceneRegion === 'forest' && (
                 <div className="absolute top-3 left-3 sm:top-5 sm:left-5 z-10 pointer-events-none">
                     <div className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-black/50 backdrop-blur-sm px-3 py-2 shadow-[0_8px_24px_rgba(0,0,0,0.4)]">
@@ -1584,6 +1631,25 @@ export const TavernScreen: React.FC<{
                     </div>
                 </div>
 
+                {/* CAMP SIDE-RAIL � only when skills are unlocked */}
+                {showSkillsAction && !heroInspectOpen && !portalInspectMode && !portalTransitioning && (
+                    <div className="absolute right-3 sm:right-5 top-[4.5rem] sm:top-24 z-10 pointer-events-auto flex flex-col gap-2">
+                        <button
+                            onClick={() => openSkillsScreenModal()}
+                            className="group relative flex h-12 w-12 items-center justify-center rounded-2xl border border-violet-400/35 bg-black/55 backdrop-blur-sm transition-all duration-200 hover:-translate-y-0.5 hover:scale-105 active:scale-95 shadow-[0_4px_14px_rgba(0,0,0,0.35)]"
+                            title="Habilidades"
+                            aria-label="Habilidades"
+                        >
+                            <span className="inline-flex text-violet-300" style={{ filter: 'drop-shadow(0 2px 6px rgba(139,92,246,0.55))' }}>
+                                <Sparkles size={22} />
+                            </span>
+                            <span className="pointer-events-none absolute right-full mr-2 whitespace-nowrap rounded-full border border-[#cfab91] bg-[#f7ecdd]/95 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.1em] text-[#6b3141] opacity-0 translate-x-1 transition-all duration-150 group-hover:translate-x-0 group-hover:opacity-100">
+                                Habilidades
+                            </span>
+                        </button>
+                    </div>
+                )}
+
                 {!heroInspectOpen && !showPortalTravelModal && (
                 <section
                     className="absolute left-1/2 -translate-x-1/2 bottom-2 sm:bottom-6 w-[min(94vw,380px)] sm:w-[min(96vw,900px)] pointer-events-none transition-[opacity,transform] duration-500 ease-out"
@@ -1606,7 +1672,7 @@ export const TavernScreen: React.FC<{
                                 <button onClick={() => handleMenuTransition('hunt')} className="rounded-xl border border-[#b26a2e] bg-[#b87a3a]/95 px-1.5 py-2.5 text-center transition-all hover:-translate-y-0.5 hover:bg-[#c88a4a]">
                                     <div className="flex flex-col items-center gap-0.5">
                                         <Sword size={16} className="text-white" />
-                                        <span className="text-[10px] font-black text-white leading-none">Caçar</span>
+                                        <span className="text-[10px] font-black text-white leading-none">Ca�ar</span>
                                     </div>
                                 </button>
                             )}
@@ -1675,7 +1741,12 @@ export const TavernScreen: React.FC<{
     </AnimatedModal>
     <AnimatedModal open={showInventory}>
         {(isClosing) => (
-            <InventoryModal player={player} shopItems={shopItems} onClose={closeInventoryModal} onOpenShop={merchantUnlocked ? openShopFromInventory : undefined} onEquip={onEquipItem} onUnequip={onUnequipItem} onUse={onUseItem} onSell={onSellItem} isBattleContext={false} initialFilter={inventoryInitialFilter} isClosing={isClosing} />
+            <InventoryModal player={player} shopItems={shopItems} onClose={itemSlotTargetIndex !== null ? closeInventoryModalAndClearSlot : closeInventoryModal} onOpenShop={merchantUnlocked ? openShopFromInventory : undefined} onEquip={onEquipItem} onUnequip={onUnequipItem} onUse={onUseItem} onSell={onSellItem} isBattleContext={false} initialFilter={inventoryInitialFilter} isClosing={isClosing} targetItemSlotIndex={itemSlotTargetIndex} onEquipItemToSlot={(slotIndex, itemId) => { onEquipItemToSlot?.(slotIndex, itemId); closeInventoryModalAndClearSlot(); }} />
+        )}
+    </AnimatedModal>
+    <AnimatedModal open={showSkillsScreen}>
+        {(isClosing) => (
+            <SkillsModal player={player} onClose={closeSkillsScreenModal} isClosing={isClosing} targetSlotIndex={skillsTargetSlotIndex} onEquipSkillToSlot={onEquipSkillToSlot} />
         )}
     </AnimatedModal>
 
@@ -1822,7 +1893,7 @@ export const TavernScreen: React.FC<{
                         <GameAssetIcon name="map" size={14} /> Dungeon
                     </div>
                     <h3 className="mt-3 text-2xl font-black text-white">Dungeon liberada</h3>
-                    <p className="mt-1.5 text-sm text-[#dcc0aa]">Um novo modo de risco foi desbloqueado. Na dungeon voce enfrenta uma sequência longa de inimigos para acumular espolio raro, mas derrotas podem custar tudo.</p>
+                    <p className="mt-1.5 text-sm text-[#dcc0aa]">Um novo modo de risco foi desbloqueado. Na dungeon voce enfrenta uma sequ�ncia longa de inimigos para acumular espolio raro, mas derrotas podem custar tudo.</p>
                 </div>
 
                 <div className="px-6 py-5">
@@ -1917,15 +1988,15 @@ export const TavernScreen: React.FC<{
                 <div className="flex flex-col gap-3 px-6 py-5">
                     <div className="flex items-start gap-3 rounded-2xl border border-[#c44b54]/25 bg-[#c44b54]/8 px-4 py-3">
                         <AlertTriangle size={16} className="text-[#c44b54] mt-0.5 shrink-0" />
-                        <p className="text-sm text-[#6b3141] leading-snug"><span className="font-black">Sem fuga.</span> Uma vez dentro, não é possível abandonar a dungeon voluntariamente.</p>
+                        <p className="text-sm text-[#6b3141] leading-snug"><span className="font-black">Sem fuga.</span> Uma vez dentro, n�o � poss�vel abandonar a dungeon voluntariamente.</p>
                     </div>
                     <div className="flex items-start gap-3 rounded-2xl border border-[#c44b54]/25 bg-[#c44b54]/8 px-4 py-3">
                         <Skull size={16} className="text-[#c44b54] mt-0.5 shrink-0" />
-                        <p className="text-sm text-[#6b3141] leading-snug"><span className="font-black">Morte = tudo perdido.</span> Ouro, XP, diamantes e itens acumulados durante a dungeon são perdidos.</p>
+                        <p className="text-sm text-[#6b3141] leading-snug"><span className="font-black">Morte = tudo perdido.</span> Ouro, XP, diamantes e itens acumulados durante a dungeon s�o perdidos.</p>
                     </div>
                     <div className="flex items-start gap-3 rounded-2xl border border-[#4d7a96]/25 bg-[#4d7a96]/8 px-4 py-3">
                         <Sparkles size={16} className="text-[#4d7a96] mt-0.5 shrink-0" />
-                        <p className="text-sm text-[#6b3141] leading-snug"><span className="font-black">Derrotar o boss = vitória total.</span> Tudo que você acumulou ao longo da dungeon é seu ao vencer o chefão.</p>
+                        <p className="text-sm text-[#6b3141] leading-snug"><span className="font-black">Derrotar o boss = vit�ria total.</span> Tudo que voc� acumulou ao longo da dungeon � seu ao vencer o chef�o.</p>
                     </div>
                 </div>
 
@@ -1949,21 +2020,21 @@ export const TavernScreen: React.FC<{
                         <Crown size={12} /> Torre Heroica
                     </div>
                     <h3 className="mt-3 text-2xl font-black text-white">Entrar na Torre?</h3>
-                    <p className="mt-1.5 text-sm text-violet-200">Um desafio roguelike único — suba o mais alto que puder.</p>
+                    <p className="mt-1.5 text-sm text-violet-200">Um desafio roguelike �nico � suba o mais alto que puder.</p>
                 </div>
 
                 <div className="flex flex-col gap-3 px-6 py-5">
                     <div className="flex items-start gap-3 rounded-2xl border border-violet-400/25 bg-violet-400/8 px-4 py-3">
                         <Star size={16} className="text-violet-600 mt-0.5 shrink-0" />
-                        <p className="text-sm text-[#3b0764] leading-snug"><span className="font-black">15 andares.</span> Cada andar traz um novo inimigo e recompensas únicas. Suba o mais longe possível.</p>
+                        <p className="text-sm text-[#3b0764] leading-snug"><span className="font-black">15 andares.</span> Cada andar traz um novo inimigo e recompensas �nicas. Suba o mais longe poss�vel.</p>
                     </div>
                     <div className="flex items-start gap-3 rounded-2xl border border-violet-400/25 bg-violet-400/8 px-4 py-3">
                         <Sparkles size={16} className="text-violet-600 mt-0.5 shrink-0" />
-                        <p className="text-sm text-[#3b0764] leading-snug"><span className="font-black">Essência.</span> Moeda exclusiva da torre — usada para melhorar slots e desbloquear cartas de run.</p>
+                        <p className="text-sm text-[#3b0764] leading-snug"><span className="font-black">Ess�ncia.</span> Moeda exclusiva da torre � usada para melhorar slots e desbloquear cartas de run.</p>
                     </div>
                     <div className="flex items-start gap-3 rounded-2xl border border-violet-400/25 bg-violet-400/8 px-4 py-3">
                         <AlertTriangle size={16} className="text-violet-600 mt-0.5 shrink-0" />
-                        <p className="text-sm text-[#3b0764] leading-snug"><span className="font-black">Ao morrer, perde-se a run.</span> Progresso interno da torre é zerado, mas Essência acumulada é preservada.</p>
+                        <p className="text-sm text-[#3b0764] leading-snug"><span className="font-black">Ao morrer, perde-se a run.</span> Progresso interno da torre � zerado, mas Ess�ncia acumulada � preservada.</p>
                     </div>
                 </div>
 
@@ -2085,49 +2156,49 @@ const describeCardEffect = (card: ProgressionCard) => {
 const getAlchemistRelicMeta = (item: Item) => {
     if (item.id === 'pot_dg_recall') {
         return {
-            badge: 'Extração',
-            title: 'Relíquia de extração',
+            badge: 'Extra��o',
+            title: 'Rel�quia de extra��o',
             useLabel: 'Dungeon',
             lines: [
-                'Ativa uma fuga estável da dungeon sem perder ouro, XP, diamantes ou drops acumulados.',
-                'Ao usar, o jogo confirma a escolha e em seguida abre a tela de espólio resgatado.',
+                'Ativa uma fuga est�vel da dungeon sem perder ouro, XP, diamantes ou drops acumulados.',
+                'Ao usar, o jogo confirma a escolha e em seguida abre a tela de esp�lio resgatado.',
             ],
-            footer: 'A relíquia vai para o inventário e pode ser usada durante a dungeon.',
+            footer: 'A rel�quia vai para o invent�rio e pode ser usada durante a dungeon.',
         };
     }
 
     if (item.id === 'pot_alc_phantom_veil') {
         return {
             badge: 'Combate',
-            title: 'Relíquia de combate',
+            title: 'Rel�quia de combate',
             useLabel: 'Batalha',
             lines: [
-                'Ao usar, o herói ativa evasão perfeita e ignora completamente ataques inimigos por 4 turnos em qualquer batalha.',
-                'A duração diminui a cada turno inimigo concluído, mesmo se o golpe falhar ou o inimigo apenas defender.',
+                'Ao usar, o her�i ativa evas�o perfeita e ignora completamente ataques inimigos por 4 turnos em qualquer batalha.',
+                'A dura��o diminui a cada turno inimigo conclu�do, mesmo se o golpe falhar ou o inimigo apenas defender.',
             ],
-            footer: 'A relíquia vai para o inventário e pode ser usada em qualquer batalha.',
+            footer: 'A rel�quia vai para o invent�rio e pode ser usada em qualquer batalha.',
         };
     }
 
     if (item.id === 'pot_alc_twin_fang') {
         return {
             badge: 'Ofensiva',
-            title: 'Relíquia ofensiva',
+            title: 'Rel�quia ofensiva',
             useLabel: 'Batalha',
             lines: [
                 'Ao usar, o comando Atacar desfere dois golpes seguidos por 6 turnos.',
-                'Enquanto durar, habilidades físicas também são repetidas uma segunda vez sem custo extra de mana.',
+                'Enquanto durar, habilidades f�sicas tamb�m s�o repetidas uma segunda vez sem custo extra de mana.',
             ],
-            footer: 'A relíquia vai para o inventário e pode ser usada em qualquer batalha para acelerar o dano básico.',
+            footer: 'A rel�quia vai para o invent�rio e pode ser usada em qualquer batalha para acelerar o dano b�sico.',
         };
     }
 
     return {
-        badge: 'Relíquia',
-        title: 'Relíquia rara',
+        badge: 'Rel�quia',
+        title: 'Rel�quia rara',
         useLabel: 'Especial',
         lines: [item.description],
-        footer: 'A relíquia vai para o inventário ao ser comprada.',
+        footer: 'A rel�quia vai para o invent�rio ao ser comprada.',
     };
 };
 
@@ -2255,8 +2326,8 @@ export const DungeonResultScreen: React.FC<{ result: DungeonResult, onContinue: 
         .map(([itemId, quantity]) => ({ item: ALL_ITEMS.find(entry => entry.id === itemId), quantity }))
         .filter((entry): entry is { item: Item; quantity: number } => Boolean(entry.item));
     const isPositiveOutcome = result.outcome !== 'defeat';
-    const title = result.outcome === 'victory' ? 'Dungeon Concluída' : result.outcome === 'withdrawal' ? 'Retirada Segura' : 'Dungeon Fracassada';
-    const badgeLabel = result.outcome === 'withdrawal' ? 'Extração' : 'Dungeon';
+    const title = result.outcome === 'victory' ? 'Dungeon Conclu�da' : result.outcome === 'withdrawal' ? 'Retirada Segura' : 'Dungeon Fracassada';
+    const badgeLabel = result.outcome === 'withdrawal' ? 'Extra��o' : 'Dungeon';
     const frameClasses = isPositiveOutcome
         ? 'border-[#7fb0d3] bg-[#e7f4ff] shadow-[0_30px_120px_rgba(31,79,120,0.24)]'
         : 'border-[#d3a0a0] bg-[#fdecec] shadow-[0_30px_120px_rgba(120,31,31,0.26)]';
@@ -2283,9 +2354,9 @@ export const DungeonResultScreen: React.FC<{ result: DungeonResult, onContinue: 
                     <p className={`mt-2 text-sm sm:text-base ${headerTextClass}`}>{result.reason}</p>
                     {result.outcome === 'victory' && result.nextEvolution !== undefined && result.nextTotalMonsters !== undefined && (
                         <div className="mt-4 inline-flex flex-wrap items-center justify-center gap-3 rounded-2xl border border-white/20 bg-white/10 px-4 py-3 text-xs sm:text-sm font-black text-[#e6f4ff]">
-                            <span>Próxima evolução: {result.nextEvolution}</span>
-                            <span className="text-[#bfdcf2]/70">•</span>
-                            <span>{result.nextTotalMonsters} encontros até o chefão</span>
+                            <span>Pr�xima evolu��o: {result.nextEvolution}</span>
+                            <span className="text-[#bfdcf2]/70">�</span>
+                            <span>{result.nextTotalMonsters} encontros at� o chef�o</span>
                         </div>
                     )}
                 </div>
@@ -2317,15 +2388,15 @@ export const DungeonResultScreen: React.FC<{ result: DungeonResult, onContinue: 
                         </div>
                     </div>
                     <div className={`rounded-2xl border px-4 py-3 ${statCardClasses}`}>
-                        <div className={`text-[10px] uppercase tracking-[0.24em] mb-1 ${statLabelClass}`}>Chefão</div>
-                        <div className={`text-lg font-black ${result.rewards.bossDefeated ? (isPositiveOutcome ? 'text-[#2c6a92]' : 'text-[#9f5757]') : statLabelClass}`}>{result.rewards.bossDefeated ? '✓ Derrotado' : '— Intacto'}</div>
+                        <div className={`text-[10px] uppercase tracking-[0.24em] mb-1 ${statLabelClass}`}>Chef�o</div>
+                        <div className={`text-lg font-black ${result.rewards.bossDefeated ? (isPositiveOutcome ? 'text-[#2c6a92]' : 'text-[#9f5757]') : statLabelClass}`}>{result.rewards.bossDefeated ? '? Derrotado' : '� Intacto'}</div>
                     </div>
                 </div>
 
                 <div className="px-6 sm:px-8 pb-6 sm:pb-8">
                     <div className={`rounded-2xl border p-5 ${lootPanelClasses}`}>
                         <div className={`text-[11px] font-black uppercase tracking-[0.3em] mb-3 ${statLabelClass}`}>
-                            {isPositiveOutcome ? 'Espólio da dungeon' : 'Itens acumulados'}
+                            {isPositiveOutcome ? 'Esp�lio da dungeon' : 'Itens acumulados'}
                             {rewardItems.length > 0 && <span className={`ml-2 rounded-full border px-2 py-0.5 text-[10px] ${lootChipClasses}`}>{rewardItems.length}</span>}
                         </div>
                         {rewardItems.length > 0 ? (
@@ -2334,7 +2405,7 @@ export const DungeonResultScreen: React.FC<{ result: DungeonResult, onContinue: 
                                     <div key={item.id} className={`flex items-center gap-1.5 rounded-full border pl-1.5 pr-3 py-1.5 shrink-0 ${lootItemClasses}`}>
                                         <div className={`h-7 w-7 rounded-full border flex items-center justify-center text-sm leading-none ${lootItemInnerClasses}`}>{item.icon}</div>
                                         <span className={`text-sm font-black ${lootItemTextClass}`}>{item.name}</span>
-                                        {quantity > 1 && <span className={`rounded-full border px-1.5 py-0.5 text-[10px] font-black ${lootChipClasses}`}>×{quantity}</span>}
+                                        {quantity > 1 && <span className={`rounded-full border px-1.5 py-0.5 text-[10px] font-black ${lootChipClasses}`}>�{quantity}</span>}
                                     </div>
                                 ))}
                             </div>
@@ -2344,7 +2415,7 @@ export const DungeonResultScreen: React.FC<{ result: DungeonResult, onContinue: 
                     </div>
 
                     <button onClick={onContinue} className={`mt-6 w-full py-4 rounded-xl font-black text-lg text-white transition-all ${isPositiveOutcome ? 'bg-[#2b6b96] hover:bg-[#327aa9] shadow-[0_12px_30px_rgba(43,107,150,0.35)]' : 'bg-[#2c5f82] hover:bg-[#346f97] shadow-[0_12px_30px_rgba(44,95,130,0.35)]'}`}>
-                        {result.outcome === 'victory' ? 'Receber espólio e continuar' : result.outcome === 'withdrawal' ? 'Receber espólio e voltar' : 'Voltar para o acampamento'}
+                        {result.outcome === 'victory' ? 'Receber esp�lio e continuar' : result.outcome === 'withdrawal' ? 'Receber esp�lio e voltar' : 'Voltar para o acampamento'}
                     </button>
                 </div>
             </div>
@@ -2502,13 +2573,39 @@ export const ShopScreen: React.FC<{ player: Player, items: Item[], huntStage: nu
     return <ShopMenuScreen player={player} items={items} huntStage={huntStage} onBuy={onBuy} onSell={onSell} onEquip={onEquip} onLeave={onLeave} />;
 };
 
+type BattleBadge = { label: string; color: string; bg: string; border: string };
+function getPotionBattleBadges(item: Item): BattleBadge[] {
+  const lower = (item.description ?? '').toLowerCase();
+  if (['pot_2','pot_mana_2','pot_mana_3','pot_dg_mana'].includes(item.id))
+    return [{ label: `+${item.value} MP`, color: '#7dd3fc', bg: 'rgba(7,89,133,0.30)', border: 'rgba(125,211,252,0.30)' }];
+  if (item.id === 'pot_atk') return [
+    { label: `+${Math.round((item.value as number)*100)}% ATK`, color: '#f87171', bg: 'rgba(127,29,29,0.30)', border: 'rgba(248,113,113,0.30)' },
+    { label: `${item.duration ?? 3}t`, color: '#fcd34d', bg: 'rgba(120,53,15,0.30)', border: 'rgba(252,211,77,0.28)' },
+  ];
+  if (item.id === 'pot_def') return [
+    { label: `+${Math.round((item.value as number)*100)}% DEF`, color: '#93c5fd', bg: 'rgba(30,58,95,0.30)', border: 'rgba(147,197,253,0.30)' },
+    { label: `${item.duration ?? 3}t`, color: '#fcd34d', bg: 'rgba(120,53,15,0.30)', border: 'rgba(252,211,77,0.28)' },
+  ];
+  if (lower.includes('hp') || lower.includes('vida') || lower.includes('cura') || lower.includes('restaura'))
+    return [{ label: `+${item.value} HP`, color: '#86efac', bg: 'rgba(20,83,45,0.30)', border: 'rgba(134,239,172,0.28)' }];
+  if (lower.includes('mp') || lower.includes('mana') || lower.includes('energia'))
+    return [{ label: `+${item.value} MP`, color: '#7dd3fc', bg: 'rgba(7,89,133,0.30)', border: 'rgba(125,211,252,0.28)' }];
+  if ((item.duration ?? 0) > 0) return [
+    { label: 'BOOST', color: '#fcd34d', bg: 'rgba(120,53,15,0.30)', border: 'rgba(252,211,77,0.28)' },
+    { label: `${item.duration}t`, color: '#fcd34d', bg: 'rgba(120,53,15,0.20)', border: 'rgba(252,211,77,0.18)' },
+  ];
+  return [{ label: 'ESPECIAL', color: '#c4b5fd', bg: 'rgba(76,29,149,0.30)', border: 'rgba(196,181,253,0.28)' }];
+}
+
 export const BattleHUD: React.FC<GameUIProps> = (props) => {
-    const { player, enemy, turnState, logs, onAttack, onDefend, onChargeImpulse, onAbsorbImpulse, onSkill, onUseItem, enemyIntentPreview = null, onUnlockTalent, onResetTalents, currentNarration, gameState, shopItems, floatingTexts, onFlee, onStartBattle, stage, dungeonPhase = 1, killCount, onEquipItem, onUnequipItem, isDungeonRun, dungeonRewards, dungeonCleared = 0, dungeonTotal = 30, gameTime, restrictProfileToStatusOnly = false, limitBattleActionsToBasics = false, inventoryUnlocked = false, inventoryUnlockPromptActive = false, onAcknowledgeInventoryUnlock, cardsUnlockPromptActive = false, onAcknowledgeCardsUnlock, skillsUnlockPromptActive = false, onAcknowledgeSkillsUnlock, impulseUnlockPromptActive = null, onAcknowledgeImpulseUnlock, constellationUnlockPromptActive = false, onAcknowledgeConstellationUnlock, constellationRespecUnlockPromptActive = false, onAcknowledgeConstellationRespecUnlock, allowCardsInProfile = false, fleeUnlocked = false, showItemsAction = false, showSkillsAction = false, itemsUnlockPromptActive = false, onAcknowledgeItemsUnlock, fleeUnlockPromptActive = false, onAcknowledgeFleeUnlock, autoOpenProfileToken = 0, showDiamondHud = false, diamondUnlockPromptActive = false, onAcknowledgeDiamondUnlock, musicEnabled = true, sfxEnabled = true, renderQualityPreset = 'balanced', recommendedRenderQualityPreset = 'balanced', onUpdateBattleSettings } = props;
+    const { player, enemy, turnState, logs, onAttack, onDefend, onChargeImpulse, onAbsorbImpulse, onSkill, onUseItem, enemyIntentPreview = null, onUnlockTalent, onResetTalents, currentNarration, gameState, shopItems, floatingTexts, onFlee, onStartBattle, stage, dungeonPhase = 1, killCount, onEquipItem, onUnequipItem, isDungeonRun, dungeonRewards, dungeonCleared = 0, dungeonTotal = 30, gameTime, restrictProfileToStatusOnly = false, limitBattleActionsToBasics = false, inventoryUnlocked = false, inventoryUnlockPromptActive = false, onAcknowledgeInventoryUnlock, cardsUnlockPromptActive = false, onAcknowledgeCardsUnlock, skillsUnlockPromptActive = false, onAcknowledgeSkillsUnlock, impulseUnlockPromptActive = null, onAcknowledgeImpulseUnlock, constellationUnlockPromptActive = false, onAcknowledgeConstellationUnlock, constellationRespecUnlockPromptActive = false, onAcknowledgeConstellationRespecUnlock, allowCardsInProfile = false, fleeUnlocked = false, showItemsAction = false, showSkillsAction = false, itemsUnlockPromptActive = false, onAcknowledgeItemsUnlock, fleeUnlockPromptActive = false, onAcknowledgeFleeUnlock, autoOpenProfileToken = 0, showDiamondHud = false, diamondUnlockPromptActive = false, onAcknowledgeDiamondUnlock, musicEnabled = true, sfxEnabled = true, renderQualityPreset = 'balanced', recommendedRenderQualityPreset = 'balanced', onUpdateBattleSettings, onEquipSkillToSlot } = props;
   const [activeBattleMenu, setActiveBattleMenu] = useState<'skills' | 'items' | null>(null);
+  const [battleInfoPopup, setBattleInfoPopup] = useState<{ type: 'skill' | 'item'; id: string } | null>(null);
   const [showProfile, setShowProfile] = useState(false);
     const [showBattleSettings, setShowBattleSettings] = useState(false);
     const [profileInitialTab, setProfileInitialTab] = useState<'overview' | 'cards' | 'skills' | 'constellation' | undefined>(undefined);
   const [showInventory, setShowInventory] = useState(false);
+  const [showSkillsScreen, setShowSkillsScreen] = useState(false);
     const [returnToProfileOnInventoryClose, setReturnToProfileOnInventoryClose] = useState(false);
     const [inventoryInitialFilter, setInventoryInitialFilter] = useState<'all' | 'equipment' | 'potion' | 'material' | 'weapon' | 'shield' | 'helmet' | 'armor' | 'legs'>('all');
     const [showInventoryUnlockPrompt, setShowInventoryUnlockPrompt] = useState(false);
@@ -2531,6 +2628,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
     const battleActionsRef = useRef<HTMLDivElement | null>(null);
     const previousResourceRef = useRef(player.classResource.value);
     const showDiamondOnBattleHud = showDiamondHud;
+    const isMobile = window.innerWidth < 640;
     const currentPlayerClass = getPlayerClassById(player.classId);
     const usesMagicBasicAttack = shouldUseMagicBasicAttack(player.classId, player.equippedWeapon);
     const usesBowBasicAttack = shouldUseBowBasicAttack(player.classId, player.equippedWeapon);
@@ -2608,6 +2706,8 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
         }
         setShowBattleSettings(true);
     };
+    const openSkillsScreenModal = () => { uiSfx.play('modal_open'); setShowSkillsScreen(true); };
+    const closeSkillsScreenModal = () => { uiSfx.play('modal_close'); setShowSkillsScreen(false); };
     const closeBattleSettingsModal = () => {
         if (!showBattleSettings) {
             return;
@@ -2628,11 +2728,11 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
     const enemyClassId = enemy?.enemyClassId ?? 'knight';
     const EnemyClassIcon = HERO_CLASS_ICON[enemyClassId];
     const intentMetaByType: Record<NonNullable<GameUIProps['enemyIntentPreview']>['type'], { icon: string; color: string; label: string }> = {
-        attack: { icon: '⚔', color: '#ef4444', label: 'Ataque' },
-        defend: { icon: '🛡', color: '#60a5fa', label: 'Defesa' },
-        impulse: { icon: '⚡', color: '#f59e0b', label: 'Impulso' },
-        skill: { icon: '✨', color: '#a855f7', label: 'Habilidade' },
-        item: { icon: '💊', color: '#22c55e', label: 'Item' },
+        attack: { icon: '?', color: '#ef4444', label: 'Ataque' },
+        defend: { icon: '??', color: '#60a5fa', label: 'Defesa' },
+        impulse: { icon: '?', color: '#f59e0b', label: 'Impulso' },
+        skill: { icon: '?', color: '#a855f7', label: 'Habilidade' },
+        item: { icon: '??', color: '#22c55e', label: 'Item' },
     };
     void enemyIntentPreview;
     void intentMetaByType;
@@ -2680,31 +2780,31 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
       player.buffs.atkTurns > 0 ? {
           key: 'atk',
           icon: <Sword size={12} className="text-[#b83a4b]" />,
-          label: `ATK +${(player.buffs.atkMod * 100).toFixed(0)}% • ${player.buffs.atkTurns}t`,
+          label: `ATK +${(player.buffs.atkMod * 100).toFixed(0)}% � ${player.buffs.atkTurns}t`,
           chipClass: 'border-[#e79aa7] bg-[#fbe3e8] text-[#8f253c]',
       } : null,
       player.buffs.defTurns > 0 ? {
           key: 'def',
           icon: <Shield size={12} className="text-[#4d6780]" />,
-          label: `DEF +${(player.buffs.defMod * 100).toFixed(0)}% • ${player.buffs.defTurns}t`,
+          label: `DEF +${(player.buffs.defMod * 100).toFixed(0)}% � ${player.buffs.defTurns}t`,
           chipClass: 'border-[#9ec2cf] bg-[#e6f3f8] text-[#2f6274]',
       } : null,
       player.buffs.autoGuardTurns > 0 ? {
           key: 'auto-guard',
           icon: <Shield size={12} className="text-[#2f6274]" />,
-          label: `Defesa automatica • ${player.buffs.autoGuardTurns}t`,
+          label: `Defesa automatica � ${player.buffs.autoGuardTurns}t`,
           chipClass: 'border-[#9ec2cf] bg-[#e6f3f8] text-[#2f6274]',
       } : null,
       player.buffs.perfectEvadeTurns > 0 ? {
           key: 'evd',
           icon: <Sparkles size={12} className="text-[#7c4c76]" />,
-          label: `Evasao perfeita • ${player.buffs.perfectEvadeTurns}t`,
+          label: `Evasao perfeita � ${player.buffs.perfectEvadeTurns}t`,
           chipClass: 'border-[#ccb0dd] bg-[#f1e8f7] text-[#6a3f82]',
       } : null,
       player.buffs.doubleAttackTurns > 0 ? {
           key: 'x2',
           icon: <Sword size={12} className="text-[#b83a4b]" />,
-          label: `Ataque duplo • ${player.buffs.doubleAttackTurns}t`,
+          label: `Ataque duplo � ${player.buffs.doubleAttackTurns}t`,
           chipClass: 'border-[#e8bc89] bg-[#fcecd7] text-[#9a6127]',
       } : null,
       (player.isDefending || player.buffs.autoGuardTurns > 0) ? {
@@ -2737,16 +2837,16 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
           return 'Ativa defesa automatica por 3 turnos';
       }
       const statusText = skill.statusEffect
-        ? ` • aplica ${skill.statusEffect.kind}`
+        ? ` � aplica ${skill.statusEffect.kind}`
         : '';
       const resourceText = skill.resourceEffect
-        ? ` • ${skill.resourceEffect.cost ? `consome ${skill.resourceEffect.consumeAll ? 'toda' : skill.resourceEffect.cost} ${skill.resourceLabel || player.classResource.name}` : `gera ${skill.resourceEffect.gain || 0} ${skill.resourceLabel || player.classResource.name}`}`
+        ? ` � ${skill.resourceEffect.cost ? `consome ${skill.resourceEffect.consumeAll ? 'toda' : skill.resourceEffect.cost} ${skill.resourceLabel || player.classResource.name}` : `gera ${skill.resourceEffect.gain || 0} ${skill.resourceLabel || player.classResource.name}`}`
         : '';
       if (skill.type === 'heal') {
           return `Cura ${Math.round(skill.damageMult * 100)}% da vida maxima${resourceText}`;
       }
 
-      return `${skill.type === 'magic' ? 'Dano magico' : 'Dano fisico'} x${skill.damageMult.toFixed(1)}${skill.type === 'magic' ? ' • menor chance de desvio' : ''}${statusText}${resourceText}`;
+      return `${skill.type === 'magic' ? 'Dano magico' : 'Dano fisico'} x${skill.damageMult.toFixed(1)}${skill.type === 'magic' ? ' � menor chance de desvio' : ''}${statusText}${resourceText}`;
   };
 
   const describeBattleItem = (item: Item) => {
@@ -2998,7 +3098,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                       <div className="text-[10px] font-black uppercase tracking-[0.28em] text-[#9a7068]">Retirada</div>
                       <h3 className="mt-1 text-2xl font-black text-[#6b3141]">{canLeaveFreely ? 'Sair da batalha?' : 'Fugir?'}</h3>
                       <p className="mt-3 text-sm text-[#7f5b56]">
-                          {canLeaveFreely ? 'O chefão já foi liberado nesta fase. Você pode sair sem perder ouro.' : 'Na caça padrão você pode recuar, mas perde até 50 de ouro.'}
+                          {canLeaveFreely ? 'O chef�o j� foi liberado nesta fase. Voc� pode sair sem perder ouro.' : 'Na ca�a padr�o voc� pode recuar, mas perde at� 50 de ouro.'}
                       </p>
                   </div>
                   <div className="grid grid-cols-2 gap-3 p-4">
@@ -3017,9 +3117,9 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
           <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/55 backdrop-blur-[2px] pointer-events-auto p-4" onClick={() => { setShowDungeonExtractConfirm(false); setPendingDungeonExtractItem(null); }}>
               <div className="w-full max-w-sm rounded-[24px] border border-[#cfab91] bg-[#f7ecdd] shadow-[0_24px_80px_rgba(107,49,65,0.15)] overflow-hidden animate-fade-in-down" onClick={event => event.stopPropagation()}>
                   <div className="border-b border-[#dcc0aa] px-5 py-4 text-center">
-                      <div className="text-[10px] font-black uppercase tracking-[0.28em] text-[#9a7068]">Extração da dungeon</div>
+                      <div className="text-[10px] font-black uppercase tracking-[0.28em] text-[#9a7068]">Extra��o da dungeon</div>
                       <h3 className="mt-1 text-2xl font-black text-[#6b3141]">Usar {pendingDungeonExtractItem.name}?</h3>
-                      <p className="mt-3 text-sm text-[#7f5b56]">Você vai sair da dungeon imediatamente e receber tudo que acumulou até este ponto.</p>
+                      <p className="mt-3 text-sm text-[#7f5b56]">Voc� vai sair da dungeon imediatamente e receber tudo que acumulou at� este ponto.</p>
                   </div>
                   <div className="grid grid-cols-2 gap-3 p-4">
                       <button onClick={() => { setShowDungeonExtractConfirm(false); setPendingDungeonExtractItem(null); }} className="rounded-xl border border-[#cfab91] bg-[#f4e5d4] px-4 py-3 font-black text-[#6b3141] transition-colors hover:bg-[#e9d7c2]">
@@ -3038,7 +3138,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
               <div className="w-full max-w-lg rounded-[24px] border border-[#cfab91] bg-[#f7ecdd] shadow-[0_24px_80px_rgba(107,49,65,0.22)] overflow-hidden animate-fade-in-down" onClick={event => event.stopPropagation()}>
                   <div className="flex items-center justify-between gap-4 bg-[#6b3141] px-5 py-4">
                       <div>
-                          <div className="text-[10px] font-black uppercase tracking-[0.28em] text-[#dcc0aa]">Espólio acumulado</div>
+                          <div className="text-[10px] font-black uppercase tracking-[0.28em] text-[#dcc0aa]">Esp�lio acumulado</div>
                           <h3 className="mt-0.5 text-lg font-black text-white">Ganhos na dungeon</h3>
                       </div>
                       <button onClick={() => setShowDungeonLootPreview(false)} className="rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-xs font-black uppercase tracking-[0.18em] text-[#f6eadc] transition-colors hover:bg-white/20">
@@ -3083,7 +3183,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                                       <div key={item.id} className="flex items-center gap-1 rounded-full border border-[#cfab91] bg-[#f7ecdd] pl-1 pr-2.5 py-1 shrink-0">
                                           <div className="h-6 w-6 rounded-full border border-[#dcc0aa] bg-[#f4e5d4] flex items-center justify-center text-xs leading-none">{item.icon}</div>
                                           <span className="text-xs font-black text-[#6b3141]">{item.name}</span>
-                                          {quantity > 1 && <span className="rounded-full border border-[#cfab91] bg-[#f4e5d4] px-1.5 py-0.5 text-[9px] font-black text-[#8f6c67]">×{quantity}</span>}
+                                          {quantity > 1 && <span className="rounded-full border border-[#cfab91] bg-[#f4e5d4] px-1.5 py-0.5 text-[9px] font-black text-[#8f6c67]">�{quantity}</span>}
                                       </div>
                                   ))}
                               </div>
@@ -3307,7 +3407,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
           </div>
       )}
 
-      {/* ═══ TOP: Player vitals (left) + Stage (center) + Enemy HP (right) ═══ */}
+      {/* --- TOP: Player vitals (left) + Stage (center) + Enemy HP (right) --- */}
       <div className="absolute top-0 left-0 w-full z-20 pointer-events-none pt-1.5 sm:pt-2.5 px-2 sm:px-4">
           <div className="sm:hidden space-y-2">
               <div className={`grid gap-2 ${showDiamondOnBattleHud ? 'grid-cols-[1.6fr_0.85fr_0.85fr_0.85fr]' : 'grid-cols-[1.6fr_0.85fr_0.85fr]'}`}>
@@ -3471,7 +3571,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                                       filter: 'drop-shadow(1px 0 0 rgba(255,255,255,0.95)) drop-shadow(-1px 0 0 rgba(255,255,255,0.95)) drop-shadow(0 1px 0 rgba(255,255,255,0.95)) drop-shadow(0 -1px 0 rgba(255,255,255,0.95)) drop-shadow(0 4px 10px rgba(0,0,0,0.28))',
                                   }}
                               >
-                                  <GameAssetIcon name="book" size={34} />
+                                  <GameAssetIcon name="book" size={22} />
                               </span>
                           </button>
 
@@ -3489,6 +3589,24 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                                       }}
                                   >
                                       <GameAssetIcon name="bag" size={34} />
+                                  </span>
+                              </button>
+                          )}
+
+                          {showSkillsAction && (
+                              <button
+                                  onClick={openSkillsScreenModal}
+                                  className="group relative flex h-14 w-14 items-center justify-center transition-all duration-200 hover:-translate-y-0.5 hover:scale-105 active:scale-95 sm:h-16 sm:w-16"
+                                  title="Habilidades"
+                                  aria-label="Habilidades"
+                              >
+                                  <span
+                                      className="inline-flex"
+                                      style={{
+                                          filter: 'drop-shadow(1px 0 0 rgba(255,255,255,0.95)) drop-shadow(-1px 0 0 rgba(255,255,255,0.95)) drop-shadow(0 1px 0 rgba(255,255,255,0.95)) drop-shadow(0 -1px 0 rgba(255,255,255,0.95)) drop-shadow(0 4px 10px rgba(0,0,0,0.28))',
+                                      }}
+                                  >
+                                      <GameAssetIcon name="book" size={22} />
                                   </span>
                               </button>
                           )}
@@ -3572,7 +3690,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                               </div>
                               <div className="flex items-center gap-1.5">
                                   {enemy.isBoss && (
-                                      <span className="rounded-full border border-rose-300 bg-rose-100 px-2 py-0.5 text-[9px] font-black uppercase text-rose-600">Chefão</span>
+                                      <span className="rounded-full border border-rose-300 bg-rose-100 px-2 py-0.5 text-[9px] font-black uppercase text-rose-600">Chef�o</span>
                                   )}
                                   {!enemy.isBoss && enemy.isSubBoss && (
                                       <span className="rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 text-[9px] font-black uppercase text-amber-700">Subchefe</span>
@@ -3630,7 +3748,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                               onClick={() => onStartBattle(true)}
                               className="pointer-events-auto w-full rounded-[14px] border border-rose-300 bg-[linear-gradient(135deg,#e11d48_0%,#f43f5e_100%)] px-3 py-2 text-[11px] font-black uppercase tracking-[0.12em] text-white shadow-[0_12px_24px_rgba(225,29,72,0.36)] transition-all active:scale-[0.98] animate-pulse flex items-center justify-center gap-2"
                           >
-                              <Skull size={16} /> ENFRENTAR CHEFÃO
+                              <Skull size={16} /> ENFRENTAR CHEF�O
                           </button>
                       )}
                       </div>
@@ -3639,7 +3757,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
           </div>
 
           <div className="hidden sm:flex items-start justify-between gap-1.5 sm:gap-3">
-              {/* Player vitals — left */}
+              {/* Player vitals � left */}
               <div className="flex flex-1 max-w-[48%] sm:max-w-[280px] flex-col items-start gap-1.5">
                   <div
                       className="pointer-events-auto cursor-pointer overflow-hidden rounded-[16px] border border-[#cfab91] bg-[#f7ecdd]/94 px-2.5 py-2 shadow-xl backdrop-blur-md w-full animate-fade-in-down transition-transform hover:-translate-y-[1px] active:scale-[0.995]"
@@ -3761,7 +3879,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                                   filter: 'drop-shadow(1px 0 0 rgba(255,255,255,0.95)) drop-shadow(-1px 0 0 rgba(255,255,255,0.95)) drop-shadow(0 1px 0 rgba(255,255,255,0.95)) drop-shadow(0 -1px 0 rgba(255,255,255,0.95)) drop-shadow(0 4px 10px rgba(0,0,0,0.28))',
                               }}
                           >
-                              <GameAssetIcon name="book" size={34} />
+                              <GameAssetIcon name="book" size={22} />
                           </span>
                           <span className="pointer-events-none absolute left-full ml-2 whitespace-nowrap rounded-full border border-[#cfab91] bg-[#f7ecdd]/95 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.1em] text-[#6b3141] opacity-0 translate-x-1 transition-all duration-150 group-hover:translate-x-0 group-hover:opacity-100 group-focus-visible:translate-x-0 group-focus-visible:opacity-100">
                               Perfil
@@ -3785,6 +3903,27 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                               </span>
                               <span className="pointer-events-none absolute left-full ml-2 whitespace-nowrap rounded-full border border-[#cfab91] bg-[#f7ecdd]/95 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.1em] text-[#6b3141] opacity-0 translate-x-1 transition-all duration-150 group-hover:translate-x-0 group-hover:opacity-100 group-focus-visible:translate-x-0 group-focus-visible:opacity-100">
                                   Mochila
+                              </span>
+                          </button>
+                      )}
+
+                      {showSkillsAction && (
+                          <button
+                              onClick={openSkillsScreenModal}
+                              className="group relative flex h-14 w-14 items-center justify-center transition-all duration-200 hover:-translate-y-0.5 hover:scale-105 active:scale-95 sm:h-11 sm:w-11"
+                              title="Habilidades"
+                              aria-label="Habilidades"
+                          >
+                              <span
+                                  className="inline-flex"
+                                  style={{
+                                      filter: 'drop-shadow(1px 0 0 rgba(255,255,255,0.95)) drop-shadow(-1px 0 0 rgba(255,255,255,0.95)) drop-shadow(0 1px 0 rgba(255,255,255,0.95)) drop-shadow(0 -1px 0 rgba(255,255,255,0.95)) drop-shadow(0 4px 10px rgba(0,0,0,0.28))',
+                                  }}
+                              >
+                                  <GameAssetIcon name="book" size={22} />
+                              </span>
+                              <span className="pointer-events-none absolute left-full ml-2 whitespace-nowrap rounded-full border border-[#cfab91] bg-[#f7ecdd]/95 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.1em] text-[#6b3141] opacity-0 translate-x-1 transition-all duration-150 group-hover:translate-x-0 group-hover:opacity-100 group-focus-visible:translate-x-0 group-focus-visible:opacity-100">
+                                  Habilidades
                               </span>
                           </button>
                       )}
@@ -3842,7 +3981,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                   </div>
               </div>
 
-              {/* Stage progress — center pill */}
+              {/* Stage progress � center pill */}
               <div className="flex flex-col items-center gap-1.5 shrink-0 self-start mt-0.5">
                   <div className="bg-[#f7ecdd]/92 backdrop-blur-md border border-[#cfab91] px-2 sm:px-3 py-1 rounded-[12px] shadow-xl animate-fade-in-down">
                       <div className="flex flex-col items-center gap-0.5">
@@ -3857,7 +3996,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                           </div>
                       </div>
                   </div>
-                  {/* Clock card — same style */}
+                  {/* Clock card � same style */}
                   {gameTime && !isDungeonRun && (
                       <div className="bg-[#f7ecdd]/92 backdrop-blur-md border border-[#cfab91] px-3 sm:px-4 py-1.5 rounded-[12px] shadow-xl animate-fade-in-down">
                           <div className="flex items-center gap-2">
@@ -3884,7 +4023,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                   </div>
               </div>
 
-              {/* Enemy HP — right */}
+              {/* Enemy HP � right */}
               {enemy && (
                   <div className="flex flex-1 max-w-[48%] flex-col items-end gap-1.5 sm:max-w-[250px]">
                       <div className={`w-full overflow-hidden rounded-[16px] border px-2.5 py-2 backdrop-blur-md animate-fade-in-down ${enemyCardToneClass}`}>
@@ -3917,7 +4056,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                           </div>
                           <div className="flex items-center gap-1.5">
                               {enemy.isBoss && (
-                                  <span className="rounded-full border border-rose-300 bg-rose-100 px-1.5 py-0.5 text-[10px] font-black uppercase text-rose-600">Chefão</span>
+                                  <span className="rounded-full border border-rose-300 bg-rose-100 px-1.5 py-0.5 text-[10px] font-black uppercase text-rose-600">Chef�o</span>
                               )}
                               {!enemy.isBoss && enemy.isSubBoss && (
                                   <span className="rounded-full border border-amber-300 bg-amber-100 px-1.5 py-0.5 text-[10px] font-black uppercase text-amber-700">Subchefe</span>
@@ -3972,7 +4111,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                       </div>
                       {!isDungeonRun && killCount >= 10 && !enemy.isBoss && (
                           <button onClick={() => onStartBattle(true)} className="pointer-events-auto w-full rounded-[14px] border border-rose-300 bg-[linear-gradient(135deg,#e11d48_0%,#f43f5e_100%)] px-3 py-2 text-[10px] sm:text-sm font-black uppercase tracking-[0.12em] text-white transition-all hover:brightness-105 hover:scale-[1.01] animate-pulse shadow-[0_12px_24px_rgba(225,29,72,0.36)] flex items-center justify-center gap-2">
-                              <Skull size={16} /> ENFRENTAR CHEFÃO
+                              <Skull size={16} /> ENFRENTAR CHEF�O
                           </button>
                       )}
                   </div>
@@ -3980,16 +4119,16 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
           </div>
       </div>
 
-      {/* ═══ BOTTOM: Hero name/profile (left) + Actions 2x2 (right) ═══ */}
+      {/* --- BOTTOM: Hero name/profile (left) + Actions 2x2 (right) --- */}
       <div className="flex-1" /> {/* spacer to push bottom content down */}
       <div className="relative w-full pointer-events-auto mb-2 sm:mb-4 px-2 sm:px-4">
           <div className="flex items-end justify-between gap-2">
               {/* Left: hero identity + quick buttons */}
               <div className="flex flex-col gap-2 shrink-0">
-                  {/* Special buttons — above the card */}
+                  {/* Special buttons � above the card */}
                   {isDungeonRun && dungeonRewards && (
                       <button onClick={() => setShowDungeonLootPreview(true)} className="self-start rounded-[10px] border border-[#cfab91] bg-[#f4e5d4] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.15em] text-[#6b3141] transition-colors hover:bg-[#e9d7c2]">
-                          Espólio
+                          Esp�lio
                       </button>
                   )}
               </div>
@@ -4071,131 +4210,247 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                                             {showSkillsAction && (
                                                 <div className="relative col-span-1">
                                                     {activeBattleMenu === 'skills' && (
-                                                        <div className="absolute bottom-full right-[-68px] sm:right-0 z-40 mb-2 w-[min(84vw,340px)] rounded-2xl border border-[#b996cf] bg-[linear-gradient(140deg,rgba(245,236,252,0.98),rgba(238,225,247,0.97))] p-2.5 shadow-[0_16px_38px_rgba(88,48,111,0.32)] animate-fade-in-down">
-                                                            <div className="mb-2 flex items-center justify-between px-1">
-                                                                <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.22em] text-[#6f447f]">
-                                                                    <Sparkles size={12} />
+                                                        <div className="absolute bottom-full right-[-68px] sm:right-0 z-40 mb-2 w-[min(84vw,300px)] animate-fade-in-down"
+                                                            style={{
+                                                                borderRadius: '16px',
+                                                                background: 'rgba(8,4,24,0.68)',
+                                                                backdropFilter: 'blur(28px)',
+                                                                WebkitBackdropFilter: 'blur(28px)',
+                                                                border: '1px solid rgba(255,255,255,0.16)',
+                                                                padding: '12px',
+                                                                boxShadow: '0 16px 48px rgba(0,0,0,0.50)',
+                                                                fontFamily: "'Segoe UI',system-ui,sans-serif",
+                                                            }}
+                                                        >
+                                                            {/* Header */}
+                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', padding: '0 2px' }}>
+                                                                <span style={{ fontSize: '9px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.25em', color: 'rgba(255,255,255,0.40)', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                                                                    <Sparkles size={12} style={{ color: '#c4b5fd' }} />
                                                                     Habilidades
                                                                 </span>
-                                                                <button onClick={() => setActiveBattleMenu(null)} className="flex h-6 w-6 items-center justify-center rounded-md border border-[#c6abd9] bg-white/60 text-[#6f447f] transition-colors hover:bg-white/90" aria-label="Fechar habilidades">
-                                                                    <X size={12} />
-                                                                </button>
+                                                                <button onClick={() => setActiveBattleMenu(null)}
+                                                                    style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '7px', padding: '4px 7px', cursor: 'pointer', color: 'rgba(255,255,255,0.55)', display: 'flex', alignItems: 'center', lineHeight: 1 }}
+                                                                    aria-label="Fechar habilidades"
+                                                                ><X size={11} /></button>
                                                             </div>
-                                                            {player.skills.length > 0 ? (
-                                                                <div className="max-h-[46vh] space-y-1.5 overflow-y-auto pr-0.5">
-                                                                    {player.skills.map(skill => {
-                                                                        const requiredResource = skill.resourceEffect?.cost ?? 0;
-                                                                        const hasResource = player.classResource.value >= requiredResource;
-                                                                        const effectiveManaCost = player.impulsoAtivo >= 1 ? Math.max(1, Math.floor(skill.manaCost * 0.7)) : skill.manaCost;
-                                                                        const canCast = player.stats.mp >= effectiveManaCost && hasResource;
-                                                                        const skillTone = skill.trailColor ?? '#a855f7';
-                                                                        return (
-                                                                            <button
-                                                                                key={skill.id}
-                                                                                onClick={() => { onSkill(skill); setActiveBattleMenu(null); }}
-                                                                                disabled={!isPlayerTurn || !canCast}
-                                                                                className={`w-full rounded-xl border px-2.5 py-2 text-left transition-all ${!isPlayerTurn || !canCast ? 'bg-[#ebe2d8] border-[#d5c0ac] text-[#8f6c67] cursor-not-allowed' : 'text-[#4d2d5d] hover:-translate-y-0.5 hover:shadow-md'}`}
-                                                                                style={!isPlayerTurn || !canCast ? undefined : { background: `linear-gradient(135deg, ${skillTone}38 0%, ${skillTone}1f 45%, #fff7ed 100%)`, borderColor: `${skillTone}aa` }}
-                                                                            >
-                                                                                <div className="flex items-start justify-between gap-2">
-                                                                                    <div className="flex min-w-0 items-start gap-2">
-                                                                                        <div
-                                                                                            className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border"
-                                                                                            style={!isPlayerTurn || !canCast ? undefined : { borderColor: `${skillTone}99`, backgroundColor: `${skillTone}24`, color: skillTone }}
-                                                                                        >
-                                                                                            <Sparkles size={14} />
-                                                                                        </div>
-                                                                                        <div className="min-w-0">
-                                                                                            <div className="truncate text-[11px] sm:text-xs font-black uppercase tracking-[0.1em]">{skill.name}</div>
-                                                                                            <div className="mt-0.5 text-[10px] text-[#6e5367] leading-relaxed">{describeBattleSkill(skill)}</div>
-                                                                                        </div>
+
+                                                            {/* Skill slot rows */}
+                                                            {(() => {
+                                                                const MAX_SLOTS = 3;
+                                                                const ids = [...(player.equippedSkillIds ?? [])];
+                                                                while (ids.length < MAX_SLOTS) ids.push('');
+                                                                return (
+                                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                                                        {Array.from({ length: MAX_SLOTS }, (_, i) => {
+                                                                            const skillId = ids[i];
+                                                                            const skill = skillId ? player.skills.find(s => s.id === skillId) : null;
+                                                                            const typeColor = skill?.type === 'physical' ? '#f87171' : skill?.type === 'magic' ? '#c4b5fd' : '#86efac';
+                                                                            const typeBg   = skill?.type === 'physical' ? 'rgba(248,113,113,0.14)' : skill?.type === 'magic' ? 'rgba(196,181,253,0.14)' : 'rgba(134,239,172,0.14)';
+                                                                            const typeLabel = skill?.type === 'physical' ? 'Físico' : skill?.type === 'magic' ? 'Magia' : 'Cura';
+                                                                            const TypeIcon = skill?.type === 'physical' ? <Sword size={15} /> : skill?.type === 'magic' ? <Sparkles size={15} /> : <Heart size={15} />;
+                                                                            const requiredResource = skill?.resourceEffect?.cost ?? 0;
+                                                                            const hasResource = player.classResource.value >= requiredResource;
+                                                                            const effectiveManaCost = skill ? (player.impulsoAtivo >= 1 ? Math.max(1, Math.floor(skill.manaCost * 0.7)) : skill.manaCost) : 0;
+                                                                            const canCast = !!skill && isPlayerTurn && player.stats.mp >= effectiveManaCost && hasResource;
+                                                                            const isEmpty = !skill;
+                                                                            const isSkillInfoOpen = battleInfoPopup?.type === 'skill' && battleInfoPopup?.id === skillId && !!skill;
+                                                                            return (
+                                                                              <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
+                                                                                <div style={{ display: 'flex', alignItems: 'stretch', gap: '3px', width: '100%', overflow: 'hidden' }}>
+                                                                                <button
+                                                                                    onClick={() => { if (skill && canCast) { onSkill(skill); setActiveBattleMenu(null); } }}
+                                                                                    disabled={!canCast}
+                                                                                    style={{
+                                                                                        display: 'flex', alignItems: 'center', gap: '10px',
+                                                                                        borderRadius: '12px',
+                                                                                        border: isEmpty ? '1px solid rgba(255,255,255,0.09)' : canCast ? `1.5px solid ${typeColor}55` : '1px solid rgba(255,255,255,0.09)',
+                                                                                        background: isEmpty ? 'rgba(0,0,0,0.18)' : canCast ? typeBg : 'rgba(0,0,0,0.28)',
+                                                                                        padding: '9px 11px',
+                                                                                        boxSizing: 'border-box' as const,
+                                                                                        flex: 1,
+                                                                                        minWidth: 0,
+                                                                                        cursor: canCast ? 'pointer' : 'default',
+                                                                                        textAlign: 'left',
+                                                                                        opacity: !isEmpty && !canCast ? 0.5 : 1,
+                                                                                        boxShadow: canCast ? `0 0 10px ${typeColor}18` : 'none',
+                                                                                        transition: 'border 0.18s, background 0.18s',
+                                                                                        fontFamily: "'Segoe UI',system-ui,sans-serif",
+                                                                                    }}>
+                                                                                    {/* Icon */}
+                                                                                    <div style={{
+                                                                                        width: '38px', height: '38px', flexShrink: 0,
+                                                                                        borderRadius: '10px',
+                                                                                        border: isEmpty ? '1px solid rgba(255,255,255,0.10)' : `1.5px solid ${typeColor}55`,
+                                                                                        background: isEmpty ? 'rgba(0,0,0,0.25)' : `${typeColor}20`,
+                                                                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                                                        color: isEmpty ? 'rgba(255,255,255,0.20)' : typeColor,
+                                                                                    }}>
+                                                                                        {skill ? TypeIcon : <Sparkles size={15} />}
                                                                                     </div>
-                                                                                    <div className="shrink-0 space-y-1 text-right">
-                                                                                        <div className="rounded-md border border-[#6aa9d4] bg-[#dff2ff] px-1.5 py-0.5 text-[10px] font-black text-[#1d5f86]">
-                                                                                            {effectiveManaCost} MP
+                                                                                    {/* Text + badges */}
+                                                                                    <div style={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                                                                        <div style={{ fontSize: isMobile ? '10px' : '7px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.18em', color: 'rgba(255,255,255,0.32)', lineHeight: 1 }}>Slot {i + 1}</div>
+                                                                                        <div style={{ fontSize: isMobile ? '15px' : '12px', fontWeight: 900, color: skill ? '#fff' : 'rgba(255,255,255,0.30)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.2 }}>
+                                                                                            {skill ? skill.name : 'Vazio'}
                                                                                         </div>
-                                                                                        {requiredResource > 0 && (
-                                                                                            <div
-                                                                                                className={`rounded-md border px-1.5 py-0.5 text-[8px] font-black ${hasResource ? '' : 'border-rose-300 bg-rose-100 text-rose-700'}`}
-                                                                                                style={hasResource ? {
-                                                                                                    borderColor: `${player.classResource.color}66`,
-                                                                                                    backgroundColor: '#ffffff',
-                                                                                                    color: player.classResource.color,
-                                                                                                } : undefined}
-                                                                                            >
-                                                                                                {requiredResource} {skill.resourceLabel || player.classResource.name}
+                                                                                        {skill && (
+                                                                                            <div style={{ display: 'flex', gap: '4px', alignItems: 'center', flexWrap: 'wrap' }}>
+                                                                                                <span style={{ fontSize: isMobile ? '11px' : '8px', fontWeight: 800, padding: '2px 6px', borderRadius: '99px', background: `${typeColor}20`, border: `1px solid ${typeColor}44`, color: typeColor, display: 'inline-flex', alignItems: 'center', gap: '2px', lineHeight: 1 }}>
+                                                                                                    {typeLabel}
+                                                                                                </span>
+                                                                                                <span style={{ fontSize: isMobile ? '11px' : '8px', fontWeight: 700, padding: '2px 6px', borderRadius: '99px', background: 'rgba(56,189,248,0.15)', border: '1px solid rgba(56,189,248,0.38)', color: '#38bdf8', display: 'inline-flex', alignItems: 'center', gap: '2px', lineHeight: 1 }}>
+                                                                                                    <Zap size={9} />{effectiveManaCost} MP
+                                                                                                </span>
+                                                                                                {requiredResource > 0 && (
+                                                                                                    <span style={{ fontSize: isMobile ? '11px' : '8px', fontWeight: 700, padding: '2px 6px', borderRadius: '99px', background: hasResource ? `${player.classResource.color}20` : 'rgba(239,68,68,0.15)', border: `1px solid ${hasResource ? player.classResource.color + '44' : 'rgba(239,68,68,0.35)'}`, color: hasResource ? player.classResource.color : '#f87171', display: 'inline-flex', alignItems: 'center', gap: '2px', lineHeight: 1 }}>
+                                                                                                        {requiredResource} {skill.resourceLabel || player.classResource.name}
+                                                                                                    </span>
+                                                                                                )}
                                                                                             </div>
                                                                                         )}
                                                                                     </div>
+                                                                                    {skill && (
+                                                                                        <span style={{ color: canCast ? `${typeColor}99` : 'rgba(255,255,255,0.18)', fontSize: '16px', flexShrink: 0 }}>›</span>
+                                                                                    )}
+                                                                                </button>
+                                                                                <button
+                                                                                    onClick={(e) => { e.stopPropagation(); setBattleInfoPopup(prev => (prev?.id === skillId && prev?.type === 'skill') ? null : (skill ? { type: 'skill', id: skillId } : null)); }}
+                                                                                    disabled={!skill}
+                                                                                    style={{ width: '32px', flexShrink: 0, borderRadius: '8px', border: skill ? `1px solid ${typeColor}44` : '1px solid rgba(255,255,255,0.08)', background: (battleInfoPopup?.id === skillId && battleInfoPopup?.type === 'skill') ? `${typeColor}25` : 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: skill ? 'pointer' : 'default', color: skill ? typeColor : 'rgba(255,255,255,0.18)', alignSelf: 'stretch' }}
+                                                                                    aria-label="Info da habilidade"
+                                                                                >
+                                                                                    <Info size={12} />
+                                                                                </button>
                                                                                 </div>
-                                                                            </button>
-                                                                        );
-                                                                    })}
-                                                                </div>
-                                                            ) : (
-                                                                <div className="rounded-xl border border-dashed border-[#c7adcf] bg-white/55 px-3 py-4 text-center text-[11px] font-semibold text-[#7e6277]">
-                                                                    Nenhuma habilidade disponivel.
-                                                                </div>
-                                                            )}
+                                                                                {isSkillInfoOpen && (
+                                                                                  <div style={{ marginTop: '3px', borderRadius: '10px', background: `${typeColor}10`, border: `1px solid ${typeColor}33`, padding: '9px 12px', display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                                                                                    <span style={{ fontSize: isMobile ? '12px' : '9px', fontWeight: 900, textTransform: 'uppercase' as const, letterSpacing: '0.18em', color: typeColor, lineHeight: 1 }}>{skill!.name}</span>
+                                                                                    <span style={{ fontSize: isMobile ? '14px' : '11px', fontWeight: 500, color: 'rgba(255,255,255,0.78)', lineHeight: 1.4 }}>{skill!.description}</span>
+                                                                                    {(skill!.damageMult ?? 0) > 0 && <span style={{ fontSize: isMobile ? '12px' : '9px', fontWeight: 700, color: typeColor, lineHeight: 1 }}>⚔ Mult. dano: {skill!.damageMult}×</span>}
+                                                                                  </div>
+                                                                                )}
+                                                                              </div>
+                                                                            );
+                                                                        })}
+                                                                    </div>
+                                                                );
+                                                            })()}
                                                         </div>
                                                     )}
-                                                    <ActionTile icon={<Sparkles size={18} />} label="HABILIDADES" onClick={() => setActiveBattleMenu(prev => prev === 'skills' ? null : 'skills')} disabled={!isPlayerTurn || player.skills.length === 0} variant="skill" glowColor={impulseButtonGlowColor} glowStrength={24} energized={buttonsEnergized} sparkleColor={currentImpulseFxColor} />
+                                                    <ActionTile icon={<Sparkles size={18} />} label="HABILIDADES" onClick={() => setActiveBattleMenu(prev => prev === 'skills' ? null : 'skills')} disabled={!isPlayerTurn || (player.equippedSkillIds ?? []).every(id => !id)} variant="skill" glowColor={impulseButtonGlowColor} glowStrength={24} energized={buttonsEnergized} sparkleColor={currentImpulseFxColor} />
                                                 </div>
                                             )}
                                             {showItemsAction && (
                                                 <div className="relative col-span-1">
                                                     {activeBattleMenu === 'items' && (
-                                                        <div className="absolute bottom-full right-0 z-40 mb-2 w-[min(84vw,340px)] rounded-2xl border border-[#d8b792] bg-[linear-gradient(140deg,rgba(255,245,230,0.98),rgba(254,235,196,0.96))] p-2.5 shadow-[0_16px_38px_rgba(154,101,48,0.3)] animate-fade-in-down">
-                                                            <div className="mb-2 flex items-center justify-between px-1">
-                                                                <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.22em] text-[#925c27]">
-                                                                    <FlaskConical size={12} />
-                                                                    Itens
+                                                        <div className="absolute bottom-full right-0 z-40 mb-2 animate-fade-in-down" style={{ width: isMobile ? 'min(84vw, 300px)' : '300px', borderRadius: '18px', background: 'rgba(8,4,24,0.68)', backdropFilter: 'blur(28px)', WebkitBackdropFilter: 'blur(28px)', border: '1px solid rgba(255,255,255,0.16)', padding: '12px', boxShadow: '0 24px 52px rgba(0,0,0,0.50)' }}>
+                                                            {/* Header */}
+                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                                                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '10px', fontWeight: 900, textTransform: 'uppercase' as const, letterSpacing: '0.22em', color: 'rgba(255,255,255,0.60)' }}>
+                                                                    <FlaskConical size={12} color="#fb923c" />
+                                                                    Itens de Batalha
                                                                 </span>
-                                                                <button onClick={() => setActiveBattleMenu(null)} className="flex h-6 w-6 items-center justify-center rounded-md border border-[#d6b189] bg-white/60 text-[#925c27] transition-colors hover:bg-white/90" aria-label="Fechar itens">
-                                                                    <X size={12} />
+                                                                <button onClick={() => setActiveBattleMenu(null)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '26px', height: '26px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.14)', background: 'rgba(255,255,255,0.07)', color: 'rgba(255,255,255,0.55)', cursor: 'pointer' }} aria-label="Fechar itens">
+                                                                    <X size={13} />
                                                                 </button>
                                                             </div>
-                                                            {usableItems.length > 0 ? (
-                                                                <div className="max-h-[46vh] space-y-1.5 overflow-y-auto pr-0.5">
-                                                                    {usableItems.map(item => (
-                                                                        <button
-                                                                            key={item.id}
-                                                                            onClick={() => {
-                                                                                if (item.id === 'pot_dg_recall') {
-                                                                                    setPendingDungeonExtractItem(item);
-                                                                                    setShowDungeonExtractConfirm(true);
-                                                                                    setActiveBattleMenu(null);
-                                                                                    return;
-                                                                                }
-                                                                                onUseItem(item.id);
-                                                                                setActiveBattleMenu(null);
-                                                                            }}
-                                                                            disabled={!isPlayerTurn}
-                                                                            className={`w-full rounded-xl border px-2.5 py-2 text-left transition-all ${!isPlayerTurn ? 'bg-[#ebe2d8] border-[#d5c0ac] text-[#8f6c67] cursor-not-allowed' : 'border-amber-300 bg-[#fff4de] text-[#6b3141] hover:-translate-y-0.5 hover:bg-[#ffefcf]'}`}
-                                                                        >
-                                                                            <div className="flex items-start justify-between gap-2">
-                                                                                <div className="min-w-0">
-                                                                                    <div className="flex items-center gap-1.5 truncate text-[11px] sm:text-xs font-black uppercase tracking-[0.1em]">
-                                                                                        <span>{item.icon}</span>
-                                                                                        <span className="truncate">{item.name}</span>
+                                                            {/* Slot rows */}
+                                                            {(() => {
+                                                                const slots = player.equippedItemSlots ?? [];
+                                                                const itemColor = '#fb923c';
+                                                                const itemBg = 'rgba(251,146,60,0.14)';
+                                                                return (
+                                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                                                        {Array.from({ length: 4 }, (_, i) => {
+                                                                            const slot = slots[i] ?? { itemId: '', qty: 0 };
+                                                                            const isEmpty = !slot.itemId;
+                                                                            const hasItem = !isEmpty && slot.qty > 0;
+                                                                            const itemDef = isEmpty ? null : (ALL_ITEMS.find(it => it.id === slot.itemId) ?? shopItems.find(it => it.id === slot.itemId) ?? null);
+                                                                            const isDgRecall = slot.itemId === 'pot_dg_recall';
+                                                                            const isItemInfoOpen = battleInfoPopup?.type === 'item' && battleInfoPopup?.id === slot.itemId && !!itemDef;
+                                                                            return (
+                                                                              <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
+                                                                                <div style={{ display: 'flex', alignItems: 'stretch', gap: '3px', width: '100%', overflow: 'hidden' }}>
+                                                                                <button
+                                                                                    disabled={!isPlayerTurn || isEmpty || slot.qty <= 0}
+                                                                                    onClick={() => {
+                                                                                        if (!hasItem || !itemDef) return;
+                                                                                        if (isDgRecall) {
+                                                                                            setPendingDungeonExtractItem(itemDef);
+                                                                                            setShowDungeonExtractConfirm(true);
+                                                                                            setActiveBattleMenu(null);
+                                                                                            return;
+                                                                                        }
+                                                                                        onUseItem(slot.itemId);
+                                                                                        setActiveBattleMenu(null);
+                                                                                    }}
+                                                                                    style={{
+                                                                                        display: 'flex', alignItems: 'center', gap: '10px',
+                                                                                        borderRadius: '13px',
+                                                                                        border: hasItem ? `1.5px solid ${itemColor}55` : '1px solid rgba(255,255,255,0.09)',
+                                                                                        background: hasItem ? itemBg : 'rgba(0,0,0,0.18)',
+                                                                                        padding: '9px 11px',
+                                                                                        boxSizing: 'border-box' as const,
+                                                                                        flex: 1,
+                                                                                        minWidth: 0,
+                                                                                        cursor: hasItem ? 'pointer' : 'default',
+                                                                                        textAlign: 'left' as const,
+                                                                                        opacity: isEmpty || (!isPlayerTurn && hasItem) ? (isEmpty ? 0.38 : 0.55) : 1,
+                                                                                        transition: 'opacity 0.15s',
+                                                                                    }}>
+                                                                                    {/* Icon box */}
+                                                                                    <div style={{ width: '38px', height: '38px', flexShrink: 0, borderRadius: '11px', border: hasItem ? `1.5px solid ${itemColor}55` : '1px solid rgba(255,255,255,0.10)', background: hasItem ? `${itemColor}20` : 'rgba(0,0,0,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: hasItem ? itemColor : 'rgba(255,255,255,0.20)', fontSize: '22px' }}>
+                                                                                        {itemDef ? <span style={{ lineHeight: 1 }}>{itemDef.icon}</span> : <FlaskConical size={16} />}
                                                                                     </div>
-                                                                                    <div className="mt-0.5 text-[10px] text-[#805f4f] leading-relaxed">{describeBattleItem(item)}</div>
+                                                                                    {/* Text */}
+                                                                                    <div style={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                                                                                        <div style={{ fontSize: isMobile ? '10px' : '6px', fontWeight: 800, textTransform: 'uppercase' as const, letterSpacing: '0.18em', color: 'rgba(255,255,255,0.32)', lineHeight: 1 }}>Slot {i + 1}</div>
+                                                                                        <div style={{ fontSize: isMobile ? '15px' : '12px', fontWeight: 900, color: hasItem ? '#fff' : 'rgba(255,255,255,0.25)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const, lineHeight: 1.2 }}>
+                                                                                            {isEmpty ? 'Vazio' : itemDef?.name ?? slot.itemId}
+                                                                                        </div>
+                                                                                        {hasItem && (
+                                                                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px', alignItems: 'center' }}>
+                                                                                                <span style={{ fontSize: isMobile ? '11px' : '8px', fontWeight: 800, padding: '2px 6px', borderRadius: '99px', background: `${itemColor}20`, border: `1px solid ${itemColor}44`, color: itemColor, display: 'inline-flex', alignItems: 'center', lineHeight: 1 }}>
+                                                                                                    {slot.qty}×
+                                                                                                </span>
+                                                                                                {itemDef && getPotionBattleBadges(itemDef).map((b, bi) => (
+                                                                                                    <span key={bi} style={{ fontSize: isMobile ? '11px' : '8px', fontWeight: 800, padding: '2px 6px', borderRadius: '99px', background: b.bg, border: `1px solid ${b.border}`, color: b.color, display: 'inline-flex', alignItems: 'center', lineHeight: 1 }}>
+                                                                                                        {b.label}
+                                                                                                    </span>
+                                                                                                ))}
+                                                                                            </div>
+                                                                                        )}
+                                                                                        {!isEmpty && slot.qty === 0 && (
+                                                                                            <span style={{ fontSize: '8px', fontWeight: 800, color: 'rgba(255,255,255,0.30)', lineHeight: 1 }}>Esgotado</span>
+                                                                                        )}
+                                                                                    </div>
+                                                                                    {hasItem && <span style={{ color: `${itemColor}80`, fontSize: '16px', flexShrink: 0 }}>›</span>}
+                                                                                </button>
+                                                                                {itemDef && (
+                                                                                  <button
+                                                                                    onClick={(e) => { e.stopPropagation(); setBattleInfoPopup(prev => (prev?.id === slot.itemId && prev?.type === 'item') ? null : { type: 'item', id: slot.itemId }); }}
+                                                                                    style={{ width: '32px', flexShrink: 0, borderRadius: '8px', border: `1px solid ${itemColor}44`, background: (battleInfoPopup?.id === slot.itemId && battleInfoPopup?.type === 'item') ? `${itemColor}25` : 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: itemColor, alignSelf: 'stretch' }}
+                                                                                    aria-label="Info do item"
+                                                                                  >
+                                                                                    <Info size={12} />
+                                                                                  </button>
+                                                                                )}
                                                                                 </div>
-                                                                                <div className="shrink-0 rounded-md border border-amber-500/40 bg-amber-50 px-1.5 py-0.5 text-[10px] font-black text-amber-700">
-                                                                                    x{player.inventory[item.id]}
-                                                                                </div>
-                                                                            </div>
-                                                                        </button>
-                                                                    ))}
-                                                                </div>
-                                                            ) : (
-                                                                <div className="rounded-xl border border-dashed border-[#d6b189] bg-white/55 px-3 py-4 text-center text-[11px] font-semibold text-[#8f6c67]">
-                                                                    Nenhum item de batalha disponivel.
-                                                                </div>
-                                                            )}
+                                                                                {isItemInfoOpen && (
+                                                                                  <div style={{ marginTop: '3px', borderRadius: '10px', background: `${itemColor}10`, border: `1px solid ${itemColor}33`, padding: '9px 12px', display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                                                                                    <span style={{ fontSize: isMobile ? '12px' : '9px', fontWeight: 900, textTransform: 'uppercase' as const, letterSpacing: '0.18em', color: itemColor, lineHeight: 1 }}>{itemDef!.name}</span>
+                                                                                    <span style={{ fontSize: isMobile ? '14px' : '11px', fontWeight: 500, color: 'rgba(255,255,255,0.75)', lineHeight: 1.4 }}>{itemDef!.description}</span>
+                                                                                  </div>
+                                                                                )}
+                                                                              </div>
+                                                                            );
+                                                                        })}
+                                                                    </div>
+                                                                );
+                                                            })()}
                                                         </div>
                                                     )}
-                                                    <ActionTile icon={<FlaskConical size={18} />} label="ITENS" onClick={() => setActiveBattleMenu(prev => prev === 'items' ? null : 'items')} disabled={!isPlayerTurn || usableItems.length === 0} variant="item" />
+                                                    <ActionTile icon={<FlaskConical size={18} />} label="ITENS" onClick={() => { setBattleInfoPopup(null); setActiveBattleMenu(prev => prev === 'items' ? null : 'items'); }} disabled={!isPlayerTurn || (player.equippedItemSlots ?? []).every(s => !s.itemId || s.qty <= 0)} variant="item" />
                                                 </div>
                                             )}
                   </div>
@@ -4211,6 +4466,11 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
         <AnimatedModal open={showInventory}>
           {(isClosing) => (
             <InventoryModal player={player} shopItems={shopItems} onClose={closeInventoryModal} onEquip={onEquipItem} onUnequip={onUnequipItem} onUse={onUseItem} isBattleContext initialFilter={inventoryInitialFilter} isClosing={isClosing} />
+          )}
+        </AnimatedModal>
+        <AnimatedModal open={showSkillsScreen}>
+          {(isClosing) => (
+            <SkillsModal player={player} onClose={closeSkillsScreenModal} isClosing={isClosing} />
           )}
         </AnimatedModal>
     </div>

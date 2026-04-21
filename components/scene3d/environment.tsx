@@ -1150,8 +1150,21 @@ export const CameraController = ({
         cinematicLook.copy(cinematicState.targetLook);
         cinematicFov = cinematicState.targetFov;
         if (cinematicState.elapsed >= HOLD_SECONDS) {
-          // End cinematic here — the blend system lerps the camera back to the
-          // correct live menu position naturally, avoiding any snap or jitter.
+          cinematicState.phase = 'zoom-out';
+          cinematicState.elapsed = 0;
+        }
+      } else if (cinematicState.phase === 'zoom-out') {
+        const progress = THREE.MathUtils.clamp(cinematicState.elapsed / ZOOM_OUT_SECONDS, 0, 1);
+        const eased = easeInOut(progress);
+        // Zoom-out target is the LIVE new scene menu position (not the old startPosition)
+        cinematicPosition.lerpVectors(
+          cinematicState.targetPosition,
+          new THREE.Vector3(targetX, targetY, targetZ),
+          eased
+        );
+        cinematicLook.lerpVectors(cinematicState.targetLook, menuLookTarget, eased);
+        cinematicFov = THREE.MathUtils.lerp(cinematicState.targetFov, finalMenuFov, eased);
+        if (progress >= 1) {
           cinematicState.active = false;
           cinematicState.phase = 'idle';
           cinematicState.elapsed = 0;

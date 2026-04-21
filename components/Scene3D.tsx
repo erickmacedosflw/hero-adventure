@@ -1,5 +1,5 @@
 import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Sword, Shield, Zap, Sparkles, FlaskConical, Crosshair, Shirt, Footprints, Layers, RefreshCw, Swords, Wind, Clover } from 'lucide-react';
+import { Sword, Shield, Zap, Sparkles, FlaskConical, Crosshair, Shirt, Footprints, Layers, RefreshCw, Swords, Wind, Clover, Heart, Info } from 'lucide-react';
 import { Canvas, useFrame, useLoader, useThree } from '@react-three/fiber';
 import { ContactShadows, Html, useAnimations, useFBX, useTexture } from '@react-three/drei';
 import { Bloom, DepthOfField, EffectComposer, Vignette } from '@react-three/postprocessing';
@@ -8,7 +8,7 @@ import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { COMBAT_SPRITE_ANIMATION_DEFAULTS, SPRITE_ANIMATION_IDS, SPRITE_ANIMATION_REGISTRY } from '../game/data/sprite-animations/registry';
 import { resolveTrackPlaybackSnapshot } from '../game/mechanics/spriteOverlayPlayback';
-import { CardCategory, Enemy, EnemyIntentPreview, FloatingText, Particle, Player, PlayerAnimationAction, PlayerClassAnimationMap, PlayerClassAssets, PlayerClassId, SpriteOverlayAnimationDefinition, SpriteTrackDefinition, StatusEffect, TurnState } from '../types';
+import { CardCategory, Enemy, EnemyIntentPreview, FloatingText, Item, Particle, Player, PlayerAnimationAction, PlayerClassAnimationMap, PlayerClassAssets, PlayerClassId, SpriteOverlayAnimationDefinition, SpriteTrackDefinition, StatusEffect, TurnState } from '../types';
 import {
   RIGHT_HAND_BONE_CANDIDATES,
   RuntimeHeroAssets,
@@ -92,6 +92,7 @@ import { VoxelPart } from './items/VoxelPart';
 import { getEquipmentBonuses } from '../game/mechanics/equipmentBonuses';
 import { getPlayerClassById } from '../game/data/classes';
 import { getEquippedWeaponGrip, getRegisteredWeapon3DByItemId } from '../game/data/weaponCatalog';
+import { ALL_ITEMS } from '../constants';
 export { ItemPreviewCanvas } from './items/ItemPreviewCanvas';
 export type {
   DeveloperAnimationRuntimeDiagnostic,
@@ -171,6 +172,8 @@ interface SceneProps {
   heroInspectMode?: boolean;
   onHeroInspectClose?: () => void;
   onHeroEquipSlotClick?: (slot: 'weapon' | 'shield' | 'helmet' | 'armor' | 'legs') => void;
+  onHeroSkillSlotClick?: (slotIndex: number) => void;
+  onHeroItemSlotClick?: (slotIndex: number) => void;
   portalInspectMode?: boolean;
   currentSceneRegion?: 'forest' | 'dungeon' | 'tower';
   dungeonUnlocked?: boolean;
@@ -2493,19 +2496,60 @@ const PortalInspectCanvas = ({
   );
 };
 
+// ── Potion slot stat badges ──────────────────────────────────────────────────
+type SlotBadge = { label: string; color: string; bg: string; border: string };
+function getPotionSlotBadges(item: Item): SlotBadge[] {
+  const lower = (item.description ?? '').toLowerCase();
+  if (item.id === 'pot_2' || item.id === 'pot_mana_2' || item.id === 'pot_mana_3' || item.id === 'pot_dg_mana') {
+    return [{ label: `+${item.value} MP`, color: '#7dd3fc', bg: 'rgba(7,89,133,0.35)', border: 'rgba(125,211,252,0.30)' }];
+  }
+  if (item.id === 'pot_atk') {
+    return [
+      { label: `+${Math.round((item.value as number) * 100)}% ATK`, color: '#f87171', bg: 'rgba(127,29,29,0.35)', border: 'rgba(248,113,113,0.30)' },
+      { label: `${item.duration ?? 3} turnos`, color: '#fcd34d', bg: 'rgba(120,53,15,0.35)', border: 'rgba(252,211,77,0.30)' },
+    ];
+  }
+  if (item.id === 'pot_def') {
+    return [
+      { label: `+${Math.round((item.value as number) * 100)}% DEF`, color: '#93c5fd', bg: 'rgba(30,58,95,0.35)', border: 'rgba(147,197,253,0.30)' },
+      { label: `${item.duration ?? 3} turnos`, color: '#fcd34d', bg: 'rgba(120,53,15,0.35)', border: 'rgba(252,211,77,0.30)' },
+    ];
+  }
+  if (lower.includes('hp') || lower.includes('vida') || lower.includes('cura') || lower.includes('restaura')) {
+    return [{ label: `+${item.value} HP`, color: '#86efac', bg: 'rgba(20,83,45,0.35)', border: 'rgba(134,239,172,0.30)' }];
+  }
+  if (lower.includes('mp') || lower.includes('mana') || lower.includes('energia')) {
+    return [{ label: `+${item.value} MP`, color: '#7dd3fc', bg: 'rgba(7,89,133,0.35)', border: 'rgba(125,211,252,0.30)' }];
+  }
+  if ((item.duration ?? 0) > 0) {
+    return [
+      { label: 'BOOST', color: '#fcd34d', bg: 'rgba(120,53,15,0.35)', border: 'rgba(252,211,77,0.30)' },
+      { label: `${item.duration}t`, color: '#fcd34d', bg: 'rgba(120,53,15,0.25)', border: 'rgba(252,211,77,0.20)' },
+    ];
+  }
+  return [{ label: 'ESPECIAL', color: '#c4b5fd', bg: 'rgba(76,29,149,0.35)', border: 'rgba(196,181,253,0.30)' }];
+}
+
 const HeroInspectCanvas = ({
   player,
   onClose,
   onEquipSlot,
+  onSkillSlotClick,
+  onItemSlotClick,
 }: {
   player: Player;
   onClose: () => void;
   onEquipSlot: (slot: EquipSlotKey) => void;
+  onSkillSlotClick?: (slotIndex: number) => void;
+  onItemSlotClick?: (slotIndex: number) => void;
 }) => {
   const { viewport } = useThree();
   // viewport.width is in world units; mobile portrait is typically < 9 world units
   const isMobile = viewport.width < 9;
-  const [showAttrs, setShowAttrs] = useState(false);
+  const [cardPage, setCardPage] = useState<0 | 1 | 2 | 3>(0); // 0=equip 1=attrs 2=skills 3=items
+  const showAttrs = cardPage === 1; // keep existing refs working
+  const [campSkillInfoId, setCampSkillInfoId] = useState<string | null>(null);
+  const [campItemInfoIdx, setCampItemInfoIdx] = useState<number | null>(null);
   const pClass = getPlayerClassById(player.classId);
   const ClassIcon = INSPECT_CLASS_ICON[player.classId as PlayerClassId] ?? Shield;
   const classNamePt = HERO_CLASS_NAME_PT[player.classId as PlayerClassId] ?? player.classId;
@@ -2538,11 +2582,11 @@ const HeroInspectCanvas = ({
   // Hero model origin is at (-2, -1, 0); model is ~2.2u tall → head ≈ y 1.2
   // Equipment panel anchored at mid-body height, right of hero (closer to model)
   // Mobile: panel closer to hero on the right side
-  const equipX = isMobile ? -0.30 : -0.20;
-  const equipY = isMobile ? -0.30 : 0.1;
-  // On mobile, stats card stacks above equipment panel (same X, higher Y — no overlap)
+  const equipX = isMobile ? -0.70 : 0.30;
+  // On mobile, stats card is fixed near top; equipment card is always a set distance below it
   const statsX = isMobile ? equipX : -2.0;
-  const statsY = isMobile ? equipY + 2.24 : 2.0;
+  const statsY = isMobile ? 2.0 : 2.0;
+  const equipY = isMobile ? statsY - 1.76 : 0.1;
   // distanceFactor controls apparent panel size; larger = smaller panels on screen
   // On mobile with tighter zoom, use larger factor to keep panels inside the screen
   const df = isMobile ? 6.0 : 5.8;
@@ -2625,36 +2669,56 @@ const HeroInspectCanvas = ({
         position={[equipX, equipY, 0]}
         zIndexRange={[200, 0]}
       >
-        <div style={{ ...font, width: '196px', position: 'relative', overflow: 'hidden' }} onClick={(e) => e.stopPropagation()}>
+        <div style={{ ...font, display: 'flex', flexDirection: 'row', gap: '6px', alignItems: 'flex-start' }} onClick={(e) => e.stopPropagation()}>
+
+          {/* ── Tab navigation ── */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', flexShrink: 0 }}>
+            {([
+              { page: 0 as const, Icon: Shield as React.FC<{size?:number}>,       label: 'Equipamentos' },
+              { page: 2 as const, Icon: Zap as React.FC<{size?:number}>,           label: 'Habilidades' },
+              { page: 3 as const, Icon: FlaskConical as React.FC<{size?:number}>, label: 'Itens de Batalha' },
+              { page: 1 as const, Icon: Swords as React.FC<{size?:number}>,       label: 'Status' },
+            ] as { page: 0|1|2|3; Icon: React.FC<{size?:number}>; label: string }[]).map(({ page, Icon, label }) => {
+              const isActive = cardPage === page;
+              return (
+                <button key={page} onClick={(e) => { e.stopPropagation(); setCardPage(page); }} title={label} style={{
+                  width: isMobile ? '34px' : '28px', height: isMobile ? '34px' : '28px', padding: 0,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  borderRadius: '9px',
+                  border: isActive ? '1px solid rgba(255,255,255,0.28)' : '1px solid rgba(255,255,255,0.08)',
+                  background: isActive ? 'rgba(255,255,255,0.16)' : 'rgba(0,0,0,0.30)',
+                  cursor: 'pointer', color: isActive ? '#fff' : 'rgba(255,255,255,0.35)',
+                  transition: 'all 0.15s', flexShrink: 0, boxSizing: 'border-box',
+                  backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
+                }}>
+                  <Icon size={isMobile ? 15 : 13} />
+                </button>
+              );
+            })}
+          </div>
+
+          {/* ── Cards container ── */}
+          <div style={{ position: 'relative', width: isMobile ? '270px' : '230px', flexShrink: 0 }}>
 
           {/* ── Equipment Card ── */}
           <div style={{
             borderRadius: '16px',
-            background: 'rgba(8,4,24,0.30)',
+            background: isMobile ? 'rgba(6,4,18,0.78)' : 'rgba(6,4,18,0.62)',
             backdropFilter: 'blur(22px)',
             WebkitBackdropFilter: 'blur(22px)',
             border: '1px solid rgba(255,255,255,0.14)',
             padding: '10px',
             boxSizing: 'border-box' as const,
-            pointerEvents: showAttrs ? 'none' : 'auto',
-            opacity: showAttrs ? 0 : 1,
-            transform: showAttrs ? 'translateX(-24px) scale(0.97)' : 'translateX(0px) scale(1)',
+            pointerEvents: cardPage === 0 ? 'auto' : 'none',
+            opacity: cardPage === 0 ? 1 : 0,
+            transform: cardPage === 0 ? 'translateX(0px) scale(1)' : 'translateX(-24px) scale(0.97)',
             transition: 'opacity 0.32s ease, transform 0.32s cubic-bezier(0.4,0,0.2,1)',
-            position: showAttrs ? 'absolute' : 'relative',
+            position: 'relative',
             top: 0, left: 0, width: '100%',
           }}>
             {/* Header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '7px', padding: '0 2px' }}>
+            <div style={{ marginBottom: '7px', padding: '0 2px' }}>
               <span style={{ fontSize: '8px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.25em', color: 'rgba(255,255,255,0.40)' }}>Equipamento</span>
-              <button
-                onClick={(e) => { e.stopPropagation(); setShowAttrs(true); }}
-                title="Ver atributos"
-                style={{
-                  background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.15)',
-                  borderRadius: '7px', padding: '4px 7px', cursor: 'pointer',
-                  color: 'rgba(255,255,255,0.55)', display: 'flex', alignItems: 'center', lineHeight: 1,
-                }}
-              ><RefreshCw size={10} /></button>
             </div>
             {/* Slot rows */}
             {slots.map((slot, i) => {
@@ -2716,31 +2780,22 @@ const HeroInspectCanvas = ({
           {/* ── Attributes Card ── */}
           <div style={{
             borderRadius: '16px',
-            background: 'rgba(8,4,24,0.30)',
+            background: isMobile ? 'rgba(6,4,18,0.78)' : 'rgba(6,4,18,0.62)',
             backdropFilter: 'blur(22px)',
             WebkitBackdropFilter: 'blur(22px)',
             border: '1px solid rgba(255,255,255,0.14)',
             padding: '10px',
             boxSizing: 'border-box' as const,
-            pointerEvents: showAttrs ? 'auto' : 'none',
-            opacity: showAttrs ? 1 : 0,
-            transform: showAttrs ? 'translateX(0px) scale(1)' : 'translateX(24px) scale(0.97)',
+            pointerEvents: cardPage === 1 ? 'auto' : 'none',
+            opacity: cardPage === 1 ? 1 : 0,
+            transform: cardPage === 1 ? 'translateX(0px) scale(1)' : cardPage === 0 ? 'translateX(24px) scale(0.97)' : 'translateX(-24px) scale(0.97)',
             transition: 'opacity 0.32s ease, transform 0.32s cubic-bezier(0.4,0,0.2,1)',
-            position: showAttrs ? 'relative' : 'absolute',
+            position: 'absolute',
             top: 0, left: 0, width: '100%',
           }}>
             {/* Header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '7px', padding: '0 2px' }}>
+            <div style={{ marginBottom: '7px', padding: '0 2px' }}>
               <span style={{ fontSize: '8px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.25em', color: 'rgba(255,255,255,0.40)' }}>Atributos</span>
-              <button
-                onClick={(e) => { e.stopPropagation(); setShowAttrs(false); }}
-                title="Ver equipamentos"
-                style={{
-                  background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.15)',
-                  borderRadius: '7px', padding: '4px 7px', cursor: 'pointer',
-                  color: 'rgba(255,255,255,0.55)', display: 'flex', alignItems: 'center', lineHeight: 1,
-                }}
-              ><RefreshCw size={10} /></button>
             </div>
 
             {/* ── Mini stat cards ── */}
@@ -2846,8 +2901,10 @@ const HeroInspectCanvas = ({
               );
             })()}
 
-            {/* ── Equipment slot strip with bonus chips ── */}
-            <div style={{ display: 'flex', gap: '4px', marginTop: '10px', justifyContent: 'center' }}>
+            {/* ── Equipment slot strip — temporarily hidden ── */}
+            {false && <div style={{ marginTop: '10px' }}>
+              <div style={{ fontSize: '7px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.22em', color: 'rgba(255,255,255,0.35)', marginBottom: '6px', paddingLeft: '2px' }}>Equipamentos</div>
+              <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
               {slots.map(slot => {
                 const it = slot.item as any;
                 const rb = rarityBorder(it?.rarity);
@@ -2900,31 +2957,237 @@ const HeroInspectCanvas = ({
                 );
               })}
             </div>
+            </div>}
           </div>
 
-          {/* ── Pagination dots ── */}
-          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', marginTop: '8px' }}>
-            <button
-              onClick={(e) => { e.stopPropagation(); setShowAttrs(false); }}
-              style={{
-                width: !showAttrs ? '16px' : '6px', height: '6px',
-                borderRadius: '99px',
-                background: !showAttrs ? 'rgba(255,255,255,0.90)' : 'rgba(255,255,255,0.28)',
-                border: 'none', padding: 0, cursor: 'pointer',
-                transition: 'all 0.3s cubic-bezier(0.4,0,0.2,1)',
-              }}
-            />
-            <button
-              onClick={(e) => { e.stopPropagation(); setShowAttrs(true); }}
-              style={{
-                width: showAttrs ? '16px' : '6px', height: '6px',
-                borderRadius: '99px',
-                background: showAttrs ? 'rgba(255,255,255,0.90)' : 'rgba(255,255,255,0.28)',
-                border: 'none', padding: 0, cursor: 'pointer',
-                transition: 'all 0.3s cubic-bezier(0.4,0,0.2,1)',
-              }}
-            />
-          </div>
+          {/* ── Skills Card (page 2) ── */}
+          {(() => {
+            const equippedIds: string[] = player.equippedSkillIds ?? ['', '', ''];
+            const MAX_SLOTS = 3;
+            const paddedIds = [...equippedIds];
+            while (paddedIds.length < MAX_SLOTS) paddedIds.push('');
+            const availableSkills = player.skills ?? [];
+            return (
+              <div style={{
+                borderRadius: '16px',
+                background: isMobile ? 'rgba(6,4,18,0.78)' : 'rgba(6,4,18,0.62)',
+                backdropFilter: 'blur(22px)',
+                WebkitBackdropFilter: 'blur(22px)',
+                border: '1px solid rgba(255,255,255,0.14)',
+                padding: '10px',
+                boxSizing: 'border-box' as const,
+                pointerEvents: cardPage === 2 ? 'auto' : 'none',
+                opacity: cardPage === 2 ? 1 : 0,
+                transform: cardPage === 2 ? 'translateX(0px) scale(1)' : 'translateX(24px) scale(0.97)',
+                transition: 'opacity 0.32s ease, transform 0.32s cubic-bezier(0.4,0,0.2,1)',
+                position: 'absolute',
+                top: 0, left: 0, width: '100%',
+              }}>
+                {/* Header */}
+                <div style={{ marginBottom: '8px', padding: '0 2px' }}>
+                  <span style={{ fontSize: '8px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.25em', color: 'rgba(255,255,255,0.40)' }}>Habilidades</span>
+                </div>
+
+                {/* Equipped slots — tap to open SkillsScreen modal */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                  {Array.from({ length: MAX_SLOTS }, (_, i) => {
+                    const skillId = paddedIds[i];
+                    const skill = skillId ? availableSkills.find((s: any) => s.id === skillId) : null;
+                    const typeColor = skill?.type === 'physical' ? '#f87171' : skill?.type === 'magic' ? '#c4b5fd' : '#86efac';
+                    const typeBg   = skill?.type === 'physical' ? 'rgba(248,113,113,0.14)' : skill?.type === 'magic' ? 'rgba(196,181,253,0.14)' : 'rgba(134,239,172,0.14)';
+                    const typeLabel = skill?.type === 'physical' ? 'Físico' : skill?.type === 'magic' ? 'Magia' : 'Cura';
+                    const TypeIcon = skill?.type === 'physical' ? <Sword size={13} /> : skill?.type === 'magic' ? <Sparkles size={13} /> : <Heart size={13} />;
+                    const isSkillInfoOpen = campSkillInfoId === skillId && !!skill;
+                    return (
+                      <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
+                        <div style={{ display: 'flex', alignItems: 'stretch', gap: '3px', width: '100%', overflow: 'hidden' }}>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); onSkillSlotClick?.(i); }}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: '8px',
+                            borderRadius: '11px',
+                            border: skill ? `1.5px solid ${typeColor}55` : '1px solid rgba(255,255,255,0.09)',
+                            background: skill ? typeBg : 'rgba(0,0,0,0.18)',
+                            padding: '7px 9px',
+                            boxSizing: 'border-box' as const,
+                            flex: 1,
+                            minWidth: 0,
+                            cursor: 'pointer',
+                            textAlign: 'left',
+                            boxShadow: skill ? `0 0 10px ${typeColor}18` : 'none',
+                            transition: 'border 0.18s, background 0.18s, box-shadow 0.18s',
+                          }}>
+                          {/* Icon box */}
+                          <div style={{
+                            width: '32px', height: '32px', flexShrink: 0,
+                            borderRadius: '9px',
+                            border: skill ? `1.5px solid ${typeColor}55` : '1px solid rgba(255,255,255,0.10)',
+                            background: skill ? `${typeColor}20` : 'rgba(0,0,0,0.25)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            color: skill ? typeColor : 'rgba(255,255,255,0.20)',
+                          }}>
+                            {skill ? TypeIcon : <Sparkles size={13} />}
+                          </div>
+                          {/* Text + badges */}
+                          <div style={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                            <div style={{ fontSize: '6px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.18em', color: 'rgba(255,255,255,0.32)', lineHeight: 1 }}>Slot {i + 1}</div>
+                            <div style={{ fontSize: '10px', fontWeight: 900, color: skill ? '#fff' : 'rgba(255,255,255,0.30)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.2 }}>
+                              {skill ? skill.name : 'Vazio'}
+                            </div>
+                            {skill && (
+                              <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                                <span style={{ fontSize: '7px', fontWeight: 800, padding: '1.5px 5px', borderRadius: '99px', background: `${typeColor}20`, border: `1px solid ${typeColor}44`, color: typeColor, display: 'inline-flex', alignItems: 'center', gap: '2px', lineHeight: 1 }}>
+                                  {typeLabel}
+                                </span>
+                                <span style={{ fontSize: '7px', fontWeight: 700, padding: '1.5px 5px', borderRadius: '99px', background: 'rgba(56,189,248,0.15)', border: '1px solid rgba(56,189,248,0.38)', color: '#38bdf8', display: 'inline-flex', alignItems: 'center', gap: '2px', lineHeight: 1 }}>
+                                  <Zap size={8} />{skill.manaCost} MP
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                          <span style={{ color: skill ? `${typeColor}80` : 'rgba(255,255,255,0.20)', fontSize: '14px', flexShrink: 0 }}>›</span>
+                        </button>
+                        {skill && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setCampSkillInfoId(prev => prev === skillId ? null : skillId); }}
+                            style={{ width: '28px', flexShrink: 0, borderRadius: '7px', border: `1px solid ${typeColor}44`, background: isSkillInfoOpen ? `${typeColor}25` : 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: typeColor, alignSelf: 'stretch' }}
+                            aria-label="Info da habilidade"
+                          ><Info size={11} /></button>
+                        )}
+                        </div>
+                        {isSkillInfoOpen && (
+                          <div style={{ marginTop: '3px', borderRadius: '9px', background: `${typeColor}10`, border: `1px solid ${typeColor}33`, padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                            <span style={{ fontSize: '8px', fontWeight: 900, textTransform: 'uppercase' as const, letterSpacing: '0.18em', color: typeColor, lineHeight: 1 }}>{skill!.name}</span>
+                            <span style={{ fontSize: '10px', fontWeight: 500, color: 'rgba(255,255,255,0.78)', lineHeight: 1.45 }}>{skill!.description}</span>
+                            {(skill!.damageMult ?? 0) > 0 && <span style={{ fontSize: '8px', fontWeight: 700, color: typeColor, lineHeight: 1 }}>⚔ Mult. dano: {skill!.damageMult}×</span>}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* ── Items card (page 3) ── */}
+          {(() => {
+            const equippedItemSlots: Array<{ itemId: string; qty: number }> = player.equippedItemSlots ?? [
+              { itemId: '', qty: 0 }, { itemId: '', qty: 0 }, { itemId: '', qty: 0 }, { itemId: '', qty: 0 },
+            ];
+            const MAX_ITEM_SLOTS = 4;
+            const itemColor = '#fb923c';
+            const itemBg = 'rgba(251,146,60,0.14)';
+            return (
+              <div style={{
+                borderRadius: '16px',
+                background: isMobile ? 'rgba(6,4,18,0.78)' : 'rgba(6,4,18,0.62)',
+                backdropFilter: 'blur(22px)',
+                WebkitBackdropFilter: 'blur(22px)',
+                border: '1px solid rgba(255,255,255,0.14)',
+                padding: '10px',
+                boxSizing: 'border-box' as const,
+                pointerEvents: cardPage === 3 ? 'auto' : 'none',
+                opacity: cardPage === 3 ? 1 : 0,
+                transform: cardPage === 3 ? 'translateX(0px) scale(1)' : 'translateX(24px) scale(0.97)',
+                transition: 'opacity 0.32s ease, transform 0.32s cubic-bezier(0.4,0,0.2,1)',
+                position: 'absolute',
+                top: 0, left: 0, width: '100%',
+              }}>
+                {/* Header */}
+                <div style={{ marginBottom: '8px', padding: '0 2px', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  <FlaskConical size={11} color={itemColor} />
+                  <span style={{ fontSize: '8px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.25em', color: 'rgba(255,255,255,0.40)' }}>Itens de Batalha</span>
+                </div>
+
+                {/* Item slots — tap to open InventoryScreen modal */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                  {Array.from({ length: MAX_ITEM_SLOTS }, (_, i) => {
+                    const slot = equippedItemSlots[i] ?? { itemId: '', qty: 0 };
+                    const hasItem = !!slot.itemId && slot.qty > 0;
+                    const isEmpty = !slot.itemId;
+                    const isItemInfoOpen = campItemInfoIdx === i && !!slot.itemId;
+                    const slotItemForInfo = slot.itemId ? ALL_ITEMS.find(it => it.id === slot.itemId) : null;
+                    return (
+                      <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
+                      <div style={{ display: 'flex', alignItems: 'stretch', gap: '3px' }}>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onItemSlotClick?.(i); }}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: '8px',
+                          borderRadius: '11px',
+                          border: hasItem ? `1.5px solid ${itemColor}55` : '1px solid rgba(255,255,255,0.09)',
+                          background: hasItem ? itemBg : 'rgba(0,0,0,0.18)',
+                          padding: '7px 9px',
+                          boxSizing: 'border-box' as const,
+                          flex: 1,
+                          minWidth: 0,
+                          cursor: 'pointer',
+                          textAlign: 'left',
+                          boxShadow: hasItem ? `0 0 10px ${itemColor}18` : 'none',
+                          transition: 'border 0.18s, background 0.18s',
+                          opacity: !isEmpty && slot.qty === 0 ? 0.45 : 1,
+                        }}>
+                        {/* Icon box */}
+                        {(() => { const slotItem = slot.itemId ? ALL_ITEMS.find(it => it.id === slot.itemId) : null; return (
+                        <div style={{
+                          width: '32px', height: '32px', flexShrink: 0,
+                          borderRadius: '9px',
+                          border: hasItem ? `1.5px solid ${itemColor}55` : '1px solid rgba(255,255,255,0.10)',
+                          background: hasItem ? `${itemColor}20` : 'rgba(0,0,0,0.25)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          color: hasItem ? itemColor : 'rgba(255,255,255,0.20)',
+                          fontSize: '18px', lineHeight: 1,
+                        }}>
+                          {slotItem?.icon ? slotItem.icon : <FlaskConical size={13} />}
+                        </div>);
+                        })()}
+                        {/* Text + qty badge */}
+                        {(() => { const slotItem = slot.itemId ? ALL_ITEMS.find(it => it.id === slot.itemId) : null; return (
+                        <div style={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                          <div style={{ fontSize: '6px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.18em', color: 'rgba(255,255,255,0.32)', lineHeight: 1 }}>Slot {i + 1}</div>
+                          <div style={{ fontSize: '10px', fontWeight: 900, color: hasItem ? '#fff' : 'rgba(255,255,255,0.30)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.2 }}>
+                            {isEmpty ? 'Vazio' : slot.qty === 0 ? 'Esgotado' : (slotItem?.name ?? slot.itemId)}
+                          </div>
+                          {hasItem && (
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px', alignItems: 'center' }}>
+                              <span style={{ fontSize: '7px', fontWeight: 800, padding: '1.5px 5px', borderRadius: '99px', background: `${itemColor}20`, border: `1px solid ${itemColor}44`, color: itemColor, display: 'inline-flex', alignItems: 'center', gap: '2px', lineHeight: 1 }}>
+                                {slot.qty}×
+                              </span>
+                              {slotItem && getPotionSlotBadges(slotItem).map((b, bi) => (
+                                <span key={bi} style={{ fontSize: '7px', fontWeight: 800, padding: '1.5px 5px', borderRadius: '99px', background: b.bg, border: `1px solid ${b.border}`, color: b.color, display: 'inline-flex', alignItems: 'center', lineHeight: 1 }}>
+                                  {b.label}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>);
+                        })()}
+                        <span style={{ color: hasItem ? `${itemColor}80` : 'rgba(255,255,255,0.20)', fontSize: '14px', flexShrink: 0 }}>›</span>
+                      </button>
+                      {slotItemForInfo && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setCampItemInfoIdx(prev => prev === i ? null : i); }}
+                          style={{ width: '28px', flexShrink: 0, borderRadius: '7px', border: `1px solid ${itemColor}44`, background: isItemInfoOpen ? `${itemColor}25` : 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: itemColor, alignSelf: 'stretch' }}
+                          aria-label="Info do item"
+                        ><Info size={11} /></button>
+                      )}
+                      </div>
+                      {isItemInfoOpen && slotItemForInfo && (
+                        <div style={{ marginTop: '3px', borderRadius: '9px', background: `${itemColor}10`, border: `1px solid ${itemColor}33`, padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          <span style={{ fontSize: '8px', fontWeight: 900, textTransform: 'uppercase' as const, letterSpacing: '0.18em', color: itemColor, lineHeight: 1 }}>{slotItemForInfo.name}</span>
+                          <span style={{ fontSize: '10px', fontWeight: 500, color: 'rgba(255,255,255,0.78)', lineHeight: 1.45 }}>{slotItemForInfo.description}</span>
+                        </div>
+                      )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
+
+          </div>{/* end cards container */}
 
         </div>
       </Html>
@@ -4205,6 +4468,8 @@ export const GameScene: React.FC<SceneProps> = (props) => {
             player={props.playerState}
             onClose={() => props.onHeroInspectClose?.()}
             onEquipSlot={(slot) => props.onHeroEquipSlotClick?.(slot)}
+            onSkillSlotClick={props.onHeroSkillSlotClick}
+            onItemSlotClick={props.onHeroItemSlotClick}
           />
         )}
 
