@@ -1636,7 +1636,7 @@ export const TavernScreen: React.FC<{
 
                 {/* CAMP SIDE-RAIL ─ skill/merchant/alchemist icons, right side below currency */}
                 {!heroInspectOpen && !portalInspectMode && !portalTransitioning && (showSkillsAction || (merchantUnlocked && sceneRegion === 'forest') || (alchemistUnlocked && sceneRegion === 'dungeon')) && (
-                    <div className="absolute right-3 sm:right-5 top-[4.5rem] sm:top-24 z-10 pointer-events-auto flex flex-col gap-1">
+                    <div className="absolute right-3 sm:right-5 top-[4.5rem] sm:top-24 z-10 pointer-events-auto flex flex-col gap-4">
                         {showSkillsAction && (
                             <button
                                 onClick={() => openSkillsScreenModal()}
@@ -1647,7 +1647,7 @@ export const TavernScreen: React.FC<{
                                 <span className="text-white text-[11px] font-black uppercase tracking-[0.1em] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-150" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}>
                                     Habilidades
                                 </span>
-                                <img src={BOOK_HABILIDADES_URL} alt="" className="h-14 w-14 object-contain" style={{ filter: 'drop-shadow(1px 0 0 #fff) drop-shadow(-1px 0 0 #fff) drop-shadow(0 1px 0 #fff) drop-shadow(0 -1px 0 #fff) drop-shadow(1px 1px 0 #fff) drop-shadow(-1px -1px 0 #fff) drop-shadow(1px -1px 0 #fff) drop-shadow(-1px 1px 0 #fff)' }} />
+                                <img src={BOOK_HABILIDADES_URL} alt="" className="h-14 w-14 object-contain" style={{ filter: 'drop-shadow(0.5px 0 0 #fff) drop-shadow(-0.5px 0 0 #fff) drop-shadow(0 0.5px 0 #fff) drop-shadow(0 -0.5px 0 #fff)' }} />
                             </button>
                         )}
                         {merchantUnlocked && sceneRegion === 'forest' && (
@@ -1660,7 +1660,7 @@ export const TavernScreen: React.FC<{
                                 <span className="text-white text-[11px] font-black uppercase tracking-[0.1em] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-150" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}>
                                     Mercador
                                 </span>
-                                <img src={ICONE_MERCADOR_URL} alt="" className="h-14 w-14 object-contain" style={{ filter: 'drop-shadow(1px 0 0 #fff) drop-shadow(-1px 0 0 #fff) drop-shadow(0 1px 0 #fff) drop-shadow(0 -1px 0 #fff) drop-shadow(1px 1px 0 #fff) drop-shadow(-1px -1px 0 #fff) drop-shadow(1px -1px 0 #fff) drop-shadow(-1px 1px 0 #fff)' }} />
+                                <img src={ICONE_MERCADOR_URL} alt="" className="h-16 w-16 object-contain" style={{ filter: 'drop-shadow(0.5px 0 0 #fff) drop-shadow(-0.5px 0 0 #fff) drop-shadow(0 0.5px 0 #fff) drop-shadow(0 -0.5px 0 #fff)' }} />
                             </button>
                         )}
                         {alchemistUnlocked && sceneRegion === 'dungeon' && (
@@ -1673,7 +1673,7 @@ export const TavernScreen: React.FC<{
                                 <span className="text-white text-[11px] font-black uppercase tracking-[0.1em] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-150" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}>
                                     Alquimista
                                 </span>
-                                <img src={ICONE_ALQUIMISTA_URL} alt="" className="h-14 w-14 object-contain" style={{ filter: 'drop-shadow(1px 0 0 #fff) drop-shadow(-1px 0 0 #fff) drop-shadow(0 1px 0 #fff) drop-shadow(0 -1px 0 #fff) drop-shadow(1px 1px 0 #fff) drop-shadow(-1px -1px 0 #fff) drop-shadow(1px -1px 0 #fff) drop-shadow(-1px 1px 0 #fff)' }} />
+                                <img src={ICONE_ALQUIMISTA_URL} alt="" className="h-14 w-14 object-contain" style={{ filter: 'drop-shadow(0.5px 0 0 #fff) drop-shadow(-0.5px 0 0 #fff) drop-shadow(0 0.5px 0 #fff) drop-shadow(0 -0.5px 0 #fff)' }} />
                             </button>
                         )}
                     </div>
