@@ -1637,18 +1637,18 @@ export const TavernScreen: React.FC<{
                     <div className="absolute right-3 sm:right-5 top-[4.5rem] sm:top-24 z-10 pointer-events-auto">
                         <button
                             onClick={() => openSkillsScreenModal()}
-                            className="flex items-center gap-2 p-0 bg-transparent border-0 transition-all duration-200 hover:-translate-y-0.5 hover:scale-105 active:scale-95"
+                            className="group flex items-center gap-2 p-0 bg-transparent border-0 transition-all duration-200 hover:-translate-y-0.5 hover:scale-105 active:scale-95"
                             title="Habilidades"
                             aria-label="Habilidades"
                         >
-                            <span className="text-white text-[11px] font-black uppercase tracking-[0.1em] whitespace-nowrap" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}>
+                            <span className="text-white text-[11px] font-black uppercase tracking-[0.1em] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-150" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}>
                                 Habilidades
                             </span>
                             <img
                                 src={BOOK_HABILIDADES_URL}
                                 alt=""
                                 className="h-14 w-14 object-contain"
-                                style={{ filter: 'brightness(0) invert(1)' }}
+                                style={{ filter: 'drop-shadow(0 0 0 2px white) drop-shadow(1px 0 0 white) drop-shadow(-1px 0 0 white) drop-shadow(0 1px 0 white) drop-shadow(0 -1px 0 white)' }}
                             />
                         </button>
                     </div>
