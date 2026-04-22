@@ -3604,7 +3604,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
 
                           <button
                               onClick={() => openProfileModal(undefined)}
-                              className="group relative flex h-14 w-14 items-center justify-center transition-all duration-200 hover:-translate-y-0.5 hover:scale-105 active:scale-95 sm:h-16 sm:w-16"
+                              className="hidden group relative flex h-14 w-14 items-center justify-center transition-all duration-200 hover:-translate-y-0.5 hover:scale-105 active:scale-95 sm:h-16 sm:w-16"
                               title="Perfil"
                               aria-label="Perfil"
                           >
@@ -3618,7 +3618,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                               </span>
                           </button>
 
-                          {(!restrictProfileToStatusOnly || inventoryUnlocked) && (
+                          {false && (!restrictProfileToStatusOnly || inventoryUnlocked) && (
                               <button
                                   onClick={() => openInventoryModal('all')}
                                   className="group relative flex h-14 w-14 items-center justify-center transition-all duration-200 hover:-translate-y-0.5 hover:scale-105 active:scale-95 sm:h-16 sm:w-16"
@@ -3636,7 +3636,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                               </button>
                           )}
 
-                          {showSkillsAction && (
+                          {false && showSkillsAction && (
                               <button
                                   onClick={openSkillsScreenModal}
                                   className="group relative flex h-14 w-14 items-center justify-center transition-all duration-200 hover:-translate-y-0.5 hover:scale-105 active:scale-95 sm:h-16 sm:w-16"
@@ -3654,7 +3654,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                               </button>
                           )}
 
-                          {hasConstellationUnlocked && (
+                          {false && hasConstellationUnlocked && (
                               <button
                                   onClick={() => openProfileModal('constellation')}
                                   className="group relative flex h-14 w-14 items-center justify-center transition-all duration-200 hover:-translate-y-0.5 hover:scale-105 active:scale-95 sm:h-16 sm:w-16"
@@ -3912,7 +3912,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
 
                       <button
                           onClick={() => openProfileModal(undefined)}
-                          className="group relative flex h-14 w-14 items-center justify-center transition-all duration-200 hover:-translate-y-0.5 hover:scale-105 active:scale-95 sm:h-11 sm:w-11"
+                          className="hidden group relative flex h-14 w-14 items-center justify-center transition-all duration-200 hover:-translate-y-0.5 hover:scale-105 active:scale-95 sm:h-11 sm:w-11"
                           title="Perfil"
                           aria-label="Perfil"
                       >
@@ -3929,7 +3929,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                           </span>
                       </button>
 
-                      {(!restrictProfileToStatusOnly || inventoryUnlocked) && (
+                      {false && (!restrictProfileToStatusOnly || inventoryUnlocked) && (
                           <button
                               onClick={() => openInventoryModal('all')}
                               className="group relative flex h-14 w-14 items-center justify-center transition-all duration-200 hover:-translate-y-0.5 hover:scale-105 active:scale-95 sm:h-11 sm:w-11"
@@ -3950,7 +3950,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                           </button>
                       )}
 
-                      {showSkillsAction && (
+                      {false && showSkillsAction && (
                           <button
                               onClick={openSkillsScreenModal}
                               className="group relative flex h-14 w-14 items-center justify-center transition-all duration-200 hover:-translate-y-0.5 hover:scale-105 active:scale-95 sm:h-11 sm:w-11"
@@ -3971,7 +3971,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                           </button>
                       )}
 
-                      {hasConstellationUnlocked && (
+                      {false && hasConstellationUnlocked && (
                           <button
                               onClick={() => openProfileModal('constellation')}
                               className="group relative flex h-14 w-14 items-center justify-center transition-all duration-200 hover:-translate-y-0.5 hover:scale-105 active:scale-95 sm:h-11 sm:w-11"
