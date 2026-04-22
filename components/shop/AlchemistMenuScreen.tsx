@@ -532,8 +532,8 @@ export const AlchemistScreen: React.FC<{
       />
       <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/30 to-black/80" />
 
-      {/* Alchemist avatar — anchored so ~40% of figure shows above bottom panel */}
-      <img
+      {/* Alchemist avatar — hidden for now */}
+      {false && <img
         src={ALCHEMIST_AVATAR_URL}
         alt=""
         className="absolute bottom-[34%] md:bottom-[18%] left-1/2 -translate-x-1/2 z-[5] h-[90vh] md:h-[72vh] max-h-[640px] md:max-h-[480px] w-auto object-contain object-bottom pointer-events-none select-none"
@@ -544,7 +544,7 @@ export const AlchemistScreen: React.FC<{
             'drop-shadow(0 20px 60px rgba(0,0,0,0.55))',
           animation: mounted ? 'none' : 'avatar-fade-in 0.5s ease-out forwards',
         }}
-      />
+      />}
 
       {/* TOP BAR */}
       <header className="relative z-10 shrink-0 flex items-center justify-between gap-3 px-4 py-3 bg-black/50 backdrop-blur-sm border-b border-white/8">
