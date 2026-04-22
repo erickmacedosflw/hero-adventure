@@ -89,6 +89,8 @@ interface GameUIProps {
     }>) => void;
     onEquipSkillToSlot?: (slotIndex: number, skillId: string | null) => void;
     onEquipItemToSlot?: (slotIndex: number, itemId: string | null) => void;
+    towerEssence?: number;
+    sceneRegion?: 'forest' | 'dungeon' | 'tower';
 }
 
 // --- HELPERS ---
@@ -2641,7 +2643,7 @@ function getPotionBattleBadges(item: Item): BattleBadge[] {
 }
 
 export const BattleHUD: React.FC<GameUIProps> = (props) => {
-    const { player, enemy, turnState, logs, onAttack, onDefend, onChargeImpulse, onAbsorbImpulse, onSkill, onUseItem, enemyIntentPreview = null, onUnlockTalent, onResetTalents, currentNarration, gameState, shopItems, floatingTexts, onFlee, onStartBattle, stage, dungeonPhase = 1, killCount, onEquipItem, onUnequipItem, isDungeonRun, dungeonRewards, dungeonCleared = 0, dungeonTotal = 30, gameTime, restrictProfileToStatusOnly = false, limitBattleActionsToBasics = false, inventoryUnlocked = false, inventoryUnlockPromptActive = false, onAcknowledgeInventoryUnlock, cardsUnlockPromptActive = false, onAcknowledgeCardsUnlock, skillsUnlockPromptActive = false, onAcknowledgeSkillsUnlock, impulseUnlockPromptActive = null, onAcknowledgeImpulseUnlock, constellationUnlockPromptActive = false, onAcknowledgeConstellationUnlock, constellationRespecUnlockPromptActive = false, onAcknowledgeConstellationRespecUnlock, allowCardsInProfile = false, fleeUnlocked = false, showItemsAction = false, showSkillsAction = false, itemsUnlockPromptActive = false, onAcknowledgeItemsUnlock, fleeUnlockPromptActive = false, onAcknowledgeFleeUnlock, autoOpenProfileToken = 0, showDiamondHud = false, diamondUnlockPromptActive = false, onAcknowledgeDiamondUnlock, musicEnabled = true, sfxEnabled = true, renderQualityPreset = 'balanced', recommendedRenderQualityPreset = 'balanced', onUpdateBattleSettings, onEquipSkillToSlot } = props;
+    const { player, enemy, turnState, logs, onAttack, onDefend, onChargeImpulse, onAbsorbImpulse, onSkill, onUseItem, enemyIntentPreview = null, onUnlockTalent, onResetTalents, currentNarration, gameState, shopItems, floatingTexts, onFlee, onStartBattle, stage, dungeonPhase = 1, killCount, onEquipItem, onUnequipItem, isDungeonRun, dungeonRewards, dungeonCleared = 0, dungeonTotal = 30, gameTime, restrictProfileToStatusOnly = false, limitBattleActionsToBasics = false, inventoryUnlocked = false, inventoryUnlockPromptActive = false, onAcknowledgeInventoryUnlock, cardsUnlockPromptActive = false, onAcknowledgeCardsUnlock, skillsUnlockPromptActive = false, onAcknowledgeSkillsUnlock, impulseUnlockPromptActive = null, onAcknowledgeImpulseUnlock, constellationUnlockPromptActive = false, onAcknowledgeConstellationUnlock, constellationRespecUnlockPromptActive = false, onAcknowledgeConstellationRespecUnlock, allowCardsInProfile = false, fleeUnlocked = false, showItemsAction = false, showSkillsAction = false, itemsUnlockPromptActive = false, onAcknowledgeItemsUnlock, fleeUnlockPromptActive = false, onAcknowledgeFleeUnlock, autoOpenProfileToken = 0, showDiamondHud = false, diamondUnlockPromptActive = false, onAcknowledgeDiamondUnlock, musicEnabled = true, sfxEnabled = true, renderQualityPreset = 'balanced', recommendedRenderQualityPreset = 'balanced', onUpdateBattleSettings, onEquipSkillToSlot, towerEssence = 0, sceneRegion = 'forest' } = props;
   const [activeBattleMenu, setActiveBattleMenu] = useState<'skills' | 'items' | null>(null);
   const [battleInfoPopup, setBattleInfoPopup] = useState<{ type: 'skill' | 'item'; id: string } | null>(null);
   const [showProfile, setShowProfile] = useState(false);
@@ -2672,6 +2674,75 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
     const previousResourceRef = useRef(player.classResource.value);
     const showDiamondOnBattleHud = showDiamondHud;
     const isMobile = window.innerWidth < 640;
+    const [bgtHours, bgtMinutes] = (gameTime ?? '12:00').split(':').map(Number);
+    const battleClockHours = isNaN(bgtHours) ? 12 : bgtHours;
+    const battleClockMinutes = isNaN(bgtMinutes) ? 0 : bgtMinutes;
+    const battleClockTimeStr = `${String(battleClockHours).padStart(2, '0')}:${String(battleClockMinutes).padStart(2, '0')}`;
+    const battleClockPeriod = battleClockHours >= 5 && battleClockHours < 12
+        ? { label: 'MANHÃ', color: 'text-amber-300' }
+        : battleClockHours >= 12 && battleClockHours < 18
+        ? { label: 'TARDE', color: 'text-orange-400' }
+        : battleClockHours >= 18 && battleClockHours < 22
+        ? { label: 'NOITE', color: 'text-indigo-300' }
+        : { label: 'MADRUGADA', color: 'text-blue-400' };
+    // === Stage Map computations ===
+    const stageMapIsBoss = Boolean(enemy?.isBoss);
+    const stageMapIsSubBoss = Boolean(enemy?.isSubBoss);
+    const stageMapSubBossDone = Boolean(dungeonRewards?.subBossDefeatedInPhase);
+    const stageMapPalette = sceneRegion === 'tower'
+        ? { bright: '#c084fc', mid: '#a855f7', dim: 'rgba(168,85,247,0.22)', glow: '0 0 10px rgba(168,85,247,0.6)' }
+        : isDungeonRun || sceneRegion === 'dungeon'
+        ? { bright: '#93c5fd', mid: '#60a5fa', dim: 'rgba(96,165,250,0.22)', glow: '0 0 10px rgba(96,165,250,0.6)' }
+        : { bright: '#fdba74', mid: '#fb923c', dim: 'rgba(251,146,60,0.22)', glow: '0 0 10px rgba(251,146,60,0.6)' };
+    const stageMapNodes: { type: 'mob' | 'subboss' | 'boss'; done: boolean; active: boolean }[] = [];
+    if (!isDungeonRun) {
+        // Montanha: 10 círculos individuais + sub-chefe inserido após o 5º kill
+        // Sub-chefe aparece quando killCount+1===5, igual ao spawnEnemy
+        const HUNT_SUB_BOSS_AT_KILL = 5;
+        // Sub-chefe foi derrotado quando killCount>=5 e não estamos lutando contra ele agora
+        const huntSubBossDone = (killCount >= HUNT_SUB_BOSS_AT_KILL && !stageMapIsSubBoss) || stageMapIsBoss;
+        for (let i = 0; i < 10; i++) {
+            const done = killCount > i || stageMapIsBoss;
+            const active = !done && killCount === i && Boolean(enemy) && !stageMapIsBoss && !stageMapIsSubBoss;
+            stageMapNodes.push({ type: 'mob', done, active });
+            // inserir sub-chefe logo após o 5º nó (kill 5)
+            if (i === HUNT_SUB_BOSS_AT_KILL - 1) {
+                stageMapNodes.push({
+                    type: 'subboss',
+                    done: huntSubBossDone,
+                    active: stageMapIsSubBoss,
+                });
+            }
+        }
+    } else {
+        // Dungeon: 10 mobs + sub-chefe inserido na posição 5 (após 5 kills) + boss final
+        // Sub-chefe aparece quando dungeonCleared+1 === 5, ou seja posição entre nó 4 e 5
+        const total = dungeonTotal > 0 ? dungeonTotal : 10;
+        const SUB_BOSS_AT_KILL = 5; // mesmo threshold de spawnEnemy: clearedInPhase+1===5
+
+        for (let i = 0; i < 10; i++) {
+            // posição real de kill proporcional ao total
+            const killThreshold = Math.floor(((i + 1) / 10) * total);
+            const killStart   = Math.floor((i / 10) * total);
+            const done = dungeonCleared >= killThreshold || stageMapIsBoss || stageMapIsSubBoss;
+            const active = !done && Boolean(enemy) && !stageMapIsSubBoss && !stageMapIsBoss
+                && dungeonCleared >= killStart && dungeonCleared < killThreshold;
+            stageMapNodes.push({ type: 'mob', done, active });
+
+            // inserir sub-chefe logo após o nó que representa o kill 5
+            if (killThreshold === SUB_BOSS_AT_KILL) {
+                stageMapNodes.push({
+                    type: 'subboss',
+                    done: stageMapSubBossDone || stageMapIsBoss,
+                    active: stageMapIsSubBoss,
+                });
+            }
+        }
+    }
+    // Boss final (sempre ao fim)
+    stageMapNodes.push({ type: 'boss', done: false, active: stageMapIsBoss });
+    const stageMapRegionLabel = sceneRegion === 'tower' ? 'TORRE' : isDungeonRun ? 'DUNGEON' : 'MONTANHA';
+    const stageMapPhaseNum = isDungeonRun ? dungeonPhase : stage;
     const currentPlayerClass = getPlayerClassById(player.classId);
     const usesMagicBasicAttack = shouldUseMagicBasicAttack(player.classId, player.equippedWeapon);
     const usesBowBasicAttack = shouldUseBowBasicAttack(player.classId, player.equippedWeapon);
@@ -2797,10 +2868,10 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
     const impulseReserveColors = [classImpulseBaseColor, classImpulseBaseColor, classImpulseBaseColor];
     const buttonsEnergized = player.impulsoAtivo > 0;
     const enemyCardToneClass = enemy?.isBoss
-        ? 'border-[3px] border-rose-400 bg-[linear-gradient(135deg,rgba(255,238,238,0.96),rgba(255,226,226,0.92))] shadow-[0_12px_30px_rgba(190,24,93,0.28)] ring-1 ring-rose-300/60'
+        ? 'border-[3px] border-rose-400/70 bg-rose-950/50 backdrop-blur-md shadow-[0_12px_30px_rgba(190,24,93,0.35)] ring-1 ring-rose-400/30'
         : enemy?.isSubBoss
-            ? 'border-[3px] border-amber-400 bg-[linear-gradient(135deg,rgba(255,247,230,0.96),rgba(255,237,201,0.92))] shadow-[0_12px_28px_rgba(180,83,9,0.24)] ring-1 ring-amber-300/60'
-            : 'border-[#cfab91] bg-[#f7ecdd]/94 shadow-xl';
+            ? 'border-[3px] border-amber-400/70 bg-amber-950/40 backdrop-blur-md shadow-[0_12px_28px_rgba(180,83,9,0.30)] ring-1 ring-amber-400/30'
+            : 'border-white/15 bg-black/50 shadow-[0_8px_24px_rgba(0,0,0,0.4)]';
     const enemyLevelBadgeToneClass = enemy?.isBoss
         ? 'border-rose-300 bg-rose-100 text-rose-700'
         : enemy?.isSubBoss
@@ -3451,54 +3522,119 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
       )}
 
       {/* --- TOP: Player vitals (left) + Stage (center) + Enemy HP (right) --- */}
-      <div className="absolute top-0 left-0 w-full z-20 pointer-events-none pt-1.5 sm:pt-2.5 px-2 sm:px-4">
-          <div className="sm:hidden space-y-2">
-              <div className={`grid gap-2 ${showDiamondOnBattleHud ? 'grid-cols-[1.6fr_0.85fr_0.85fr_0.85fr]' : 'grid-cols-[1.6fr_0.85fr_0.85fr]'}`}>
-                  <div className="bg-[#f7ecdd]/92 backdrop-blur-md border border-[#cfab91] px-2.5 py-1.5 rounded-[12px] shadow-xl animate-fade-in-down">
-                      <div className="flex items-center gap-2">
-                          <span className="shrink-0 text-[11px] font-black uppercase tracking-[0.14em] text-[#6b3141]">{isDungeonRun ? `FASE ${dungeonPhase}` : `FASE ${stage}`}</span>
-                          <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                              <div className="h-2 flex-1 bg-[#e9d7c2] rounded-full overflow-hidden border border-[#dcc0aa]">
-                                  <div className="h-full rounded-full bg-[linear-gradient(90deg,#7d3d4d,#c89a66)] transition-all duration-500" style={{ width: `${isDungeonRun ? Math.min(100, (dungeonCleared / dungeonTotal) * 100) : Math.min(100, (killCount / 10) * 100)}%` }} />
-                              </div>
-                              <span className="shrink-0 text-[11px] font-black text-[#6b3141]">
-                                  {isDungeonRun ? (dungeonCleared >= dungeonTotal ? <span className="text-rose-500 animate-pulse">BOSS</span> : `${dungeonCleared}/${dungeonTotal}`) : (killCount >= 10 ? <span className="text-rose-500 animate-pulse">BOSS</span> : `${killCount}/10`)}
-                              </span>
-                          </div>
+      <div className="absolute top-0 left-0 w-full z-20 pointer-events-none">
+          {/* ── Top bar: clock (left) + stage map (desktop center) + resources (right) ── */}
+          <div className="flex items-center gap-2 pt-2 sm:pt-3 px-2 sm:px-4">
+              {/* Clock — left */}
+              {gameTime ? (
+                  <div className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-black/50 backdrop-blur-sm px-3 py-2 shadow-[0_8px_24px_rgba(0,0,0,0.4)]">
+                      <Clock size={22} className="text-white/60 shrink-0" />
+                      <div>
+                          <div className="text-sm font-black tracking-[0.12em] text-white leading-none">{battleClockTimeStr}</div>
+                          <div className={`text-[8px] uppercase tracking-[0.25em] mt-0.5 font-bold ${battleClockPeriod.color}`}>{battleClockPeriod.label}</div>
                       </div>
                   </div>
-                  {gameTime && !isDungeonRun ? (
-                      <div className="bg-[#f7ecdd]/92 backdrop-blur-md border border-[#cfab91] px-2.5 py-1.5 rounded-[12px] shadow-xl animate-fade-in-down">
-                          <div className="flex h-full items-center justify-center gap-2">
-                              <Clock size={14} className="text-[#6b3141]" />
-                              <span className="text-[12px] font-black uppercase tracking-[0.12em] text-[#6b3141]">{gameTime}</span>
-                          </div>
-                      </div>
-                  ) : (
-                      <div className="rounded-[14px] border border-[#cfab91] bg-[#f7ecdd]/70" />
-                  )}
-
-                  <div className="bg-[#f7ecdd]/92 backdrop-blur-md border border-[#cfab91] px-2.5 py-1.5 rounded-[12px] shadow-xl animate-fade-in-down">
-                      <div className="flex items-center justify-center gap-2">
-                          <GameAssetIcon name="coin" size={20} />
-                          <span className="text-sm font-black text-[#8d5e29]">{player.gold}</span>
+              ) : <div className="flex-none" />}
+              {/* Stage map — desktop only, centered */}
+              <div className="flex-1 hidden sm:flex justify-center">
+                  <div className="inline-flex flex-col items-center gap-1.5 rounded-2xl border border-white/10 bg-black/50 backdrop-blur-sm px-4 py-2 shadow-[0_8px_24px_rgba(0,0,0,0.4)]">
+                      <span className="text-[9px] font-black uppercase tracking-[0.28em]" style={{ color: stageMapPalette.mid }}>
+                          {stageMapRegionLabel} · FASE {stageMapPhaseNum}
+                      </span>
+                      <div className="flex items-center">
+                          {stageMapNodes.map((node, idx) => {
+                              const prevDone = idx > 0 && stageMapNodes[idx - 1].done;
+                              // smaller nodes when 10 mobs (hunt), larger when 7 (dungeon)
+                              const isManyNodes = stageMapNodes.length >= 10;
+                              const nW = node.type === 'boss' ? (isManyNodes ? 24 : 30) : node.type === 'subboss' ? 26 : (isManyNodes ? 16 : 20);
+                              const connW = isManyNodes ? 'w-2' : 'w-3';
+                              const dotSz = isManyNodes ? 'w-1.5 h-1.5' : 'w-2 h-2';
+                              const dotActiveSz = isManyNodes ? 'w-1 h-1' : 'w-1.5 h-1.5';
+                              const bdrColor = (node.done || node.active) ? stageMapPalette.mid : 'rgba(255,255,255,0.12)';
+                              const bgFill = node.done ? stageMapPalette.mid : node.active ? stageMapPalette.dim : 'rgba(0,0,0,0.45)';
+                              const glowShadow = node.active ? stageMapPalette.glow : 'none';
+                              return (
+                                  <React.Fragment key={idx}>
+                                      {idx > 0 && (
+                                          <div className={`h-px ${connW} rounded-full`} style={{ background: prevDone ? stageMapPalette.mid : 'rgba(255,255,255,0.1)' }} />
+                                      )}
+                                      <div
+                                          className={`relative flex items-center justify-center rounded-full border transition-all duration-300${node.active ? ' animate-pulse' : ''}`}
+                                          style={{ width: nW, height: nW, background: bgFill, borderColor: bdrColor, boxShadow: glowShadow, flexShrink: 0 }}
+                                      >
+                                          {node.type === 'boss' && <Skull size={isManyNodes ? 11 : 14} style={{ color: node.active ? stageMapPalette.bright : 'rgba(255,255,255,0.35)' }} />}
+                                          {node.type === 'subboss' && <Zap size={node.active ? 12 : 10} style={{ color: node.active ? stageMapPalette.bright : node.done ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.3)' }} />}
+                                          {node.type === 'mob' && node.done && <div className={`${dotSz} rounded-full bg-white/80`} />}
+                                          {node.type === 'mob' && node.active && <div className={`${dotActiveSz} rounded-full`} style={{ background: stageMapPalette.bright }} />}
+                                      </div>
+                                  </React.Fragment>
+                              );
+                          })}
                       </div>
                   </div>
-
-                  {showDiamondOnBattleHud && (
-                      <div className="bg-[#f7ecdd]/92 backdrop-blur-md border border-[#cfab91] px-2.5 py-1.5 rounded-[12px] shadow-xl animate-fade-in-down">
-                          <div className="flex items-center justify-center gap-2">
-                              <GameAssetIcon name="diamond" size={20} />
-                              <span className="text-sm font-black text-[#346c7f]">{player.diamonds}</span>
-                          </div>
-                      </div>
-                  )}
               </div>
+              {/* Resources — right */}
+              <div className="flex-none inline-flex items-center gap-1.5 sm:gap-2">
+                  {/* Gold */}
+                  <div className="inline-flex items-center gap-1.5 rounded-xl border border-amber-400/30 bg-amber-400/10 backdrop-blur-sm px-2.5 py-1.5 text-sm font-black text-amber-300 shadow-[0_4px_12px_rgba(0,0,0,0.25)]">
+                      <GameAssetIcon name="coin" size={18} />
+                      {player.gold}
+                  </div>
+                  {/* Diamond */}
+                  {showDiamondOnBattleHud && (
+                      <div className="inline-flex items-center gap-1.5 rounded-xl border border-sky-400/30 bg-sky-400/10 backdrop-blur-sm px-2.5 py-1.5 text-sm font-black text-sky-300 shadow-[0_4px_12px_rgba(0,0,0,0.25)]">
+                          <GameAssetIcon name="diamond" size={18} />
+                          {player.diamonds}
+                      </div>
+                  )}
+                  {/* Essence */}
+                  <div className="inline-flex items-center gap-1.5 rounded-xl border border-violet-400/30 bg-violet-400/10 backdrop-blur-sm px-2.5 py-1.5 text-sm font-black text-violet-300 shadow-[0_4px_12px_rgba(0,0,0,0.25)]">
+                      <GameAssetIcon name="sapphire" size={18} />
+                      {towerEssence}
+                  </div>
+              </div>
+          </div>
+          {/* ── Stage map — mobile only, full width ── */}
+          <div className="sm:hidden mt-1.5 px-2">
+              <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-black/50 backdrop-blur-sm px-3 py-2 w-full shadow-[0_8px_24px_rgba(0,0,0,0.4)]">
+                  <span className="shrink-0 text-[9px] font-black uppercase tracking-[0.2em]" style={{ color: stageMapPalette.mid }}>
+                      {stageMapRegionLabel}·{stageMapPhaseNum}
+                  </span>
+                  <div className="flex items-center flex-1 justify-end">
+                      {stageMapNodes.map((node, idx) => {
+                          const prevDone = idx > 0 && stageMapNodes[idx - 1].done;
+                          const isManyNodes = stageMapNodes.length >= 10;
+                          const nW = node.type === 'boss' ? (isManyNodes ? 20 : 24) : node.type === 'subboss' ? 20 : (isManyNodes ? 13 : 16);
+                          const connW = isManyNodes ? 'w-1.5' : 'w-2';
+                          const bdrColor = (node.done || node.active) ? stageMapPalette.mid : 'rgba(255,255,255,0.12)';
+                          const bgFill = node.done ? stageMapPalette.mid : node.active ? stageMapPalette.dim : 'rgba(0,0,0,0.45)';
+                          const glowShadow = node.active ? stageMapPalette.glow : 'none';
+                          return (
+                              <React.Fragment key={idx}>
+                                  {idx > 0 && (
+                                      <div className={`h-px ${connW} rounded-full shrink-0`} style={{ background: prevDone ? stageMapPalette.mid : 'rgba(255,255,255,0.1)' }} />
+                                  )}
+                                  <div
+                                      className={`relative flex items-center justify-center rounded-full border transition-all duration-300 shrink-0${node.active ? ' animate-pulse' : ''}`}
+                                      style={{ width: nW, height: nW, background: bgFill, borderColor: bdrColor, boxShadow: glowShadow }}
+                                  >
+                                      {node.type === 'boss' && <Skull size={isManyNodes ? 9 : 11} style={{ color: node.active ? stageMapPalette.bright : 'rgba(255,255,255,0.35)' }} />}
+                                      {node.type === 'subboss' && <Zap size={node.active ? 9 : 8} style={{ color: node.active ? stageMapPalette.bright : node.done ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.3)' }} />}
+                                      {node.type === 'mob' && node.done && <div className={`${isManyNodes ? 'w-1 h-1' : 'w-1.5 h-1.5'} rounded-full bg-white/80`} />}
+                                      {node.type === 'mob' && node.active && <div className={`${isManyNodes ? 'w-0.5 h-0.5' : 'w-1 h-1'} rounded-full`} style={{ background: stageMapPalette.bright }} />}
+                                  </div>
+                              </React.Fragment>
+                          );
+                      })}
+                  </div>
+              </div>
+          </div>
 
+          <div className="sm:hidden space-y-2 mt-2 px-2">
               <div className={`grid items-start gap-2 ${enemy ? 'grid-cols-2' : 'grid-cols-1'}`}>
                   <div className="flex min-w-0 flex-col items-stretch gap-1.5">
                       <div
-                          className="pointer-events-auto w-full cursor-pointer overflow-hidden rounded-[18px] border border-[#cfab91] bg-[#f7ecdd]/94 px-3 py-2.5 shadow-xl backdrop-blur-md animate-fade-in-down transition-transform hover:-translate-y-[1px] active:scale-[0.995]"
+                          className="pointer-events-auto w-full cursor-pointer overflow-hidden rounded-[18px] border border-white/15 bg-black/50 px-3 py-2.5 shadow-[0_8px_24px_rgba(0,0,0,0.4)] backdrop-blur-md animate-fade-in-down transition-transform hover:-translate-y-[1px] active:scale-[0.995]"
                           role="button"
                           tabIndex={0}
                           onClick={openHeroStatusFromCard}
@@ -3529,25 +3665,25 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                               </div>
                               <div>
                                   <div className="flex items-center justify-between mb-1">
-                                      <span className="text-[10px] font-black uppercase tracking-[0.24em] text-[#9a4151]">HP</span>
-                                      <span className="text-[12px] font-black text-[#6b3141]">{player.stats.hp}/{player.stats.maxHp}</span>
+                                      <span className="text-[10px] font-black uppercase tracking-[0.24em] text-rose-300">HP</span>
+                                      <span className="text-[12px] font-black text-white/90">{player.stats.hp}/{player.stats.maxHp}</span>
                                   </div>
-                                  <div className="h-3 bg-[#e9d7c2] rounded-full overflow-hidden"><div className="h-full rounded-full bg-[linear-gradient(90deg,#8d2f46,#d17482)] transition-all duration-300" style={{width: `${(player.stats.hp/player.stats.maxHp)*100}%`}}></div></div>
+                                  <div className="h-3 bg-white/15 rounded-full overflow-hidden"><div className="h-full rounded-full bg-[linear-gradient(90deg,#8d2f46,#d17482)] transition-all duration-300" style={{width: `${(player.stats.hp/player.stats.maxHp)*100}%`}}></div></div>
                               </div>
                               <div>
                                   <div className="flex items-center justify-between mb-1">
-                                      <span className="text-[10px] font-black uppercase tracking-[0.24em] text-[#346c7f]">Mana</span>
-                                      <span className="text-[12px] font-black text-[#6b3141]">{player.stats.mp}/{player.stats.maxMp}</span>
+                                      <span className="text-[10px] font-black uppercase tracking-[0.24em] text-sky-300">Mana</span>
+                                      <span className="text-[12px] font-black text-white/90">{player.stats.mp}/{player.stats.maxMp}</span>
                                   </div>
-                                  <div className="h-2.5 bg-[#e9d7c2] rounded-full overflow-hidden"><div className="h-full rounded-full bg-[linear-gradient(90deg,#2b6878,#66b8d2)] transition-all duration-300" style={{width: `${(player.stats.mp/player.stats.maxMp)*100}%`}}></div></div>
+                                  <div className="h-2.5 bg-white/15 rounded-full overflow-hidden"><div className="h-full rounded-full bg-[linear-gradient(90deg,#2b6878,#66b8d2)] transition-all duration-300" style={{width: `${(player.stats.mp/player.stats.maxMp)*100}%`}}></div></div>
                               </div>
                               {player.classResource.max > 0 && (
-                                  <div className={`relative rounded-md px-1.5 py-1 transition-all duration-300 ${resourcePulse === 'gain' ? 'bg-emerald-200/35 ring-1 ring-emerald-500/35' : resourcePulse === 'spend' ? 'bg-rose-200/35 ring-1 ring-rose-500/35' : ''}`}>
+                                  <div className={`relative rounded-md px-1.5 py-1 transition-all duration-300 ${resourcePulse === 'gain' ? 'bg-emerald-500/20 ring-1 ring-emerald-500/35' : resourcePulse === 'spend' ? 'bg-rose-500/20 ring-1 ring-rose-500/35' : ''}`}>
                                       <div className="flex items-center justify-between mb-0.5">
-                                          <span className="text-[10px] font-black uppercase tracking-[0.18em] text-[#7c4c76]">{player.classResource.name}</span>
-                                          <span className="text-[11px] font-black text-[#6b3141]">{player.classResource.value}/{player.classResource.max}</span>
+                                          <span className="text-[10px] font-black uppercase tracking-[0.18em] text-violet-300">{player.classResource.name}</span>
+                                          <span className="text-[11px] font-black text-white/90">{player.classResource.value}/{player.classResource.max}</span>
                                       </div>
-                                      <div className="h-2 bg-[#e9d7c2] rounded-full overflow-hidden">
+                                      <div className="h-2 bg-white/15 rounded-full overflow-hidden">
                                           <div
                                               className={`h-full rounded-full transition-all duration-300 ${resourcePulse ? 'animate-pulse' : ''}`}
                                               style={{
@@ -3558,17 +3694,17 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                                       </div>
                                   </div>
                               )}
-                              <div className="pt-1 border-t border-[#dcc0aa]">
+                              <div className="pt-1 border-t border-white/15">
                                   <div className="flex items-center gap-1.5">
-                                      <span className="text-[9px] font-black uppercase tracking-[0.14em] text-[#9a7068]">XP</span>
-                                      <div className="flex-1 h-1.5 bg-[#e9d7c2] rounded-full overflow-hidden">
+                                      <span className="text-[9px] font-black uppercase tracking-[0.14em] text-white/50">XP</span>
+                                      <div className="flex-1 h-1.5 bg-white/15 rounded-full overflow-hidden">
                                           <div className="h-full rounded-full bg-[linear-gradient(90deg,#7d3d4d,#c89a66)] transition-all duration-500" style={{width: `${(player.xp/player.xpToNext)*100}%`}}></div>
                                       </div>
-                                      <span className="text-[9px] font-black text-[#6b3141]">{player.xp}/{player.xpToNext}</span>
+                                      <span className="text-[9px] font-black text-white/80">{player.xp}/{player.xpToNext}</span>
                                   </div>
                               </div>
                               {heroBuffEntries.length > 0 && (
-                                  <div className="pt-1 border-t border-[#dcc0aa]">
+                                  <div className="pt-1 border-t border-white/15">
                                       <div className="flex flex-wrap gap-1.5">
                                           {heroBuffEntries.map((buff) => (
                                               <div key={buff.key} className={`inline-flex items-center gap-1 rounded-[8px] border px-2 py-1 text-[11px] font-black leading-none shadow-sm ${buff.chipClass}`}>
@@ -3733,36 +3869,36 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                               </div>
                               <div className="flex items-center gap-1.5">
                                   {enemy.isBoss && (
-                                      <span className="rounded-full border border-rose-300 bg-rose-100 px-2 py-0.5 text-[9px] font-black uppercase text-rose-600">Chef�o</span>
+                                      <span className="rounded-full border border-rose-400/50 bg-rose-400/20 px-2 py-0.5 text-[9px] font-black uppercase text-rose-300">Chefão</span>
                                   )}
                                   {!enemy.isBoss && enemy.isSubBoss && (
-                                      <span className="rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 text-[9px] font-black uppercase text-amber-700">Subchefe</span>
+                                      <span className="rounded-full border border-amber-400/50 bg-amber-400/20 px-2 py-0.5 text-[9px] font-black uppercase text-amber-300">Subchefe</span>
                                   )}
                               </div>
                           </div>
                           <div>
                               <div className="flex items-center justify-between mb-1">
-                                  <span className="text-[10px] font-black uppercase tracking-[0.24em] text-[#9a4151]">HP</span>
-                                  <span className="text-[12px] font-black text-[#6b3141]">{enemy.stats.hp}/{enemy.stats.maxHp}</span>
+                                  <span className="text-[10px] font-black uppercase tracking-[0.24em] text-rose-300">HP</span>
+                                  <span className="text-[12px] font-black text-white/90">{enemy.stats.hp}/{enemy.stats.maxHp}</span>
                               </div>
-                              <div className="h-3 bg-[#e9d7c2] rounded-full overflow-hidden">
+                              <div className="h-3 bg-white/15 rounded-full overflow-hidden">
                                   <div className="h-full rounded-full bg-[linear-gradient(90deg,#8d2f46,#d17482)] transition-all duration-300" style={{width: `${Math.max(0, (enemy.stats.hp/enemy.stats.maxHp)*100)}%`}}></div>
                               </div>
                           </div>
                           {enemyUsesManaSkills && (
                               <div>
                                   <div className="flex items-center justify-between mb-1">
-                                      <span className="text-[10px] font-black uppercase tracking-[0.24em] text-[#346c7f]">Mana</span>
-                                      <span className="text-[12px] font-black text-[#6b3141]">{enemy.stats.mp}/{enemy.stats.maxMp}</span>
+                                      <span className="text-[10px] font-black uppercase tracking-[0.24em] text-sky-300">Mana</span>
+                                      <span className="text-[12px] font-black text-white/90">{enemy.stats.mp}/{enemy.stats.maxMp}</span>
                                   </div>
-                                  <div className="h-2.5 bg-[#e9d7c2] rounded-full overflow-hidden">
+                                  <div className="h-2.5 bg-white/15 rounded-full overflow-hidden">
                                       <div className="h-full rounded-full bg-[linear-gradient(90deg,#2b6878,#66b8d2)] transition-all duration-300" style={{width: `${Math.max(0, (enemy.stats.mp/enemy.stats.maxMp)*100)}%`}}></div>
                                   </div>
                               </div>
                           )}
                           {enemy.combatBuffs.turns > 0 && (
-                              <div className="pt-1 border-t border-[#dcc0aa]">
-                                  <span className="inline-flex items-center rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.12em] text-amber-700">
+                              <div className="pt-1 border-t border-white/15">
+                                  <span className="inline-flex items-center rounded-full border border-amber-400/50 bg-amber-400/20 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.12em] text-amber-300">
                                       Impulso inicial ({enemy.combatBuffs.turns}t)
                                   </span>
                               </div>
@@ -3799,11 +3935,11 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
               </div>
           </div>
 
-          <div className="hidden sm:flex items-start justify-between gap-1.5 sm:gap-3">
-              {/* Player vitals � left */}
+          <div className="hidden sm:flex items-start justify-between gap-1.5 sm:gap-3 mt-2 px-4">
+              {/* Player vitals — left */}
               <div className="flex flex-1 max-w-[48%] sm:max-w-[280px] flex-col items-start gap-1.5">
                   <div
-                      className="pointer-events-auto cursor-pointer overflow-hidden rounded-[16px] border border-[#cfab91] bg-[#f7ecdd]/94 px-2.5 py-2 shadow-xl backdrop-blur-md w-full animate-fade-in-down transition-transform hover:-translate-y-[1px] active:scale-[0.995]"
+                      className="pointer-events-auto cursor-pointer overflow-hidden rounded-[16px] border border-white/15 bg-black/50 px-2.5 py-2 shadow-[0_8px_24px_rgba(0,0,0,0.4)] backdrop-blur-md w-full animate-fade-in-down transition-transform hover:-translate-y-[1px] active:scale-[0.995]"
                       role="button"
                       tabIndex={0}
                       onClick={openHeroStatusFromCard}
@@ -3834,25 +3970,25 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                           </div>
                           <div>
                               <div className="flex items-center justify-between mb-0.5">
-                                  <span className="text-[11px] font-black uppercase tracking-[0.2em] text-[#9a4151]">HP</span>
-                                  <span className="text-sm font-black text-[#6b3141]">{player.stats.hp}/{player.stats.maxHp}</span>
+                                  <span className="text-[11px] font-black uppercase tracking-[0.2em] text-rose-300">HP</span>
+                                  <span className="text-sm font-black text-white/90">{player.stats.hp}/{player.stats.maxHp}</span>
                               </div>
-                              <div className="h-2.5 bg-[#e9d7c2] rounded-full overflow-hidden"><div className="h-full rounded-full bg-[linear-gradient(90deg,#8d2f46,#d17482)] transition-all duration-300" style={{width: `${(player.stats.hp/player.stats.maxHp)*100}%`}}></div></div>
+                              <div className="h-2.5 bg-white/15 rounded-full overflow-hidden"><div className="h-full rounded-full bg-[linear-gradient(90deg,#8d2f46,#d17482)] transition-all duration-300" style={{width: `${(player.stats.hp/player.stats.maxHp)*100}%`}}></div></div>
                           </div>
                           <div>
                               <div className="flex items-center justify-between mb-0.5">
-                                  <span className="text-[11px] font-black uppercase tracking-[0.2em] text-[#346c7f]">Mana</span>
-                                  <span className="text-sm font-black text-[#6b3141]">{player.stats.mp}/{player.stats.maxMp}</span>
+                                  <span className="text-[11px] font-black uppercase tracking-[0.2em] text-sky-300">Mana</span>
+                                  <span className="text-sm font-black text-white/90">{player.stats.mp}/{player.stats.maxMp}</span>
                               </div>
-                              <div className="h-2 bg-[#e9d7c2] rounded-full overflow-hidden"><div className="h-full rounded-full bg-[linear-gradient(90deg,#2b6878,#66b8d2)] transition-all duration-300" style={{width: `${(player.stats.mp/player.stats.maxMp)*100}%`}}></div></div>
+                              <div className="h-2 bg-white/15 rounded-full overflow-hidden"><div className="h-full rounded-full bg-[linear-gradient(90deg,#2b6878,#66b8d2)] transition-all duration-300" style={{width: `${(player.stats.mp/player.stats.maxMp)*100}%`}}></div></div>
                           </div>
                           {player.classResource.max > 0 && (
-                              <div className={`relative rounded-md px-1 py-0.5 transition-all duration-300 ${resourcePulse === 'gain' ? 'bg-emerald-200/35 ring-1 ring-emerald-500/35' : resourcePulse === 'spend' ? 'bg-rose-200/35 ring-1 ring-rose-500/35' : ''}`}>
+                              <div className={`relative rounded-md px-1 py-0.5 transition-all duration-300 ${resourcePulse === 'gain' ? 'bg-emerald-500/20 ring-1 ring-emerald-500/35' : resourcePulse === 'spend' ? 'bg-rose-500/20 ring-1 ring-rose-500/35' : ''}`}>
                                   <div className="flex items-center justify-between mb-0.5">
-                                      <span className="text-[11px] font-black uppercase tracking-[0.18em] text-[#7c4c76]">{player.classResource.name}</span>
-                                      <span className="text-sm font-black text-[#6b3141]">{player.classResource.value}/{player.classResource.max}</span>
+                                      <span className="text-[11px] font-black uppercase tracking-[0.18em] text-violet-300">{player.classResource.name}</span>
+                                      <span className="text-sm font-black text-white/90">{player.classResource.value}/{player.classResource.max}</span>
                                   </div>
-                                  <div className="h-1.5 bg-[#e9d7c2] rounded-full overflow-hidden">
+                                  <div className="h-1.5 bg-white/15 rounded-full overflow-hidden">
                                       <div
                                           className={`h-full rounded-full transition-all duration-300 ${resourcePulse ? 'animate-pulse' : ''}`}
                                           style={{
@@ -3870,11 +4006,11 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                           )}
                       </div>
                       {/* XP compact */}
-                      <div className="mt-1.5 pt-1 border-t border-[#dcc0aa]">
+                      <div className="mt-1.5 pt-1 border-t border-white/15">
                           <div className="flex items-center gap-1.5">
-                              <span className="text-[12px] font-black uppercase tracking-[0.14em] text-[#9a7068]">XP</span>
-                              <div className="flex-1 h-2 bg-[#e9d7c2] rounded-full overflow-hidden"><div className="h-full rounded-full bg-[linear-gradient(90deg,#7d3d4d,#c89a66)] transition-all duration-500" style={{width: `${(player.xp/player.xpToNext)*100}%`}}></div></div>
-                              <span className="text-sm font-black text-[#6b3141]">{player.xp}/{player.xpToNext}</span>
+                              <span className="text-[12px] font-black uppercase tracking-[0.14em] text-white/50">XP</span>
+                              <div className="flex-1 h-2 bg-white/15 rounded-full overflow-hidden"><div className="h-full rounded-full bg-[linear-gradient(90deg,#7d3d4d,#c89a66)] transition-all duration-500" style={{width: `${(player.xp/player.xpToNext)*100}%`}}></div></div>
+                              <span className="text-sm font-black text-white/80">{player.xp}/{player.xpToNext}</span>
                           </div>
                       </div>
                       {/* Buffs */}
@@ -4024,49 +4160,9 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                   </div>
               </div>
 
-              {/* Stage progress � center pill */}
-              <div className="flex flex-col items-center gap-1.5 shrink-0 self-start mt-0.5">
-                  <div className="bg-[#f7ecdd]/92 backdrop-blur-md border border-[#cfab91] px-2 sm:px-3 py-1 rounded-[12px] shadow-xl animate-fade-in-down">
-                      <div className="flex flex-col items-center gap-0.5">
-                          <span className="text-[11px] font-black uppercase tracking-[0.14em] text-[#6b3141]">{isDungeonRun ? `FASE ${dungeonPhase}` : `FASE ${stage}`}</span>
-                          <div className="flex items-center gap-1.5">
-                              <div className="w-14 sm:w-20 h-2 bg-[#e9d7c2] rounded-full overflow-hidden border border-[#dcc0aa]">
-                                  <div className="h-full rounded-full bg-[linear-gradient(90deg,#7d3d4d,#c89a66)] transition-all duration-500" style={{ width: `${isDungeonRun ? Math.min(100, (dungeonCleared / dungeonTotal) * 100) : Math.min(100, (killCount / 10) * 100)}%` }} />
-                              </div>
-                              <span className="text-[11px] font-black text-[#6b3141]">
-                                  {isDungeonRun ? (dungeonCleared >= dungeonTotal ? <span className="text-rose-500 animate-pulse">BOSS</span> : `${dungeonCleared}/${dungeonTotal}`) : (killCount >= 10 ? <span className="text-rose-500 animate-pulse">BOSS</span> : `${killCount}/10`)}
-                              </span>
-                          </div>
-                      </div>
-                  </div>
-                  {/* Clock card � same style */}
-                  {gameTime && !isDungeonRun && (
-                      <div className="bg-[#f7ecdd]/92 backdrop-blur-md border border-[#cfab91] px-3 sm:px-4 py-1.5 rounded-[12px] shadow-xl animate-fade-in-down">
-                          <div className="flex items-center gap-2">
-                              <Clock size={16} className="text-[#6b3141]" />
-                              <span className="text-xs sm:text-sm font-black uppercase tracking-[0.14em] text-[#6b3141]">{gameTime}</span>
-                          </div>
-                      </div>
-                  )}
-                  <div className={`grid gap-2 w-full min-w-[170px] ${showDiamondOnBattleHud ? 'grid-cols-2' : 'grid-cols-1'}`}>
-                      <div className="bg-[#f7ecdd]/92 backdrop-blur-md border border-[#cfab91] px-3 py-1.5 rounded-[12px] shadow-xl animate-fade-in-down">
-                          <div className="flex items-center justify-center gap-2">
-                              <GameAssetIcon name="coin" size={20} />
-                              <span className="text-sm sm:text-base font-black text-[#8d5e29]">{player.gold}</span>
-                          </div>
-                      </div>
-                      {showDiamondOnBattleHud && (
-                          <div className="bg-[#f7ecdd]/92 backdrop-blur-md border border-[#cfab91] px-3 py-1.5 rounded-[12px] shadow-xl animate-fade-in-down">
-                              <div className="flex items-center justify-center gap-2">
-                                  <GameAssetIcon name="diamond" size={20} />
-                                  <span className="text-sm sm:text-base font-black text-[#346c7f]">{player.diamonds}</span>
-                              </div>
-                          </div>
-                      )}
-                  </div>
-              </div>
+              {/* Stage progress — desktop: now in shared top bar, remove this column */}
 
-              {/* Enemy HP � right */}
+              {/* Enemy HP — right */}
               {enemy && (
                   <div className="flex flex-1 max-w-[48%] flex-col items-end gap-1.5 sm:max-w-[250px]">
                       <div className={`w-full overflow-hidden rounded-[16px] border px-2.5 py-2 backdrop-blur-md animate-fade-in-down ${enemyCardToneClass}`}>
@@ -4099,36 +4195,36 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                           </div>
                           <div className="flex items-center gap-1.5">
                               {enemy.isBoss && (
-                                  <span className="rounded-full border border-rose-300 bg-rose-100 px-1.5 py-0.5 text-[10px] font-black uppercase text-rose-600">Chef�o</span>
+                                  <span className="rounded-full border border-rose-400/50 bg-rose-400/20 px-1.5 py-0.5 text-[10px] font-black uppercase text-rose-300">Chefão</span>
                               )}
                               {!enemy.isBoss && enemy.isSubBoss && (
-                                  <span className="rounded-full border border-amber-300 bg-amber-100 px-1.5 py-0.5 text-[10px] font-black uppercase text-amber-700">Subchefe</span>
+                                  <span className="rounded-full border border-amber-400/50 bg-amber-400/20 px-1.5 py-0.5 text-[10px] font-black uppercase text-amber-300">Subchefe</span>
                               )}
                           </div>
                       </div>
                       <div>
                           <div className="flex items-center justify-between mb-0.5">
-                              <span className="text-[11px] font-black uppercase tracking-[0.2em] text-[#9a4151]">HP</span>
-                              <span className="text-sm font-black text-[#6b3141]">{enemy.stats.hp}/{enemy.stats.maxHp}</span>
+                              <span className="text-[11px] font-black uppercase tracking-[0.2em] text-rose-300">HP</span>
+                              <span className="text-sm font-black text-white/90">{enemy.stats.hp}/{enemy.stats.maxHp}</span>
                           </div>
-                          <div className="h-2.5 bg-[#e9d7c2] rounded-full overflow-hidden">
+                          <div className="h-2.5 bg-white/15 rounded-full overflow-hidden">
                               <div className="h-full rounded-full bg-[linear-gradient(90deg,#8d2f46,#d17482)] transition-all duration-300" style={{width: `${Math.max(0, (enemy.stats.hp/enemy.stats.maxHp)*100)}%`}}></div>
                           </div>
                       </div>
                       {enemyUsesManaSkills && (
                           <div className="mt-1">
                               <div className="flex items-center justify-between mb-0.5">
-                                  <span className="text-[11px] font-black uppercase tracking-[0.2em] text-[#346c7f]">Mana</span>
-                                  <span className="text-sm font-black text-[#6b3141]">{enemy.stats.mp}/{enemy.stats.maxMp}</span>
+                                  <span className="text-[11px] font-black uppercase tracking-[0.2em] text-sky-300">Mana</span>
+                                  <span className="text-sm font-black text-white/90">{enemy.stats.mp}/{enemy.stats.maxMp}</span>
                               </div>
-                              <div className="h-2 bg-[#e9d7c2] rounded-full overflow-hidden">
+                              <div className="h-2 bg-white/15 rounded-full overflow-hidden">
                                   <div className="h-full rounded-full bg-[linear-gradient(90deg,#2b6878,#66b8d2)] transition-all duration-300" style={{width: `${Math.max(0, (enemy.stats.mp/enemy.stats.maxMp)*100)}%`}}></div>
                               </div>
                           </div>
                       )}
                       {enemy.combatBuffs.turns > 0 && (
                           <div className="mt-1">
-                              <span className="inline-flex items-center rounded-full border border-amber-300 bg-amber-100 px-1.5 py-0.5 text-[8px] font-black uppercase text-amber-700">
+                              <span className="inline-flex items-center rounded-full border border-amber-400/50 bg-amber-400/20 px-1.5 py-0.5 text-[8px] font-black uppercase text-amber-300">
                                   Impulso ({enemy.combatBuffs.turns}t)
                               </span>
                           </div>

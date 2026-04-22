@@ -1313,10 +1313,10 @@ export const useBattleController = ({
 
     const item = ALL_ITEMS.find((entry) => entry.id === itemId);
     const invQty = player.inventory[itemId] || 0;
-    const slotQty = (player.equippedItemSlots ?? []).reduce((sum, s) => s.itemId === itemId ? sum + s.qty : sum, 0);
-    if (!item || (invQty <= 0 && slotQty <= 0)) return;
-    // prefer consuming from inventory first; if none there, consume from slot
-    const consumeFromSlot = invQty <= 0;
+    const slotHasItem = (player.equippedItemSlots ?? []).some(s => s.itemId === itemId && s.qty > 0);
+    if (!item || (invQty <= 0 && !slotHasItem)) return;
+    // Always consume from slot when item is equipped in a slot (slot qty is independent from inventory)
+    const consumeFromSlot = slotHasItem;
 
     if (item.id === 'pot_dg_recall') {
       if (!dungeonRun) {

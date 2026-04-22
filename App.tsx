@@ -4208,6 +4208,8 @@ export default function App() {
                                                                                                 recommendedRenderQualityPreset={recommendedRenderQualityPreset}
                                                                                                 onUpdateBattleSettings={updateBattleSettings}
                                                                                                 onEquipSkillToSlot={equipSkillToSlot}
+                                                                                                towerEssence={towerMeta.essence}
+                                                                                                sceneRegion={sceneRegion}
         />
       )}
 
