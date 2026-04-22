@@ -1019,6 +1019,7 @@ const CharacterSheet = ({ player, shopItems, onClose, onOpenInventory }: { playe
 
 const MENU_BACKGROUND_IMAGE_URL = new URL('../game/assets/Imagens/Menu_Screen.png', import.meta.url).href;
 const MENU_LOGO_IMAGE_URL = new URL('../game/assets/Imagens/Logo_Hero_Tower.png', import.meta.url).href;
+const BOOK_HABILIDADES_URL = new URL('../game/assets/Icons/Habilidades/Book_habilidades.png', import.meta.url).href;
 const PORTAL_THUMB_MOUNTAIN_URL = new URL('../game/assets/Scenario/Moutain/cenario_thumbnail_montanha.png', import.meta.url).href;
 const PORTAL_THUMB_DUNGEON_URL = new URL('../game/assets/Scenario/Dungeon/cenario_thumbnail_dungeon.png', import.meta.url).href;
 const PORTAL_THUMB_TOWER_URL = new URL('../game/assets/Scenario/Tower/cenario_thumbnail_torre.png', import.meta.url).href;
@@ -1631,21 +1632,29 @@ export const TavernScreen: React.FC<{
                     </div>
                 </div>
 
-                {/* CAMP SIDE-RAIL � only when skills are unlocked */}
+                {/* CAMP SIDE-RAIL ─ book icons, right side below currency */}
                 {showSkillsAction && !heroInspectOpen && !portalInspectMode && !portalTransitioning && (
                     <div className="absolute right-3 sm:right-5 top-[4.5rem] sm:top-24 z-10 pointer-events-auto flex flex-col gap-2">
+                        {/* Book icon — full style */}
                         <button
                             onClick={() => openSkillsScreenModal()}
                             className="group relative flex h-12 w-12 items-center justify-center rounded-2xl border border-violet-400/35 bg-black/55 backdrop-blur-sm transition-all duration-200 hover:-translate-y-0.5 hover:scale-105 active:scale-95 shadow-[0_4px_14px_rgba(0,0,0,0.35)]"
                             title="Habilidades"
                             aria-label="Habilidades"
                         >
-                            <span className="inline-flex text-violet-300" style={{ filter: 'drop-shadow(0 2px 6px rgba(139,92,246,0.55))' }}>
-                                <Sparkles size={22} />
-                            </span>
+                            <img src={BOOK_HABILIDADES_URL} alt="" className="h-7 w-7 object-contain" style={{ filter: 'drop-shadow(0 2px 6px rgba(139,92,246,0.55))' }} />
                             <span className="pointer-events-none absolute right-full mr-2 whitespace-nowrap rounded-full border border-[#cfab91] bg-[#f7ecdd]/95 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.1em] text-[#6b3141] opacity-0 translate-x-1 transition-all duration-150 group-hover:translate-x-0 group-hover:opacity-100">
                                 Habilidades
                             </span>
+                        </button>
+                        {/* Book icon — white border only */}
+                        <button
+                            onClick={() => openSkillsScreenModal()}
+                            className="group relative flex h-12 w-12 items-center justify-center rounded-2xl border border-white/60 bg-transparent backdrop-blur-sm transition-all duration-200 hover:-translate-y-0.5 hover:scale-105 active:scale-95"
+                            title="Habilidades"
+                            aria-label="Habilidades"
+                        >
+                            <img src={BOOK_HABILIDADES_URL} alt="" className="h-7 w-7 object-contain" />
                         </button>
                     </div>
                 )}
