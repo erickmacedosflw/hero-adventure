@@ -2586,7 +2586,7 @@ const HeroInspectCanvas = ({
   // On mobile, stats card is fixed near top; equipment card is always a set distance below it
   const statsX = isMobile ? equipX : -2.0;
   const statsY = isMobile ? 2.0 : 2.0;
-  const equipY = isMobile ? statsY - 1.76 : 0.1;
+  const equipY = isMobile ? statsY - 2 : 0.1;
   // distanceFactor controls apparent panel size; larger = smaller panels on screen
   // On mobile with tighter zoom, use larger factor to keep panels inside the screen
   const df = isMobile ? 6.0 : 5.8;
