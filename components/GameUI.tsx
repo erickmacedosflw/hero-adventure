@@ -3903,7 +3903,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                                   filter: 'drop-shadow(1px 0 0 rgba(255,255,255,0.95)) drop-shadow(-1px 0 0 rgba(255,255,255,0.95)) drop-shadow(0 1px 0 rgba(255,255,255,0.95)) drop-shadow(0 -1px 0 rgba(255,255,255,0.95)) drop-shadow(0 4px 10px rgba(0,0,0,0.28))',
                               }}
                           >
-                              <GameAssetIcon name="gear" size={22} />
+                              <GameAssetIcon name="gear" size={34} />
                           </span>
                           <span className="pointer-events-none absolute left-full ml-2 whitespace-nowrap rounded-full border border-[#cfab91] bg-[#f7ecdd]/95 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.1em] text-[#6b3141] opacity-0 translate-x-1 transition-all duration-150 group-hover:translate-x-0 group-hover:opacity-100 group-focus-visible:translate-x-0 group-focus-visible:opacity-100">
                               Configuracao
