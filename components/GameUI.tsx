@@ -1634,22 +1634,22 @@ export const TavernScreen: React.FC<{
 
                 {/* CAMP SIDE-RAIL ─ book icon, right side below currency */}
                 {showSkillsAction && !heroInspectOpen && !portalInspectMode && !portalTransitioning && (
-                    <div className="absolute right-3 sm:right-5 top-[4.5rem] sm:top-24 z-10 pointer-events-auto flex flex-col gap-2">
+                    <div className="absolute right-3 sm:right-5 top-[4.5rem] sm:top-24 z-10 pointer-events-auto">
                         <button
                             onClick={() => openSkillsScreenModal()}
-                            className="group relative p-0 bg-transparent border-0 transition-all duration-200 hover:-translate-y-0.5 hover:scale-105 active:scale-95"
+                            className="flex items-center gap-2 p-0 bg-transparent border-0 transition-all duration-200 hover:-translate-y-0.5 hover:scale-105 active:scale-95"
                             title="Habilidades"
                             aria-label="Habilidades"
                         >
+                            <span className="text-white text-[11px] font-black uppercase tracking-[0.1em] whitespace-nowrap" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}>
+                                Habilidades
+                            </span>
                             <img
                                 src={BOOK_HABILIDADES_URL}
                                 alt=""
-                                className="h-10 w-10 object-contain"
-                                style={{ filter: 'drop-shadow(0 0 3px rgba(255,255,255,0.9)) drop-shadow(0 0 1px rgba(255,255,255,1))' }}
+                                className="h-14 w-14 object-contain"
+                                style={{ filter: 'brightness(0) invert(1)' }}
                             />
-                            <span className="pointer-events-none absolute right-full mr-2 whitespace-nowrap rounded-full border border-[#cfab91] bg-[#f7ecdd]/95 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.1em] text-[#6b3141] opacity-0 translate-x-1 transition-all duration-150 group-hover:translate-x-0 group-hover:opacity-100 hidden sm:block">
-                                Habilidades
-                            </span>
                         </button>
                     </div>
                 )}
