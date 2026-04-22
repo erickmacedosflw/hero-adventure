@@ -1648,7 +1648,7 @@ export const TavernScreen: React.FC<{
                                 src={BOOK_HABILIDADES_URL}
                                 alt=""
                                 className="h-14 w-14 object-contain"
-                                style={{ filter: 'drop-shadow(0 0 0 2px white) drop-shadow(1px 0 0 white) drop-shadow(-1px 0 0 white) drop-shadow(0 1px 0 white) drop-shadow(0 -1px 0 white)' }}
+                                style={{ filter: 'drop-shadow(1px 0 0 #fff) drop-shadow(-1px 0 0 #fff) drop-shadow(0 1px 0 #fff) drop-shadow(0 -1px 0 #fff) drop-shadow(1px 1px 0 #fff) drop-shadow(-1px -1px 0 #fff) drop-shadow(1px -1px 0 #fff) drop-shadow(-1px 1px 0 #fff)' }}
                             />
                         </button>
                     </div>
