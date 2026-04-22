@@ -1022,6 +1022,7 @@ const MENU_LOGO_IMAGE_URL = new URL('../game/assets/Imagens/Logo_Hero_Tower.png'
 const BOOK_HABILIDADES_URL = new URL('../game/assets/Icons/Habilidades/Book_habilidades.png', import.meta.url).href;
 const ICONE_ALQUIMISTA_URL = new URL('../game/assets/Icons/Menu/Icone_Alquimista.png', import.meta.url).href;
 const ICONE_MERCADOR_URL = new URL('../game/assets/Icons/Menu/Icone_Mercador.png', import.meta.url).href;
+const ICONE_MOCHILA_URL = new URL('../game/assets/Icons/Menu/Icone_Mochila.png', import.meta.url).href;
 const PORTAL_THUMB_MOUNTAIN_URL = new URL('../game/assets/Scenario/Moutain/cenario_thumbnail_montanha.png', import.meta.url).href;
 const PORTAL_THUMB_DUNGEON_URL = new URL('../game/assets/Scenario/Dungeon/cenario_thumbnail_dungeon.png', import.meta.url).href;
 const PORTAL_THUMB_TOWER_URL = new URL('../game/assets/Scenario/Tower/cenario_thumbnail_torre.png', import.meta.url).href;
@@ -1634,9 +1635,22 @@ export const TavernScreen: React.FC<{
                     </div>
                 </div>
 
-                {/* CAMP SIDE-RAIL ─ skill/merchant/alchemist icons, right side below currency */}
-                {!heroInspectOpen && !portalInspectMode && !portalTransitioning && (showSkillsAction || (merchantUnlocked && sceneRegion === 'forest') || (alchemistUnlocked && sceneRegion === 'dungeon')) && (
+                {/* CAMP SIDE-RAIL ─ mochila/skill/merchant/alchemist icons, right side below currency */}
+                {!heroInspectOpen && !portalInspectMode && !portalTransitioning && (inventoryUnlocked || showSkillsAction || (merchantUnlocked && sceneRegion === 'forest') || (alchemistUnlocked && sceneRegion === 'dungeon')) && (
                     <div className="absolute right-3 sm:right-5 top-[4.5rem] sm:top-24 z-10 pointer-events-auto flex flex-col gap-4">
+                        {inventoryUnlocked && (
+                            <button
+                                onClick={() => openInventoryModal('all')}
+                                className="group flex items-center justify-end gap-2 p-0 bg-transparent border-0 transition-all duration-200 hover:-translate-y-0.5 hover:scale-105 active:scale-95"
+                                title="Mochila"
+                                aria-label="Mochila"
+                            >
+                                <span className="text-white text-[11px] font-black uppercase tracking-[0.1em] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-150" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}>
+                                    Mochila
+                                </span>
+                                <img src={ICONE_MOCHILA_URL} alt="" className="h-14 w-14 object-contain" style={{ filter: 'drop-shadow(0.5px 0 0 #fff) drop-shadow(-0.5px 0 0 #fff) drop-shadow(0 0.5px 0 #fff) drop-shadow(0 -0.5px 0 #fff)' }} />
+                            </button>
+                        )}
                         {showSkillsAction && (
                             <button
                                 onClick={() => openSkillsScreenModal()}
