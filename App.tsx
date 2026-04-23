@@ -749,6 +749,9 @@ export default function App() {
     const [selectedSaveSlotId, setSelectedSaveSlotId] = useState<SaveSlotId>(() => getActiveSaveSlotId());
     const [hasSavePromptDecision, setHasSavePromptDecision] = useState(false);
     const [showClearSaveConfirmModal, setShowClearSaveConfirmModal] = useState(false);
+    const [showSlotContinueModal, setShowSlotContinueModal] = useState(false);
+    const [slotContinueModalVisible, setSlotContinueModalVisible] = useState(false);
+    const [pendingContinueSlot, setPendingContinueSlot] = useState<SaveSlotSummary | null>(null);
     const [resourceUnlockModal, setResourceUnlockModal] = useState<{ name: string; color: string } | null>(null);
     const [levelUpModal, setLevelUpModal] = useState<{ levelsGained: number; nextLevel: number } | null>(null);
     const openConstellationToken = 0;
@@ -3823,20 +3826,14 @@ export default function App() {
                         </div>
 
                         <div className="mx-auto mt-auto w-full max-w-5xl rounded-[26px] border border-[#f8dfbd]/36 bg-[#1f1210]/58 p-3 backdrop-blur-[1.5px] sm:p-5 shadow-[0_22px_64px_rgba(9,5,5,0.42)]">
-                            <div className="flex items-center justify-between gap-3 px-2">
-                                <div>
-                                    <div className="text-[10px] font-black uppercase tracking-[0.24em] text-[#f8d3a8]">Menu inicial</div>
-                                    <h2 className="mt-1 font-gamer text-xl font-black text-[#fff3df] sm:text-2xl">Continuar ou novo jogo</h2>
-                                </div>
-                                <div className="rounded-full border border-[#f7d2a5]/45 bg-[#2b1917]/68 px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-[#ffdcae]">
-                                    {!canCreateNewSaveSlot ? 'Limite de 3 slots' : hasAnySaveSlot ? 'Saves encontrados' : 'Sem saves ainda'}
-                                </div>
+                            <div className="px-2 pb-1">
+                                <div className="text-[10px] font-black uppercase tracking-[0.24em] text-[#f8d3a8]">Menu inicial</div>
+                                <h2 className="mt-1 font-gamer text-xl font-black text-[#fff3df] sm:text-2xl">Escolha um save</h2>
                             </div>
 
                             {hasAnySaveSlot ? (
-                                <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                                <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                                     {existingSaveSlots.map((slot, index) => {
-                                        const isSelected = selectedSaveSlotId === slot.slotId;
                                         const slotClassDef = slot.classId ? getPlayerClassById(slot.classId as PlayerClassId) : null;
                                         const SlotClassIcon = (slot.classId ? SAVE_CLASS_ICON[slot.classId] : null) ?? Shield;
                                         const slotSceneThumb = SAVE_SCENE_THUMBNAIL[slot.sceneRegion ?? 'forest'] ?? SAVE_THUMB_MOUNTAIN_URL;
@@ -3846,13 +3843,16 @@ export default function App() {
                                             <button
                                                 key={slot.slotId}
                                                 onClick={() => {
+                                                    setPendingContinueSlot(slot);
                                                     setSelectedSaveSlotId(slot.slotId);
                                                     setActiveSaveSlotId(slot.slotId);
+                                                    setShowSlotContinueModal(true);
+                                                    requestAnimationFrame(() => setSlotContinueModalVisible(true));
                                                 }}
-                                                className={`hero-save-card relative overflow-hidden text-left ${isSelected ? 'hero-save-card-selected' : ''}`}
+                                                className="hero-save-card relative overflow-hidden text-left"
                                                 style={{
                                                     animationDelay: `${index * 55}ms`,
-                                                    ...(isSelected ? { boxShadow: `0 0 0 2px ${accentColor}, 0 16px 40px rgba(0,0,0,0.5)` } : {}),
+                                                    boxShadow: `0 0 0 1px ${accentColor}44, 0 14px 30px rgba(0,0,0,0.33)`,
                                                 }}
                                             >
                                                 {/* Scenario thumbnail background */}
@@ -3890,11 +3890,11 @@ export default function App() {
                                 </div>
                             )}
 
-                            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                            <div className="mt-4">
                                 {canCreateNewSaveSlot ? (
                                     <button
                                         onClick={handleNewGameFromSlot}
-                                        className="hero-menu-action hero-menu-action-secondary"
+                                        className="hero-menu-action hero-menu-action-secondary w-full"
                                     >
                                         <Sword size={16} className="shrink-0" /> Novo jogo
                                     </button>
@@ -3902,20 +3902,94 @@ export default function App() {
                                     <button
                                         onClick={() => setShowClearSaveConfirmModal(true)}
                                         disabled={!canContinueSelectedSlot}
-                                        className="hero-menu-action hero-menu-action-secondary"
+                                        className="hero-menu-action hero-menu-action-secondary w-full"
                                     >
                                         Desfazer save
                                     </button>
                                 )}
-                                <button
-                                    onClick={handleContinueFromSave}
-                                    disabled={!canContinueSelectedSlot}
-                                    className="hero-menu-action hero-menu-action-primary"
-                                >
-                                    <Play size={16} className="shrink-0" /> Continuar jogo
-                                </button>
                             </div>
                         </div>
+
+                        {/* Slot continue modal */}
+                        {showSlotContinueModal && pendingContinueSlot && (() => {
+                            const slot = pendingContinueSlot;
+                            const slotClassDef = slot.classId ? getPlayerClassById(slot.classId as PlayerClassId) : null;
+                            const SlotClassIcon = (slot.classId ? SAVE_CLASS_ICON[slot.classId] : null) ?? Shield;
+                            const slotSceneThumb = SAVE_SCENE_THUMBNAIL[slot.sceneRegion ?? 'forest'] ?? SAVE_THUMB_MOUNTAIN_URL;
+                            const accentColor = slotClassDef?.visualProfile.secondaryColor ?? '#b87a3a';
+                            const auraColor = slotClassDef?.visualProfile.auraColor ?? '#f8c77e';
+                            const closeModal = () => {
+                                setSlotContinueModalVisible(false);
+                                setTimeout(() => setShowSlotContinueModal(false), 260);
+                            };
+                            return (
+                                <div
+                                    className="absolute inset-0 z-20 flex items-end sm:items-center justify-center px-4"
+                                    style={{
+                                        background: slotContinueModalVisible ? 'rgba(0,0,0,0.58)' : 'rgba(0,0,0,0)',
+                                        backdropFilter: slotContinueModalVisible ? 'blur(10px)' : 'blur(0px)',
+                                        WebkitBackdropFilter: slotContinueModalVisible ? 'blur(10px)' : 'blur(0px)',
+                                        transition: 'background 260ms ease, backdrop-filter 260ms ease',
+                                        paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom, 1.25rem))',
+                                    }}
+                                    onClick={closeModal}
+                                >
+                                    <div
+                                        className="relative w-full max-w-sm overflow-hidden rounded-[24px] border"
+                                        style={{
+                                            borderColor: `${accentColor}55`,
+                                            background: 'linear-gradient(160deg, rgba(28,14,12,0.97) 0%, rgba(18,9,8,0.98) 100%)',
+                                            boxShadow: `0 0 0 1px ${accentColor}30, 0 32px 80px rgba(0,0,0,0.7)`,
+                                            transform: slotContinueModalVisible ? 'translateY(0) scale(1)' : 'translateY(32px) scale(0.95)',
+                                            opacity: slotContinueModalVisible ? 1 : 0,
+                                            transition: 'transform 280ms cubic-bezier(0.34,1.4,0.64,1), opacity 220ms ease',
+                                        }}
+                                        onClick={(e) => e.stopPropagation()}
+                                    >
+                                        {/* Thumbnail header */}
+                                        <div className="relative h-28 overflow-hidden">
+                                            <img src={slotSceneThumb} alt="" className="w-full h-full object-cover" draggable={false} />
+                                            <div className="absolute inset-0" style={{ background: `linear-gradient(to bottom, ${accentColor}22 0%, rgba(18,9,8,0.92) 100%)` }} />
+                                            <div className="absolute bottom-3 left-4 flex items-center gap-2.5">
+                                                <div className="flex items-center justify-center w-9 h-9 rounded-full border-2" style={{ backgroundColor: `${accentColor}30`, borderColor: accentColor, color: auraColor }}>
+                                                    <SlotClassIcon size={17} />
+                                                </div>
+                                                <div>
+                                                    <div className="text-[9px] font-black uppercase tracking-[0.22em] text-white/60">Slot {slot.slotId}</div>
+                                                    <div className="text-base font-black text-white leading-none">Nivel {slot.level ?? 1}</div>
+                                                </div>
+                                            </div>
+                                            {/* Left accent stripe */}
+                                            <div className="absolute left-0 top-0 bottom-0 w-1" style={{ backgroundColor: accentColor }} />
+                                        </div>
+
+                                        <div className="px-5 pt-4 pb-5">
+                                            <div className="text-[11px] font-black uppercase tracking-[0.16em] mb-0.5" style={{ color: auraColor }}>
+                                                {slotClassDef?.name ?? slot.classId ?? 'Sem classe'}
+                                            </div>
+                                            <div className="text-xs text-[#f8dbc0]/70">{formatSaveDate(slot.savedAt)}</div>
+
+                                            <div className="mt-4 grid grid-cols-2 gap-2.5">
+                                                <button
+                                                    onClick={closeModal}
+                                                    className="hero-menu-action hero-menu-action-secondary"
+                                                    style={{ fontSize: '0.8rem', padding: '0.7rem 0.8rem' }}
+                                                >
+                                                    Cancelar
+                                                </button>
+                                                <button
+                                                    onClick={() => { closeModal(); setTimeout(handleContinueFromSave, 60); }}
+                                                    className="hero-menu-action hero-menu-action-primary"
+                                                    style={{ fontSize: '0.8rem', padding: '0.7rem 0.8rem', background: `linear-gradient(180deg, ${accentColor}cc 0%, ${accentColor}aa 100%)`, borderColor: `${accentColor}88`, boxShadow: `0 8px 24px ${accentColor}44` }}
+                                                >
+                                                    <Play size={14} className="shrink-0" /> Jogar
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })()}
 
                         {showClearSaveConfirmModal && canContinueSelectedSlot ? (
                             <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/60 px-4" onClick={() => setShowClearSaveConfirmModal(false)}>
