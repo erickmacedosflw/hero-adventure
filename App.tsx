@@ -92,10 +92,11 @@ const BATTLE_SETTINGS_STORAGE_KEY = 'hero_adventure_battle_settings_v1';
 const MENU_BACKGROUND_IMAGE_URL = new URL('./game/assets/Imagens/Menu_Screen.png', import.meta.url).href;
 const MENU_LOGO_IMAGE_URL = new URL('./game/assets/Imagens/Logo_Hero_Tower.png', import.meta.url).href;
 const SAVE_THUMB_FOREST_URL = new URL('./game/assets/Scenario/Florest/cenario_thumbnail_floresta.png', import.meta.url).href;
+const SAVE_THUMB_MOUNTAIN_URL = new URL('./game/assets/Scenario/Moutain/cenario_thumbnail_montanha.png', import.meta.url).href;
 const SAVE_THUMB_DUNGEON_URL = new URL('./game/assets/Scenario/Dungeon/cenario_thumbnail_dungeon.png', import.meta.url).href;
 const SAVE_THUMB_TOWER_URL = new URL('./game/assets/Scenario/Tower/cenario_thumbnail_torre.png', import.meta.url).href;
 const SAVE_SCENE_THUMBNAIL: Record<string, string> = {
-    forest: SAVE_THUMB_FOREST_URL,
+    forest: SAVE_THUMB_MOUNTAIN_URL,
     dungeon: SAVE_THUMB_DUNGEON_URL,
     tower: SAVE_THUMB_TOWER_URL,
 };
@@ -3811,7 +3812,7 @@ export default function App() {
                     <div className="hero-brand-vignette" />
                     <div className="hero-brand-noise" />
 
-                    <div className="relative z-10 flex h-full flex-col px-4 pt-5 sm:px-8 sm:pt-8 pb-[max(1rem,env(safe-area-inset-bottom,0px))]">
+                    <div className="relative z-10 flex h-full flex-col px-4 pt-5 sm:px-8 sm:pt-8" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom, 1rem))' }}>
                         <div className="mx-auto w-full max-w-5xl text-center animate-fade-in-down">
                             <img
                                 src={MENU_LOGO_IMAGE_URL}
@@ -3838,7 +3839,7 @@ export default function App() {
                                         const isSelected = selectedSaveSlotId === slot.slotId;
                                         const slotClassDef = slot.classId ? getPlayerClassById(slot.classId as PlayerClassId) : null;
                                         const SlotClassIcon = (slot.classId ? SAVE_CLASS_ICON[slot.classId] : null) ?? Shield;
-                                        const slotSceneThumb = SAVE_SCENE_THUMBNAIL[slot.sceneRegion ?? 'forest'] ?? SAVE_THUMB_FOREST_URL;
+                                        const slotSceneThumb = SAVE_SCENE_THUMBNAIL[slot.sceneRegion ?? 'forest'] ?? SAVE_THUMB_MOUNTAIN_URL;
                                         const accentColor = slotClassDef?.visualProfile.secondaryColor ?? '#b87a3a';
                                         const auraColor = slotClassDef?.visualProfile.auraColor ?? '#f8c77e';
                                         return (
