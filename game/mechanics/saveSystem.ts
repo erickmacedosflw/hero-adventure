@@ -61,6 +61,7 @@ export interface SaveSlotSummary {
   savedAt: number | null;
   classId: Player['classId'] | null;
   level: number | null;
+  sceneRegion: SavePayload['sceneRegion'] | null;
 }
 
 export interface SaveLoadResult {
@@ -316,6 +317,7 @@ export const listSaveSlots = (): SaveSlotSummary[] => {
       savedAt: loaded?.savedAt ?? null,
       classId: loaded?.payload.player.classId ?? null,
       level: loaded?.payload.player.level ?? null,
+      sceneRegion: loaded?.payload.sceneRegion ?? null,
     };
   });
 };

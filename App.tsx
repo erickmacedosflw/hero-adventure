@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { ShoppingBag, Play, Sword, Home, Orbit } from 'lucide-react';
+import { ShoppingBag, Play, Sword, Home, Orbit, Shield, Sparkles, Crosshair, Zap } from 'lucide-react';
 import { DeveloperConsole } from './components/DeveloperConsole';
 import { GameScene, type BattleActionsConfig } from './components/Scene3D';
 import { OpeningScreen } from './components/OpeningScreen';
@@ -8,7 +8,7 @@ import { ClassSelectionScreen } from './components/ClassSelectionScreen';
 import { BattleHUD, MenuScreen, ShopScreen, TavernScreen, KillLootOverlay, CardChoiceScreen, DungeonResultScreen, BossVictoryModal } from './components/GameUI';
 import { AlchemistScreen } from './components/shop/AlchemistMenuScreen';
 import { 
-    Player, Enemy, EnemyIntentPreview, GameState, TurnState, BattleLog, Item, Skill, Stats, Particle, FloatingText, ProgressionCard, CardRewardOffer, AlchemistCardOffer, AlchemistItemOffer, DungeonRunState, DungeonResult, DungeonRewards, EnemyTemplate, DungeonEnemyTemplate, DungeonBossTemplate, PlayerAnimationAction, BossVictoryContext, CardCategory, GltfMonsterBodyType
+    Player, Enemy, EnemyIntentPreview, GameState, TurnState, BattleLog, Item, Skill, Stats, Particle, FloatingText, ProgressionCard, CardRewardOffer, AlchemistCardOffer, AlchemistItemOffer, DungeonRunState, DungeonResult, DungeonRewards, EnemyTemplate, DungeonEnemyTemplate, DungeonBossTemplate, PlayerAnimationAction, BossVictoryContext, CardCategory, GltfMonsterBodyType, PlayerClassId
 } from './types';
 import { 
     INITIAL_PLAYER, SHOP_ITEMS, ALL_ITEMS, MATERIALS, SKILLS, ENEMY_DATA, ENEMY_COLORS, DUNGEON_ENEMY_DATA, DUNGEON_BOSS, ALCHEMIST_ITEM_OFFERS 
@@ -91,6 +91,21 @@ const ALL_ITEMS_BY_ID = new Map(ALL_ITEMS.map((item) => [item.id, item]));
 const BATTLE_SETTINGS_STORAGE_KEY = 'hero_adventure_battle_settings_v1';
 const MENU_BACKGROUND_IMAGE_URL = new URL('./game/assets/Imagens/Menu_Screen.png', import.meta.url).href;
 const MENU_LOGO_IMAGE_URL = new URL('./game/assets/Imagens/Logo_Hero_Tower.png', import.meta.url).href;
+const SAVE_THUMB_FOREST_URL = new URL('./game/assets/Scenario/Florest/cenario_thumbnail_floresta.png', import.meta.url).href;
+const SAVE_THUMB_DUNGEON_URL = new URL('./game/assets/Scenario/Dungeon/cenario_thumbnail_dungeon.png', import.meta.url).href;
+const SAVE_THUMB_TOWER_URL = new URL('./game/assets/Scenario/Tower/cenario_thumbnail_torre.png', import.meta.url).href;
+const SAVE_SCENE_THUMBNAIL: Record<string, string> = {
+    forest: SAVE_THUMB_FOREST_URL,
+    dungeon: SAVE_THUMB_DUNGEON_URL,
+    tower: SAVE_THUMB_TOWER_URL,
+};
+const SAVE_CLASS_ICON: Record<string, React.ComponentType<{ size?: number }>> = {
+    knight: Shield,
+    barbarian: Sword,
+    mage: Sparkles,
+    ranger: Crosshair,
+    rogue: Zap,
+};
 
 interface BattleSettings {
     musicEnabled: boolean;
@@ -3796,7 +3811,7 @@ export default function App() {
                     <div className="hero-brand-vignette" />
                     <div className="hero-brand-noise" />
 
-                    <div className="relative z-10 flex h-full flex-col px-4 pb-4 pt-5 sm:px-8 sm:pt-8">
+                    <div className="relative z-10 flex h-full flex-col px-4 pt-5 sm:px-8 sm:pt-8 pb-[max(1rem,env(safe-area-inset-bottom,0px))]">
                         <div className="mx-auto w-full max-w-5xl text-center animate-fade-in-down">
                             <img
                                 src={MENU_LOGO_IMAGE_URL}
@@ -3821,6 +3836,11 @@ export default function App() {
                                 <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                                     {existingSaveSlots.map((slot, index) => {
                                         const isSelected = selectedSaveSlotId === slot.slotId;
+                                        const slotClassDef = slot.classId ? getPlayerClassById(slot.classId as PlayerClassId) : null;
+                                        const SlotClassIcon = (slot.classId ? SAVE_CLASS_ICON[slot.classId] : null) ?? Shield;
+                                        const slotSceneThumb = SAVE_SCENE_THUMBNAIL[slot.sceneRegion ?? 'forest'] ?? SAVE_THUMB_FOREST_URL;
+                                        const accentColor = slotClassDef?.visualProfile.secondaryColor ?? '#b87a3a';
+                                        const auraColor = slotClassDef?.visualProfile.auraColor ?? '#f8c77e';
                                         return (
                                             <button
                                                 key={slot.slotId}
@@ -3828,21 +3848,35 @@ export default function App() {
                                                     setSelectedSaveSlotId(slot.slotId);
                                                     setActiveSaveSlotId(slot.slotId);
                                                 }}
-                                                className={`hero-save-card text-left ${isSelected ? 'hero-save-card-selected' : ''}`}
-                                                style={{ animationDelay: `${index * 55}ms` }}
+                                                className={`hero-save-card relative overflow-hidden text-left ${isSelected ? 'hero-save-card-selected' : ''}`}
+                                                style={{
+                                                    animationDelay: `${index * 55}ms`,
+                                                    ...(isSelected ? { boxShadow: `0 0 0 2px ${accentColor}, 0 16px 40px rgba(0,0,0,0.5)` } : {}),
+                                                }}
                                             >
-                                                <div className="flex items-start justify-between gap-2">
+                                                {/* Scenario thumbnail background */}
+                                                <div className="absolute inset-0 pointer-events-none" aria-hidden>
+                                                    <img src={slotSceneThumb} alt="" className="w-full h-full object-cover opacity-25" draggable={false} />
+                                                    <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, rgba(20,10,8,0.30) 0%, rgba(20,10,8,0.75) 100%)' }} />
+                                                </div>
+
+                                                {/* Class color left stripe */}
+                                                <div className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-[1rem]" style={{ backgroundColor: accentColor }} />
+
+                                                <div className="relative flex items-start justify-between gap-2 pl-2">
                                                     <div>
                                                         <div className="text-[10px] font-black uppercase tracking-[0.22em] text-[#f8dcb7]">Slot {slot.slotId}</div>
                                                         <div className="mt-1 text-xl font-black text-[#fff6e8]">Nivel {slot.level ?? 1}</div>
                                                     </div>
-                                                    <div className="rounded-full border border-[#f4c18a]/60 bg-[#513326]/58 px-2 py-1 text-[9px] font-black uppercase tracking-[0.18em] text-[#ffd7a9]">
-                                                        Continuar
+                                                    <div className="flex items-center justify-center w-8 h-8 rounded-full border shrink-0" style={{ backgroundColor: `${accentColor}22`, borderColor: `${accentColor}60`, color: auraColor }}>
+                                                        <SlotClassIcon size={15} />
                                                     </div>
                                                 </div>
 
-                                                <div className="mt-3 space-y-1">
-                                                    <div className="text-[11px] font-black uppercase tracking-[0.14em] text-[#ffe5c6]">{slot.classId ?? 'Sem classe'}</div>
+                                                <div className="relative mt-3 space-y-0.5 pl-2">
+                                                    <div className="text-[11px] font-black uppercase tracking-[0.14em]" style={{ color: auraColor }}>
+                                                        {slotClassDef?.name ?? slot.classId ?? 'Sem classe'}
+                                                    </div>
                                                     <div className="text-xs text-[#f8dbc0]/92">{formatSaveDate(slot.savedAt)}</div>
                                                 </div>
                                             </button>

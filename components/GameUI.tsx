@@ -1697,7 +1697,7 @@ export const TavernScreen: React.FC<{
 
                 {!heroInspectOpen && !showPortalTravelModal && (
                 <section
-                    className="absolute left-1/2 -translate-x-1/2 bottom-2 sm:bottom-6 w-[min(94vw,380px)] sm:w-[min(96vw,900px)] pointer-events-none transition-[opacity,transform] duration-500 ease-out"
+                    className="absolute left-1/2 -translate-x-1/2 bottom-[max(0.5rem,env(safe-area-inset-bottom,0px))] sm:bottom-6 w-[min(94vw,380px)] sm:w-[min(96vw,900px)] pointer-events-none transition-[opacity,transform] duration-500 ease-out"
                     style={{
                         opacity: portalInspectMode || portalTransitioning ? 0 : 1,
                         transform: portalInspectMode || portalTransitioning ? 'translateY(12px)' : 'translateY(0px)',
