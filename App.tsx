@@ -108,6 +108,14 @@ const SAVE_CLASS_ICON: Record<string, React.ComponentType<{ size?: number }>> = 
     rogue: Zap,
 };
 
+const SAVE_CLASS_NAME_PT: Record<string, string> = {
+    knight: 'Cavaleiro',
+    barbarian: 'Bárbaro',
+    mage: 'Mago',
+    ranger: 'Ranger',
+    rogue: 'Ladino',
+};
+
 interface BattleSettings {
     musicEnabled: boolean;
     sfxEnabled: boolean;
@@ -3876,7 +3884,7 @@ export default function App() {
 
                                                 <div className="relative mt-3 space-y-0.5 pl-2">
                                                     <div className="text-[11px] font-black uppercase tracking-[0.14em]" style={{ color: auraColor }}>
-                                                        {slotClassDef?.name ?? slot.classId ?? 'Sem classe'}
+                                                        {(slot.classId ? SAVE_CLASS_NAME_PT[slot.classId] : null) ?? slotClassDef?.name ?? slot.classId ?? 'Sem classe'}
                                                     </div>
                                                     <div className="text-xs text-[#f8dbc0]/92">{formatSaveDate(slot.savedAt)}</div>
                                                 </div>
@@ -3965,7 +3973,7 @@ export default function App() {
 
                                         <div className="px-5 pt-4 pb-5">
                                             <div className="text-[11px] font-black uppercase tracking-[0.16em] mb-0.5" style={{ color: auraColor }}>
-                                                {slotClassDef?.name ?? slot.classId ?? 'Sem classe'}
+                                                {(slot.classId ? SAVE_CLASS_NAME_PT[slot.classId] : null) ?? slotClassDef?.name ?? slot.classId ?? 'Sem classe'}
                                             </div>
                                             <div className="text-xs text-[#f8dbc0]/70">{formatSaveDate(slot.savedAt)}</div>
 
