@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { ShoppingBag, Play, Sword, Home, Orbit } from 'lucide-react';
 import { DeveloperConsole } from './components/DeveloperConsole';
-import { GameScene } from './components/Scene3D';
+import { GameScene, type BattleActionsConfig } from './components/Scene3D';
 import { OpeningScreen } from './components/OpeningScreen';
 import { ClassSelectionScreen } from './components/ClassSelectionScreen';
 import { BattleHUD, MenuScreen, ShopScreen, TavernScreen, KillLootOverlay, CardChoiceScreen, DungeonResultScreen, BossVictoryModal } from './components/GameUI';
@@ -23,7 +23,7 @@ import { createClassResourceState, getTalentBonuses, getUnlockedResourceMax, res
 import { buyItemForPlayer, sellItemFromPlayer } from './game/mechanics/inventory';
 import { applyEquipmentBonusesToStats } from './game/mechanics/equipmentBonuses';
 import { warmupBattleRuntimeAssets } from './game/mechanics/assetWarmup';
-import { WeaponProficiencyAppliedBonuses, applyWeaponProficiencyBonusesToStats, getWeaponProficiencyAppliedBonuses } from './game/mechanics/weaponProficiency';
+import { WeaponProficiencyAppliedBonuses, applyWeaponProficiencyBonusesToStats, getWeaponProficiencyAppliedBonuses, shouldUseMagicBasicAttack, shouldUseBowBasicAttack } from './game/mechanics/weaponProficiency';
 import { SavePayload, SaveSlotId, SaveSlotSummary, getActiveSaveSlotId, listSaveSlots, loadSaveFromSlot, saveToActiveSlot, setActiveSaveSlotId, clearSlot } from './game/mechanics/saveSystem';
 import { useBattleController } from './game/hooks/useBattleController';
 import { useBattleResolution } from './game/hooks/useBattleResolution';
@@ -3301,6 +3301,31 @@ export default function App() {
     const isItemsActionUnlocked = onboardingPhase === 'items_prompt' || onboardingPhase === 'flee_prompt' || onboardingPhase === 'flee_unlocked' || onboardingPhase === 'dungeon_prompt' || onboardingPhase === 'dungeon_unlocked' || onboardingPhase === 'alchemist_prompt' || onboardingPhase === 'alchemist_unlocked';
     const isFleeUnlocked = onboardingPhase === 'flee_unlocked' || onboardingPhase === 'dungeon_prompt' || onboardingPhase === 'dungeon_unlocked' || onboardingPhase === 'alchemist_prompt' || onboardingPhase === 'alchemist_unlocked';
     const isSkillsActionUnlocked = skillsActionUnlocked;
+    // ── Battle actions config (passed to GameScene → BattleActionsHtml via Html3D) ────────
+    const _battleImpulseCapacity = getImpulseCapacityByLevel(player.level);
+    const _battleClassImpulseColor = getPlayerClassById(player.classId).visualProfile.auraColor ?? '#f59e0b';
+    const battleActionsConfig: BattleActionsConfig = {
+      isPlayerTurn: turnState === TurnState.PLAYER_INPUT,
+      showSkillsAction: isSkillsActionUnlocked,
+      showItemsAction: isItemsActionUnlocked,
+      impulseUnlocked: _battleImpulseCapacity > 0,
+      impulseCapacity: _battleImpulseCapacity,
+      impulseReserveColors: [_battleClassImpulseColor, _battleClassImpulseColor, _battleClassImpulseColor],
+      classImpulseBaseColor: _battleClassImpulseColor,
+      absorbGlowColor: player.impulsoAtivo >= 3 ? '#3b82f6' : player.impulsoAtivo === 2 ? '#a855f7' : '#ef4444',
+      usesMagicBasicAttack: shouldUseMagicBasicAttack(player.classId, player.equippedWeapon),
+      usesBowBasicAttack: shouldUseBowBasicAttack(player.classId, player.equippedWeapon),
+      limitBattleActionsToBasics: isFirstBattleActionRestricted,
+      shopItems: ALL_ITEMS,
+      onAttack: handlePlayerAttack,
+      onDefend: handlePlayerDefense,
+      onChargeImpulse: handleChargeImpulse,
+      onAbsorbImpulse: handleAbsorbImpulse,
+      onSkill: handleSkill,
+      onUseItem: handleUseItem,
+      showFleeAction: isFleeUnlocked && !dungeonRun && !(enemy?.isBoss) && killCount < 10,
+      onFlee: handleFlee,
+    };
     const isMerchantUnlocked = onboardingPhase === 'merchant_unlocked' || onboardingPhase === 'items_prompt' || onboardingPhase === 'flee_prompt' || onboardingPhase === 'flee_unlocked' || onboardingPhase === 'dungeon_prompt' || onboardingPhase === 'dungeon_unlocked' || onboardingPhase === 'alchemist_prompt' || onboardingPhase === 'alchemist_unlocked';
     const isDungeonUnlocked = onboardingPhase === 'dungeon_prompt' || onboardingPhase === 'dungeon_unlocked' || onboardingPhase === 'alchemist_prompt' || onboardingPhase === 'alchemist_unlocked';
     const isAlchemistUnlocked = onboardingPhase === 'alchemist_unlocked';
@@ -3971,6 +3996,7 @@ export default function App() {
                         playerState={player}
                         enemyState={enemy}
                         enemyIntentPreview={enemyIntentPreview}
+                        battleActionsConfig={resolvedGameState === GameState.BATTLE ? battleActionsConfig : undefined}
                         isMenuView={resolvedGameState === GameState.TAVERN}
                         menuCameraFocus={shouldMenuCameraFocus}
                         heroInspectMode={heroInspectMode}

@@ -576,7 +576,7 @@ export const DayNightCycle = ({
 
     if (t >= T_MANHA && t < T_DIA) {
       const p = frac(T_MANHA, T_DIA);
-      ambientIntensity = THREE.MathUtils.lerp(0.28, 0.56, p);
+      ambientIntensity = THREE.MathUtils.lerp(0.40, 0.56, p);
       sunIntensity = THREE.MathUtils.lerp(0.45, 1.25, p);
       sunColor.lerpColors(DAY_NIGHT_COLORS.sunNoite, DAY_NIGHT_COLORS.sunManha, p);
       hemiSky.lerpColors(DAY_NIGHT_COLORS.hemiNoiteS, DAY_NIGHT_COLORS.hemiManhaS, p);
@@ -607,27 +607,27 @@ export const DayNightCycle = ({
       moonIntensity = 0;
     } else if (t >= T_TARDE && t < T_NOITE) {
       const p = frac(T_TARDE, T_NOITE);
-      ambientIntensity = THREE.MathUtils.lerp(0.52, 0.3, p);
+      ambientIntensity = THREE.MathUtils.lerp(0.52, 0.40, p);
       sunIntensity = THREE.MathUtils.lerp(1.38, 0.3, p);
       sunColor.lerpColors(DAY_NIGHT_COLORS.sunDia, DAY_NIGHT_COLORS.sunTarde, p);
       hemiSky.lerpColors(DAY_NIGHT_COLORS.hemiManhaS, DAY_NIGHT_COLORS.hemiTardeS, p);
       hemiGround.lerpColors(DAY_NIGHT_COLORS.hemiManhaG, DAY_NIGHT_COLORS.hemiTardeG, p);
-      moonIntensity = THREE.MathUtils.lerp(0, 0.35, p);
+      moonIntensity = THREE.MathUtils.lerp(0, 0.45, p);
     } else {
       const p = t >= T_NOITE
         ? (t - T_NOITE) / (1 - T_NOITE + T_MANHA)
         : (t + 1 - T_NOITE) / (1 - T_NOITE + T_MANHA);
-      ambientIntensity = 0.28;
+      ambientIntensity = 0.40;
       sunIntensity = 0;
       sunColor.copy(DAY_NIGHT_COLORS.sunNoite);
       hemiSky.copy(DAY_NIGHT_COLORS.hemiNoiteS);
       hemiGround.copy(DAY_NIGHT_COLORS.hemiNoiteG);
-      moonIntensity = 0.72 * Math.max(0, Math.sin(p * Math.PI));
+      moonIntensity = 0.90 * Math.max(0, Math.sin(p * Math.PI));
     }
 
-    if (ambientRef.current) ambientRef.current.intensity = ambientIntensity * 0.62;
+    if (ambientRef.current) ambientRef.current.intensity = ambientIntensity * 0.72;
     if (hemiRef.current) {
-      hemiRef.current.intensity = ambientIntensity * 0.42;
+      hemiRef.current.intensity = ambientIntensity * 0.52;
       hemiRef.current.color.copy(hemiSky);
       hemiRef.current.groundColor.copy(hemiGround);
     }
@@ -639,7 +639,7 @@ export const DayNightCycle = ({
       sunLightRef.current.target.updateMatrixWorld();
     }
     if (moonLightRef.current) {
-      moonLightRef.current.intensity = moonIntensity * 1.08;
+      moonLightRef.current.intensity = moonIntensity * 1.35;
       moonLightRef.current.position.copy(moonPosRef.current);
     }
     if (sunMeshRef.current) {

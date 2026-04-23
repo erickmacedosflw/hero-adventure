@@ -1,5 +1,6 @@
 import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Sword, Shield, Zap, Sparkles, FlaskConical, Crosshair, Shirt, Footprints, Layers, RefreshCw, Swords, Wind, Clover, Heart, Info } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { Sword, Shield, Zap, Sparkles, FlaskConical, Crosshair, Shirt, Footprints, Layers, RefreshCw, Swords, Wind, Clover, Heart, Info, X, LogOut } from 'lucide-react';
 import { Canvas, useFrame, useLoader, useThree } from '@react-three/fiber';
 import { ContactShadows, Html, useAnimations, useFBX, useTexture } from '@react-three/drei';
 import { Bloom, DepthOfField, EffectComposer, Vignette } from '@react-three/postprocessing';
@@ -8,7 +9,7 @@ import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { COMBAT_SPRITE_ANIMATION_DEFAULTS, SPRITE_ANIMATION_IDS, SPRITE_ANIMATION_REGISTRY } from '../game/data/sprite-animations/registry';
 import { resolveTrackPlaybackSnapshot } from '../game/mechanics/spriteOverlayPlayback';
-import { CardCategory, Enemy, EnemyIntentPreview, FloatingText, GltfMonsterBodyType, Item, Particle, Player, PlayerAnimationAction, PlayerClassAnimationMap, PlayerClassAssets, PlayerClassId, SpriteOverlayAnimationDefinition, SpriteTrackDefinition, StatusEffect, TurnState } from '../types';
+import { CardCategory, Enemy, EnemyIntentPreview, FloatingText, GltfMonsterBodyType, Item, Particle, Player, PlayerAnimationAction, PlayerClassAnimationMap, PlayerClassAssets, PlayerClassId, Skill, SpriteOverlayAnimationDefinition, SpriteTrackDefinition, StatusEffect, TurnState } from '../types';
 import {
   RIGHT_HAND_BONE_CANDIDATES,
   RuntimeHeroAssets,
@@ -94,6 +95,7 @@ import type {
 import { VoxelPart } from './items/VoxelPart';
 import { getEquipmentBonuses } from '../game/mechanics/equipmentBonuses';
 import { getPlayerClassById } from '../game/data/classes';
+import { shouldUseMagicBasicAttack, shouldUseBowBasicAttack } from '../game/mechanics/weaponProficiency';
 import { getEquippedWeaponGrip, getRegisteredWeapon3DByItemId } from '../game/data/weaponCatalog';
 import { ALL_ITEMS, getClassSlots } from '../constants';
 export { ItemPreviewCanvas } from './items/ItemPreviewCanvas';
@@ -107,6 +109,443 @@ export type {
   DeveloperWeaponTransformControlMode,
   DeveloperWeaponTransformOverride,
 } from './scene3d/types';
+
+// ── Battle actions config (passed from App → GameScene → BattleActionsHtml via Html3D) ──────────────────
+export interface BattleActionsConfig {
+  isPlayerTurn: boolean;
+  showSkillsAction: boolean;
+  showItemsAction: boolean;
+  impulseUnlocked: boolean;
+  impulseCapacity: number;
+  impulseReserveColors: string[];
+  classImpulseBaseColor: string;
+  absorbGlowColor: string;
+  usesMagicBasicAttack: boolean;
+  usesBowBasicAttack: boolean;
+  limitBattleActionsToBasics: boolean;
+  shopItems: Item[];
+  onAttack: () => void;
+  onDefend: () => void;
+  onChargeImpulse: () => void;
+  onAbsorbImpulse: () => void;
+  onSkill: (skill: Skill) => void;
+  onUseItem: (itemId: string) => void;
+  onRequestDungeonExtract?: (item: Item) => void;
+  showFleeAction: boolean;
+  onFlee: () => void;
+}
+
+const BattleActionsHtml: React.FC<{ config: BattleActionsConfig; player: Player; isMobile?: boolean }> = ({ config, player, isMobile = false }) => {
+  const [activeMenu, setActiveMenu] = React.useState<'skills' | 'items' | null>(null);
+  const [menuVisible, setMenuVisible] = React.useState(false);
+  const [infoPopup, setInfoPopup] = React.useState<{ type: 'skill' | 'item'; id: string } | null>(null);
+  const [pressedBtn, setPressedBtn] = React.useState<string | null>(null);
+  const [showFleeConfirm, setShowFleeConfirm] = React.useState(false);
+  const [fleeModalVisible, setFleeModalVisible] = React.useState(false);
+  const [fleeBtnHover, setFleeBtnHover] = React.useState<'cancel' | 'flee' | null>(null);
+  const [fleeBtnPress, setFleeBtnPress] = React.useState<'cancel' | 'flee' | null>(null);
+  const F: React.CSSProperties = { fontFamily: "'Segoe UI',system-ui,sans-serif" };
+  const { isPlayerTurn, showSkillsAction, showItemsAction, impulseUnlocked, impulseCapacity, impulseReserveColors,
+    classImpulseBaseColor, absorbGlowColor, usesMagicBasicAttack, usesBowBasicAttack, limitBattleActionsToBasics,
+    shopItems, onAttack, onDefend, onChargeImpulse, onAbsorbImpulse, onSkill, onUseItem, onRequestDungeonExtract,
+    showFleeAction, onFlee } = config;
+
+  const hasAbsorbed = player.impulsoAtivo > 0;
+  const impulseGlowColor = hasAbsorbed ? absorbGlowColor : null;
+
+  React.useEffect(() => {
+    if (activeMenu) {
+      const raf = requestAnimationFrame(() => setMenuVisible(true));
+      return () => cancelAnimationFrame(raf);
+    } else {
+      setMenuVisible(false);
+    }
+  }, [activeMenu]);
+
+  const containerRef = React.useRef<HTMLDivElement>(null);
+
+  const closeMenu = () => { setActiveMenu(null); setInfoPopup(null); };
+
+  // Flee modal animation
+  React.useEffect(() => {
+    if (showFleeConfirm) {
+      const raf = requestAnimationFrame(() => setFleeModalVisible(true));
+      return () => cancelAnimationFrame(raf);
+    } else {
+      setFleeModalVisible(false);
+      setFleeBtnHover(null);
+      setFleeBtnPress(null);
+    }
+  }, [showFleeConfirm]);
+  const press = (id: string) => setPressedBtn(id);
+  const release = () => setPressedBtn(null);
+
+  // Click-outside: close desktop dropdown when clicking anywhere outside the container
+  React.useEffect(() => {
+    if (isMobile || activeMenu === null) return;
+    const handler = (e: PointerEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        closeMenu();
+      }
+    };
+    const timer = setTimeout(() => document.addEventListener('pointerdown', handler), 30);
+    return () => { clearTimeout(timer); document.removeEventListener('pointerdown', handler); };
+  }, [isMobile, activeMenu]);
+
+  // Size config: mobile = large touch targets, desktop = compact
+  const S = isMobile
+    ? { w: '240px', gap: '9px', btnFont: '14px', btnIcon: 46, btnIco: 22, btnGap: '13px', btnPad: '12px 16px 12px 11px', btnR: '18px', btnIcoR: 13, absFont: '14px', absIco: 19, absSub: '10px', dotW: '28px', dotH: '10px', dotGap: '5px', absGap: '10px', absPad: '12px 16px', absIconS: 36, absIconR: 11 }
+    : { w: '155px', gap: '4px', btnFont: '9px', btnIcon: 26, btnIco: 13, btnGap: '7px', btnPad: '6px 9px 6px 6px', btnR: '10px', btnIcoR: 7, absFont: '9px', absIco: 11, absSub: '7px', dotW: '16px', dotH: '5px', dotGap: '3px', absGap: '6px', absPad: '6px 9px', absIconS: 20, absIconR: 6 };
+
+  const btn = (id: string, color: string, disabled: boolean, onClick: () => void, icon: React.ReactNode, label: string, forceColor?: string) => {
+    const isPressed = pressedBtn === id && !disabled;
+    const gc = forceColor ?? (impulseGlowColor && !disabled ? impulseGlowColor : null);
+    const effectiveColor = gc ?? color;
+    return (
+      <button onClick={onClick} disabled={disabled}
+        onPointerDown={() => !disabled && press(id)}
+        onPointerUp={release} onPointerLeave={release} onPointerCancel={release}
+        style={{
+          display: 'flex', alignItems: 'center', gap: S.btnGap,
+          background: 'rgba(8,5,22,0.55)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)',
+          border: `1.5px solid ${disabled ? 'rgba(255,255,255,0.10)' : effectiveColor + '70'}`,
+          borderRadius: S.btnR, padding: S.btnPad,
+          cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.42 : 1,
+          boxShadow: disabled ? '0 4px 12px rgba(0,0,0,0.25)'
+            : gc ? `0 0 22px ${gc}55, 0 0 8px ${gc}33, 0 4px 18px rgba(0,0,0,0.35)`
+            : `0 0 18px ${color}22, 0 4px 16px rgba(0,0,0,0.35)`,
+          transform: isPressed ? 'scale(0.92)' : 'scale(1)',
+          transition: 'transform 0.13s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.25s ease, border-color 0.25s ease',
+          width: '100%', ...F
+        }}>
+        <div style={{
+          width: S.btnIcon, height: S.btnIcon, borderRadius: S.btnIcoR, flexShrink: 0,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: disabled ? 'rgba(255,255,255,0.05)' : gc ? `${gc}28` : `${color}22`,
+          border: `1.5px solid ${disabled ? 'rgba(255,255,255,0.10)' : effectiveColor + '55'}`,
+          color: disabled ? 'rgba(255,255,255,0.25)' : effectiveColor,
+          boxShadow: gc && !disabled ? `0 0 14px ${gc}66` : 'none',
+          transition: 'all 0.25s ease'
+        }}>{icon}</div>
+        <span style={{ fontSize: S.btnFont, fontWeight: 900, textTransform: 'uppercase' as const, letterSpacing: '0.11em', color: disabled ? 'rgba(255,255,255,0.28)' : '#fff', whiteSpace: 'nowrap' }}>{label}</span>
+      </button>
+    );
+  };
+
+  const MAX_SKILL_SLOTS = getClassSlots(player.classId).skills;
+  const skillIds = [...(player.equippedSkillIds ?? [])];
+  while (skillIds.length < MAX_SKILL_SLOTS) skillIds.push('');
+  const ic = '#fb923c';
+  const itemSlots = player.equippedItemSlots ?? [];
+
+  // ── Inline item badge helper ──
+  const getItemBadges = (item: { id: string; description?: string; value?: number; duration?: number }) => {
+    const lower = (item.description ?? '').toLowerCase();
+    if (['pot_2','pot_mana_2','pot_mana_3','pot_dg_mana'].includes(item.id))
+      return [{ label: `+${item.value} MP`, color: '#7dd3fc', bg: 'rgba(7,89,133,0.30)', border: 'rgba(125,211,252,0.30)' }];
+    if (item.id === 'pot_atk') return [{ label: `ATK↑`, color: '#f87171', bg: 'rgba(127,29,29,0.30)', border: 'rgba(248,113,113,0.30)' }, { label: `${item.duration ?? 3}t`, color: '#fcd34d', bg: 'rgba(120,53,15,0.30)', border: 'rgba(252,211,77,0.28)' }];
+    if (item.id === 'pot_def') return [{ label: `DEF↑`, color: '#93c5fd', bg: 'rgba(30,58,95,0.30)', border: 'rgba(147,197,253,0.30)' }, { label: `${item.duration ?? 3}t`, color: '#fcd34d', bg: 'rgba(120,53,15,0.30)', border: 'rgba(252,211,77,0.28)' }];
+    if (lower.includes('hp') || lower.includes('vida') || lower.includes('cura') || lower.includes('restaura'))
+      return [{ label: `+${item.value} HP`, color: '#86efac', bg: 'rgba(20,83,45,0.30)', border: 'rgba(134,239,172,0.28)' }];
+    if (lower.includes('mp') || lower.includes('mana') || lower.includes('energia'))
+      return [{ label: `+${item.value} MP`, color: '#7dd3fc', bg: 'rgba(7,89,133,0.30)', border: 'rgba(125,211,252,0.28)' }];
+    if ((item.duration ?? 0) > 0)
+      return [{ label: 'BOOST', color: '#fcd34d', bg: 'rgba(120,53,15,0.30)', border: 'rgba(252,211,77,0.28)' }, { label: `${item.duration}t`, color: '#fcd34d', bg: 'rgba(120,53,15,0.20)', border: 'rgba(252,211,77,0.18)' }];
+    return [{ label: 'ESPECIAL', color: '#c4b5fd', bg: 'rgba(76,29,149,0.30)', border: 'rgba(196,181,253,0.28)' }];
+  };
+
+  const rowSlotFont = isMobile ? '9px' : '8px';
+  const rowNameFont = isMobile ? '13px' : '11px';
+  const rowBadgeFont = isMobile ? '9px' : '8px';
+  const rowIconSize = isMobile ? 34 : 26;
+
+  // ── Shared skill rows ──
+  const skillRows = (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+      {skillIds.map((skillId, i) => {
+        const skill = skillId ? player.skills.find(s => s.id === skillId) : null;
+        const tc = skill?.type === 'physical' ? '#f87171' : skill?.type === 'magic' ? '#c4b5fd' : '#86efac';
+        const tbg = skill?.type === 'physical' ? 'rgba(248,113,113,0.16)' : skill?.type === 'magic' ? 'rgba(196,181,253,0.16)' : 'rgba(134,239,172,0.16)';
+        const tLabel = skill?.type === 'physical' ? 'Físico' : skill?.type === 'magic' ? 'Magia' : 'Cura';
+        const TIcon = skill?.type === 'physical' ? <Sword size={13} /> : skill?.type === 'magic' ? <Sparkles size={13} /> : <Heart size={13} />;
+        const rCost = skill?.resourceEffect?.cost ?? 0;
+        const hasRes = player.classResource.value >= rCost;
+        const mp = skill ? (player.impulsoAtivo >= 1 ? Math.max(1, Math.floor(skill.manaCost * 0.7)) : skill.manaCost) : 0;
+        const canCast = !!skill && isPlayerTurn && player.stats.mp >= mp && hasRes;
+        const isEmpty = !skill;
+        const infoOpen = infoPopup?.type === 'skill' && infoPopup?.id === skillId && !!skill;
+        return (
+          <div key={i}>
+            <div style={{ display: 'flex', alignItems: 'stretch', gap: '4px' }}>
+              <button onClick={() => { if (skill && canCast) { onSkill(skill); closeMenu(); } }} disabled={!canCast}
+                style={{ display: 'flex', alignItems: 'center', gap: '9px', borderRadius: '10px', border: isEmpty ? '1px solid rgba(255,255,255,0.09)' : canCast ? `1.5px solid ${tc}55` : '1px solid rgba(255,255,255,0.09)', background: isEmpty ? 'rgba(0,0,0,0.18)' : canCast ? tbg : 'rgba(0,0,0,0.28)', padding: '7px 10px', flex: 1, minWidth: 0, cursor: canCast ? 'pointer' : 'default', textAlign: 'left' as const, opacity: !isEmpty && !canCast ? 0.5 : 1, ...F }}>
+                <div style={{ width: rowIconSize, height: rowIconSize, flexShrink: 0, borderRadius: 7, border: isEmpty ? '1px solid rgba(255,255,255,0.10)' : `1.5px solid ${tc}55`, background: isEmpty ? 'rgba(0,0,0,0.25)' : `${tc}22`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: isEmpty ? 'rgba(255,255,255,0.20)' : tc }}>{skill ? TIcon : <Sparkles size={12} />}</div>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{ fontSize: rowSlotFont, fontWeight: 800, textTransform: 'uppercase' as const, letterSpacing: '0.18em', color: 'rgba(255,255,255,0.35)', lineHeight: 1 }}>Slot {i + 1}</div>
+                  <div style={{ fontSize: rowNameFont, fontWeight: 900, color: skill ? '#fff' : 'rgba(255,255,255,0.30)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const, lineHeight: 1.3 }}>{skill ? skill.name : 'Vazio'}</div>
+                  {skill && <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap', marginTop: '3px' }}>
+                    <span style={{ fontSize: rowBadgeFont, fontWeight: 800, padding: '2px 5px', borderRadius: '99px', background: `${tc}20`, border: `1px solid ${tc}44`, color: tc, lineHeight: 1 }}>{tLabel}</span>
+                    <span style={{ fontSize: rowBadgeFont, fontWeight: 700, padding: '2px 5px', borderRadius: '99px', background: 'rgba(56,189,248,0.15)', border: '1px solid rgba(56,189,248,0.38)', color: '#38bdf8', lineHeight: 1, display: 'inline-flex', alignItems: 'center', gap: '2px' }}><Zap size={8} />{mp} MP</span>
+                    {rCost > 0 && <span style={{ fontSize: rowBadgeFont, fontWeight: 700, padding: '2px 5px', borderRadius: '99px', background: hasRes ? `${player.classResource.color}20` : 'rgba(239,68,68,0.15)', border: `1px solid ${hasRes ? player.classResource.color + '44' : 'rgba(239,68,68,0.35)'}`, color: hasRes ? player.classResource.color : '#f87171', lineHeight: 1 }}>{rCost} {skill.resourceLabel || player.classResource.name}</span>}
+                  </div>}
+                </div>
+              </button>
+              <button onClick={(e) => { e.stopPropagation(); setInfoPopup(prev => (prev?.id === skillId && prev?.type === 'skill') ? null : (skill ? { type: 'skill', id: skillId } : null)); }} disabled={!skill}
+                style={{ width: 28, flexShrink: 0, borderRadius: '8px', border: skill ? `1px solid ${tc}44` : '1px solid rgba(255,255,255,0.08)', background: infoOpen ? `${tc}25` : 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: skill ? 'pointer' : 'default', color: skill ? tc : 'rgba(255,255,255,0.18)', alignSelf: 'stretch' }}>
+                <Info size={11} />
+              </button>
+            </div>
+            {infoOpen && <div style={{ marginTop: '4px', borderRadius: '9px', background: `${tc}10`, border: `1px solid ${tc}33`, padding: '7px 9px' }}>
+              <div style={{ fontSize: rowBadgeFont, fontWeight: 900, textTransform: 'uppercase' as const, letterSpacing: '0.18em', color: tc, marginBottom: '3px' }}>{skill!.name}</div>
+              <div style={{ fontSize: rowSlotFont, color: 'rgba(255,255,255,0.80)', lineHeight: 1.5 }}>{skill!.description}</div>
+            </div>}
+          </div>
+        );
+      })}
+    </div>
+  );
+
+  // ── Shared item rows ──
+  const itemRows = (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+      {Array.from({ length: 4 }, (_, i) => {
+        const slot = itemSlots[i] ?? { itemId: '', qty: 0 };
+        const isEmpty = !slot.itemId;
+        const hasItem = !isEmpty && slot.qty > 0;
+        const itemDef = isEmpty ? null : (ALL_ITEMS.find(it => it.id === slot.itemId) ?? shopItems.find(it => it.id === slot.itemId) ?? null);
+        const isDgRecall = slot.itemId === 'pot_dg_recall';
+        const iOpen = infoPopup?.type === 'item' && infoPopup?.id === slot.itemId && !!itemDef;
+        const badges = itemDef ? getItemBadges(itemDef as any) : [];
+        return (
+          <div key={i}>
+            <div style={{ display: 'flex', alignItems: 'stretch', gap: '4px' }}>
+              <button disabled={!isPlayerTurn || isEmpty || slot.qty <= 0}
+                onClick={() => { if (!hasItem || !itemDef) return; if (isDgRecall && onRequestDungeonExtract) { onRequestDungeonExtract(itemDef); closeMenu(); return; } onUseItem(slot.itemId); closeMenu(); }}
+                style={{ display: 'flex', alignItems: 'center', gap: '9px', borderRadius: '10px', border: hasItem ? `1.5px solid ${ic}55` : '1px solid rgba(255,255,255,0.09)', background: hasItem ? 'rgba(251,146,60,0.14)' : 'rgba(0,0,0,0.18)', padding: '7px 10px', flex: 1, minWidth: 0, cursor: hasItem ? 'pointer' : 'default', textAlign: 'left' as const, opacity: isEmpty ? 0.38 : !isPlayerTurn ? 0.55 : 1, ...F }}>
+                <div style={{ width: rowIconSize, height: rowIconSize, flexShrink: 0, borderRadius: 7, border: hasItem ? `1.5px solid ${ic}55` : '1px solid rgba(255,255,255,0.10)', background: hasItem ? `${ic}22` : 'rgba(0,0,0,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: hasItem ? ic : 'rgba(255,255,255,0.20)', fontSize: '16px' }}>
+                  {itemDef ? <span style={{ lineHeight: 1 }}>{itemDef.icon}</span> : <FlaskConical size={12} />}
+                </div>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{ fontSize: rowSlotFont, fontWeight: 800, textTransform: 'uppercase' as const, letterSpacing: '0.18em', color: 'rgba(255,255,255,0.35)', lineHeight: 1 }}>Slot {i + 1}</div>
+                  <div style={{ fontSize: rowNameFont, fontWeight: 900, color: hasItem ? '#fff' : 'rgba(255,255,255,0.25)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const, lineHeight: 1.3 }}>{isEmpty ? 'Vazio' : itemDef?.name ?? slot.itemId}</div>
+                  {hasItem && (
+                    <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap', marginTop: '3px', alignItems: 'center' }}>
+                      <span style={{ fontSize: rowBadgeFont, fontWeight: 800, padding: '2px 5px', borderRadius: '99px', background: `${ic}20`, border: `1px solid ${ic}44`, color: ic, lineHeight: 1 }}>{slot.qty}×</span>
+                      {badges.map((b, bi) => (
+                        <span key={bi} style={{ fontSize: rowBadgeFont, fontWeight: 800, padding: '2px 5px', borderRadius: '99px', background: b.bg, border: `1px solid ${b.border}`, color: b.color, lineHeight: 1 }}>{b.label}</span>
+                      ))}
+                    </div>
+                  )}
+                  {!isEmpty && slot.qty === 0 && <span style={{ fontSize: rowBadgeFont, fontWeight: 800, color: 'rgba(255,255,255,0.30)', lineHeight: 1 }}>Esgotado</span>}
+                </div>
+              </button>
+              {itemDef && <button onClick={(e) => { e.stopPropagation(); setInfoPopup(prev => (prev?.id === slot.itemId && prev?.type === 'item') ? null : { type: 'item', id: slot.itemId }); }}
+                style={{ width: 28, flexShrink: 0, borderRadius: '8px', border: `1px solid ${ic}44`, background: iOpen ? `${ic}25` : 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: ic, alignSelf: 'stretch' }}>
+                <Info size={11} />
+              </button>}
+            </div>
+            {iOpen && <div style={{ marginTop: '4px', borderRadius: '9px', background: `${ic}10`, border: `1px solid ${ic}33`, padding: '7px 9px' }}>
+              <div style={{ fontSize: rowBadgeFont, fontWeight: 900, textTransform: 'uppercase' as const, color: ic, marginBottom: '3px' }}>{itemDef!.name}</div>
+              <div style={{ fontSize: rowSlotFont, color: 'rgba(255,255,255,0.78)', lineHeight: 1.5 }}>{itemDef!.description}</div>
+            </div>}
+          </div>
+        );
+      })}
+    </div>
+  );
+
+  /* Mobile: portal backdrop; Desktop: inline dropdown */
+  const bdStyle: React.CSSProperties = { position: 'fixed', inset: '0', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)' };
+  const cardStyle: React.CSSProperties = { width: 'min(92vw, 390px)', borderRadius: '26px', background: 'rgba(10,6,26,0.72)', backdropFilter: 'blur(48px)', WebkitBackdropFilter: 'blur(48px)', border: '1px solid rgba(255,255,255,0.20)', padding: '24px', boxShadow: '0 32px 80px rgba(0,0,0,0.45)', transform: menuVisible ? 'scale(1)' : 'scale(0.80)', opacity: menuVisible ? 1 : 0, transition: 'transform 0.24s cubic-bezier(0.34,1.56,0.64,1), opacity 0.18s ease', ...F };
+  const deskDrop: React.CSSProperties = { position: 'absolute', bottom: 'calc(100% + 8px)', left: 0, zIndex: 50, width: '260px', borderRadius: '16px', background: 'rgba(8,5,22,0.88)', backdropFilter: 'blur(28px)', WebkitBackdropFilter: 'blur(28px)', border: '1px solid rgba(255,255,255,0.18)', padding: '12px', boxShadow: '0 20px 56px rgba(0,0,0,0.60)', transform: menuVisible ? 'scale(1)' : 'scale(0.90)', opacity: menuVisible ? 1 : 0, transformOrigin: 'bottom left', transition: 'transform 0.20s cubic-bezier(0.34,1.56,0.64,1), opacity 0.16s ease', ...F };
+  const deskDropHeader = (title: string, icon: React.ReactNode) => (
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+      <span style={{ fontSize: '10px', fontWeight: 900, textTransform: 'uppercase' as const, letterSpacing: '0.22em', color: 'rgba(255,255,255,0.55)', display: 'inline-flex', alignItems: 'center', gap: '7px' }}>{icon}{title}</span>
+      <button onClick={closeMenu} style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '8px', padding: '5px 8px', cursor: 'pointer', color: 'rgba(255,255,255,0.55)', display: 'flex', alignItems: 'center' }}><X size={12} /></button>
+    </div>
+  );
+
+  return (
+    <div ref={containerRef} style={{ display: 'flex', flexDirection: 'column', gap: S.gap, width: S.w, ...F }}>
+
+      {/* ── Mobile: full-screen portals ── */}
+      {isMobile && showSkillsAction && !limitBattleActionsToBasics && activeMenu === 'skills' && createPortal(
+        <div style={bdStyle} onClick={closeMenu}>
+          <div style={cardStyle} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <span style={{ fontSize: '13px', fontWeight: 900, textTransform: 'uppercase' as const, letterSpacing: '0.22em', color: 'rgba(255,255,255,0.60)', display: 'inline-flex', alignItems: 'center', gap: '8px' }}><Sparkles size={16} style={{ color: '#c4b5fd' }} /> Habilidades</span>
+              <button onClick={closeMenu} style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.18)', borderRadius: '10px', padding: '7px 10px', cursor: 'pointer', color: 'rgba(255,255,255,0.60)', display: 'flex', alignItems: 'center' }}><X size={15} /></button>
+            </div>
+            {skillRows}
+          </div>
+        </div>,
+        document.body
+      )}
+      {isMobile && showItemsAction && !limitBattleActionsToBasics && activeMenu === 'items' && createPortal(
+        <div style={bdStyle} onClick={closeMenu}>
+          <div style={cardStyle} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: 900, textTransform: 'uppercase' as const, letterSpacing: '0.22em', color: 'rgba(255,255,255,0.65)' }}><FlaskConical size={16} color={ic} /> Itens de Batalha</span>
+              <button onClick={closeMenu} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.16)', background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.60)', cursor: 'pointer' }}><X size={15} /></button>
+            </div>
+            {itemRows}
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Impulse dots */}
+      {impulseUnlocked && (
+        <div style={{ display: 'flex', justifyContent: 'center', gap: S.dotGap, marginBottom: '2px' }}>
+          {Array.from({ length: impulseCapacity }, (_, slot) => {
+            const filled = player.impulso > slot;
+            return <span key={slot} style={{ display: 'inline-block', width: S.dotW, height: S.dotH, borderRadius: '5px', border: filled ? '1.5px solid rgba(255,255,255,0.85)' : '1.5px solid rgba(255,255,255,0.18)', background: filled ? `linear-gradient(135deg,${impulseReserveColors[slot]},${impulseReserveColors[slot]}cc)` : 'rgba(255,255,255,0.05)', boxShadow: filled ? `0 0 8px ${impulseReserveColors[slot]}` : 'none', transition: 'all 0.25s ease' }} />;
+          })}
+        </div>
+      )}
+
+      {/* Absorver */}
+      {impulseUnlocked && player.impulso > 0 && (() => {
+        const d = !isPlayerTurn || player.impulsoAtivo >= impulseCapacity;
+        const isPressed = pressedBtn === 'absorver' && !d;
+        return (
+          <button onClick={() => { closeMenu(); onAbsorbImpulse(); }} disabled={d}
+            onPointerDown={() => !d && press('absorver')}
+            onPointerUp={release} onPointerLeave={release} onPointerCancel={release}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: S.absGap,
+              borderRadius: S.btnR, padding: S.absPad,
+              background: d ? `${absorbGlowColor}08` : `linear-gradient(135deg, ${absorbGlowColor}28, ${absorbGlowColor}14)`,
+              backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)',
+              border: d ? `1.5px solid ${absorbGlowColor}22` : `1.5px solid ${absorbGlowColor}88`,
+              cursor: d ? 'default' : 'pointer', opacity: d ? 0.5 : 1,
+              boxShadow: d ? 'none' : `0 0 20px ${absorbGlowColor}55, 0 0 8px ${absorbGlowColor}33, 0 4px 16px rgba(0,0,0,0.30)`,
+              transform: isPressed ? 'scale(0.92)' : 'scale(1)',
+              transition: 'transform 0.13s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.25s ease',
+              width: '100%', ...F
+            }}>
+            <div style={{ width: S.absIconS, height: S.absIconS, borderRadius: S.absIconR, display: 'flex', alignItems: 'center', justifyContent: 'center', background: d ? `${absorbGlowColor}12` : `${absorbGlowColor}35`, border: `1.5px solid ${d ? absorbGlowColor + '28' : absorbGlowColor + '77'}`, color: d ? `${absorbGlowColor}66` : absorbGlowColor, boxShadow: d ? 'none' : `0 0 12px ${absorbGlowColor}55`, flexShrink: 0 }}>
+              <Zap size={S.absIco} />
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+              <span style={{ fontSize: S.absFont, fontWeight: 900, textTransform: 'uppercase' as const, letterSpacing: '0.10em', color: d ? `${absorbGlowColor}66` : '#fff', lineHeight: 1.1 }}>Absorver</span>
+              <span style={{ fontSize: S.absSub, fontWeight: 700, color: d ? `${absorbGlowColor}44` : absorbGlowColor, letterSpacing: '0.08em', lineHeight: 1.2 }}>Ativar impulso</span>
+            </div>
+          </button>
+        );
+      })()}
+
+      {/* Impulso */}
+      {impulseUnlocked && (() => {
+        const d = !isPlayerTurn || player.impulso >= impulseCapacity;
+        return btn('imp', classImpulseBaseColor, d, () => { closeMenu(); onChargeImpulse(); }, <Zap size={S.btnIco} />, 'IMPULSO', classImpulseBaseColor);
+      })()}
+
+      {/* Atacar */}
+      {btn('atk', '#f43f5e', !isPlayerTurn, () => { closeMenu(); onAttack(); },
+        usesMagicBasicAttack ? <Sparkles size={S.btnIco} /> : usesBowBasicAttack ? <Crosshair size={S.btnIco} /> : <Sword size={S.btnIco} />,
+        usesMagicBasicAttack ? 'MAGIA' : 'ATACAR')}
+
+      {/* Defender */}
+      {btn('def', '#3b82f6', !isPlayerTurn, () => { closeMenu(); onDefend(); }, <Shield size={S.btnIco} />, 'DEFENDER')}
+
+      {/* Habilidades — desktop: inline dropdown; mobile: portal */}
+      {showSkillsAction && !limitBattleActionsToBasics && (() => {
+        const sc = '#a855f7';
+        const noSkills = skillIds.every(id => !id);
+        const d = !isPlayerTurn || noSkills;
+        if (!isMobile) {
+          return (
+            <div style={{ position: 'relative' }}>
+              {activeMenu === 'skills' && <div style={deskDrop}>{deskDropHeader('Habilidades', <Sparkles size={13} style={{ color: '#c4b5fd' }} />)}{skillRows}</div>}
+              {btn('ski', sc, d, () => setActiveMenu(prev => prev === 'skills' ? null : 'skills'), <Sparkles size={S.btnIco} />, 'HABILIDADES')}
+            </div>
+          );
+        }
+        return btn('ski', sc, d, () => setActiveMenu(prev => prev === 'skills' ? null : 'skills'), <Sparkles size={S.btnIco} />, 'HABILIDADES');
+      })()}
+
+      {/* Itens — desktop: inline dropdown; mobile: portal */}
+      {showItemsAction && !limitBattleActionsToBasics && (() => {
+        const noItems = itemSlots.every(s => !s.itemId || s.qty <= 0);
+        const d = !isPlayerTurn || noItems;
+        if (!isMobile) {
+          return (
+            <div style={{ position: 'relative' }}>
+              {activeMenu === 'items' && <div style={deskDrop}>{deskDropHeader('Itens de Batalha', <FlaskConical size={12} color={ic} />)}{itemRows}</div>}
+              {btn('itm', ic, d, () => { setInfoPopup(null); setActiveMenu(prev => prev === 'items' ? null : 'items'); }, <FlaskConical size={S.btnIco} />, 'ITENS', ic)}
+            </div>
+          );
+        }
+        return btn('itm', ic, d, () => { setInfoPopup(null); setActiveMenu(prev => prev === 'items' ? null : 'items'); }, <FlaskConical size={S.btnIco} />, 'ITENS', ic);
+      })()}
+
+      {/* Fugir — modal portal com animação */}
+      {showFleeAction && showFleeConfirm && createPortal(
+        <div
+          style={{
+            position: 'fixed', inset: 0, zIndex: 9999,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: fleeModalVisible ? 'rgba(0,0,0,0.52)' : 'rgba(0,0,0,0)',
+            backdropFilter: fleeModalVisible ? 'blur(14px)' : 'blur(0px)',
+            WebkitBackdropFilter: fleeModalVisible ? 'blur(14px)' : 'blur(0px)',
+            transition: 'background 0.22s ease, backdrop-filter 0.22s ease, -webkit-backdrop-filter 0.22s ease',
+          }}
+          onClick={() => setShowFleeConfirm(false)}
+        >
+          <style>{`@keyframes _flee_icon { 0%,100%{transform:scale(1) rotate(0deg)} 35%{transform:scale(1.18) rotate(-10deg)} 65%{transform:scale(1.09) rotate(5deg)} }`}</style>
+          <div
+            style={{
+              width: 'min(88vw,320px)', borderRadius: '24px',
+              background: 'rgba(10,6,24,0.92)',
+              backdropFilter: 'blur(44px)', WebkitBackdropFilter: 'blur(44px)',
+              border: '1px solid rgba(156,163,175,0.26)',
+              padding: '28px 22px 22px',
+              boxShadow: '0 28px 72px rgba(0,0,0,0.65)',
+              transform: fleeModalVisible ? 'scale(1) translateY(0px)' : 'scale(0.86) translateY(22px)',
+              opacity: fleeModalVisible ? 1 : 0,
+              transition: 'transform 0.28s cubic-bezier(0.34,1.56,0.64,1), opacity 0.22s ease',
+              ...F
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              width: 54, height: 54, borderRadius: 16,
+              background: 'rgba(156,163,175,0.11)', border: '1.5px solid rgba(156,163,175,0.28)',
+              margin: '0 auto 18px', color: '#9ca3af',
+              animation: fleeModalVisible ? '_flee_icon 0.52s ease 0.16s both' : 'none',
+            }}>
+              <LogOut size={24} />
+            </div>
+            <div style={{ fontSize: '17px', fontWeight: 900, color: '#f3f4f6', textAlign: 'center' as const, marginBottom: '8px', letterSpacing: '-0.01em' }}>Fugir da batalha?</div>
+            <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.44)', textAlign: 'center' as const, marginBottom: '24px', lineHeight: 1.55 }}>Você vai gastar 50 de ouro para escapar.</div>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                onMouseEnter={() => setFleeBtnHover('cancel')}
+                onMouseLeave={() => { setFleeBtnHover(null); setFleeBtnPress(null); }}
+                onPointerDown={() => setFleeBtnPress('cancel')}
+                onPointerUp={() => setFleeBtnPress(null)}
+                onClick={() => setShowFleeConfirm(false)}
+                style={{ flex: 1, padding: '12px', borderRadius: '13px', border: '1px solid rgba(255,255,255,0.15)', background: fleeBtnHover === 'cancel' ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.06)', cursor: 'pointer', color: 'rgba(255,255,255,0.62)', fontSize: '13px', fontWeight: 800, transform: fleeBtnPress === 'cancel' ? 'scale(0.94)' : 'scale(1)', transition: 'transform 0.12s cubic-bezier(0.34,1.56,0.64,1), background 0.15s ease', outline: 'none', ...F }}
+              >Cancelar</button>
+              <button
+                onMouseEnter={() => setFleeBtnHover('flee')}
+                onMouseLeave={() => { setFleeBtnHover(null); setFleeBtnPress(null); }}
+                onPointerDown={() => setFleeBtnPress('flee')}
+                onPointerUp={() => setFleeBtnPress(null)}
+                onClick={() => { setShowFleeConfirm(false); onFlee(); }}
+                style={{ flex: 1, padding: '12px', borderRadius: '13px', border: '1px solid rgba(156,163,175,0.42)', background: fleeBtnHover === 'flee' ? 'rgba(156,163,175,0.26)' : 'rgba(156,163,175,0.13)', cursor: 'pointer', color: '#e5e7eb', fontSize: '13px', fontWeight: 900, transform: fleeBtnPress === 'flee' ? 'scale(0.94)' : fleeBtnHover === 'flee' ? 'scale(1.03)' : 'scale(1)', transition: 'transform 0.12s cubic-bezier(0.34,1.56,0.64,1), background 0.15s ease, box-shadow 0.15s ease', boxShadow: fleeBtnHover === 'flee' ? '0 4px 18px rgba(156,163,175,0.22)' : 'none', outline: 'none', ...F }}
+              >Fugir</button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+      {showFleeAction && btn('fug', '#9ca3af', !isPlayerTurn, () => setShowFleeConfirm(true), <LogOut size={S.btnIco} />, 'FUGIR', '#9ca3af')}
+    </div>
+  );
+};
 
 interface SceneProps {
   enemyColor: string;
@@ -186,6 +625,8 @@ interface SceneProps {
   /** When set, the battle renders a GLTF monster model instead of the FBX skeleton. */
   enemyGltfModelUrl?: string;
   enemyGltfBodyType?: GltfMonsterBodyType;
+  /** Mobile-only battle action panel rendered via <Html> in 3D space next to the hero. */
+  battleActionsConfig?: BattleActionsConfig;
 }
 
 // --- MAIN COMPONENTS ---
@@ -2588,7 +3029,7 @@ const HeroInspectCanvas = ({
   // Hero model origin is at (-2, -1, 0); model is ~2.2u tall → head ≈ y 1.2
   // Equipment panel anchored at mid-body height, right of hero (closer to model)
   // Mobile: panel closer to hero on the right side
-  const equipX = isMobile ? -0.70 : 0.30;
+  const equipX = isMobile ? -0.70 : -0.55;
   // On mobile, stats card is fixed near top; equipment card is always a set distance below it
   const statsX = isMobile ? equipX : -2.0;
   const statsY = isMobile ? 2.0 : 2.0;
@@ -2611,13 +3052,13 @@ const HeroInspectCanvas = ({
         style={{ pointerEvents: 'none' }}>
         <div style={{ ...font, width: '220px' }}>
           <div style={{
-            background: 'rgba(6,4,18,0.52)',
-            backdropFilter: 'blur(24px)',
-            WebkitBackdropFilter: 'blur(24px)',
+            background: 'rgba(8,5,22,0.38)',
+            backdropFilter: 'blur(28px)',
+            WebkitBackdropFilter: 'blur(28px)',
             borderRadius: '16px',
-            border: `2px solid ${accentColor}90`,
+            border: `2px solid ${accentColor}70`,
             padding: '12px 14px',
-            boxShadow: `0 10px 40px rgba(0,0,0,0.70), 0 0 0 1px ${accentColor}20, 0 0 32px ${accentColor}40`,
+            boxShadow: `0 10px 40px rgba(0,0,0,0.45), 0 0 0 1px ${accentColor}18, 0 0 28px ${accentColor}30`,
           }}>
             {/* Class icon + name + level */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
@@ -2709,9 +3150,9 @@ const HeroInspectCanvas = ({
           {/* ── Equipment Card ── */}
           <div style={{
             borderRadius: '16px',
-            background: isMobile ? 'rgba(6,4,18,0.78)' : 'rgba(6,4,18,0.62)',
-            backdropFilter: 'blur(22px)',
-            WebkitBackdropFilter: 'blur(22px)',
+            background: 'rgba(8,5,22,0.40)',
+            backdropFilter: 'blur(28px)',
+            WebkitBackdropFilter: 'blur(28px)',
             border: '1px solid rgba(255,255,255,0.14)',
             padding: '10px',
             boxSizing: 'border-box' as const,
@@ -2786,9 +3227,9 @@ const HeroInspectCanvas = ({
           {/* ── Attributes Card ── */}
           <div style={{
             borderRadius: '16px',
-            background: isMobile ? 'rgba(6,4,18,0.78)' : 'rgba(6,4,18,0.62)',
-            backdropFilter: 'blur(22px)',
-            WebkitBackdropFilter: 'blur(22px)',
+            background: 'rgba(8,5,22,0.40)',
+            backdropFilter: 'blur(28px)',
+            WebkitBackdropFilter: 'blur(28px)',
             border: '1px solid rgba(255,255,255,0.14)',
             padding: '10px',
             boxSizing: 'border-box' as const,
@@ -2976,9 +3417,9 @@ const HeroInspectCanvas = ({
             return (
               <div style={{
                 borderRadius: '16px',
-                background: isMobile ? 'rgba(6,4,18,0.78)' : 'rgba(6,4,18,0.62)',
-                backdropFilter: 'blur(22px)',
-                WebkitBackdropFilter: 'blur(22px)',
+                background: 'rgba(8,5,22,0.40)',
+                backdropFilter: 'blur(28px)',
+                WebkitBackdropFilter: 'blur(28px)',
                 border: '1px solid rgba(255,255,255,0.14)',
                 padding: '10px',
                 boxSizing: 'border-box' as const,
@@ -3085,9 +3526,9 @@ const HeroInspectCanvas = ({
             return (
               <div style={{
                 borderRadius: '16px',
-                background: isMobile ? 'rgba(6,4,18,0.78)' : 'rgba(6,4,18,0.62)',
-                backdropFilter: 'blur(22px)',
-                WebkitBackdropFilter: 'blur(22px)',
+                background: 'rgba(8,5,22,0.40)',
+                backdropFilter: 'blur(28px)',
+                WebkitBackdropFilter: 'blur(28px)',
                 border: '1px solid rgba(255,255,255,0.14)',
                 padding: '10px',
                 boxSizing: 'border-box' as const,
@@ -3199,7 +3640,7 @@ const HeroInspectCanvas = ({
   );
 };
 
-const HeroVoxel = ({ classId = 'knight', playerAnimationAction = 'idle', animationClipName, preferredAnimationBundle, onAvailableAnimationClipsChange, loadAllAnimationBundles = false, loadSecondaryAnimationBundles = true, previewLoopAllActions = false, isAttacking, isDefending, weaponId, armorId, helmetId, legsId, shieldId, isLevelingUp, levelUpCardCategory = 'especial', isMenuView = false, isHit, isPlayerCritHit, hasPerfectEvadeAura, hasDoubleAttackAura, impulseLevel = 0, activeImpulseLevel = 0, contactShadowResolution = 256, idlePositionX = -2, attackPositionX = 0.5, defendPositionX = -1.5, idlePositionY = -1, attackPositionY = -1, defendPositionY = -1, originPosition = [-2, -1, 0], baseRotationY = 0.5, hiddenPartSlots, visiblePartSlots, runtimeAssetsOverride, calibrationOverride, debugRuntimeId, debugRuntimeLabel, onRuntimeDiagnosticChange, statusOverlay, onHeroClick, playerState }: any) => {
+const HeroVoxel = ({ classId = 'knight', playerAnimationAction = 'idle', animationClipName, preferredAnimationBundle, onAvailableAnimationClipsChange, loadAllAnimationBundles = false, loadSecondaryAnimationBundles = true, previewLoopAllActions = false, isAttacking, isDefending, weaponId, armorId, helmetId, legsId, shieldId, isLevelingUp, levelUpCardCategory = 'especial', isMenuView = false, isHit, isPlayerCritHit, hasPerfectEvadeAura, hasDoubleAttackAura, impulseLevel = 0, activeImpulseLevel = 0, contactShadowResolution = 256, idlePositionX = -2, attackPositionX = 0.5, defendPositionX = -1.5, idlePositionY = -1, attackPositionY = -1, defendPositionY = -1, originPosition = [-2, -1, 0], baseRotationY = 0.5, hiddenPartSlots, visiblePartSlots, runtimeAssetsOverride, calibrationOverride, debugRuntimeId, debugRuntimeLabel, onRuntimeDiagnosticChange, statusOverlay, onHeroClick, playerState, isPlayerTurn = false }: any) => {
   const playerClass = getPlayerClassById(classId);
   const runtimeHeroAssets = runtimeAssetsOverride ?? (hasRuntimeFbxAssets(playerClass.assets) ? playerClass.assets : null);
   const group = useRef<THREE.Group>(null);
@@ -3208,6 +3649,7 @@ const HeroVoxel = ({ classId = 'knight', playerAnimationAction = 'idle', animati
   const phantomAuraRef = useRef<THREE.Group>(null);
   const twinAuraRef = useRef<THREE.Group>(null);
   const heroHighlightRingRef = useRef<THREE.Mesh>(null);
+  const turnRingRef = useRef<THREE.Mesh>(null);
   const heroHighlightTimeoutRef = useRef<number | null>(null);
   const flashRef = useRef<number>(0);
   const wasHitRef = useRef(false);
@@ -3364,6 +3806,16 @@ const HeroVoxel = ({ classId = 'knight', playerAnimationAction = 'idle', animati
         : 0;
     }
 
+    if (turnRingRef.current) {
+      const mat = turnRingRef.current.material as THREE.MeshBasicMaterial;
+      const showTurn = Boolean(isPlayerTurn) && !isMenuView && !isAttacking;
+      const targetOpacity = showTurn ? 0.55 + Math.sin(state.clock.elapsedTime * 2.6) * 0.20 : 0;
+      mat.opacity = THREE.MathUtils.lerp(mat.opacity, targetOpacity, 0.07);
+      mat.color.set(heroClassColor);
+      const scale = 1 + Math.sin(state.clock.elapsedTime * 2.1) * 0.035;
+      turnRingRef.current.scale.set(scale, scale, 1);
+    }
+
   });
 
   const handleHeroPointerDown = useCallback((event: any) => {
@@ -3518,6 +3970,11 @@ const HeroVoxel = ({ classId = 'knight', playerAnimationAction = 'idle', animati
         <ContactShadows opacity={0.35} scale={3} blur={1.8} far={2} resolution={contactShadowResolution} />
         <pointLight ref={damageLightRef} color="#ef4444" intensity={0} distance={8} decay={2.5} position={[0, 0.8, 0.3]} />
         <pointLight ref={healLightRef} color="#86efac" intensity={0} distance={9} decay={2.5} position={[0, 0.8, 0.3]} />
+        {/* Turn indicator ring — visible during player turn in battle */}
+        <mesh ref={turnRingRef} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.06, 0]}>
+          <ringGeometry args={[0.78, 0.98, 56]} />
+          <meshBasicMaterial color={heroClassColor} transparent opacity={0} depthWrite={false} side={THREE.DoubleSide} />
+        </mesh>
         {onHeroClick ? (
           <>
             <mesh ref={heroHighlightRingRef} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.08, 0]} visible={isHeroHighlighted}>
@@ -4443,6 +4900,7 @@ export const GameScene: React.FC<SceneProps> = (props) => {
             impulseLevel={props.impulseLevel}
             activeImpulseLevel={props.activeImpulseLevel}
             playerState={props.playerState}
+            isPlayerTurn={props.battleActionsConfig?.isPlayerTurn ?? false}
             contactShadowResolution={quality.contactShadowResolution}
             loadSecondaryAnimationBundles
             onHeroClick={props.onMenuHeroClick}
@@ -4466,6 +4924,19 @@ export const GameScene: React.FC<SceneProps> = (props) => {
             />
           </Suspense>
         ) : null}
+
+        {/* ── Battle actions: Html3D panel next to hero (player turn, non-menu, all devices) ── */}
+        {!props.isMenuView && props.battleActionsConfig && props.playerState && props.battleActionsConfig.isPlayerTurn && (
+          <Html
+            position={isDungeonRun && activeScenarioConfig
+              ? [dungeonHeroBasePosition[0] + 0.5, dungeonHeroBasePosition[1] + 2.0, 0.5]
+              : [-1.2, 1.4, 0.5]}
+            distanceFactor={isMobileDevice ? 7 : 10}
+            zIndexRange={[150, 0]}
+          >
+            <BattleActionsHtml config={props.battleActionsConfig} player={props.playerState} isMobile={isMobileDevice} />
+          </Html>
+        )}
 
         {props.heroInspectMode && props.isMenuView && props.playerState && (
           <HeroInspectCanvas

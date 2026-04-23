@@ -1604,7 +1604,7 @@ export const TavernScreen: React.FC<{
                         100% { opacity: 0; }
                     }
                 `}</style>
-                <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(10,16,28,0.04)_0%,rgba(8,12,18,0.46)_64%,rgba(0,0,0,0.62)_100%)] pointer-events-none" />
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,rgba(0,0,0,0.18)_100%)] pointer-events-none" />
 
                 {/* CLOCK WIDGET � only in forest/mountain */}
                 {sceneRegion === 'forest' && (
@@ -3596,32 +3596,41 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
           </div>
           {/* ── Stage map — mobile only, full width ── */}
           <div className="sm:hidden mt-1.5 px-2">
-              <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-black/50 backdrop-blur-sm px-3 py-2 w-full shadow-[0_8px_24px_rgba(0,0,0,0.4)]">
-                  <span className="shrink-0 text-[9px] font-black uppercase tracking-[0.2em]" style={{ color: stageMapPalette.mid }}>
-                      {stageMapRegionLabel}·{stageMapPhaseNum}
-                  </span>
-                  <div className="flex items-center flex-1 justify-end">
+              <div className="flex flex-col gap-1.5 rounded-2xl border border-white/10 bg-black/50 backdrop-blur-sm px-3 py-2 w-full shadow-[0_8px_24px_rgba(0,0,0,0.4)]">
+                  {/* Title row */}
+                  <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-black uppercase tracking-[0.22em]" style={{ color: stageMapPalette.bright }}>
+                          {stageMapRegionLabel}
+                      </span>
+                      <span className="text-[9px] font-black uppercase tracking-[0.18em] rounded-full px-2 py-0.5" style={{ color: stageMapPalette.bright, background: `${stageMapPalette.dim}`, border: `1px solid ${stageMapPalette.mid}55` }}>
+                          FASE {stageMapPhaseNum}
+                      </span>
+                  </div>
+                  {/* Nodes row */}
+                  <div className="flex items-center justify-between w-full">
                       {stageMapNodes.map((node, idx) => {
                           const prevDone = idx > 0 && stageMapNodes[idx - 1].done;
                           const isManyNodes = stageMapNodes.length >= 10;
-                          const nW = node.type === 'boss' ? (isManyNodes ? 20 : 24) : node.type === 'subboss' ? 20 : (isManyNodes ? 13 : 16);
+                          const nW = node.type === 'boss' ? (isManyNodes ? 24 : 28) : node.type === 'subboss' ? 24 : (isManyNodes ? 18 : 22);
                           const connW = isManyNodes ? 'w-1.5' : 'w-2';
+                          const dotSz = isManyNodes ? 'w-1.5 h-1.5' : 'w-2 h-2';
+                          const dotActiveSz = isManyNodes ? 'w-1 h-1' : 'w-1.5 h-1.5';
                           const bdrColor = (node.done || node.active) ? stageMapPalette.mid : 'rgba(255,255,255,0.12)';
                           const bgFill = node.done ? stageMapPalette.mid : node.active ? stageMapPalette.dim : 'rgba(0,0,0,0.45)';
                           const glowShadow = node.active ? stageMapPalette.glow : 'none';
                           return (
                               <React.Fragment key={idx}>
                                   {idx > 0 && (
-                                      <div className={`h-px ${connW} rounded-full shrink-0`} style={{ background: prevDone ? stageMapPalette.mid : 'rgba(255,255,255,0.1)' }} />
+                                      <div className={`h-px flex-1 min-w-[${connW}] rounded-full shrink`} style={{ background: prevDone ? stageMapPalette.mid : 'rgba(255,255,255,0.1)' }} />
                                   )}
                                   <div
                                       className={`relative flex items-center justify-center rounded-full border transition-all duration-300 shrink-0${node.active ? ' animate-pulse' : ''}`}
                                       style={{ width: nW, height: nW, background: bgFill, borderColor: bdrColor, boxShadow: glowShadow }}
                                   >
-                                      {node.type === 'boss' && <Skull size={isManyNodes ? 9 : 11} style={{ color: node.active ? stageMapPalette.bright : 'rgba(255,255,255,0.35)' }} />}
-                                      {node.type === 'subboss' && <Zap size={node.active ? 9 : 8} style={{ color: node.active ? stageMapPalette.bright : node.done ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.3)' }} />}
-                                      {node.type === 'mob' && node.done && <div className={`${isManyNodes ? 'w-1 h-1' : 'w-1.5 h-1.5'} rounded-full bg-white/80`} />}
-                                      {node.type === 'mob' && node.active && <div className={`${isManyNodes ? 'w-0.5 h-0.5' : 'w-1 h-1'} rounded-full`} style={{ background: stageMapPalette.bright }} />}
+                                      {node.type === 'boss' && <Skull size={isManyNodes ? 10 : 12} style={{ color: node.active ? stageMapPalette.bright : 'rgba(255,255,255,0.35)' }} />}
+                                      {node.type === 'subboss' && <Zap size={node.active ? 10 : 9} style={{ color: node.active ? stageMapPalette.bright : node.done ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.3)' }} />}
+                                      {node.type === 'mob' && node.done && <div className={`${dotSz} rounded-full bg-white/80`} />}
+                                      {node.type === 'mob' && node.active && <div className={`${dotActiveSz} rounded-full`} style={{ background: stageMapPalette.bright }} />}
                                   </div>
                               </React.Fragment>
                           );
@@ -3665,23 +3674,23 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                               </div>
                               <div>
                                   <div className="flex items-center justify-between mb-1">
-                                      <span className="text-[10px] font-black uppercase tracking-[0.24em] text-rose-300">HP</span>
-                                      <span className="text-[12px] font-black text-white/90">{player.stats.hp}/{player.stats.maxHp}</span>
+                                      <span className="text-[9px] font-black uppercase tracking-[0.24em] text-rose-300">HP</span>
+                                      <span className="text-[10px] font-black text-white/90">{player.stats.hp}/{player.stats.maxHp}</span>
                                   </div>
-                                  <div className="h-3 bg-white/15 rounded-full overflow-hidden"><div className="h-full rounded-full bg-[linear-gradient(90deg,#8d2f46,#d17482)] transition-all duration-300" style={{width: `${(player.stats.hp/player.stats.maxHp)*100}%`}}></div></div>
+                                  <div className="h-2.5 bg-white/15 rounded-full overflow-hidden"><div className="h-full rounded-full bg-[linear-gradient(90deg,#8d2f46,#d17482)] transition-all duration-300" style={{width: `${(player.stats.hp/player.stats.maxHp)*100}%`}}></div></div>
                               </div>
                               <div>
                                   <div className="flex items-center justify-between mb-1">
-                                      <span className="text-[10px] font-black uppercase tracking-[0.24em] text-sky-300">Mana</span>
-                                      <span className="text-[12px] font-black text-white/90">{player.stats.mp}/{player.stats.maxMp}</span>
+                                      <span className="text-[9px] font-black uppercase tracking-[0.24em] text-sky-300">Mana</span>
+                                      <span className="text-[10px] font-black text-white/90">{player.stats.mp}/{player.stats.maxMp}</span>
                                   </div>
-                                  <div className="h-2.5 bg-white/15 rounded-full overflow-hidden"><div className="h-full rounded-full bg-[linear-gradient(90deg,#2b6878,#66b8d2)] transition-all duration-300" style={{width: `${(player.stats.mp/player.stats.maxMp)*100}%`}}></div></div>
+                                  <div className="h-2 bg-white/15 rounded-full overflow-hidden"><div className="h-full rounded-full bg-[linear-gradient(90deg,#2b6878,#66b8d2)] transition-all duration-300" style={{width: `${(player.stats.mp/player.stats.maxMp)*100}%`}}></div></div>
                               </div>
                               {player.classResource.max > 0 && (
                                   <div className={`relative rounded-md px-1.5 py-1 transition-all duration-300 ${resourcePulse === 'gain' ? 'bg-emerald-500/20 ring-1 ring-emerald-500/35' : resourcePulse === 'spend' ? 'bg-rose-500/20 ring-1 ring-rose-500/35' : ''}`}>
                                       <div className="flex items-center justify-between mb-0.5">
-                                          <span className="text-[10px] font-black uppercase tracking-[0.18em] text-violet-300">{player.classResource.name}</span>
-                                          <span className="text-[11px] font-black text-white/90">{player.classResource.value}/{player.classResource.max}</span>
+                                          <span className="text-[9px] font-black uppercase tracking-[0.18em] text-violet-300">{player.classResource.name}</span>
+                                          <span className="text-[9px] font-black text-white/90">{player.classResource.value}/{player.classResource.max}</span>
                                       </div>
                                       <div className="h-2 bg-white/15 rounded-full overflow-hidden">
                                           <div
@@ -3707,7 +3716,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                                   <div className="pt-1 border-t border-white/15">
                                       <div className="flex flex-wrap gap-1.5">
                                           {heroBuffEntries.map((buff) => (
-                                              <div key={buff.key} className={`inline-flex items-center gap-1 rounded-[8px] border px-2 py-1 text-[11px] font-black leading-none shadow-sm ${buff.chipClass}`}>
+                                              <div key={buff.key} className={`inline-flex items-center gap-1 rounded-[8px] border px-1.5 py-0.5 text-[9px] font-black leading-none shadow-sm ${buff.chipClass}`}>
                                                   {buff.icon}
                                                   <span>{buff.label}</span>
                                               </div>
@@ -3816,24 +3825,6 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                               </button>
                           )}
 
-                          {fleeUnlocked && !isDungeonRun && !enemy?.isBoss && killCount < 10 && (
-                              <button
-                                  onClick={() => setShowFleeConfirm(true)}
-                                  disabled={!isPlayerTurn}
-                                  className={`group relative flex h-14 w-14 items-center justify-center transition-all duration-200 hover:-translate-y-0.5 hover:scale-105 active:scale-95 sm:h-16 sm:w-16 ${!isPlayerTurn ? 'cursor-not-allowed opacity-60' : ''}`}
-                                  title="Fugir"
-                                  aria-label="Fugir"
-                              >
-                                  <span
-                                      className="inline-flex text-rose-600"
-                                      style={{
-                                          filter: 'drop-shadow(1px 0 0 rgba(255,255,255,0.95)) drop-shadow(-1px 0 0 rgba(255,255,255,0.95)) drop-shadow(0 1px 0 rgba(255,255,255,0.95)) drop-shadow(0 -1px 0 rgba(255,255,255,0.95)) drop-shadow(0 4px 10px rgba(190,24,93,0.35))',
-                                      }}
-                                  >
-                                      <LogOut size={31} />
-                                  </span>
-                              </button>
-                          )}
                       </div>
                   </div>
 
@@ -3848,7 +3839,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                                       boxShadow: '0 6px 14px rgba(190,24,93,0.35)',
                                   }}
                               >
-                                  <span className="min-w-0 truncate text-[11px] font-black uppercase tracking-[0.12em] text-white">{enemy.name}</span>
+                                  <span className="min-w-0 truncate text-[9px] font-black uppercase tracking-[0.12em] text-white">{enemy.name}</span>
                                   <span className="inline-flex items-center gap-1">
                                       <span
                                           className="inline-flex items-center justify-center rounded-full border border-white/75 bg-white px-1.5 py-0.5 text-[#9f1239]"
@@ -3857,7 +3848,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                                           <EnemyClassIcon size={11} />
                                       </span>
                                       <span
-                                          className="inline-flex items-center gap-1 rounded-full border border-white/75 bg-white px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.12em]"
+                                          className="inline-flex items-center gap-1 rounded-full border border-white/75 bg-white px-1.5 py-0.5 text-[9px] font-black uppercase tracking-[0.12em]"
                                           style={{
                                               color: '#9f1239',
                                               boxShadow: '0 4px 10px rgba(190,24,93,0.3)',
@@ -3878,20 +3869,20 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                           </div>
                           <div>
                               <div className="flex items-center justify-between mb-1">
-                                  <span className="text-[10px] font-black uppercase tracking-[0.24em] text-rose-300">HP</span>
-                                  <span className="text-[12px] font-black text-white/90">{enemy.stats.hp}/{enemy.stats.maxHp}</span>
+                                  <span className="text-[9px] font-black uppercase tracking-[0.24em] text-rose-300">HP</span>
+                                  <span className="text-[10px] font-black text-white/90">{enemy.stats.hp}/{enemy.stats.maxHp}</span>
                               </div>
-                              <div className="h-3 bg-white/15 rounded-full overflow-hidden">
+                              <div className="h-2.5 bg-white/15 rounded-full overflow-hidden">
                                   <div className="h-full rounded-full bg-[linear-gradient(90deg,#8d2f46,#d17482)] transition-all duration-300" style={{width: `${Math.max(0, (enemy.stats.hp/enemy.stats.maxHp)*100)}%`}}></div>
                               </div>
                           </div>
                           {enemyUsesManaSkills && (
                               <div>
                                   <div className="flex items-center justify-between mb-1">
-                                      <span className="text-[10px] font-black uppercase tracking-[0.24em] text-sky-300">Mana</span>
-                                      <span className="text-[12px] font-black text-white/90">{enemy.stats.mp}/{enemy.stats.maxMp}</span>
+                                      <span className="text-[9px] font-black uppercase tracking-[0.24em] text-sky-300">Mana</span>
+                                      <span className="text-[10px] font-black text-white/90">{enemy.stats.mp}/{enemy.stats.maxMp}</span>
                                   </div>
-                                  <div className="h-2.5 bg-white/15 rounded-full overflow-hidden">
+                                  <div className="h-2 bg-white/15 rounded-full overflow-hidden">
                                       <div className="h-full rounded-full bg-[linear-gradient(90deg,#2b6878,#66b8d2)] transition-all duration-300" style={{width: `${Math.max(0, (enemy.stats.mp/enemy.stats.maxMp)*100)}%`}}></div>
                                   </div>
                               </div>
@@ -4136,27 +4127,6 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                           </button>
                       )}
 
-                      {fleeUnlocked && !isDungeonRun && !enemy?.isBoss && killCount < 10 && (
-                          <button
-                              onClick={() => setShowFleeConfirm(true)}
-                              disabled={!isPlayerTurn}
-                              className={`group relative flex h-14 w-14 items-center justify-center transition-all duration-200 hover:-translate-y-0.5 hover:scale-105 active:scale-95 sm:h-11 sm:w-11 ${!isPlayerTurn ? 'cursor-not-allowed opacity-60' : ''}`}
-                              title="Fugir"
-                              aria-label="Fugir"
-                          >
-                              <span
-                                  className="inline-flex text-rose-600"
-                                  style={{
-                                      filter: 'drop-shadow(1px 0 0 rgba(255,255,255,0.95)) drop-shadow(-1px 0 0 rgba(255,255,255,0.95)) drop-shadow(0 1px 0 rgba(255,255,255,0.95)) drop-shadow(0 -1px 0 rgba(255,255,255,0.95)) drop-shadow(0 4px 10px rgba(190,24,93,0.35))',
-                                  }}
-                              >
-                                  <LogOut size={32} />
-                              </span>
-                              <span className="pointer-events-none absolute left-full ml-2 whitespace-nowrap rounded-full border border-rose-400 bg-rose-100/95 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.1em] text-rose-700 opacity-0 translate-x-1 transition-all duration-150 group-hover:translate-x-0 group-hover:opacity-100 group-focus-visible:translate-x-0 group-focus-visible:opacity-100">
-                                  Fugir
-                              </span>
-                          </button>
-                      )}
                   </div>
               </div>
 
@@ -4272,8 +4242,8 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                   )}
               </div>
 
-              {/* Right: action grid */}
-              <div ref={battleActionsRef} className="relative flex min-w-0 flex-1 flex-col items-end gap-2 sm:absolute sm:bottom-0 sm:left-1/2 sm:w-auto sm:-translate-x-1/2 sm:items-center">
+              {/* Right: action grid - desktop only */}
+              <div ref={battleActionsRef} className="hidden">
                   {impulseUnlocked && (
                       <div className="grid w-full max-w-[360px] grid-cols-5 items-center gap-1 sm:flex sm:w-[360px] sm:justify-start sm:gap-2">
                       <div className="col-span-1 flex items-center justify-center gap-1.5 sm:w-[68px] sm:flex-none sm:justify-center sm:gap-2">
@@ -4352,12 +4322,12 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                                                         <div className="absolute bottom-full right-[-68px] sm:right-0 z-40 mb-2 w-[min(84vw,300px)] animate-fade-in-down"
                                                             style={{
                                                                 borderRadius: '16px',
-                                                                background: 'rgba(8,4,24,0.68)',
+                                                                background: 'rgba(8,5,22,0.40)',
                                                                 backdropFilter: 'blur(28px)',
                                                                 WebkitBackdropFilter: 'blur(28px)',
                                                                 border: '1px solid rgba(255,255,255,0.16)',
                                                                 padding: '12px',
-                                                                boxShadow: '0 16px 48px rgba(0,0,0,0.50)',
+                                                                boxShadow: '0 16px 48px rgba(0,0,0,0.40)',
                                                                 fontFamily: "'Segoe UI',system-ui,sans-serif",
                                                             }}
                                                         >
@@ -4386,7 +4356,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                                                                             const typeColor = skill?.type === 'physical' ? '#f87171' : skill?.type === 'magic' ? '#c4b5fd' : '#86efac';
                                                                             const typeBg   = skill?.type === 'physical' ? 'rgba(248,113,113,0.14)' : skill?.type === 'magic' ? 'rgba(196,181,253,0.14)' : 'rgba(134,239,172,0.14)';
                                                                             const typeLabel = skill?.type === 'physical' ? 'Físico' : skill?.type === 'magic' ? 'Magia' : 'Cura';
-                                                                            const TypeIcon = skill?.type === 'physical' ? <Sword size={15} /> : skill?.type === 'magic' ? <Sparkles size={15} /> : <Heart size={15} />;
+                                                                            const TypeIcon = skill?.type === 'physical' ? <Sword size={13} /> : skill?.type === 'magic' ? <Sparkles size={13} /> : <Heart size={13} />;
                                                                             const requiredResource = skill?.resourceEffect?.cost ?? 0;
                                                                             const hasResource = player.classResource.value >= requiredResource;
                                                                             const effectiveManaCost = skill ? (player.impulsoAtivo >= 1 ? Math.max(1, Math.floor(skill.manaCost * 0.7)) : skill.manaCost) : 0;
@@ -4404,7 +4374,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                                                                                         borderRadius: '12px',
                                                                                         border: isEmpty ? '1px solid rgba(255,255,255,0.09)' : canCast ? `1.5px solid ${typeColor}55` : '1px solid rgba(255,255,255,0.09)',
                                                                                         background: isEmpty ? 'rgba(0,0,0,0.18)' : canCast ? typeBg : 'rgba(0,0,0,0.28)',
-                                                                                        padding: '9px 11px',
+                                                                                        padding: '7px 9px',
                                                                                         boxSizing: 'border-box' as const,
                                                                                         flex: 1,
                                                                                         minWidth: 0,
@@ -4417,31 +4387,31 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                                                                                     }}>
                                                                                     {/* Icon */}
                                                                                     <div style={{
-                                                                                        width: '38px', height: '38px', flexShrink: 0,
-                                                                                        borderRadius: '10px',
+                                                                                        width: '32px', height: '32px', flexShrink: 0,
+                                                                                        borderRadius: '8px',
                                                                                         border: isEmpty ? '1px solid rgba(255,255,255,0.10)' : `1.5px solid ${typeColor}55`,
                                                                                         background: isEmpty ? 'rgba(0,0,0,0.25)' : `${typeColor}20`,
                                                                                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                                                                                         color: isEmpty ? 'rgba(255,255,255,0.20)' : typeColor,
                                                                                     }}>
-                                                                                        {skill ? TypeIcon : <Sparkles size={15} />}
+                                                                                        {skill ? TypeIcon : <Sparkles size={13} />}
                                                                                     </div>
                                                                                     {/* Text + badges */}
                                                                                     <div style={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                                                                        <div style={{ fontSize: isMobile ? '10px' : '7px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.18em', color: 'rgba(255,255,255,0.32)', lineHeight: 1 }}>Slot {i + 1}</div>
-                                                                                        <div style={{ fontSize: isMobile ? '15px' : '12px', fontWeight: 900, color: skill ? '#fff' : 'rgba(255,255,255,0.30)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.2 }}>
+                                                                                        <div style={{ fontSize: '6px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.18em', color: 'rgba(255,255,255,0.32)', lineHeight: 1 }}>Slot {i + 1}</div>
+                                                                                        <div style={{ fontSize: '10px', fontWeight: 900, color: skill ? '#fff' : 'rgba(255,255,255,0.30)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.2 }}>
                                                                                             {skill ? skill.name : 'Vazio'}
                                                                                         </div>
                                                                                         {skill && (
                                                                                             <div style={{ display: 'flex', gap: '4px', alignItems: 'center', flexWrap: 'wrap' }}>
-                                                                                                <span style={{ fontSize: isMobile ? '11px' : '8px', fontWeight: 800, padding: '2px 6px', borderRadius: '99px', background: `${typeColor}20`, border: `1px solid ${typeColor}44`, color: typeColor, display: 'inline-flex', alignItems: 'center', gap: '2px', lineHeight: 1 }}>
+                                                                                                <span style={{ fontSize: '7px', fontWeight: 800, padding: '2px 6px', borderRadius: '99px', background: `${typeColor}20`, border: `1px solid ${typeColor}44`, color: typeColor, display: 'inline-flex', alignItems: 'center', gap: '2px', lineHeight: 1 }}>
                                                                                                     {typeLabel}
                                                                                                 </span>
-                                                                                                <span style={{ fontSize: isMobile ? '11px' : '8px', fontWeight: 700, padding: '2px 6px', borderRadius: '99px', background: 'rgba(56,189,248,0.15)', border: '1px solid rgba(56,189,248,0.38)', color: '#38bdf8', display: 'inline-flex', alignItems: 'center', gap: '2px', lineHeight: 1 }}>
+                                                                                                <span style={{ fontSize: '7px', fontWeight: 700, padding: '2px 6px', borderRadius: '99px', background: 'rgba(56,189,248,0.15)', border: '1px solid rgba(56,189,248,0.38)', color: '#38bdf8', display: 'inline-flex', alignItems: 'center', gap: '2px', lineHeight: 1 }}>
                                                                                                     <Zap size={9} />{effectiveManaCost} MP
                                                                                                 </span>
                                                                                                 {requiredResource > 0 && (
-                                                                                                    <span style={{ fontSize: isMobile ? '11px' : '8px', fontWeight: 700, padding: '2px 6px', borderRadius: '99px', background: hasResource ? `${player.classResource.color}20` : 'rgba(239,68,68,0.15)', border: `1px solid ${hasResource ? player.classResource.color + '44' : 'rgba(239,68,68,0.35)'}`, color: hasResource ? player.classResource.color : '#f87171', display: 'inline-flex', alignItems: 'center', gap: '2px', lineHeight: 1 }}>
+                                                                                                    <span style={{ fontSize: '7px', fontWeight: 700, padding: '2px 6px', borderRadius: '99px', background: hasResource ? `${player.classResource.color}20` : 'rgba(239,68,68,0.15)', border: `1px solid ${hasResource ? player.classResource.color + '44' : 'rgba(239,68,68,0.35)'}`, color: hasResource ? player.classResource.color : '#f87171', display: 'inline-flex', alignItems: 'center', gap: '2px', lineHeight: 1 }}>
                                                                                                         {requiredResource} {skill.resourceLabel || player.classResource.name}
                                                                                                     </span>
                                                                                                 )}
@@ -4462,10 +4432,10 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                                                                                 </button>
                                                                                 </div>
                                                                                 {isSkillInfoOpen && (
-                                                                                  <div style={{ marginTop: '3px', borderRadius: '10px', background: `${typeColor}10`, border: `1px solid ${typeColor}33`, padding: '9px 12px', display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                                                                                    <span style={{ fontSize: isMobile ? '12px' : '9px', fontWeight: 900, textTransform: 'uppercase' as const, letterSpacing: '0.18em', color: typeColor, lineHeight: 1 }}>{skill!.name}</span>
-                                                                                    <span style={{ fontSize: isMobile ? '14px' : '11px', fontWeight: 500, color: 'rgba(255,255,255,0.78)', lineHeight: 1.4 }}>{skill!.description}</span>
-                                                                                    {(skill!.damageMult ?? 0) > 0 && <span style={{ fontSize: isMobile ? '12px' : '9px', fontWeight: 700, color: typeColor, lineHeight: 1 }}>⚔ Mult. dano: {skill!.damageMult}×</span>}
+                                                                                  <div style={{ marginTop: '3px', borderRadius: '10px', background: `${typeColor}10`, border: `1px solid ${typeColor}33`, padding: '7px 10px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                                                                    <span style={{ fontSize: '8px', fontWeight: 900, textTransform: 'uppercase' as const, letterSpacing: '0.18em', color: typeColor, lineHeight: 1 }}>{skill!.name}</span>
+                                                                                    <span style={{ fontSize: '10px', fontWeight: 500, color: 'rgba(255,255,255,0.78)', lineHeight: 1.4 }}>{skill!.description}</span>
+                                                                                    {(skill!.damageMult ?? 0) > 0 && <span style={{ fontSize: '8px', fontWeight: 700, color: typeColor, lineHeight: 1 }}>⚔ Mult. dano: {skill!.damageMult}×</span>}
                                                                                   </div>
                                                                                 )}
                                                                               </div>
@@ -4482,7 +4452,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                                             {showItemsAction && (
                                                 <div className="relative col-span-1">
                                                     {activeBattleMenu === 'items' && (
-                                                        <div className="absolute bottom-full right-0 z-40 mb-2 animate-fade-in-down" style={{ width: isMobile ? 'min(84vw, 300px)' : '300px', borderRadius: '18px', background: 'rgba(8,4,24,0.68)', backdropFilter: 'blur(28px)', WebkitBackdropFilter: 'blur(28px)', border: '1px solid rgba(255,255,255,0.16)', padding: '12px', boxShadow: '0 24px 52px rgba(0,0,0,0.50)' }}>
+                                                        <div className="absolute bottom-full right-0 z-40 mb-2 animate-fade-in-down" style={{ width: isMobile ? 'min(84vw, 300px)' : '300px', borderRadius: '18px', background: 'rgba(8,5,22,0.40)', backdropFilter: 'blur(28px)', WebkitBackdropFilter: 'blur(28px)', border: '1px solid rgba(255,255,255,0.16)', padding: '12px', boxShadow: '0 24px 52px rgba(0,0,0,0.40)' }}>
                                                             {/* Header */}
                                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                                                                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '10px', fontWeight: 900, textTransform: 'uppercase' as const, letterSpacing: '0.22em', color: 'rgba(255,255,255,0.60)' }}>
@@ -4528,7 +4498,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                                                                                         borderRadius: '13px',
                                                                                         border: hasItem ? `1.5px solid ${itemColor}55` : '1px solid rgba(255,255,255,0.09)',
                                                                                         background: hasItem ? itemBg : 'rgba(0,0,0,0.18)',
-                                                                                        padding: '9px 11px',
+                                                                                        padding: '7px 9px',
                                                                                         boxSizing: 'border-box' as const,
                                                                                         flex: 1,
                                                                                         minWidth: 0,
@@ -4538,22 +4508,22 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                                                                                         transition: 'opacity 0.15s',
                                                                                     }}>
                                                                                     {/* Icon box */}
-                                                                                    <div style={{ width: '38px', height: '38px', flexShrink: 0, borderRadius: '11px', border: hasItem ? `1.5px solid ${itemColor}55` : '1px solid rgba(255,255,255,0.10)', background: hasItem ? `${itemColor}20` : 'rgba(0,0,0,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: hasItem ? itemColor : 'rgba(255,255,255,0.20)', fontSize: '22px' }}>
+                                                                                    <div style={{ width: '32px', height: '32px', flexShrink: 0, borderRadius: '8px', border: hasItem ? `1.5px solid ${itemColor}55` : '1px solid rgba(255,255,255,0.10)', background: hasItem ? `${itemColor}20` : 'rgba(0,0,0,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: hasItem ? itemColor : 'rgba(255,255,255,0.20)', fontSize: '18px' }}>
                                                                                         {itemDef ? <span style={{ lineHeight: 1 }}>{itemDef.icon}</span> : <FlaskConical size={16} />}
                                                                                     </div>
                                                                                     {/* Text */}
                                                                                     <div style={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                                                                                        <div style={{ fontSize: isMobile ? '10px' : '6px', fontWeight: 800, textTransform: 'uppercase' as const, letterSpacing: '0.18em', color: 'rgba(255,255,255,0.32)', lineHeight: 1 }}>Slot {i + 1}</div>
-                                                                                        <div style={{ fontSize: isMobile ? '15px' : '12px', fontWeight: 900, color: hasItem ? '#fff' : 'rgba(255,255,255,0.25)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const, lineHeight: 1.2 }}>
+                                                                                        <div style={{ fontSize: '6px', fontWeight: 800, textTransform: 'uppercase' as const, letterSpacing: '0.18em', color: 'rgba(255,255,255,0.32)', lineHeight: 1 }}>Slot {i + 1}</div>
+                                                                                        <div style={{ fontSize: '10px', fontWeight: 900, color: hasItem ? '#fff' : 'rgba(255,255,255,0.25)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const, lineHeight: 1.2 }}>
                                                                                             {isEmpty ? 'Vazio' : itemDef?.name ?? slot.itemId}
                                                                                         </div>
                                                                                         {hasItem && (
                                                                                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px', alignItems: 'center' }}>
-                                                                                                <span style={{ fontSize: isMobile ? '11px' : '8px', fontWeight: 800, padding: '2px 6px', borderRadius: '99px', background: `${itemColor}20`, border: `1px solid ${itemColor}44`, color: itemColor, display: 'inline-flex', alignItems: 'center', lineHeight: 1 }}>
+                                                                                                <span style={{ fontSize: '7px', fontWeight: 800, padding: '2px 6px', borderRadius: '99px', background: `${itemColor}20`, border: `1px solid ${itemColor}44`, color: itemColor, display: 'inline-flex', alignItems: 'center', lineHeight: 1 }}>
                                                                                                     {slot.qty}×
                                                                                                 </span>
                                                                                                 {itemDef && getPotionBattleBadges(itemDef).map((b, bi) => (
-                                                                                                    <span key={bi} style={{ fontSize: isMobile ? '11px' : '8px', fontWeight: 800, padding: '2px 6px', borderRadius: '99px', background: b.bg, border: `1px solid ${b.border}`, color: b.color, display: 'inline-flex', alignItems: 'center', lineHeight: 1 }}>
+                                                                                                    <span key={bi} style={{ fontSize: '7px', fontWeight: 800, padding: '2px 6px', borderRadius: '99px', background: b.bg, border: `1px solid ${b.border}`, color: b.color, display: 'inline-flex', alignItems: 'center', lineHeight: 1 }}>
                                                                                                         {b.label}
                                                                                                     </span>
                                                                                                 ))}
@@ -4576,9 +4546,9 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                                                                                 )}
                                                                                 </div>
                                                                                 {isItemInfoOpen && (
-                                                                                  <div style={{ marginTop: '3px', borderRadius: '10px', background: `${itemColor}10`, border: `1px solid ${itemColor}33`, padding: '9px 12px', display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                                                                                    <span style={{ fontSize: isMobile ? '12px' : '9px', fontWeight: 900, textTransform: 'uppercase' as const, letterSpacing: '0.18em', color: itemColor, lineHeight: 1 }}>{itemDef!.name}</span>
-                                                                                    <span style={{ fontSize: isMobile ? '14px' : '11px', fontWeight: 500, color: 'rgba(255,255,255,0.75)', lineHeight: 1.4 }}>{itemDef!.description}</span>
+                                                                                  <div style={{ marginTop: '3px', borderRadius: '10px', background: `${itemColor}10`, border: `1px solid ${itemColor}33`, padding: '7px 10px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                                                                    <span style={{ fontSize: '8px', fontWeight: 900, textTransform: 'uppercase' as const, letterSpacing: '0.18em', color: itemColor, lineHeight: 1 }}>{itemDef!.name}</span>
+                                                                                    <span style={{ fontSize: '10px', fontWeight: 500, color: 'rgba(255,255,255,0.75)', lineHeight: 1.4 }}>{itemDef!.description}</span>
                                                                                   </div>
                                                                                 )}
                                                                               </div>
