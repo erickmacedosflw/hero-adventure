@@ -531,7 +531,7 @@ export const useBattleController = ({
       setPlayerImpactAnimationId(null);
       setPlayerImpactAnimationTintColor(null);
       setPlayerAnimationAction('idle');
-      setTurnState(TurnState.ENEMY_TURN);
+      window.setTimeout(() => setTurnState(TurnState.ENEMY_TURN), 1000);
     }, impulseFinishDelayMs);
   }, [
     addLog,
@@ -784,7 +784,7 @@ export const useBattleController = ({
           setPlayerImpactAnimationId(null);
           setPlayerImpactAnimationTintColor(null);
           setPlayerAnimationAction('idle');
-          setTurnState(TurnState.ENEMY_TURN);
+          window.setTimeout(() => setTurnState(TurnState.ENEMY_TURN), 1000);
         }, resolvedIdleDelay);
       };
 
@@ -893,7 +893,7 @@ export const useBattleController = ({
         consumedBuffs.impulseDefenseBoostTurns = prev.buffs.impulseDefenseBoostTurns;
         return { ...prev, buffs: consumedBuffs };
       });
-      setTurnState(TurnState.ENEMY_TURN);
+      window.setTimeout(() => setTurnState(TurnState.ENEMY_TURN), 1000);
     }, 600);
   }, [
     addLog,
@@ -1006,7 +1006,7 @@ export const useBattleController = ({
         setPlayerImpactAnimationId(null);
         setPlayerImpactAnimationTintColor(null);
         setPlayerAnimationAction('idle');
-        setTurnState(TurnState.ENEMY_TURN);
+        window.setTimeout(() => setTurnState(TurnState.ENEMY_TURN), 1000);
       }, 1500);
       return;
     }
@@ -1077,7 +1077,7 @@ export const useBattleController = ({
         setPlayerImpactAnimationId(null);
         setPlayerImpactAnimationTintColor(null);
         setPlayerAnimationAction('idle');
-        setTurnState(TurnState.ENEMY_TURN);
+        window.setTimeout(() => setTurnState(TurnState.ENEMY_TURN), 1000);
       }, finishDelayMs);
       return;
     }
@@ -1257,7 +1257,7 @@ export const useBattleController = ({
           setPlayerImpactAnimationId(null);
           setPlayerImpactAnimationTintColor(null);
           setPlayerAnimationAction('idle');
-          setTurnState(TurnState.ENEMY_TURN);
+          window.setTimeout(() => setTurnState(TurnState.ENEMY_TURN), 1000);
         }, Math.max(420, skillImpactPlaybackWindowMs, skillProjectileImpactDelayMs + 220));
       };
 
@@ -1488,7 +1488,7 @@ export const useBattleController = ({
         setPlayerExecutionAnimationTintColor(null);
         setPlayerImpactAnimationId(null);
         setPlayerImpactAnimationTintColor(null);
-        setTurnState(TurnState.ENEMY_TURN);
+        window.setTimeout(() => setTurnState(TurnState.ENEMY_TURN), 1000);
       }, itemFinishDelayMs);
     }
   }, [
@@ -1692,7 +1692,7 @@ export const useBattleController = ({
       pendingEnemyIntentRef.current = nextIntent;
       setEnemyIntentPreview(createEnemyIntentPreview(nextIntent));
       setPlayerAnimationAction('idle');
-      setTurnState(TurnState.PLAYER_INPUT);
+      window.setTimeout(() => setTurnState(TurnState.PLAYER_INPUT), 350);
     };
 
     const rollDefensiveCounter = (targetEnemy: Enemy) => {
@@ -1804,7 +1804,7 @@ export const useBattleController = ({
         spawnFloatingText(`+${recoveredMp} Mana`, 'enemy', 'heal');
       }
       spawnParticles([2, -0.5, 0], 12, '#3b82f6', 'spark');
-      finishEnemyActionToPlayerTurn(nextEnemy);
+      window.setTimeout(() => finishEnemyActionToPlayerTurn(nextEnemy), 800);
     };
 
     if (executedIntent === 'item' && lowHp && hasPotion) {

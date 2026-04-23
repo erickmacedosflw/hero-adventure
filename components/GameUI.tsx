@@ -1,4 +1,4 @@
-
+﻿
 import React, { useState, useEffect, useRef } from 'react';
 import { Player, Enemy, EnemyIntentPreview, BattleLog, TurnState, Item, Skill, GameState, FloatingText, Rarity, ProgressionCard, CardRewardOffer, AlchemistCardOffer, AlchemistItemOffer, DungeonResult, DungeonRewards, BossVictoryContext } from '../types';
 import { Sword, Shield, Zap, Heart, Coins, ShoppingBag, Skull, Play, Plus, FlaskConical, User, X, Home, LogOut, DollarSign, AlertTriangle, MousePointerClick, Shirt, Footprints, Crown, LayoutGrid, Sparkles, Crosshair, ArrowLeft, Star, Clock, Orbit, Info } from 'lucide-react';
@@ -3593,6 +3593,17 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                       <GameAssetIcon name="sapphire" size={18} />
                       {towerEssence}
                   </div>
+                  {/* Settings button — moved from hero card area */}
+                  <button
+                      onClick={openBattleSettingsModal}
+                      className="pointer-events-auto inline-flex items-center justify-center rounded-xl border border-white/15 bg-white/8 backdrop-blur-sm px-2.5 py-1.5 shadow-[0_4px_12px_rgba(0,0,0,0.25)] transition-all hover:-translate-y-0.5 hover:scale-105 active:scale-95"
+                      title="Configuracoes"
+                      aria-label="Configuracoes"
+                  >
+                      <span style={{ filter: 'drop-shadow(1px 0 0 rgba(255,255,255,0.95)) drop-shadow(-1px 0 0 rgba(255,255,255,0.95)) drop-shadow(0 1px 0 rgba(255,255,255,0.95)) drop-shadow(0 -1px 0 rgba(255,255,255,0.95)) drop-shadow(0 4px 10px rgba(0,0,0,0.28))' }}>
+                          <GameAssetIcon name="gear" size={22} />
+                      </span>
+                  </button>
               </div>
           </div>
           {/* ── Stage map — mobile only, full width ── */}
@@ -3644,7 +3655,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
               <div className={`grid items-start gap-2 ${enemy ? 'grid-cols-2' : 'grid-cols-1'}`}>
                   <div className="flex min-w-0 flex-col items-stretch gap-1.5">
                       <div
-                          className="pointer-events-auto w-full cursor-pointer overflow-hidden rounded-[18px] border border-white/15 bg-black/50 px-3 py-2.5 shadow-[0_8px_24px_rgba(0,0,0,0.4)] backdrop-blur-md animate-fade-in-down transition-transform hover:-translate-y-[1px] active:scale-[0.995]"
+                          className="hidden pointer-events-auto w-full cursor-pointer overflow-hidden rounded-[18px] border border-white/15 bg-black/50 px-3 py-2.5 shadow-[0_8px_24px_rgba(0,0,0,0.4)] backdrop-blur-md animate-fade-in-down transition-transform hover:-translate-y-[1px] active:scale-[0.995]"
                           role="button"
                           tabIndex={0}
                           onClick={openHeroStatusFromCard}
@@ -3678,7 +3689,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                                       <span className="text-[9px] font-black uppercase tracking-[0.24em] text-rose-300">HP</span>
                                       <span className="text-[10px] font-black text-white/90">{player.stats.hp}/{player.stats.maxHp}</span>
                                   </div>
-                                  <div className="h-2.5 bg-white/15 rounded-full overflow-hidden"><div className="h-full rounded-full bg-[linear-gradient(90deg,#8d2f46,#d17482)] transition-all duration-300" style={{width: `${(player.stats.hp/player.stats.maxHp)*100}%`}}></div></div>
+                                  <div className="h-2.5 bg-white/15 rounded-full overflow-hidden"><div className="h-full rounded-full bg-[linear-gradient(90deg,#16a34a,#4ade80)] transition-all duration-300" style={{width: `${(player.stats.hp/player.stats.maxHp)*100}%`}}></div></div>
                               </div>
                               <div>
                                   <div className="flex items-center justify-between mb-1">
@@ -3728,7 +3739,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                           </div>
                       </div>
 
-                      <div className="pointer-events-auto self-start flex flex-col gap-1">
+                      <div className="hidden pointer-events-auto self-start flex flex-col gap-1">
                           <button
                               onClick={openBattleSettingsModal}
                               className="group relative flex h-14 w-14 items-center justify-center transition-all duration-200 hover:-translate-y-0.5 hover:scale-105 active:scale-95 sm:h-16 sm:w-16"
@@ -3829,100 +3840,13 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                       </div>
                   </div>
 
-                  {enemy && (
-                      <div className="flex flex-col gap-2">
-                      <div className={`overflow-hidden rounded-[18px] border px-3 py-2.5 backdrop-blur-md animate-fade-in-down ${enemyCardToneClass}`}>
-                          <div className="mb-1.5">
-                              <div
-                                  className="-mx-3 -mt-2.5 mb-1.5 flex items-center justify-between gap-2 px-3 py-2"
-                                  style={{
-                                      background: 'linear-gradient(135deg, #9f1239 0%, #e11d48 100%)',
-                                      boxShadow: '0 6px 14px rgba(190,24,93,0.35)',
-                                  }}
-                              >
-                                  <span className="min-w-0 truncate text-[9px] font-black uppercase tracking-[0.12em] text-white">{enemy.name}</span>
-                                  <span className="inline-flex items-center gap-1">
-                                      <span
-                                          className="inline-flex items-center justify-center rounded-full border border-white/75 bg-white px-1.5 py-0.5 text-[#9f1239]"
-                                          style={{ boxShadow: '0 4px 10px rgba(190,24,93,0.3)' }}
-                                      >
-                                          <EnemyClassIcon size={11} />
-                                      </span>
-                                      <span
-                                          className="inline-flex items-center gap-1 rounded-full border border-white/75 bg-white px-1.5 py-0.5 text-[9px] font-black uppercase tracking-[0.12em]"
-                                          style={{
-                                              color: '#9f1239',
-                                              boxShadow: '0 4px 10px rgba(190,24,93,0.3)',
-                                          }}
-                                      >
-                                          Nv {enemy.level}
-                                      </span>
-                                  </span>
-                              </div>
-                              <div className="flex items-center gap-1.5">
-                                  {enemy.isBoss && (
-                                      <span className="rounded-full border border-rose-400/50 bg-rose-400/20 px-2 py-0.5 text-[9px] font-black uppercase text-rose-300">Chefão</span>
-                                  )}
-                                  {!enemy.isBoss && enemy.isSubBoss && (
-                                      <span className="rounded-full border border-amber-400/50 bg-amber-400/20 px-2 py-0.5 text-[9px] font-black uppercase text-amber-300">Subchefe</span>
-                                  )}
-                              </div>
-                          </div>
-                          <div>
-                              <div className="flex items-center justify-between mb-1">
-                                  <span className="text-[9px] font-black uppercase tracking-[0.24em] text-rose-300">HP</span>
-                                  <span className="text-[10px] font-black text-white/90">{enemy.stats.hp}/{enemy.stats.maxHp}</span>
-                              </div>
-                              <div className="h-2.5 bg-white/15 rounded-full overflow-hidden">
-                                  <div className="h-full rounded-full bg-[linear-gradient(90deg,#8d2f46,#d17482)] transition-all duration-300" style={{width: `${Math.max(0, (enemy.stats.hp/enemy.stats.maxHp)*100)}%`}}></div>
-                              </div>
-                          </div>
-                          {enemyUsesManaSkills && (
-                              <div>
-                                  <div className="flex items-center justify-between mb-1">
-                                      <span className="text-[9px] font-black uppercase tracking-[0.24em] text-sky-300">Mana</span>
-                                      <span className="text-[10px] font-black text-white/90">{enemy.stats.mp}/{enemy.stats.maxMp}</span>
-                                  </div>
-                                  <div className="h-2 bg-white/15 rounded-full overflow-hidden">
-                                      <div className="h-full rounded-full bg-[linear-gradient(90deg,#2b6878,#66b8d2)] transition-all duration-300" style={{width: `${Math.max(0, (enemy.stats.mp/enemy.stats.maxMp)*100)}%`}}></div>
-                                  </div>
-                              </div>
-                          )}
-                          {enemy.combatBuffs.turns > 0 && (
-                              <div className="pt-1 border-t border-white/15">
-                                  <span className="inline-flex items-center rounded-full border border-amber-400/50 bg-amber-400/20 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.12em] text-amber-300">
-                                      Impulso inicial ({enemy.combatBuffs.turns}t)
-                                  </span>
-                              </div>
-                          )}
-                          {(enemy.statusEffects?.length ?? 0) > 0 && (
-                              <div className="mt-1 flex flex-wrap gap-1">
-                                  {enemy.statusEffects?.slice(0, 3).map((status) => {
-                                      const fromHeroSkill = status.source === 'skill';
-                                      return (
-                                          <span
-                                              key={status.id}
-                                              className="rounded-full border px-2 py-0.5 text-[8px] font-black uppercase tracking-[0.08em]"
-                                              style={fromHeroSkill
-                                                  ? { borderColor: `${classAccentColor}88`, backgroundColor: `${classAccentColor}20`, color: classAccentColor }
-                                                  : { borderColor: `${status.color}55`, backgroundColor: `${status.color}18`, color: status.color }}
-                                          >
-                                              {status.name} {status.duration}t
-                                          </span>
-                                      );
-                                  })}
-                              </div>
-                          )}
-                      </div>
-                      {!isDungeonRun && killCount >= 10 && !enemy.isBoss && (
-                          <button
-                              onClick={() => onStartBattle(true)}
-                              className="pointer-events-auto w-full rounded-[14px] border border-rose-300 bg-[linear-gradient(135deg,#e11d48_0%,#f43f5e_100%)] px-3 py-2 text-[11px] font-black uppercase tracking-[0.12em] text-white shadow-[0_12px_24px_rgba(225,29,72,0.36)] transition-all active:scale-[0.98] animate-pulse flex items-center justify-center gap-2"
-                          >
-                              <Skull size={16} /> ENFRENTAR CHEF�O
-                          </button>
-                      )}
-                      </div>
+                  {enemy && !isDungeonRun && killCount >= 10 && !enemy.isBoss && (
+                      <button
+                          onClick={() => onStartBattle(true)}
+                          className="pointer-events-auto w-full rounded-[14px] border border-rose-300 bg-[linear-gradient(135deg,#e11d48_0%,#f43f5e_100%)] px-3 py-2 text-[11px] font-black uppercase tracking-[0.12em] text-white shadow-[0_12px_24px_rgba(225,29,72,0.36)] transition-all active:scale-[0.98] animate-pulse flex items-center justify-center gap-2"
+                      >
+                          <Skull size={16} /> ENFRENTAR CHEFÃO
+                      </button>
                   )}
               </div>
           </div>
@@ -3931,7 +3855,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
               {/* Player vitals — left */}
               <div className="flex flex-1 max-w-[48%] sm:max-w-[280px] flex-col items-start gap-1.5">
                   <div
-                      className="pointer-events-auto cursor-pointer overflow-hidden rounded-[16px] border border-white/15 bg-black/50 px-2.5 py-2 shadow-[0_8px_24px_rgba(0,0,0,0.4)] backdrop-blur-md w-full animate-fade-in-down transition-transform hover:-translate-y-[1px] active:scale-[0.995]"
+                      className="!hidden pointer-events-auto cursor-pointer overflow-hidden rounded-[16px] border border-white/15 bg-black/50 px-2.5 py-2 shadow-[0_8px_24px_rgba(0,0,0,0.4)] backdrop-blur-md w-full animate-fade-in-down transition-transform hover:-translate-y-[1px] active:scale-[0.995]"
                       role="button"
                       tabIndex={0}
                       onClick={openHeroStatusFromCard}
@@ -3965,7 +3889,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                                   <span className="text-[11px] font-black uppercase tracking-[0.2em] text-rose-300">HP</span>
                                   <span className="text-sm font-black text-white/90">{player.stats.hp}/{player.stats.maxHp}</span>
                               </div>
-                              <div className="h-2.5 bg-white/15 rounded-full overflow-hidden"><div className="h-full rounded-full bg-[linear-gradient(90deg,#8d2f46,#d17482)] transition-all duration-300" style={{width: `${(player.stats.hp/player.stats.maxHp)*100}%`}}></div></div>
+                              <div className="h-2.5 bg-white/15 rounded-full overflow-hidden"><div className="h-full rounded-full bg-[linear-gradient(90deg,#16a34a,#4ade80)] transition-all duration-300" style={{width: `${(player.stats.hp/player.stats.maxHp)*100}%`}}></div></div>
                           </div>
                           <div>
                               <div className="flex items-center justify-between mb-0.5">
@@ -4018,7 +3942,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                       )}
                   </div>
 
-                  <div className="pointer-events-auto flex flex-col gap-1 sm:gap-1">
+                  <div className="hidden pointer-events-auto flex flex-col gap-1 sm:gap-1">
                       <button
                           onClick={openBattleSettingsModal}
                           className="group relative flex h-14 w-14 items-center justify-center transition-all duration-200 hover:-translate-y-0.5 hover:scale-105 active:scale-95 sm:h-11 sm:w-11"
@@ -4133,98 +4057,11 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
 
               {/* Stage progress — desktop: now in shared top bar, remove this column */}
 
-              {/* Enemy HP — right */}
-              {enemy && (
-                  <div className="flex flex-1 max-w-[48%] flex-col items-end gap-1.5 sm:max-w-[250px]">
-                      <div className={`w-full overflow-hidden rounded-[16px] border px-2.5 py-2 backdrop-blur-md animate-fade-in-down ${enemyCardToneClass}`}>
-                          <div className="mb-1">
-                          <div
-                              className="-mx-2.5 -mt-2 mb-1.5 flex items-center justify-between gap-2 px-2.5 py-1.5"
-                              style={{
-                                  background: 'linear-gradient(135deg, #9f1239 0%, #e11d48 100%)',
-                                  boxShadow: '0 6px 14px rgba(190,24,93,0.35)',
-                              }}
-                          >
-                              <span className="min-w-0 truncate text-[11px] font-black uppercase tracking-[0.12em] text-white">{enemy.name}</span>
-                              <span className="inline-flex items-center gap-1">
-                                  <span
-                                      className="inline-flex items-center justify-center rounded-full border border-white/75 bg-white px-1.5 py-0.5 text-[#9f1239]"
-                                      style={{ boxShadow: '0 4px 10px rgba(190,24,93,0.3)' }}
-                                  >
-                                      <EnemyClassIcon size={11} />
-                                  </span>
-                                  <span
-                                      className="inline-flex items-center gap-1 rounded-full border border-white/75 bg-white px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.12em]"
-                                      style={{
-                                          color: '#9f1239',
-                                          boxShadow: '0 4px 10px rgba(190,24,93,0.3)',
-                                      }}
-                                  >
-                                      Nv {enemy.level}
-                                  </span>
-                              </span>
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                              {enemy.isBoss && (
-                                  <span className="rounded-full border border-rose-400/50 bg-rose-400/20 px-1.5 py-0.5 text-[10px] font-black uppercase text-rose-300">Chefão</span>
-                              )}
-                              {!enemy.isBoss && enemy.isSubBoss && (
-                                  <span className="rounded-full border border-amber-400/50 bg-amber-400/20 px-1.5 py-0.5 text-[10px] font-black uppercase text-amber-300">Subchefe</span>
-                              )}
-                          </div>
-                      </div>
-                      <div>
-                          <div className="flex items-center justify-between mb-0.5">
-                              <span className="text-[11px] font-black uppercase tracking-[0.2em] text-rose-300">HP</span>
-                              <span className="text-sm font-black text-white/90">{enemy.stats.hp}/{enemy.stats.maxHp}</span>
-                          </div>
-                          <div className="h-2.5 bg-white/15 rounded-full overflow-hidden">
-                              <div className="h-full rounded-full bg-[linear-gradient(90deg,#8d2f46,#d17482)] transition-all duration-300" style={{width: `${Math.max(0, (enemy.stats.hp/enemy.stats.maxHp)*100)}%`}}></div>
-                          </div>
-                      </div>
-                      {enemyUsesManaSkills && (
-                          <div className="mt-1">
-                              <div className="flex items-center justify-between mb-0.5">
-                                  <span className="text-[11px] font-black uppercase tracking-[0.2em] text-sky-300">Mana</span>
-                                  <span className="text-sm font-black text-white/90">{enemy.stats.mp}/{enemy.stats.maxMp}</span>
-                              </div>
-                              <div className="h-2 bg-white/15 rounded-full overflow-hidden">
-                                  <div className="h-full rounded-full bg-[linear-gradient(90deg,#2b6878,#66b8d2)] transition-all duration-300" style={{width: `${Math.max(0, (enemy.stats.mp/enemy.stats.maxMp)*100)}%`}}></div>
-                              </div>
-                          </div>
-                      )}
-                      {enemy.combatBuffs.turns > 0 && (
-                          <div className="mt-1">
-                              <span className="inline-flex items-center rounded-full border border-amber-400/50 bg-amber-400/20 px-1.5 py-0.5 text-[8px] font-black uppercase text-amber-300">
-                                  Impulso ({enemy.combatBuffs.turns}t)
-                              </span>
-                          </div>
-                      )}
-                      {(enemy.statusEffects?.length ?? 0) > 0 && (
-                          <div className="mt-1 flex flex-wrap gap-1">
-                              {enemy.statusEffects?.slice(0, 3).map((status) => {
-                                  const fromHeroSkill = status.source === 'skill';
-                                  return (
-                                      <span
-                                          key={status.id}
-                                          className="rounded-full border px-1.5 py-0.5 text-[8px] font-black uppercase"
-                                          style={fromHeroSkill
-                                              ? { borderColor: `${classAccentColor}88`, backgroundColor: `${classAccentColor}20`, color: classAccentColor }
-                                              : { borderColor: `${status.color}55`, backgroundColor: `${status.color}18`, color: status.color }}
-                                      >
-                                          {status.name} {status.duration}t
-                                      </span>
-                                  );
-                              })}
-                          </div>
-                      )}
-                      </div>
-                      {!isDungeonRun && killCount >= 10 && !enemy.isBoss && (
-                          <button onClick={() => onStartBattle(true)} className="pointer-events-auto w-full rounded-[14px] border border-rose-300 bg-[linear-gradient(135deg,#e11d48_0%,#f43f5e_100%)] px-3 py-2 text-[10px] sm:text-sm font-black uppercase tracking-[0.12em] text-white transition-all hover:brightness-105 hover:scale-[1.01] animate-pulse shadow-[0_12px_24px_rgba(225,29,72,0.36)] flex items-center justify-center gap-2">
-                              <Skull size={16} /> ENFRENTAR CHEF�O
-                          </button>
-                      )}
-                  </div>
+              {/* Enemy HP replaced by 3D nameplate above model */}
+              {enemy && !isDungeonRun && killCount >= 10 && !enemy.isBoss && (
+                  <button onClick={() => onStartBattle(true)} className="pointer-events-auto rounded-[14px] border border-rose-300 bg-[linear-gradient(135deg,#e11d48_0%,#f43f5e_100%)] px-3 py-2 text-[10px] sm:text-sm font-black uppercase tracking-[0.12em] text-white transition-all hover:brightness-105 hover:scale-[1.01] animate-pulse shadow-[0_12px_24px_rgba(225,29,72,0.36)] flex items-center justify-center gap-2">
+                      <Skull size={16} /> ENFRENTAR CHEFÃO
+                  </button>
               )}
           </div>
       </div>

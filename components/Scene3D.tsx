@@ -194,7 +194,7 @@ const BattleActionsHtml: React.FC<{ config: BattleActionsConfig; player: Player;
 
   // Size config: mobile = large touch targets, desktop = compact
   const S = isMobile
-    ? { w: '240px', gap: '9px', btnFont: '14px', btnIcon: 46, btnIco: 22, btnGap: '13px', btnPad: '12px 16px 12px 11px', btnR: '18px', btnIcoR: 13, absFont: '14px', absIco: 19, absSub: '10px', dotW: '28px', dotH: '10px', dotGap: '5px', absGap: '10px', absPad: '12px 16px', absIconS: 36, absIconR: 11 }
+    ? { w: '268px', gap: '11px', btnFont: '15px', btnIcon: 52, btnIco: 24, btnGap: '14px', btnPad: '14px 18px 14px 12px', btnR: '20px', btnIcoR: 14, absFont: '15px', absIco: 20, absSub: '11px', dotW: '30px', dotH: '11px', dotGap: '6px', absGap: '11px', absPad: '13px 18px', absIconS: 40, absIconR: 12 }
     : { w: '155px', gap: '4px', btnFont: '9px', btnIcon: 26, btnIco: 13, btnGap: '7px', btnPad: '6px 9px 6px 6px', btnR: '10px', btnIcoR: 7, absFont: '9px', absIco: 11, absSub: '7px', dotW: '16px', dotH: '5px', dotGap: '3px', absGap: '6px', absPad: '6px 9px', absIconS: 20, absIconR: 6 };
 
   const btn = (id: string, color: string, disabled: boolean, onClick: () => void, icon: React.ReactNode, label: string, forceColor?: string) => {
@@ -366,7 +366,15 @@ const BattleActionsHtml: React.FC<{ config: BattleActionsConfig; player: Player;
   );
 
   return (
-    <div ref={containerRef} style={{ display: 'flex', flexDirection: 'column', gap: S.gap, width: S.w, ...F }}>
+    <div ref={containerRef} style={{
+      display: 'flex', flexDirection: 'column', gap: S.gap, width: S.w, ...F,
+      opacity: isPlayerTurn ? 1 : 0,
+      transform: isPlayerTurn ? 'translateY(0px) scale(1)' : 'translateY(10px) scale(0.94)',
+      transition: isPlayerTurn
+        ? 'opacity 0.28s ease-out, transform 0.28s cubic-bezier(0.34,1.56,0.64,1)'
+        : 'opacity 0.18s ease-in, transform 0.18s ease-in',
+      pointerEvents: isPlayerTurn ? 'auto' : 'none',
+    }}>
 
       {/* ── Mobile: full-screen portals ── */}
       {isMobile && showSkillsAction && !limitBattleActionsToBasics && activeMenu === 'skills' && createPortal(
@@ -4925,12 +4933,12 @@ export const GameScene: React.FC<SceneProps> = (props) => {
           </Suspense>
         ) : null}
 
-        {/* ── Battle actions: Html3D panel next to hero (player turn, non-menu, all devices) ── */}
-        {!props.isMenuView && props.battleActionsConfig && props.playerState && props.battleActionsConfig.isPlayerTurn && (
+        {/* ── Battle actions: Html3D panel next to hero (non-menu, all devices) ── */}
+        {!props.isMenuView && props.battleActionsConfig && props.playerState && (
           <Html
             position={isDungeonRun && activeScenarioConfig
               ? [dungeonHeroBasePosition[0] + 0.5, dungeonHeroBasePosition[1] + 2.0, 0.5]
-              : [-1.2, 1.4, 0.5]}
+              : isMobileDevice ? [-1.2, 2.6, 0.5] : [-1.2, 1.4, 0.5]}
             distanceFactor={isMobileDevice ? 7 : 10}
             zIndexRange={[150, 0]}
           >
@@ -5020,6 +5028,160 @@ export const GameScene: React.FC<SceneProps> = (props) => {
           ) : null}
         </group>
 
+        {/* ── Enemy nameplate — floats above the 3D model ── */}
+        {!props.isMenuView && props.enemyState && (
+          <Html
+            position={isDungeonRun && activeScenarioConfig
+              ? [dungeonEnemyBasePosition[0], dungeonEnemyBasePosition[1] + props.enemyScale * 2 + 0.9, dungeonEnemyBasePosition[2] + 0.5]
+              : [2.2, props.enemyScale * 2 - 0.1, 0.5]}
+            center
+            distanceFactor={isMobileDevice ? 7 : 11}
+            zIndexRange={[100, 0]}
+          >
+            {(() => {
+              const en = props.enemyState!;
+              const hpPct = Math.max(0, (en.stats.hp / en.stats.maxHp) * 100);
+              const hpColor = hpPct > 55 ? '#4ade80' : hpPct > 25 ? '#facc15' : '#f87171';
+              const hasMana = en.stats.maxMp > 0 && en.stats.mp > 0;
+              const mpPct = hasMana ? Math.max(0, (en.stats.mp / en.stats.maxMp) * 100) : 0;
+              const isDying = hpPct <= 0;
+              const isBoss = props.isEnemyBoss;
+              const isSubBoss = en.isSubBoss;
+              const accentColor = isBoss ? '#ef4444' : isSubBoss ? '#f59e0b' : (props.enemyColor ?? '#94a3b8');
+              const badgeLabel = isBoss ? 'CHEFÃO' : isSubBoss ? 'SUBCHEFE' : null;
+              const F: React.CSSProperties = { fontFamily: "'Segoe UI',system-ui,sans-serif" };
+              const cardW = isMobileDevice ? '280px' : '190px';
+              const nameFz = isMobileDevice ? '18px' : '13px';
+              const lvlFz  = isMobileDevice ? '20px' : '10px';
+              const badgeFz = isMobileDevice ? '11px' : '8px';
+              const barH = isMobileDevice ? '12px' : '8px';
+              const dotSz = isMobileDevice ? '11px' : '8px';
+              return (
+                <>
+                  <style>{`
+                    @keyframes np-enter {
+                      from { opacity: 0; transform: translateY(8px) scale(0.93); }
+                      to   { opacity: 1; transform: translateY(0)   scale(1);    }
+                    }
+                  `}</style>
+                  <div style={{
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px',
+                    pointerEvents: 'none', ...F,
+                    opacity: isDying ? 0 : 1,
+                    transform: isDying ? 'translateY(-10px) scale(0.9)' : 'translateY(0) scale(1)',
+                    transition: isDying ? 'opacity 0.5s ease, transform 0.5s ease' : 'opacity 0.3s ease',
+                    animation: isDying ? 'none' : 'np-enter 0.35s ease-out forwards',
+                  }}>
+                    {/* Boss/sub-boss badge */}
+                    {badgeLabel && (
+                      <div style={{ fontSize: badgeFz, fontWeight: 900, textTransform: 'uppercase' as const, letterSpacing: '0.18em', background: accentColor, color: '#fff', borderRadius: '99px', padding: '2px 10px', border: `1px solid ${accentColor}cc`, boxShadow: `0 2px 12px ${accentColor}99`, whiteSpace: 'nowrap' as const }}>
+                        {badgeLabel}
+                      </div>
+                    )}
+                    {/* Main card */}
+                    <div style={{ width: cardW, background: 'rgba(15,10,40,0.55)', backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)', border: `1px solid ${accentColor}44`, borderRadius: '12px', padding: isMobileDevice ? '12px 16px' : '8px 12px', display: 'flex', flexDirection: 'column', gap: isMobileDevice ? '10px' : '6px', boxShadow: `0 0 0 1px ${accentColor}22, 0 6px 24px rgba(0,0,0,0.45)`, boxSizing: 'border-box' as const }}>
+                      {/* Name + level */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+                        <span style={{ width: dotSz, height: dotSz, borderRadius: '50%', background: accentColor, flexShrink: 0, boxShadow: `0 0 6px ${accentColor}` }} />
+                        <span style={{ fontSize: nameFz, fontWeight: 900, color: '#fff', letterSpacing: '0.03em', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>{en.name}</span>
+                        <span style={{ fontSize: lvlFz, fontWeight: 800, color: accentColor, letterSpacing: '0.10em', whiteSpace: 'nowrap' as const, flexShrink: 0 }}>Nv {en.level}</span>
+                      </div>
+                      {/* HP bar */}
+                      <div style={{ height: barH, borderRadius: '99px', background: 'rgba(0,0,0,0.55)', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)' }}>
+                        <div style={{ height: '100%', borderRadius: '99px', background: `linear-gradient(90deg, ${hpColor}99, ${hpColor})`, width: `${hpPct}%`, transition: 'width 0.35s ease, background 0.5s ease' }} />
+                      </div>
+                      {/* Mana bar */}
+                      {hasMana && (
+                        <div style={{ height: barH, borderRadius: '99px', background: 'rgba(0,0,0,0.55)', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)' }}>
+                          <div style={{ height: '100%', borderRadius: '99px', background: 'linear-gradient(90deg, #2b687899, #66b8d2)', width: `${mpPct}%`, transition: 'width 0.35s ease' }} />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
+          </Html>
+        )}
+
+        {/* ── Hero nameplate — floats above the hero 3D model ── */}
+        {!props.isMenuView && props.playerState && (
+          <Html
+            position={isDungeonRun && activeScenarioConfig
+              ? [dungeonHeroBasePosition[0], dungeonHeroBasePosition[1] + 3.2, dungeonHeroBasePosition[2] + 0.5]
+              : [-2.0, 2.3, 0.5]}
+            center
+            distanceFactor={isMobileDevice ? 7 : 11}
+            zIndexRange={[100, 0]}
+          >
+            {(() => {
+              const pl = props.playerState!;
+              const hpPct = Math.max(0, (pl.stats.hp / pl.stats.maxHp) * 100);
+              const hpColor = hpPct > 55 ? '#4ade80' : hpPct > 25 ? '#facc15' : '#f87171';
+              const hasMana = pl.stats.maxMp > 0 && pl.stats.mp > 0;
+              const mpPct = hasMana ? Math.max(0, (pl.stats.mp / pl.stats.maxMp) * 100) : 0;
+              const isDying = hpPct <= 0;
+              const classId = (props.playerClassId ?? pl.classId) as PlayerClassId;
+              const pClass = getPlayerClassById(classId);
+              const accentColor = pClass?.visualProfile?.secondaryColor ?? '#60a5fa';
+              const ClassIcon = INSPECT_CLASS_ICON[classId] ?? Shield;
+              const classNamePtHero = HERO_CLASS_NAME_PT[classId] ?? classId;
+              const F: React.CSSProperties = { fontFamily: "'Segoe UI',system-ui,sans-serif" };
+              const cardW = isMobileDevice ? '280px' : '190px';
+              const nameFz = isMobileDevice ? '18px' : '13px';
+              const lvlFz  = isMobileDevice ? '20px' : '10px';
+              const clsFz  = isMobileDevice ? '11px' : '8px';
+              const barH   = isMobileDevice ? '12px' : '8px';
+              const iconSz = isMobileDevice ? 18 : 13;
+              return (
+                <>
+                  <style>{`
+                    @keyframes np-hero-enter {
+                      from { opacity: 0; transform: translateY(8px) scale(0.93); }
+                      to   { opacity: 1; transform: translateY(0)   scale(1);    }
+                    }
+                  `}</style>
+                  <div style={{
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px',
+                    pointerEvents: 'none', ...F,
+                    opacity: isDying ? 0 : 1,
+                    transform: isDying ? 'translateY(-10px) scale(0.9)' : 'translateY(0) scale(1)',
+                    transition: isDying ? 'opacity 0.5s ease, transform 0.5s ease' : 'opacity 0.3s ease',
+                    animation: isDying ? 'none' : 'np-hero-enter 0.35s ease-out forwards',
+                  }}>
+                    {/* Main card */}
+                    <div style={{ width: cardW, background: 'rgba(15,10,40,0.55)', backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)', border: `1px solid ${accentColor}44`, borderRadius: '12px', padding: isMobileDevice ? '12px 16px' : '8px 12px', display: 'flex', flexDirection: 'column', gap: isMobileDevice ? '10px' : '6px', boxShadow: `0 0 0 1px ${accentColor}22, 0 6px 24px rgba(0,0,0,0.45)`, boxSizing: 'border-box' as const }}>
+                      {/* Name + level */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+                        {/* Class icon with glow effect */}
+                        <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: accentColor, filter: `drop-shadow(0 0 5px ${accentColor}) drop-shadow(0 0 10px ${accentColor}88)` }}>
+                          <ClassIcon size={iconSz} />
+                        </span>
+                        <span style={{ fontSize: nameFz, fontWeight: 900, color: '#fff', letterSpacing: '0.03em', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>{HERO_CLASS_NAME_PT[classId] ?? classId}</span>
+                        <span style={{ fontSize: lvlFz, fontWeight: 800, color: accentColor, letterSpacing: '0.10em', whiteSpace: 'nowrap' as const, flexShrink: 0 }}>Nv {pl.level}</span>
+                      </div>
+                      {/* HP bar */}
+                      <div style={{ height: barH, borderRadius: '99px', background: 'rgba(0,0,0,0.55)', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)' }}>
+                        <div style={{ height: '100%', borderRadius: '99px', background: `linear-gradient(90deg, ${hpColor}99, ${hpColor})`, width: `${hpPct}%`, transition: 'width 0.35s ease, background 0.5s ease' }} />
+                      </div>
+                      {/* Mana bar — only if hero currently has mana */}
+                      {hasMana && (
+                        <div style={{ height: barH, borderRadius: '99px', background: 'rgba(0,0,0,0.55)', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)' }}>
+                          <div style={{ height: '100%', borderRadius: '99px', background: 'linear-gradient(90deg, #2b687899, #66b8d2)', width: `${mpPct}%`, transition: 'width 0.35s ease' }} />
+                        </div>
+                      )}
+                      {/* XP bar */}
+                      <div style={{ height: isMobileDevice ? '6px' : '4px', borderRadius: '99px', background: 'rgba(0,0,0,0.40)', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.06)' }}>
+                        <div style={{ height: '100%', borderRadius: '99px', background: 'linear-gradient(90deg, #7d3d4d99, #c89a66)', width: `${Math.max(0, (pl.xp / pl.xpToNext) * 100)}%`, transition: 'width 0.5s ease' }} />
+                      </div>
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
+          </Html>
+        )}
+
         {!shouldUseRuntimeScenarioEditorParity && !props.isMenuView ? (
           <BackfaceHullOverlay
             targets={outlineTargets}
@@ -5029,13 +5191,6 @@ export const GameScene: React.FC<SceneProps> = (props) => {
           />
         ) : null}
 
-        {!props.isMenuView && (
-          <EnemyIntentOverlay
-            intent={props.enemyIntentPreview}
-            isBoss={props.isEnemyBoss}
-            show={props.turnState === TurnState.PLAYER_INPUT}
-          />
-        )}
         {!props.isMenuView && (
           <Suspense fallback={null}>
             <CombatCinematicFX

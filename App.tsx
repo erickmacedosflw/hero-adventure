@@ -852,6 +852,7 @@ export default function App() {
     const [portalTransitioning, setPortalTransitioning] = useState(false);
     const portalTransitionClearTimerRef = useRef<number | null>(null);
     const [menuPortalTravelCinematicToken, setMenuPortalTravelCinematicToken] = useState(0);
+    const [portalSceneOverlay, setPortalSceneOverlay] = useState<{ targetRegion: SceneRegion; phase: 'in' | 'hold' | 'out' } | null>(null);
     const [onboardingPhase, setOnboardingPhase] = useState<OnboardingPhase>('intro_camp');
     const [hasPlayerDiedOnce, setHasPlayerDiedOnce] = useState(false);
     const [skillsUnlockPromptPending, setSkillsUnlockPromptPending] = useState(false);
@@ -2164,21 +2165,14 @@ export default function App() {
             portalTransitionClearTimerRef.current = window.setTimeout(() => {
                 portalTransitionClearTimerRef.current = null;
                 setPortalTransitioning(false);
-            }, 2200);
+            }, 3200);
 
-            if (targetRegion === 'tower') {
-                setMenuPortalTravelCinematicToken((prev) => prev + 1);
-
-                if (portalTravelRegionSwapTimerRef.current !== null) {
-                    window.clearTimeout(portalTravelRegionSwapTimerRef.current);
-                }
-
-                portalTravelRegionSwapTimerRef.current = window.setTimeout(() => {
-                    portalTravelRegionSwapTimerRef.current = null;
-                    setSceneRegion('tower');
-                }, PORTAL_TRAVEL_CAMERA_ZOOM_MS);
-                return;
-            }
+            // Timeline:
+            // t=0→720ms  : zoom-in visível (sem overlay)
+            // t=720ms     : overlay fade-in rápido (200ms)
+            // t=920ms     : overlay opaco → troca de cena + overlay some (fade-out 600ms)
+            // t=960ms     : zoom-out começa no novo cenário — VISÍVEL ao usuário
+            // t=1520ms    : overlay totalmente transparente, zoom-out termina ~t=1780ms
 
             setMenuPortalTravelCinematicToken((prev) => prev + 1);
 
@@ -2186,10 +2180,23 @@ export default function App() {
                 window.clearTimeout(portalTravelRegionSwapTimerRef.current);
             }
 
+            // Wipe-in starts at t=500ms — slightly before zoom-in ends (720ms),
+            // creating a smooth overlap where the circle opens as the camera arrives.
+            window.setTimeout(() => {
+                setPortalSceneOverlay({ targetRegion, phase: 'in' });
+            }, 500);
+
             portalTravelRegionSwapTimerRef.current = window.setTimeout(() => {
                 portalTravelRegionSwapTimerRef.current = null;
+                // Wipe-in already running — swap scene, then hold before wipe-out
                 setSceneRegion(targetRegion);
-            }, PORTAL_TRAVEL_CAMERA_ZOOM_MS);
+                // Hold: wipe-in duration (380ms) + scene load buffer
+                // Total from start: 500 + 380 + hold = scene fully opaque at ~880ms
+                window.setTimeout(() => {
+                    setPortalSceneOverlay({ targetRegion, phase: 'out' });
+                    window.setTimeout(() => setPortalSceneOverlay(null), 620);
+                }, 1800);
+            }, PORTAL_TRAVEL_CAMERA_ZOOM_MS); // 720ms — zoom-in ends
   }, [onboardingPhase, sceneRegion]);
 
   const enterBattleImmediate = (isBoss: boolean, mode: 'hunt' | 'dungeon' = dungeonRun ? 'dungeon' : 'hunt', dungeonClearedOverride?: number) => {
@@ -4161,6 +4168,55 @@ export default function App() {
                         onMenuHeroClick={resolvedGameState === GameState.TAVERN || resolvedGameState === GameState.BATTLE ? handleMenuHeroClick : undefined}
                     />
             </SceneErrorBoundary>
+
+            {/* Portal travel overlay — covers scene swap while new region loads */}
+            {portalSceneOverlay && (() => {
+                const pov = portalSceneOverlay;
+                const povThumb = SAVE_SCENE_THUMBNAIL[pov.targetRegion] ?? SAVE_THUMB_MOUNTAIN_URL;
+                const regionLabel: Record<SceneRegion, string> = { forest: 'Montanha', dungeon: 'Dungeon', tower: 'Torre' };
+                // key={pov.phase} forces a DOM remount on each phase change so the browser
+                // always starts the animation fresh from the first keyframe.
+                // fill-mode: both → 'from' keyframe is applied instantly on mount (no flash).
+                const clipAnim =
+                    pov.phase === 'in'  ? 'portal-wipe-in 420ms ease-in-out both' :
+                    pov.phase === 'out' ? 'portal-wipe-out 660ms ease-in-out both' :
+                    'none';
+                return (
+                    <div
+                        key={pov.phase}
+                        className="absolute inset-0 z-[998] pointer-events-none"
+                        style={{ animation: clipAnim }}
+                    >
+                        <div className="absolute inset-0">
+                            <img src={povThumb} alt="" className="w-full h-full object-cover" draggable={false} />
+                            <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, rgba(6,3,3,0.38) 0%, rgba(6,3,3,0.80) 60%, rgba(6,3,3,0.97) 100%)' }} />
+                        </div>
+                        {/* Center label */}
+                        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+                            <div
+                                className="font-gamer text-3xl font-black text-white"
+                                style={{
+                                    textShadow: '0 2px 24px rgba(0,0,0,0.8)',
+                                    animation: pov.phase !== 'out' ? 'splash-text-in 420ms ease both' : 'none',
+                                }}
+                            >
+                                {regionLabel[pov.targetRegion]}
+                            </div>
+                            <div
+                                className="text-[10px] font-black uppercase tracking-[0.26em] text-white/46"
+                                style={{ animation: pov.phase !== 'out' ? 'splash-text-in 400ms 100ms ease both' : 'none' }}
+                            >
+                                Viajando pelo portal...
+                            </div>
+                            {/* Pulsing portal ring */}
+                            <div
+                                className="mt-2 w-12 h-12 rounded-full border-2 border-white/30"
+                                style={{ animation: pov.phase !== 'out' ? 'portal-ring-pulse 1.2s ease-in-out infinite' : 'none' }}
+                            />
+                        </div>
+                    </div>
+                );
+            })()}
 
             {/* Global loading splash — sits over the game scene while 3D assets warm up */}
             {loadingSplash && (() => {

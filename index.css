@@ -417,6 +417,23 @@ button {
   to   { opacity: 1; transform: scale(1) translateY(0); }
 }
 
+@keyframes portal-ring-pulse {
+  0%, 100% { transform: scale(1);   opacity: 0.28; }
+  50%       { transform: scale(1.5); opacity: 0.7; }
+}
+
+/* Portal wipe-in: circle expands from portal position (left ~28%, mid-height ~50%) */
+@keyframes portal-wipe-in {
+  from { clip-path: circle(0% at 28% 50%); }
+  to   { clip-path: circle(150% at 28% 50%); }
+}
+
+/* Portal wipe-out: circle contracts back toward center */
+@keyframes portal-wipe-out {
+  from { clip-path: circle(150% at 45% 50%); }
+  to   { clip-path: circle(0% at 45% 50%); }
+}
+
 @keyframes splash-text-in {
   from { opacity: 0; transform: translateY(14px); }
   to   { opacity: 1; transform: translateY(0); }

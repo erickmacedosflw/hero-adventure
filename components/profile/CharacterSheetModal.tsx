@@ -829,9 +829,9 @@ export const CharacterSheetModal = ({ player, shopItems: _shopItems, onClose, on
                     label="HP"
                     value={player.stats.hp}
                     max={player.stats.maxHp}
-                    track="bg-[linear-gradient(90deg,#8d2f46,#d17482)]"
+                    track="bg-[linear-gradient(90deg,#16a34a,#4ade80)]"
                     bonusPercent={getResourceProficiencyPercent('maxHp')}
-                    bonusChipClass="border-[#d98a98] bg-[#f6d9df] text-[#b83a4b]"
+                    bonusChipClass="border-[#86efac] bg-[#dcfce7] text-[#166534]"
                   />
                   <ResourceBar
                     label="Mana"

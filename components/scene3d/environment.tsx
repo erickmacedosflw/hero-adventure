@@ -1046,7 +1046,7 @@ export const CameraController = ({
   useFrame((_, delta) => {
     const easeInOut = (value: number) => value * value * (3 - (2 * value));
     const ZOOM_IN_SECONDS = 0.72;
-    const HOLD_SECONDS = 0.24;
+    const HOLD_SECONDS = 1.8; // synced with portal overlay hold: overlay fades at t=720+1800ms, zoom-out starts then
     const ZOOM_OUT_SECONDS = 0.82;
     clockRef.current += delta;
     const t = clockRef.current;
