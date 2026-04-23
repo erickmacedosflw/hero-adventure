@@ -3989,97 +3989,19 @@ export default function App() {
                                                 <button
                                                     onClick={() => {
                                                         closeModal();
-                                                        // Show loading splash, then actually load the save
+                                                        // Load the save immediately so the scene starts rendering underneath
+                                                        handleContinueFromSave();
+                                                        // Show splash on top while the 3D scene warms up
                                                         setLoadingSplash({ slot, visible: false });
                                                         requestAnimationFrame(() => {
                                                             requestAnimationFrame(() => setLoadingSplash(prev => prev ? { ...prev, visible: true } : prev));
                                                         });
-                                                        setTimeout(handleContinueFromSave, 1600);
                                                     }}
                                                     className="hero-menu-action hero-menu-action-primary"
                                                     style={{ fontSize: '0.8rem', padding: '0.7rem 0.8rem', background: `linear-gradient(180deg, ${accentColor}cc 0%, ${accentColor}aa 100%)`, borderColor: `${accentColor}88`, boxShadow: `0 8px 24px ${accentColor}44` }}
                                                 >
                                                     <Play size={14} className="shrink-0" /> Jogar
                                                 </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            );
-                        })()}
-
-                        {/* Loading splash screen */}
-                        {loadingSplash && (() => {
-                            const sp = loadingSplash;
-                            const spClassDef = sp.slot.classId ? getPlayerClassById(sp.slot.classId as PlayerClassId) : null;
-                            const SpClassIcon = (sp.slot.classId ? SAVE_CLASS_ICON[sp.slot.classId] : null) ?? Shield;
-                            const spThumb = SAVE_SCENE_THUMBNAIL[sp.slot.sceneRegion ?? 'forest'] ?? SAVE_THUMB_MOUNTAIN_URL;
-                            const spAccent = spClassDef?.visualProfile.secondaryColor ?? '#b87a3a';
-                            const spAura = spClassDef?.visualProfile.auraColor ?? '#f8c77e';
-                            return (
-                                <div
-                                    className="absolute inset-0 z-30 flex flex-col"
-                                    style={{
-                                        opacity: sp.visible ? 1 : 0,
-                                        transition: 'opacity 380ms ease',
-                                    }}
-                                >
-                                    {/* Full-bleed scenario image */}
-                                    <div className="absolute inset-0">
-                                        <img src={spThumb} alt="" className="w-full h-full object-cover" draggable={false} />
-                                        <div className="absolute inset-0" style={{ background: `linear-gradient(to bottom, rgba(10,5,5,0.25) 0%, rgba(10,5,5,0.72) 60%, rgba(10,5,5,0.97) 100%)` }} />
-                                        {/* Accent color vignette at bottom */}
-                                        <div className="absolute inset-x-0 bottom-0 h-48" style={{ background: `linear-gradient(to top, ${spAccent}22, transparent)` }} />
-                                    </div>
-
-                                    {/* Hero info — bottom section */}
-                                    <div
-                                        className="absolute inset-x-0 bottom-0 px-6 flex flex-col items-center"
-                                        style={{ paddingBottom: 'max(3rem, env(safe-area-inset-bottom, 3rem))' }}
-                                    >
-                                        {/* Class icon badge */}
-                                        <div
-                                            className="flex items-center justify-center w-16 h-16 rounded-full border-2 mb-4"
-                                            style={{
-                                                backgroundColor: `${spAccent}22`,
-                                                borderColor: spAccent,
-                                                color: spAura,
-                                                boxShadow: `0 0 32px ${spAccent}55`,
-                                                animation: sp.visible ? 'splash-icon-in 500ms cubic-bezier(0.34,1.4,0.64,1) both' : 'none',
-                                            }}
-                                        >
-                                            <SpClassIcon size={28} />
-                                        </div>
-
-                                        <div
-                                            className="text-center"
-                                            style={{ animation: sp.visible ? 'splash-text-in 420ms 80ms ease both' : 'none' }}
-                                        >
-                                            <div className="text-[10px] font-black uppercase tracking-[0.28em] text-white/50 mb-0.5">Slot {sp.slot.slotId}</div>
-                                            <div className="font-gamer text-4xl font-black text-white leading-none mb-1">Nivel {sp.slot.level ?? 1}</div>
-                                            <div className="text-sm font-black uppercase tracking-[0.18em]" style={{ color: spAura }}>
-                                                {(sp.slot.classId ? SAVE_CLASS_NAME_PT[sp.slot.classId] : null) ?? spClassDef?.name ?? sp.slot.classId ?? ''}
-                                            </div>
-                                            <div className="mt-1 text-xs text-white/40">{formatSaveDate(sp.slot.savedAt)}</div>
-                                        </div>
-
-                                        {/* Loading bar */}
-                                        <div className="mt-6 w-full max-w-xs">
-                                            <div className="h-[3px] w-full rounded-full overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.12)' }}>
-                                                <div
-                                                    className="h-full rounded-full"
-                                                    style={{
-                                                        background: `linear-gradient(90deg, ${spAccent}, ${spAura})`,
-                                                        animation: sp.visible ? 'splash-bar 1.4s ease-in-out both' : 'none',
-                                                        boxShadow: `0 0 8px ${spAura}88`,
-                                                    }}
-                                                />
-                                            </div>
-                                            <div
-                                                className="mt-2 text-center text-[10px] font-black uppercase tracking-[0.22em] text-white/38"
-                                                style={{ animation: sp.visible ? 'splash-text-in 400ms 200ms ease both' : 'none' }}
-                                            >
-                                                Carregando save...
                                             </div>
                                         </div>
                                     </div>
@@ -4239,6 +4161,90 @@ export default function App() {
                         onMenuHeroClick={resolvedGameState === GameState.TAVERN || resolvedGameState === GameState.BATTLE ? handleMenuHeroClick : undefined}
                     />
             </SceneErrorBoundary>
+
+            {/* Global loading splash — sits over the game scene while 3D assets warm up */}
+            {loadingSplash && (() => {
+                const sp = loadingSplash;
+                const spClassDef = sp.slot.classId ? getPlayerClassById(sp.slot.classId as PlayerClassId) : null;
+                const SpClassIcon = (sp.slot.classId ? SAVE_CLASS_ICON[sp.slot.classId] : null) ?? Shield;
+                const spThumb = SAVE_SCENE_THUMBNAIL[sp.slot.sceneRegion ?? 'forest'] ?? SAVE_THUMB_MOUNTAIN_URL;
+                const spAccent = spClassDef?.visualProfile.secondaryColor ?? '#b87a3a';
+                const spAura = spClassDef?.visualProfile.auraColor ?? '#f8c77e';
+                return (
+                    <div
+                        className="absolute inset-0 z-[999] flex flex-col pointer-events-none"
+                        style={{
+                            opacity: sp.visible ? 1 : 0,
+                            transition: sp.visible ? 'opacity 320ms ease' : 'opacity 600ms ease 2800ms',
+                        }}
+                        onTransitionEnd={() => {
+                            // Remove from DOM after fade-out
+                            if (!sp.visible) setLoadingSplash(null);
+                        }}
+                    >
+                        {/* Full-bleed scenario image */}
+                        <div className="absolute inset-0">
+                            <img src={spThumb} alt="" className="w-full h-full object-cover" draggable={false} />
+                            <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, rgba(10,5,5,0.22) 0%, rgba(10,5,5,0.70) 55%, rgba(10,5,5,0.97) 100%)' }} />
+                            <div className="absolute inset-x-0 bottom-0 h-56" style={{ background: `linear-gradient(to top, ${spAccent}28, transparent)` }} />
+                        </div>
+
+                        {/* Hero info — bottom */}
+                        <div
+                            className="absolute inset-x-0 bottom-0 px-6 flex flex-col items-center"
+                            style={{ paddingBottom: 'max(3rem, env(safe-area-inset-bottom, 3rem))' }}
+                        >
+                            <div
+                                className="flex items-center justify-center w-16 h-16 rounded-full border-2 mb-4"
+                                style={{
+                                    backgroundColor: `${spAccent}22`,
+                                    borderColor: spAccent,
+                                    color: spAura,
+                                    boxShadow: `0 0 36px ${spAccent}66`,
+                                    animation: sp.visible ? 'splash-icon-in 520ms cubic-bezier(0.34,1.4,0.64,1) both' : 'none',
+                                }}
+                            >
+                                <SpClassIcon size={28} />
+                            </div>
+
+                            <div
+                                className="text-center"
+                                style={{ animation: sp.visible ? 'splash-text-in 440ms 80ms ease both' : 'none' }}
+                            >
+                                <div className="text-[10px] font-black uppercase tracking-[0.28em] text-white/48 mb-0.5">Slot {sp.slot.slotId}</div>
+                                <div className="font-gamer text-4xl font-black text-white leading-none mb-1">Nivel {sp.slot.level ?? 1}</div>
+                                <div className="text-sm font-black uppercase tracking-[0.18em]" style={{ color: spAura }}>
+                                    {(sp.slot.classId ? SAVE_CLASS_NAME_PT[sp.slot.classId] : null) ?? spClassDef?.name ?? sp.slot.classId ?? ''}
+                                </div>
+                                <div className="mt-1 text-xs text-white/38">{formatSaveDate(sp.slot.savedAt)}</div>
+                            </div>
+
+                            <div className="mt-6 w-full max-w-xs">
+                                <div className="h-[3px] w-full rounded-full overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.11)' }}>
+                                    <div
+                                        className="h-full rounded-full"
+                                        style={{
+                                            background: `linear-gradient(90deg, ${spAccent}, ${spAura})`,
+                                            animation: sp.visible ? 'splash-bar 3.0s ease-in-out both' : 'none',
+                                            boxShadow: `0 0 8px ${spAura}88`,
+                                        }}
+                                        onAnimationEnd={() => {
+                                            // Bar finished — trigger fade-out
+                                            setLoadingSplash(prev => prev ? { ...prev, visible: false } : prev);
+                                        }}
+                                    />
+                                </div>
+                                <div
+                                    className="mt-2 text-center text-[10px] font-black uppercase tracking-[0.22em] text-white/36"
+                                    style={{ animation: sp.visible ? 'splash-text-in 400ms 220ms ease both' : 'none' }}
+                                >
+                                    Carregando...
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                );
+            })()}
 
             {resolvedGameState === GameState.MENU && <MenuScreen onStart={startGame} />}
       
