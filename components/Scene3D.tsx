@@ -8,7 +8,7 @@ import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { COMBAT_SPRITE_ANIMATION_DEFAULTS, SPRITE_ANIMATION_IDS, SPRITE_ANIMATION_REGISTRY } from '../game/data/sprite-animations/registry';
 import { resolveTrackPlaybackSnapshot } from '../game/mechanics/spriteOverlayPlayback';
-import { CardCategory, Enemy, EnemyIntentPreview, FloatingText, Item, Particle, Player, PlayerAnimationAction, PlayerClassAnimationMap, PlayerClassAssets, PlayerClassId, SpriteOverlayAnimationDefinition, SpriteTrackDefinition, StatusEffect, TurnState } from '../types';
+import { CardCategory, Enemy, EnemyIntentPreview, FloatingText, GltfMonsterBodyType, Item, Particle, Player, PlayerAnimationAction, PlayerClassAnimationMap, PlayerClassAssets, PlayerClassId, SpriteOverlayAnimationDefinition, SpriteTrackDefinition, StatusEffect, TurnState } from '../types';
 import {
   RIGHT_HAND_BONE_CANDIDATES,
   RuntimeHeroAssets,
@@ -36,6 +36,7 @@ import {
 } from './scene3d/environment';
 import {
   DeveloperClassBuilderSceneRenderer,
+  DeveloperGltfMonsterSceneRenderer,
   DeveloperHeroSceneRenderer,
   DeveloperKitbashSceneRenderer,
   DeveloperMonsterSceneRenderer,
@@ -46,10 +47,12 @@ import {
 import {
   AnimatedClassHero,
   EnemyCharacter,
+  GltfEnemyCharacter,
   applyHitFlashToMaterial,
 } from './scene3d/characters';
 import type {
   DeveloperClassBuilderSceneProps,
+  DeveloperGltfMonsterSceneProps,
   DeveloperHeroSceneProps,
   DeveloperKitbashSceneProps,
   DeveloperMonsterSceneProps,
@@ -180,6 +183,9 @@ interface SceneProps {
   towerUnlocked?: boolean;
   onPortalInspectClose?: () => void;
   onPortalTravelTo?: (region: 'forest' | 'dungeon' | 'tower') => void;
+  /** When set, the battle renders a GLTF monster model instead of the FBX skeleton. */
+  enemyGltfModelUrl?: string;
+  enemyGltfBodyType?: GltfMonsterBodyType;
 }
 
 // --- MAIN COMPONENTS ---
@@ -4496,7 +4502,27 @@ export const GameScene: React.FC<SceneProps> = (props) => {
         )}
 
         <group ref={outlineEnemyRef}>
-          {!props.isMenuView && (
+          {!props.isMenuView && props.enemyGltfModelUrl ? (
+            <GltfEnemyCharacter
+              modelUrl={props.enemyGltfModelUrl}
+              bodyType={props.enemyGltfBodyType ?? 'Big'}
+              animationAction={props.enemyAnimationAction}
+              scale={props.enemyScale}
+              isAttacking={props.isEnemyAttacking}
+              isDefending={props.isEnemyDefending}
+              defendImpulseLevel={props.enemyState?.impulseGuardLevel ?? 0}
+              isHit={props.isEnemyHit}
+              contactShadowResolution={quality.contactShadowResolution}
+              statusOverlay={enemyOverlay}
+              idlePositionX={isDungeonRun && activeScenarioConfig ? dungeonEnemyBasePosition[0] : undefined}
+              attackPositionX={isDungeonRun && activeScenarioConfig ? dungeonEnemyAttackX : undefined}
+              defendPositionX={isDungeonRun && activeScenarioConfig ? dungeonEnemyDefendX : undefined}
+              idlePositionY={isDungeonRun && activeScenarioConfig ? dungeonEnemyBasePosition[1] : undefined}
+              attackPositionY={isDungeonRun && activeScenarioConfig ? dungeonEnemyBasePosition[1] : undefined}
+              defendPositionY={isDungeonRun && activeScenarioConfig ? dungeonEnemyBasePosition[1] : undefined}
+              originPosition={isDungeonRun && activeScenarioConfig ? dungeonEnemyBasePosition : undefined}
+            />
+          ) : !props.isMenuView ? (
             <EnemyCharacter
               assets={props.enemyAssets}
               color={props.enemyColor}
@@ -4520,7 +4546,7 @@ export const GameScene: React.FC<SceneProps> = (props) => {
               defendPositionY={isDungeonRun && activeScenarioConfig ? dungeonEnemyBasePosition[1] : undefined}
               originPosition={isDungeonRun && activeScenarioConfig ? dungeonEnemyBasePosition : undefined}
             />
-          )}
+          ) : null}
         </group>
 
         {!shouldUseRuntimeScenarioEditorParity && !props.isMenuView ? (
@@ -4611,6 +4637,10 @@ export const DeveloperHeroScene: React.FC<DeveloperHeroSceneProps> = (props) => 
 
 export const DeveloperMonsterScene: React.FC<DeveloperMonsterSceneProps> = (props) => (
   <DeveloperMonsterSceneRenderer {...props} EnemyCharacterComponent={EnemyCharacter} />
+);
+
+export const DeveloperGltfMonsterScene: React.FC<DeveloperGltfMonsterSceneProps> = (props) => (
+  <DeveloperGltfMonsterSceneRenderer {...props} HeroVoxelComponent={HeroVoxel} />
 );
 
 const ModularClassHeroVoxel = ({

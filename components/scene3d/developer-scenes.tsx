@@ -1,8 +1,9 @@
 import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame, useLoader, useThree } from '@react-three/fiber';
-import { ContactShadows, Html, OrbitControls, PerspectiveCamera, TransformControls, useFBX, useTexture } from '@react-three/drei';
+import { ContactShadows, Html, OrbitControls, PerspectiveCamera, TransformControls, useAnimations, useFBX, useTexture } from '@react-three/drei';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { PlayerAnimationAction, PlayerClassAssets, PlayerClassId } from '../../types';
 import { getPlayerClassById } from '../../game/data/classes';
 import {
@@ -1808,6 +1809,170 @@ export const DeveloperKitbashSceneRenderer: React.FC<
             />
           )}
         </group>
+      </Canvas>
+    </div>
+  );
+};
+
+// ─── GLTF Monster Viewer ─────────────────────────────────────────────────────
+
+export interface DeveloperGltfMonsterSceneProps {
+  modelUrl: string;
+  animationIndex?: number;
+  /** Clip name from the GLTF — takes priority over animationIndex when provided. */
+  clipName?: string;
+  heroClassId?: PlayerClassId;
+  onAnimationsLoaded?: (names: string[]) => void;
+}
+
+// Inner component — must be inside Canvas so hooks work
+const GltfMonsterModel: React.FC<{
+  modelUrl: string;
+  animationIndex: number;
+  clipName?: string;
+  onAnimationsLoaded?: (names: string[]) => void;
+}> = ({ modelUrl, animationIndex, clipName, onAnimationsLoaded }) => {
+  const gltf = useLoader(GLTFLoader, modelUrl) as any;
+  const groupRef = useRef<THREE.Group>(null!);
+
+  // SkeletonUtils.clone (imported module) keeps SkinnedMesh bone references intact
+  // so the AnimationMixer can resolve every track against the cloned skeleton.
+  // Also compute a Y offset so the bottom of the model sits exactly on the floor.
+  const { clonedScene, floorOffsetY } = useMemo(() => {
+    const scene = SkeletonUtils.clone(gltf.scene) as THREE.Group;
+    scene.traverse((node: any) => {
+      if (node.isMesh) {
+        node.castShadow = true;
+        node.receiveShadow = true;
+        node.frustumCulled = false;
+      }
+    });
+    const box = new THREE.Box3().setFromObject(scene);
+    const offsetY = !box.isEmpty() && isFinite(box.min.y) ? -box.min.y : 0;
+    return { clonedScene: scene, floorOffsetY: offsetY };
+  }, [gltf.scene]);
+
+  const { names, actions } = useAnimations(gltf.animations ?? [], groupRef);
+
+  // Report animation names upward once (deduplicated)
+  const reportedRef = useRef('');
+  useEffect(() => {
+    const joined = names.join('|');
+    if (joined !== reportedRef.current) {
+      reportedRef.current = joined;
+      onAnimationsLoaded?.(names);
+    }
+  }, [names, onAnimationsLoaded]);
+
+  // Play selected animation — clipName takes priority over animationIndex
+  useEffect(() => {
+    if (!names.length || !Object.keys(actions).length) return;
+    // Stop all first (avoid blending artefacts)
+    Object.values(actions).forEach((a) => { try { a?.stop(); } catch (_) {} });
+    const name = clipName ?? names[Math.min(animationIndex, names.length - 1)];
+    if (name && actions[name]) {
+      actions[name]!.reset().setLoop(THREE.LoopRepeat, Infinity).play();
+    }
+  }, [actions, animationIndex, clipName, names]);
+
+  return <primitive ref={groupRef} object={clonedScene} position={[0, floorOffsetY, 0]} />;
+};
+
+export const DeveloperGltfMonsterSceneRenderer: React.FC<
+  DeveloperGltfMonsterSceneProps & { HeroVoxelComponent: HeroVoxelComponentType }
+> = ({
+  HeroVoxelComponent,
+  modelUrl,
+  animationIndex = 0,
+  clipName,
+  heroClassId = 'knight',
+  onAnimationsLoaded,
+}) => {
+  const quality = useMemo(() => getRenderQualityProfile(), []);
+  const powerPreference = useMemo(() => getRenderPowerPreference(), []);
+
+  return (
+    <div className="relative h-full w-full overflow-hidden rounded-[inherit] bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.10),_transparent_36%),linear-gradient(180deg,rgba(15,23,42,0.98),rgba(2,6,23,0.99))]">
+      <Canvas
+        shadows={{ type: THREE.PCFSoftShadowMap }}
+        dpr={quality.dpr}
+        gl={{ antialias: quality.antialias, powerPreference }}
+        performance={{ min: 0.5 }}
+      >
+        <color attach="background" args={['#020617']} />
+        <fog attach="fog" args={['#020617', 14, 32]} />
+        <PerspectiveCamera makeDefault position={[0, 1.8, 10]} fov={42} onUpdate={(c) => c.lookAt(0, 0.3, 0)} />
+        <ambientLight intensity={1.1} color="#f8fafc" />
+        <hemisphereLight intensity={0.72} color="#e2e8f0" groundColor="#0f172a" />
+        <directionalLight position={[-3, 6, 5]} intensity={1.0} color="#f8fafc" castShadow shadow-mapSize={[quality.shadowMapSize, quality.shadowMapSize]} />
+        <pointLight position={[3, 2.4, 2.2]} intensity={1.0} color="#34d399" distance={14} />
+        <pointLight position={[-2.4, 2.1, 1.4]} intensity={0.85} color="#fb923c" distance={12} />
+
+        {/* Floor */}
+        <group position={[0, -1.1, 0]}>
+          <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+            <circleGeometry args={[5.5, 64]} />
+            <meshStandardMaterial color="#0f172a" roughness={0.84} metalness={0.06} />
+          </mesh>
+          <mesh position={[0, 0.01, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <ringGeometry args={[4.0, 4.8, 64]} />
+            <meshStandardMaterial color="#34d399" emissive="#10b981" emissiveIntensity={0.28} transparent opacity={0.14} side={THREE.DoubleSide} />
+          </mesh>
+          {/* dividing line between hero and monster */}
+          <mesh position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <planeGeometry args={[0.04, 6]} />
+            <meshStandardMaterial color="#475569" transparent opacity={0.35} />
+          </mesh>
+        </group>
+
+        {/* Hero — left side */}
+        <group position={[-2.4, 0, 0]}>
+          <Html position={[0, 2.0, 0]} center>
+            <div className="whitespace-nowrap rounded-full border border-cyan-400/30 bg-slate-950/80 px-3 py-1 text-[10px] font-black uppercase tracking-[0.22em] text-cyan-100 backdrop-blur-sm">
+              Herói · {heroClassId}
+            </div>
+          </Html>
+          <Suspense fallback={null}>
+            <HeroVoxelComponent
+              classId={heroClassId}
+              playerAnimationAction="battle-idle"
+              loadSecondaryAnimationBundles
+              previewLoopAllActions
+              isAttacking={false}
+              isDefending={false}
+              idlePositionX={0}
+              attackPositionX={0}
+              defendPositionX={0}
+              originPosition={[0, -1.1, 0]}
+              baseRotationY={0.4}
+              contactShadowResolution={quality.contactShadowResolution}
+            />
+          </Suspense>
+        </group>
+
+        {/* Monster — right side */}
+        <group position={[2.0, 0, 0]}>
+          <Html position={[0, 2.0, 0]} center>
+            <div className="whitespace-nowrap rounded-full border border-emerald-400/30 bg-slate-950/80 px-3 py-1 text-[10px] font-black uppercase tracking-[0.22em] text-emerald-100 backdrop-blur-sm">
+              Monstro GLTF
+            </div>
+          </Html>
+          {/* Y is managed by GltfMonsterModel's bounding-box floor snap */}
+          <group position={[0, -1.1, 0]} rotation={[0, -0.4, 0]} scale={0.6}>
+            <Suspense fallback={null}>
+              <GltfMonsterModel
+                key={modelUrl}
+                modelUrl={modelUrl}
+                animationIndex={animationIndex}
+                clipName={clipName}
+                onAnimationsLoaded={onAnimationsLoaded}
+              />
+            </Suspense>
+          </group>
+        </group>
+
+        <ContactShadows position={[0, -1.09, 0]} opacity={0.45} scale={7} blur={1.8} far={0.5} resolution={quality.contactShadowResolution} />
+        <OrbitControls enablePan={false} minDistance={3} maxDistance={16} target={[0, 0.3, 0]} />
       </Canvas>
     </div>
   );

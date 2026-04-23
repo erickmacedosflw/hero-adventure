@@ -49,6 +49,32 @@ export interface Stats {
 export type PlayerClassId = 'knight' | 'barbarian' | 'mage' | 'ranger' | 'rogue';
 export type PlayerAnimationAction = 'idle' | 'battle-idle' | 'attack' | 'defend' | 'defend-hit' | 'hit' | 'critical-hit' | 'item' | 'heal' | 'skill' | 'evade' | 'death';
 
+/** Elemento natural dos monstros GLTF — substitui a classe dos inimigos tradicionais. */
+export type MonsterElementType = 'agua' | 'terra' | 'fogo' | 'vento' | 'sombrio';
+/** Categoria de corpo dos monstros GLTF (define rig e animações disponíveis). */
+export type GltfMonsterBodyType = 'Big' | 'Flying';
+
+export interface GltfMonsterTemplate {
+  id: string;
+  name: string;
+  lore: string;
+  element: MonsterElementType;
+  bodyType: GltfMonsterBodyType;
+  gltfFile: string;
+  baseStats: {
+    hp: number; maxHp: number;
+    mp: number; maxMp: number;
+    atk: number; def: number;
+    speed: number; luck: number; magic: number;
+  };
+  xpReward: number;
+  goldReward: number;
+  color: string;
+  scale: number;
+  attackStyle: 'armed' | 'unarmed';
+  rareDrops?: LootChance[];
+}
+
 export interface PlayerClassVisualProfile {
   silhouette: 'knight' | 'barbarian' | 'mage' | 'ranger' | 'rogue';
   primaryColor: string;
@@ -533,6 +559,12 @@ export interface Enemy {
   stolenGoldTotal: number;
   maxGoldStealPerBattle: number;
   stolenItems: string[];
+  /** GLTF monster URL — when set, the battle scene renders the GLTF model instead of the FBX skeleton. */
+  gltfModelUrl?: string;
+  /** Elemental affinity of GLTF monsters. */
+  element?: MonsterElementType;
+  /** Body rig type of GLTF monster, determines which animation clip map is used. */
+  gltfBodyType?: GltfMonsterBodyType;
   aiProfile: {
     tier: number;
     lowHpThreshold: number;

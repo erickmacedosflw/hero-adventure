@@ -4,7 +4,7 @@ import { ALL_ITEMS, DUNGEON_BOSS, DUNGEON_ENEMY_DATA, ENEMY_DATA } from '../cons
 import { getRegisteredWeapon3DByItemId, REGISTERED_WEAPON_ITEMS } from '../game/data/weaponCatalog';
 import { getPlayerClassById, PLAYER_CLASSES } from '../game/data/classes';
 import { DungeonBossTemplate, DungeonEnemyTemplate, EnemyTemplate, PlayerAnimationAction, PlayerClassId, Rarity } from '../types';
-import { DeveloperClassBuilderScene, DeveloperKitbashScene, DeveloperMonsterScene, DeveloperScenarioComposerScene, DeveloperWeaponCalibrationScene } from './Scene3D';
+import { DeveloperClassBuilderScene, DeveloperGltfMonsterScene, DeveloperKitbashScene, DeveloperMonsterScene, DeveloperScenarioComposerScene, DeveloperWeaponCalibrationScene } from './Scene3D';
 import { SpriteAnimationLab } from './SpriteAnimationLab';
 import type {
   DeveloperAnimationRuntimeDiagnostic,
@@ -25,7 +25,7 @@ import type {
 import { ItemPreviewThree } from './items/ItemPreviewThree';
 import { getRuntimeMenuPortalPreset, MENU_NAVIGATION_PORTAL_MODEL_URL, type RuntimeMenuPortalTransform } from '../game/data/runtimeMenuPortal';
 
-type DeveloperTab = 'overview' | 'animation-lab' | 'monster-lab' | 'item-lab' | 'kitbash-lab' | 'sprite-lab' | 'scenario-lab';
+type DeveloperTab = 'overview' | 'animation-lab' | 'monster-lab' | 'item-lab' | 'kitbash-lab' | 'sprite-lab' | 'scenario-lab' | 'gltf-monster-viewer';
 type WeaponCalibrationViewMode = 'sandbox' | 'attached';
 
 const animationActions: PlayerAnimationAction[] = ['idle', 'battle-idle', 'attack', 'defend', 'defend-hit', 'hit', 'critical-hit', 'item', 'heal', 'skill', 'evade', 'death'];
@@ -151,6 +151,134 @@ const DEVELOPER_SCENE_OBJECT_TEMPLATE_CATALOG: Record<DeveloperScenarioObjectTem
     label: 'Tower Object',
     modelUrl: new URL('../game/assets/Scenario/Tower/cenario_3d_torre_objeto.glb', import.meta.url).href,
   },
+};
+
+type GltfMonsterCategory = 'Big' | 'Blob' | 'Flying';
+
+const ATLAS_MONSTERS_TEXTURE_URL = new URL('../game/assets/Characters/Monsters/Monsters/Big/Atlas_Monsters.png', import.meta.url).href;
+
+const GLTF_MONSTER_CATALOG: Record<GltfMonsterCategory, Array<{ id: string; label: string; url: string }>> = {
+  Big: [
+    { id: 'big-Alien',       label: 'Alien',        url: new URL('../game/assets/Characters/Monsters/Monsters/Big/Alien.gltf',       import.meta.url).href },
+    { id: 'big-Birb',        label: 'Birb',         url: new URL('../game/assets/Characters/Monsters/Monsters/Big/Birb.gltf',        import.meta.url).href },
+    { id: 'big-BlueDemon',   label: 'Blue Demon',   url: new URL('../game/assets/Characters/Monsters/Monsters/Big/BlueDemon.gltf',   import.meta.url).href },
+    { id: 'big-Bunny',       label: 'Bunny',        url: new URL('../game/assets/Characters/Monsters/Monsters/Big/Bunny.gltf',       import.meta.url).href },
+    { id: 'big-Cactoro',     label: 'Cactoro',      url: new URL('../game/assets/Characters/Monsters/Monsters/Big/Cactoro.gltf',     import.meta.url).href },
+    { id: 'big-Demon',       label: 'Demon',        url: new URL('../game/assets/Characters/Monsters/Monsters/Big/Demon.gltf',       import.meta.url).href },
+    { id: 'big-Dino',        label: 'Dino',         url: new URL('../game/assets/Characters/Monsters/Monsters/Big/Dino.gltf',        import.meta.url).href },
+    { id: 'big-Fish',        label: 'Fish',         url: new URL('../game/assets/Characters/Monsters/Monsters/Big/Fish.gltf',        import.meta.url).href },
+    { id: 'big-Frog',        label: 'Frog',         url: new URL('../game/assets/Characters/Monsters/Monsters/Big/Frog.gltf',        import.meta.url).href },
+    { id: 'big-Monkroose',   label: 'Monkroose',    url: new URL('../game/assets/Characters/Monsters/Monsters/Big/Monkroose.gltf',   import.meta.url).href },
+    { id: 'big-MushroomKing',label: 'MushroomKing', url: new URL('../game/assets/Characters/Monsters/Monsters/Big/MushroomKing.gltf',import.meta.url).href },
+    { id: 'big-Ninja',       label: 'Ninja',        url: new URL('../game/assets/Characters/Monsters/Monsters/Big/Ninja.gltf',       import.meta.url).href },
+    { id: 'big-Orc',         label: 'Orc',          url: new URL('../game/assets/Characters/Monsters/Monsters/Big/Orc.gltf',         import.meta.url).href },
+    { id: 'big-Orc_Skull',   label: 'Orc Skull',    url: new URL('../game/assets/Characters/Monsters/Monsters/Big/Orc_Skull.gltf',   import.meta.url).href },
+    { id: 'big-Tribal',      label: 'Tribal',       url: new URL('../game/assets/Characters/Monsters/Monsters/Big/Tribal.gltf',      import.meta.url).href },
+    { id: 'big-Yeti',        label: 'Yeti',         url: new URL('../game/assets/Characters/Monsters/Monsters/Big/Yeti.gltf',        import.meta.url).href },
+  ],
+  Blob: [
+    { id: 'blob-Alien',          label: 'Alien',          url: new URL('../game/assets/Characters/Monsters/Monsters/Blob/Alien.gltf',          import.meta.url).href },
+    { id: 'blob-Birb',           label: 'Birb',           url: new URL('../game/assets/Characters/Monsters/Monsters/Blob/Birb.gltf',           import.meta.url).href },
+    { id: 'blob-Cactoro',        label: 'Cactoro',        url: new URL('../game/assets/Characters/Monsters/Monsters/Blob/Cactoro.gltf',        import.meta.url).href },
+    { id: 'blob-Cat',            label: 'Cat',            url: new URL('../game/assets/Characters/Monsters/Monsters/Blob/Cat.gltf',            import.meta.url).href },
+    { id: 'blob-Chicken',        label: 'Chicken',        url: new URL('../game/assets/Characters/Monsters/Monsters/Blob/Chicken.gltf',        import.meta.url).href },
+    { id: 'blob-Dog',            label: 'Dog',            url: new URL('../game/assets/Characters/Monsters/Monsters/Blob/Dog.gltf',            import.meta.url).href },
+    { id: 'blob-Fish',           label: 'Fish',           url: new URL('../game/assets/Characters/Monsters/Monsters/Blob/Fish.gltf',           import.meta.url).href },
+    { id: 'blob-GreenBlob',      label: 'Green Blob',     url: new URL('../game/assets/Characters/Monsters/Monsters/Blob/GreenBlob.gltf',      import.meta.url).href },
+    { id: 'blob-GreenSpikyBlob', label: 'Green Spiky',    url: new URL('../game/assets/Characters/Monsters/Monsters/Blob/GreenSpikyBlob.gltf', import.meta.url).href },
+    { id: 'blob-Mushnub',        label: 'Mushnub',        url: new URL('../game/assets/Characters/Monsters/Monsters/Blob/Mushnub.gltf',        import.meta.url).href },
+    { id: 'blob-Mushnub_Evolved',label: 'Mushnub Evolved',url: new URL('../game/assets/Characters/Monsters/Monsters/Blob/Mushnub_Evolved.gltf',import.meta.url).href },
+    { id: 'blob-Ninja',          label: 'Ninja',          url: new URL('../game/assets/Characters/Monsters/Monsters/Blob/Ninja.gltf',          import.meta.url).href },
+    { id: 'blob-Orc',            label: 'Orc',            url: new URL('../game/assets/Characters/Monsters/Monsters/Blob/Orc.gltf',            import.meta.url).href },
+    { id: 'blob-Pigeon',         label: 'Pigeon',         url: new URL('../game/assets/Characters/Monsters/Monsters/Blob/Pigeon.gltf',         import.meta.url).href },
+    { id: 'blob-PinkBlob',       label: 'Pink Blob',      url: new URL('../game/assets/Characters/Monsters/Monsters/Blob/PinkBlob.gltf',       import.meta.url).href },
+    { id: 'blob-Wizard',         label: 'Wizard',         url: new URL('../game/assets/Characters/Monsters/Monsters/Blob/Wizard.gltf',         import.meta.url).href },
+    { id: 'blob-Yeti',           label: 'Yeti',           url: new URL('../game/assets/Characters/Monsters/Monsters/Blob/Yeti.gltf',           import.meta.url).href },
+  ],
+  Flying: [
+    { id: 'fly-Alpaking',         label: 'Alpaking',        url: new URL('../game/assets/Characters/Monsters/Monsters/Flying/Alpaking.gltf',         import.meta.url).href },
+    { id: 'fly-Alpaking_Evolved', label: 'Alpaking Evolved',url: new URL('../game/assets/Characters/Monsters/Monsters/Flying/Alpaking_Evolved.gltf', import.meta.url).href },
+    { id: 'fly-Armabee',          label: 'Armabee',         url: new URL('../game/assets/Characters/Monsters/Monsters/Flying/Armabee.gltf',          import.meta.url).href },
+    { id: 'fly-Armabee_Evolved',  label: 'Armabee Evolved', url: new URL('../game/assets/Characters/Monsters/Monsters/Flying/Armabee_Evolved.gltf',  import.meta.url).href },
+    { id: 'fly-Demon',            label: 'Demon',           url: new URL('../game/assets/Characters/Monsters/Monsters/Flying/Demon.gltf',            import.meta.url).href },
+    { id: 'fly-Dragon',           label: 'Dragon',          url: new URL('../game/assets/Characters/Monsters/Monsters/Flying/Dragon.gltf',           import.meta.url).href },
+    { id: 'fly-Dragon_Evolved',   label: 'Dragon Evolved',  url: new URL('../game/assets/Characters/Monsters/Monsters/Flying/Dragon_Evolved.gltf',   import.meta.url).href },
+    { id: 'fly-Ghost',            label: 'Ghost',           url: new URL('../game/assets/Characters/Monsters/Monsters/Flying/Ghost.gltf',            import.meta.url).href },
+    { id: 'fly-Ghost_Skull',      label: 'Ghost Skull',     url: new URL('../game/assets/Characters/Monsters/Monsters/Flying/Ghost_Skull.gltf',      import.meta.url).href },
+    { id: 'fly-Glub',             label: 'Glub',            url: new URL('../game/assets/Characters/Monsters/Monsters/Flying/Glub.gltf',             import.meta.url).href },
+    { id: 'fly-Glub_Evolved',     label: 'Glub Evolved',    url: new URL('../game/assets/Characters/Monsters/Monsters/Flying/Glub_Evolved.gltf',     import.meta.url).href },
+    { id: 'fly-Goleling',         label: 'Goleling',        url: new URL('../game/assets/Characters/Monsters/Monsters/Flying/Goleling.gltf',         import.meta.url).href },
+    { id: 'fly-Goleling_Evolved', label: 'Goleling Evolved',url: new URL('../game/assets/Characters/Monsters/Monsters/Flying/Goleling_Evolved.gltf', import.meta.url).href },
+    { id: 'fly-Hywirl',           label: 'Hywirl',          url: new URL('../game/assets/Characters/Monsters/Monsters/Flying/Hywirl.gltf',           import.meta.url).href },
+    { id: 'fly-Pigeon',           label: 'Pigeon',          url: new URL('../game/assets/Characters/Monsters/Monsters/Flying/Pigeon.gltf',           import.meta.url).href },
+    { id: 'fly-Squidle',          label: 'Squidle',         url: new URL('../game/assets/Characters/Monsters/Monsters/Flying/Squidle.gltf',          import.meta.url).href },
+    { id: 'fly-Tribal',           label: 'Tribal',          url: new URL('../game/assets/Characters/Monsters/Monsters/Flying/Tribal.gltf',           import.meta.url).href },
+  ],
+};
+
+const GLTF_MONSTER_TOTAL = Object.values(GLTF_MONSTER_CATALOG).reduce((sum, list) => sum + list.length, 0);
+
+/** Maps each PlayerAnimationAction to the corresponding GLTF clip name per monster category. */
+type GltfMonsterAnimationMap = Partial<Record<PlayerAnimationAction, string>>;
+
+const GLTF_MONSTER_ANIMATION_MAP: Record<GltfMonsterCategory, GltfMonsterAnimationMap> = {
+  Big: {
+    'idle':         'Idle',
+    'battle-idle':  'Idle',
+    'attack':       'Punch',
+    'skill':        'Yes',
+    'defend':       'Duck',
+    'defend-hit':   'Duck',
+    'hit':          'HitReact',
+    'critical-hit': 'HitReact',
+    'item':         'Yes',
+    'heal':         'Yes',
+    'evade':        'Jump_Idle',
+    'death':        'Death',
+  },
+  Blob: {
+    'idle':         'Idle',
+    'battle-idle':  'Idle',
+    'attack':       'Bite_Front',
+    'skill':        'Yes',
+    'defend':       'No',
+    'defend-hit':   'HitRecieve',
+    'hit':          'HitRecieve',
+    'critical-hit': 'HitRecieve',
+    'item':         'Yes',
+    'heal':         'Yes',
+    'evade':        'Jump',
+    'death':        'Death',
+  },
+  Flying: {
+    'idle':         'Flying_Idle',
+    'battle-idle':  'Flying_Idle',
+    'attack':       'Headbutt',
+    'skill':        'Yes',
+    'defend':       'Fast_Flying',
+    'defend-hit':   'No',
+    'hit':          'HitReact',
+    'critical-hit': 'HitReact',
+    'item':         'Yes',
+    'heal':         'Yes',
+    'evade':        'Fast_Flying',
+    'death':        'Death',
+  },
+};
+
+const GLTF_ACTION_LABELS: Partial<Record<PlayerAnimationAction, string>> = {
+  'idle':         'Idle',
+  'battle-idle':  'Battle Idle',
+  'attack':       'Atacar',
+  'skill':        'Habilidade',
+  'defend':       'Defender',
+  'defend-hit':   'Bloquear Golpe',
+  'hit':          'Receber Golpe',
+  'critical-hit': 'Crítico',
+  'item':         'Usar Item',
+  'heal':         'Curar',
+  'evade':        'Esquivar',
+  'death':        'Morte',
 };
 
 const DEFAULT_HERO_SELECTION_SLOTS: DeveloperScenarioComposerHeroSlot[] = [
@@ -554,6 +682,15 @@ export const DeveloperConsole: React.FC = () => {
   }, []);
   const [selectedMonsterId, setSelectedMonsterId] = useState(monsterCatalog[0]?.id ?? '');
   const [scenarioMonsterId, setScenarioMonsterId] = useState(monsterCatalog[0]?.id ?? '');
+  const [gltfMonsterCategory, setGltfMonsterCategory] = useState<GltfMonsterCategory>('Big');
+  const [gltfMonsterIndex, setGltfMonsterIndex] = useState(0);
+  const [gltfMonsterAnimationIndex, setGltfMonsterAnimationIndex] = useState(0);
+  const [gltfMonsterAvailableAnimations, setGltfMonsterAvailableAnimations] = useState<string[]>([]);
+  const [gltfMonsterSelectedAction, setGltfMonsterSelectedAction] = useState<PlayerAnimationAction | null>('battle-idle');
+  const gltfCategoryList = GLTF_MONSTER_CATALOG[gltfMonsterCategory];
+  const selectedGltfMonster = gltfCategoryList[gltfMonsterIndex] ?? gltfCategoryList[0];
+  const gltfCurrentAnimMap = GLTF_MONSTER_ANIMATION_MAP[gltfMonsterCategory];
+  const gltfCurrentClipName = gltfMonsterSelectedAction ? (gltfCurrentAnimMap[gltfMonsterSelectedAction] ?? null) : null;
   const selectedMonsterEntry = useMemo(
     () => monsterCatalog.find((entry) => entry.id === selectedMonsterId) ?? monsterCatalog[0],
     [monsterCatalog, selectedMonsterId],
@@ -810,6 +947,18 @@ export const DeveloperConsole: React.FC = () => {
       scale: selectedRegisteredWeapon.handTransform.scale,
     });
   }, [selectedRegisteredWeapon]);
+
+  useEffect(() => {
+    setGltfMonsterIndex(0);
+    setGltfMonsterAnimationIndex(0);
+    setGltfMonsterAvailableAnimations([]);
+    setGltfMonsterSelectedAction('battle-idle');
+  }, [gltfMonsterCategory]);
+
+  useEffect(() => {
+    setGltfMonsterAnimationIndex(0);
+    setGltfMonsterAvailableAnimations([]);
+  }, [gltfMonsterIndex]);
 
   useEffect(() => {
     setKitbashSlotAssignments((previousAssignments) => {
@@ -1106,6 +1255,7 @@ export const DeveloperConsole: React.FC = () => {
     { id: 'scenario-lab', label: 'Cenarios', icon: <Layers3 size={16} /> },
     { id: 'sprite-lab', label: 'Sprite Lab', icon: <WandSparkles size={16} /> },
     { id: 'monster-lab', label: 'Monstros 3D', icon: <Swords size={16} /> },
+    { id: 'gltf-monster-viewer', label: 'Novos Monstros', icon: <Swords size={16} /> },
     { id: 'item-lab', label: 'Itens 3D', icon: <Boxes size={16} /> },
     { id: 'kitbash-lab', label: 'Kitbash', icon: <Layers3 size={16} /> },
   ];
@@ -1162,6 +1312,12 @@ export const DeveloperConsole: React.FC = () => {
               <div className="game-icon-badge h-12 w-12 text-cyan-300"><Swords size={22} /></div>
               <h2 className="mt-4 font-gamer text-2xl font-black text-white">Monstros 3D</h2>
               <p className="mt-3 text-sm text-slate-400">Selecione os esqueletos do jogo para validar modelo, escala e animação de combate no preview dedicado.</p>
+            </button>
+
+            <button onClick={() => setTab('gltf-monster-viewer')} className="game-surface rounded-[1.75rem] border border-emerald-400/15 p-6 text-left transition-transform hover:-translate-y-1">
+              <div className="game-icon-badge h-12 w-12 text-emerald-300"><Swords size={22} /></div>
+              <h2 className="mt-4 font-gamer text-2xl font-black text-white">Novos Monstros GLTF</h2>
+              <p className="mt-3 text-sm text-slate-400">Visualize os {GLTF_MONSTER_TOTAL} novos modelos GLTF com animações em loop, textura Atlas e controles de câmera livres.</p>
             </button>
 
             <button onClick={() => setTab('kitbash-lab')} className="game-surface rounded-[1.75rem] border border-fuchsia-400/15 p-6 text-left transition-transform hover:-translate-y-1">
@@ -2510,6 +2666,151 @@ export const DeveloperConsole: React.FC = () => {
               >
                 Disparar hit flash
               </button>
+            </div>
+          </section>
+        )}
+
+        {tab === 'gltf-monster-viewer' && selectedGltfMonster && (
+          <section className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px] 2xl:grid-cols-[minmax(0,1fr)_400px] xl:items-start">
+            {/* 3D viewport */}
+            <div className="game-surface rounded-[1.75rem] border border-slate-700 p-4 sm:p-5">
+              <div className="mb-4 flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.2em] text-slate-500">
+                <span className="rounded-full border border-emerald-400/20 bg-emerald-500/10 px-3 py-1 text-emerald-100">categoria: {gltfMonsterCategory}</span>
+                <span className="rounded-full border border-cyan-400/20 bg-cyan-500/10 px-3 py-1 text-cyan-100">monstro: {selectedGltfMonster.label}</span>
+                <span className="rounded-full border border-indigo-400/20 bg-indigo-500/10 px-3 py-1 text-indigo-100">herói: {classId}</span>
+                {(gltfMonsterSelectedAction || gltfMonsterAvailableAnimations.length > 0) && (
+                  <span className="rounded-full border border-amber-400/20 bg-amber-500/10 px-3 py-1 text-amber-100">
+                    {gltfMonsterSelectedAction && gltfCurrentClipName
+                      ? `${gltfMonsterSelectedAction} → ${gltfCurrentClipName}`
+                      : (gltfMonsterAvailableAnimations[gltfMonsterAnimationIndex] ?? '—')}
+                  </span>
+                )}
+                <span className="rounded-full border border-slate-600 bg-slate-800/60 px-3 py-1 text-slate-300">{gltfCategoryList.length} na categoria</span>
+              </div>
+              <div className="h-[400px] sm:h-[480px] lg:h-[580px] min-[1600px]:h-[680px] rounded-[1.5rem] border border-slate-800 bg-slate-950/60">
+                <DeveloperGltfMonsterScene
+                  key={selectedGltfMonster.id}
+                  modelUrl={selectedGltfMonster.url}
+                  animationIndex={gltfMonsterAnimationIndex}
+                  clipName={gltfCurrentClipName ?? undefined}
+                  heroClassId={classId}
+                  onAnimationsLoaded={setGltfMonsterAvailableAnimations}
+                />
+              </div>
+            </div>
+
+            {/* Controls sidebar */}
+            <div className="game-surface rounded-[1.75rem] border border-slate-700 p-5 sm:p-6 xl:sticky xl:top-6 space-y-5">
+              <div>
+                <h2 className="font-gamer text-2xl font-black text-white">Novos Monstros GLTF</h2>
+                <p className="mt-2 text-sm text-slate-400">Monstro e herói lado a lado para comparar tamanho. Selecione categoria, monstro, animação e classe do herói.</p>
+              </div>
+
+              {/* Category buttons */}
+              <div>
+                <div className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-500 mb-2">Categoria</div>
+                <div className="grid grid-cols-3 gap-2">
+                  {(['Big', 'Blob', 'Flying'] as GltfMonsterCategory[]).map((cat) => (
+                    <button
+                      key={cat}
+                      onClick={() => setGltfMonsterCategory(cat)}
+                      className={`rounded-xl border px-3 py-2.5 text-xs font-black uppercase tracking-[0.16em] transition-colors ${gltfMonsterCategory === cat ? 'border-emerald-400/40 bg-emerald-500/15 text-emerald-100' : 'border-slate-700 bg-slate-950/70 text-slate-400 hover:border-slate-500 hover:text-slate-200'}`}
+                    >
+                      {cat}
+                      <span className="ml-1.5 text-[10px] font-normal opacity-60">({GLTF_MONSTER_CATALOG[cat].length})</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Monster selector */}
+              <SelectField
+                label="Monstro"
+                value={String(gltfMonsterIndex)}
+                onChange={(v) => setGltfMonsterIndex(Number(v))}
+                options={gltfCategoryList.map((entry, idx) => ({ value: String(idx), label: entry.label }))}
+              />
+
+              {/* Hero class selector — reuses classId state already in scope */}
+              <SelectField
+                label="Classe do Herói (referência de tamanho)"
+                value={classId}
+                onChange={(v) => setClassId(v as PlayerClassId)}
+                options={PLAYER_CLASSES.map((pc) => ({ value: pc.id, label: pc.name }))}
+              />
+
+              {/* Animation selector — action-based when mapping defined, raw clips as fallback */}
+              {Object.keys(gltfCurrentAnimMap).length > 0 ? (
+                <div>
+                  <div className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-500 mb-2">
+                    Ação → Clipe GLTF
+                  </div>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {(Object.entries(gltfCurrentAnimMap) as [PlayerAnimationAction, string][]).map(([action, clip]) => (
+                      <button
+                        key={action}
+                        onClick={() => setGltfMonsterSelectedAction(action)}
+                        className={`flex flex-col rounded-xl border px-2.5 py-2 text-left transition-colors ${gltfMonsterSelectedAction === action ? 'border-cyan-400/40 bg-cyan-500/15' : 'border-slate-700 bg-slate-950/70 hover:border-slate-500'}`}
+                      >
+                        <span className={`text-[10px] font-black uppercase tracking-[0.14em] ${gltfMonsterSelectedAction === action ? 'text-cyan-100' : 'text-slate-300'}`}>
+                          {GLTF_ACTION_LABELS[action] ?? action}
+                        </span>
+                        <span className="mt-0.5 text-[9px] font-normal text-slate-500">{clip}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : gltfMonsterAvailableAnimations.length > 0 ? (
+                <div>
+                  <div className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-500 mb-2">
+                    Clipes ({gltfMonsterAvailableAnimations.length})
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {gltfMonsterAvailableAnimations.map((name, idx) => (
+                      <button
+                        key={name}
+                        onClick={() => { setGltfMonsterAnimationIndex(idx); setGltfMonsterSelectedAction(null); }}
+                        className={`rounded-lg border px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.14em] transition-colors ${gltfMonsterAnimationIndex === idx && !gltfMonsterSelectedAction ? 'border-cyan-400/40 bg-cyan-500/15 text-cyan-100' : 'border-slate-700 bg-slate-950/70 text-slate-400 hover:border-slate-500 hover:text-slate-200'}`}
+                      >
+                        {name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-xl border border-slate-800 bg-slate-900/60 px-4 py-3 text-xs text-slate-500">
+                  Carregando animações…
+                </div>
+              )}
+
+              {/* Texture atlas preview */}
+              <div>
+                <div className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-500 mb-2">Textura Atlas</div>
+                <div className="rounded-xl border border-slate-800 bg-slate-900/60 overflow-hidden">
+                  <img
+                    src={ATLAS_MONSTERS_TEXTURE_URL}
+                    alt="Atlas Monsters"
+                    className="w-full object-contain"
+                    style={{ imageRendering: 'pixelated', maxHeight: 180 }}
+                  />
+                </div>
+              </div>
+
+              {/* Stats row */}
+              <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
+                <div className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-500">Resumo</div>
+                <div className="mt-3 grid grid-cols-3 gap-3 text-center">
+                  {(['Big', 'Blob', 'Flying'] as GltfMonsterCategory[]).map((cat) => (
+                    <div key={cat} className="rounded-xl border border-slate-800 bg-slate-900/70 p-2">
+                      <div className="text-[9px] uppercase tracking-widest text-slate-500">{cat}</div>
+                      <div className="mt-1 text-xl font-black text-emerald-200">{GLTF_MONSTER_CATALOG[cat].length}</div>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-3 text-center text-2xl font-black text-white">
+                  {GLTF_MONSTER_TOTAL} <span className="text-sm font-normal text-slate-400">total</span>
+                </div>
+              </div>
             </div>
           </section>
         )}

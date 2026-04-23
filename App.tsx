@@ -8,7 +8,7 @@ import { ClassSelectionScreen } from './components/ClassSelectionScreen';
 import { BattleHUD, MenuScreen, ShopScreen, TavernScreen, KillLootOverlay, CardChoiceScreen, DungeonResultScreen, BossVictoryModal } from './components/GameUI';
 import { AlchemistScreen } from './components/shop/AlchemistMenuScreen';
 import { 
-    Player, Enemy, EnemyIntentPreview, GameState, TurnState, BattleLog, Item, Skill, Stats, Particle, FloatingText, ProgressionCard, CardRewardOffer, AlchemistCardOffer, AlchemistItemOffer, DungeonRunState, DungeonResult, DungeonRewards, EnemyTemplate, DungeonEnemyTemplate, DungeonBossTemplate, PlayerAnimationAction, BossVictoryContext, CardCategory
+    Player, Enemy, EnemyIntentPreview, GameState, TurnState, BattleLog, Item, Skill, Stats, Particle, FloatingText, ProgressionCard, CardRewardOffer, AlchemistCardOffer, AlchemistItemOffer, DungeonRunState, DungeonResult, DungeonRewards, EnemyTemplate, DungeonEnemyTemplate, DungeonBossTemplate, PlayerAnimationAction, BossVictoryContext, CardCategory, GltfMonsterBodyType
 } from './types';
 import { 
     INITIAL_PLAYER, SHOP_ITEMS, ALL_ITEMS, MATERIALS, SKILLS, ENEMY_DATA, ENEMY_COLORS, DUNGEON_ENEMY_DATA, DUNGEON_BOSS, ALCHEMIST_ITEM_OFFERS 
@@ -37,6 +37,7 @@ import { TowerResultScreen } from './components/tower/TowerResultScreen';
 import { buildTowerRunState, getDefaultTowerMeta, resolveTowerDeath, completeNode, getSanctuaryOptions, getRunCardOffer, getTowerShopItems, advanceToNextFloor, calculateEssenceReward, applyTowerRunRewardsToPlayer, scaleEnemyForTower } from './game/mechanics/towerEngine';
 import { TOWER_RUN_CARDS, TOWER_EVENTS } from './game/data/tower';
 import { getDefaultRenderQualityPreset, type RenderQualityPreset } from './components/scene3d/environment';
+import { GLTF_MONSTER_BESTIARY, getGltfMonsterPoolForStage } from './game/data/gltfMonsters';
 
 type BootWindow = Window & { __heroAdventureBootReady?: boolean };
 const MENU_CAMERA_TRANSITION_MS = 2500;
@@ -1801,15 +1802,29 @@ export default function App() {
 
     const availableDungeonEnemies = DUNGEON_ENEMY_DATA.filter(template => template.minEvolution <= activeDungeonEvolution);
     const dungeonEnemyPool = availableDungeonEnemies.length > 0 ? availableDungeonEnemies : DUNGEON_ENEMY_DATA;
+
+    // Regular hunt mobs use GLTF monsters; sub-boss and boss use class-based skeletons.
+    const isRegularHuntMob = !isBoss && !isSubBossEncounter && !isDungeonEncounter;
+    const isRegularDungeonMob = !isBoss && !isSubBossEncounter && isDungeonEncounter;
+
+    // Pick a GLTF monster for regular hunt/dungeon mobs
+    let gltfMonsterTemplate: typeof GLTF_MONSTER_BESTIARY[number] | null = null;
+    if (isRegularHuntMob || isRegularDungeonMob) {
+        const pool = getGltfMonsterPoolForStage(currentStage);
+        gltfMonsterTemplate = pool[Math.floor(Math.random() * pool.length)] ?? null;
+    }
+
     const enemyTemplate: EnemyTemplate | DungeonEnemyTemplate | DungeonBossTemplate = isBoss
         ? (isDungeonEncounter ? DUNGEON_BOSS : pickFromEnemyBag(ENEMY_DATA, huntEnemyBagRef))
         : (isDungeonEncounter ? pickFromEnemyBag(dungeonEnemyPool, dungeonEnemyBagRef) : pickFromEnemyBag(ENEMY_DATA, huntEnemyBagRef));
     const enemyClassId = pickEnemyClassId(enemyTemplate);
-    const templateBaseStats = enemyTemplate.baseStats;
+
+    // Use GLTF base stats for mob encounters, fallback to template base stats otherwise
+    const templateBaseStats = gltfMonsterTemplate ? gltfMonsterTemplate.baseStats : enemyTemplate.baseStats;
     const baseHp = templateBaseStats?.maxHp ?? templateBaseStats?.hp ?? 68;
     const baseMp = templateBaseStats?.maxMp ?? templateBaseStats?.mp;
     const baseAtk = templateBaseStats?.atk ?? 9;
-    const baseMagic = templateBaseStats?.magic ?? 8;
+    const baseMagic = (templateBaseStats as any)?.magic ?? 8;
     const baseDef = templateBaseStats?.def ?? 3;
     const baseSpeed = templateBaseStats?.speed ?? 10;
     const baseLuck = templateBaseStats?.luck;
@@ -1853,7 +1868,7 @@ export default function App() {
     
         const name = isBoss
                 ? (isDungeonEncounter ? DUNGEON_BOSS.name : `General ${enemyTemplate.name}`)
-                : (isSubBossEncounter ? `Subchefe ${enemyTemplate.name}` : enemyTemplate.name);
+                : (isSubBossEncounter ? `Subchefe ${enemyTemplate.name}` : (gltfMonsterTemplate ? gltfMonsterTemplate.name : enemyTemplate.name));
 
     const newEnemy: Enemy = {
       id: `enemy_${Date.now()}`,
@@ -1874,9 +1889,9 @@ export default function App() {
       },
             xpReward,
             goldReward,
-                        color: isBoss ? (isDungeonEncounter ? DUNGEON_BOSS.color : '#ef4444') : (isSubBossEncounter ? '#d97706' : (enemyTemplate.color ?? color)),
-                        scale: isBoss ? (isDungeonEncounter ? DUNGEON_BOSS.scale : (0.8 + (Math.random() * 0.4)) * 2.0) : ((enemyTemplate.scale ?? (0.8 + (Math.random() * 0.4))) * (isSubBossEncounter ? 1.16 : 1)),
-      type: enemyTemplate.type as 'beast' | 'humanoid' | 'undead',
+                        color: isBoss ? (isDungeonEncounter ? DUNGEON_BOSS.color : '#ef4444') : (isSubBossEncounter ? '#d97706' : (gltfMonsterTemplate ? gltfMonsterTemplate.color : (enemyTemplate.color ?? color))),
+                        scale: isBoss ? (isDungeonEncounter ? DUNGEON_BOSS.scale : (0.8 + (Math.random() * 0.4)) * 1.3) : ((gltfMonsterTemplate ? gltfMonsterTemplate.scale : (enemyTemplate.scale ?? (0.8 + (Math.random() * 0.4)))) * (isSubBossEncounter ? 1.0 : 1)),
+      type: gltfMonsterTemplate ? 'beast' : enemyTemplate.type as 'beast' | 'humanoid' | 'undead',
       enemyClassId,
       isBoss,
       isSubBoss: isSubBossEncounter,
@@ -1884,10 +1899,17 @@ export default function App() {
             impulso: 0,
             impulseGuardLevel: 0,
             statusEffects: [],
-                assets: enemyTemplate.assets,
-      attackStyle: enemyTemplate.attackStyle,
-            guaranteedDrops: templateCombatProfile.guaranteedDrops,
-            rareDrops: templateCombatProfile.rareDrops,
+                assets: gltfMonsterTemplate ? undefined : enemyTemplate.assets,
+      attackStyle: gltfMonsterTemplate ? gltfMonsterTemplate.attackStyle : enemyTemplate.attackStyle,
+            guaranteedDrops: gltfMonsterTemplate ? (gltfMonsterTemplate.rareDrops ? undefined : undefined) : templateCombatProfile.guaranteedDrops,
+            rareDrops: gltfMonsterTemplate ? gltfMonsterTemplate.rareDrops : templateCombatProfile.rareDrops,
+            gltfModelUrl: gltfMonsterTemplate
+              ? (gltfMonsterTemplate.bodyType === 'Flying'
+                  ? new URL(`./game/assets/Characters/Monsters/Monsters/Flying/${gltfMonsterTemplate.gltfFile}`, import.meta.url).href
+                  : new URL(`./game/assets/Characters/Monsters/Monsters/Big/${gltfMonsterTemplate.gltfFile}`, import.meta.url).href)
+              : undefined,
+            element: gltfMonsterTemplate ? gltfMonsterTemplate.element : undefined,
+            gltfBodyType: gltfMonsterTemplate ? gltfMonsterTemplate.bodyType as GltfMonsterBodyType : undefined,
             manaRegenOnDefend: combatProfile.manaRegenOnDefend,
             potionCharges: combatProfile.potionCharges,
             potionHealValue: combatProfile.potionHealValue,
@@ -3911,6 +3933,8 @@ export default function App() {
                         enemyAssets={enemy?.assets}
                         enemyAttackStyle={enemy?.attackStyle}
                         enemyAnimationAction={enemyAnimationAction}
+                        enemyGltfModelUrl={enemy?.gltfModelUrl}
+                        enemyGltfBodyType={enemy?.gltfBodyType}
                         playerExecutionAnimationId={playerExecutionAnimationId}
                         enemyExecutionAnimationId={enemyExecutionAnimationId}
                         playerExecutionAnimationTintColor={playerExecutionAnimationTintColor}

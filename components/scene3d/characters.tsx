@@ -3,7 +3,10 @@ import { ContactShadows, Html, useAnimations, useFBX, useTexture } from '@react-
 import { useFrame, useLoader } from '@react-three/fiber';
 import * as THREE from 'three';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
-import { PlayerAnimationAction, PlayerClassAssets } from '../../types';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
+import { GltfMonsterBodyType, PlayerAnimationAction, PlayerClassAssets } from '../../types';
+import { GLTF_BODY_ANIMATION_MAP } from '../../game/data/gltfMonsters';
 import { getPlayerClassById } from '../../game/data/classes';
 import { getEquippedWeaponGrip, getRegisteredWeapon3DByItemId } from '../../game/data/weaponCatalog';
 import {
@@ -622,6 +625,251 @@ export const EnemyCharacter = ({
         <pointLight color="#60a5fa" intensity={1.6} distance={5} decay={2} />
       </group>
       <group ref={enemyDefendImpulseAuraRef} position={[0, 0.9, 0]} visible={Boolean(isDefending) && defendImpulseLevel > 0}>
+        <mesh rotation={[Math.PI / 2, 0, 0]}>
+          <torusGeometry args={[1.52, 0.045, 10, 42]} />
+          <meshStandardMaterial color="#ef4444" emissive="#ef4444" emissiveIntensity={1.35} transparent opacity={0.5} />
+        </mesh>
+        <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 0.08, 0]}>
+          <torusGeometry args={[1.34, 0.03, 10, 36]} />
+          <meshStandardMaterial color="#ef4444" emissive="#ef4444" emissiveIntensity={1.15} transparent opacity={0.36} />
+        </mesh>
+        <pointLight
+          color={defendImpulseLevel >= 3 ? '#7dd3fc' : defendImpulseLevel === 2 ? '#a855f7' : '#ef4444'}
+          intensity={1.45 + (defendImpulseLevel * 0.32)}
+          distance={5.8}
+          decay={2}
+          position={[0, 0.42, -0.28]}
+        />
+      </group>
+    </group>
+  );
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GLTF Enemy Character — used in the battle scene for GLTF-based monsters
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface GltfEnemyCharacterProps {
+  modelUrl: string;
+  bodyType: GltfMonsterBodyType;
+  animationAction?: PlayerAnimationAction;
+  scale?: number;
+  isAttacking?: boolean;
+  isDefending?: boolean;
+  defendImpulseLevel?: number;
+  isHit?: boolean;
+  contactShadowResolution?: number;
+  idlePositionX?: number;
+  attackPositionX?: number;
+  defendPositionX?: number;
+  idlePositionY?: number;
+  attackPositionY?: number;
+  defendPositionY?: number;
+  originPosition?: [number, number, number];
+  statusOverlay?: React.ReactNode;
+}
+
+const GltfEnemyModel: React.FC<{
+  modelUrl: string;
+  bodyType: GltfMonsterBodyType;
+  animationAction: PlayerAnimationAction;
+}> = ({ modelUrl, bodyType, animationAction }) => {
+  const gltf = useLoader(GLTFLoader, modelUrl) as any;
+
+  const { clonedScene, floorOffsetY } = useMemo(() => {
+    const scene = (SkeletonUtils.clone as (src: THREE.Object3D) => THREE.Group)(gltf.scene);
+    scene.traverse((node: any) => {
+      if (node.isMesh) {
+        node.castShadow = true;
+        node.receiveShadow = true;
+        node.frustumCulled = false;
+      }
+    });
+    const box = new THREE.Box3().setFromObject(scene);
+    const offsetY = !box.isEmpty() && isFinite(box.min.y) ? -box.min.y : 0;
+    return { clonedScene: scene, floorOffsetY: offsetY };
+  }, [gltf.scene]);
+
+  // Mixer criado diretamente no clonedScene — evita o problema de timing
+  // da hook useAnimations do drei (mixer nasce antes do ref ser populado).
+  const mixerRef = useRef<THREE.AnimationMixer | null>(null);
+
+  useEffect(() => {
+    const mixer = new THREE.AnimationMixer(clonedScene);
+    mixerRef.current = mixer;
+    return () => {
+      mixer.stopAllAction();
+      mixer.uncacheRoot(clonedScene);
+      mixerRef.current = null;
+    };
+  }, [clonedScene]);
+
+  // Troca de animação quando a ação muda
+  useEffect(() => {
+    const mixer = mixerRef.current;
+    const clips: THREE.AnimationClip[] = gltf.animations ?? [];
+    if (!mixer || !clips.length) return;
+
+    const map = GLTF_BODY_ANIMATION_MAP[bodyType] ?? {};
+    const clipName = map[animationAction] ?? null;
+    const clip = clipName
+      ? THREE.AnimationClip.findByName(clips, clipName)
+      : clips[0];
+    if (!clip) return;
+
+    mixer.stopAllAction();
+    mixer.clipAction(clip).reset().setLoop(THREE.LoopRepeat, Infinity).play();
+  }, [animationAction, bodyType, clonedScene, gltf.animations]);
+
+  // Avança o mixer a cada frame
+  useFrame((_, delta) => {
+    mixerRef.current?.update(delta);
+  });
+
+  return <primitive object={clonedScene} position={[0, floorOffsetY, 0]} />;
+};
+
+export const GltfEnemyCharacter = ({
+  modelUrl,
+  bodyType,
+  animationAction = 'battle-idle',
+  scale = 1,
+  isAttacking = false,
+  isDefending = false,
+  defendImpulseLevel = 0,
+  isHit = false,
+  contactShadowResolution = 256,
+  idlePositionX = 2,
+  attackPositionX = -0.35,
+  defendPositionX = 1.5,
+  idlePositionY = -1,
+  attackPositionY = -1,
+  defendPositionY = -1,
+  originPosition = [2, -1, 0],
+  statusOverlay,
+}: GltfEnemyCharacterProps) => {
+  const group = useRef<THREE.Group>(null);
+  const shieldRef = useRef<THREE.Group>(null);
+  const impulseAuraRef = useRef<THREE.Group>(null);
+  const flashRef = useRef(0);
+  const wasHitRef = useRef(false);
+  const flashMaterialsRef = useRef<THREE.Material[]>([]);
+
+  const refreshFlashMaterials = React.useCallback(() => {
+    if (!group.current) { flashMaterialsRef.current = []; return; }
+    const mats: THREE.Material[] = [];
+    group.current.traverse((child) => {
+      const mesh = child as THREE.Mesh;
+      if (!mesh.isMesh || !mesh.material) return;
+      if (Array.isArray(mesh.material)) mats.push(...mesh.material);
+      else mats.push(mesh.material);
+    });
+    flashMaterialsRef.current = mats;
+  }, []);
+
+  const isFlying = bodyType === 'Flying';
+  // Flying monsters hover 0.55 units above the baseline
+  const flyingBaseYOffset = isFlying ? 0.55 : 0;
+  const shouldLunge = isAttacking;
+
+  useFrame((state) => {
+    if (!group.current) return;
+    const t = state.clock.elapsedTime;
+
+    // Flying hover: slow sinusoidal Y oscillation + gentle roll
+    const floatY = isFlying ? flyingBaseYOffset + Math.sin(t * 1.8) * 0.14 : 0;
+    const floatRoll = isFlying ? Math.sin(t * 1.3) * 0.04 : 0;
+
+    if (shouldLunge) {
+      group.current.position.x = THREE.MathUtils.lerp(group.current.position.x, attackPositionX, 0.2);
+      group.current.position.y = THREE.MathUtils.lerp(group.current.position.y, attackPositionY + floatY, 0.16);
+      group.current.rotation.z = Math.sin(t * 20) * 0.05;
+    } else if (isDefending) {
+      group.current.position.x = THREE.MathUtils.lerp(group.current.position.x, defendPositionX, 0.1);
+      group.current.position.y = THREE.MathUtils.lerp(group.current.position.y, defendPositionY + floatY, 0.16);
+      group.current.rotation.x = 0.12;
+      group.current.rotation.z = floatRoll;
+    } else {
+      group.current.position.x = THREE.MathUtils.lerp(group.current.position.x, idlePositionX, 0.1);
+      group.current.position.y = THREE.MathUtils.lerp(group.current.position.y, idlePositionY + floatY, 0.16);
+      group.current.rotation.z = THREE.MathUtils.lerp(group.current.rotation.z, floatRoll, 0.08);
+      group.current.rotation.x = 0;
+    }
+
+    // Shield aura
+    if (shieldRef.current) {
+      shieldRef.current.visible = Boolean(isDefending);
+      shieldRef.current.rotation.y -= 0.05;
+      shieldRef.current.scale.setScalar(1 + Math.sin(t * 8) * 0.05);
+    }
+
+    // Impulse aura
+    if (impulseAuraRef.current) {
+      const auraVisible = Boolean(isDefending) && defendImpulseLevel > 0;
+      const impulseColor = defendImpulseLevel >= 3 ? '#7dd3fc' : defendImpulseLevel === 2 ? '#a855f7' : '#ef4444';
+      impulseAuraRef.current.visible = auraVisible;
+      impulseAuraRef.current.rotation.y -= 0.07 + (defendImpulseLevel * 0.01);
+      impulseAuraRef.current.position.y = 0.9 + Math.sin(t * 5.5) * 0.04;
+      impulseAuraRef.current.children.forEach((child) => {
+        if (child instanceof THREE.Mesh && child.material instanceof THREE.MeshStandardMaterial) {
+          child.material.color.set(impulseColor);
+          child.material.emissive.set(impulseColor);
+        }
+      });
+    }
+
+    if (isHit && !wasHitRef.current) flashRef.current = 1;
+    flashRef.current = THREE.MathUtils.lerp(flashRef.current, 0, 0.32);
+    wasHitRef.current = isHit;
+
+    if (flashRef.current > 0.003) {
+      if (flashMaterialsRef.current.length === 0) refreshFlashMaterials();
+      flashMaterialsRef.current.forEach((m) =>
+        applyHitFlashToMaterial(m, flashRef.current > 0.03, flashRef.current * 0.65),
+      );
+    }
+
+    group.current.scale.setScalar(0.6 * (1 + Math.sin(t * 2.4) * 0.012));
+  });
+
+  return (
+    <group ref={group} position={originPosition} rotation={[0, -0.35, 0]}>
+      {statusOverlay}
+      <Suspense fallback={null}>
+        <GltfEnemyModel modelUrl={modelUrl} bodyType={bodyType} animationAction={animationAction} />
+      </Suspense>
+      {/* Flying monsters cast a faded shadow far below them */}
+      <ContactShadows
+        opacity={isFlying ? 0.14 : 0.32}
+        scale={3}
+        blur={isFlying ? 3.5 : 2}
+        far={isFlying ? 3 : 2}
+        resolution={contactShadowResolution}
+      />
+
+      {/* Blue shield bubble */}
+      <group ref={shieldRef} position={[0, 0.9, 0]} visible={false}>
+        <mesh>
+          <sphereGeometry args={[1.4, 12, 12]} />
+          <meshStandardMaterial color="#3b82f6" transparent opacity={0.18} wireframe />
+        </mesh>
+        <mesh scale={0.92}>
+          <sphereGeometry args={[1.4, 12, 12]} />
+          <meshStandardMaterial color="#93c5fd" transparent opacity={0.12} />
+        </mesh>
+        <mesh rotation={[Math.PI / 2, 0, 0]}>
+          <torusGeometry args={[1.3, 0.04, 6, 24]} />
+          <meshStandardMaterial color="#60a5fa" emissive="#3b82f6" emissiveIntensity={1.2} transparent opacity={0.55} />
+        </mesh>
+        <mesh rotation={[0.9, 0, 0]}>
+          <torusGeometry args={[1.2, 0.03, 6, 20]} />
+          <meshStandardMaterial color="#bfdbfe" emissive="#93c5fd" emissiveIntensity={1.0} transparent opacity={0.38} />
+        </mesh>
+        <pointLight color="#60a5fa" intensity={1.6} distance={5} decay={2} />
+      </group>
+
+      {/* Impulse aura rings */}
+      <group ref={impulseAuraRef} position={[0, 0.9, 0]} visible={Boolean(isDefending) && defendImpulseLevel > 0}>
         <mesh rotation={[Math.PI / 2, 0, 0]}>
           <torusGeometry args={[1.52, 0.045, 10, 42]} />
           <meshStandardMaterial color="#ef4444" emissive="#ef4444" emissiveIntensity={1.35} transparent opacity={0.5} />
