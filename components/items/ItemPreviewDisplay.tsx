@@ -403,7 +403,9 @@ export const ItemPreviewDisplay = ({ item, compact = false }: { item: Item; comp
         <div className={badgeSize}>{item.rarity}</div>
       </div>
       <div className="absolute left-4 top-4 z-20 flex h-11 w-11 items-center justify-center rounded-2xl border text-lg font-black" style={{ borderColor: 'rgba(255,255,255,0.16)', background: 'rgba(2, 6, 23, 0.55)', color: palette.edge, boxShadow: `0 10px 25px ${rarity.glow}` }}>
-        {item.icon || getItemGlyph(item.type)}
+        {item.iconImage
+          ? <img src={item.iconImage} alt={item.name} style={{ width: 20, height: 20, objectFit: 'contain' }} draggable={false} />
+          : (item.icon || getItemGlyph(item.type))}
       </div>
 
       <div className="relative z-10 flex h-full w-full flex-col px-5 pb-5 pt-16 sm:px-6 sm:pb-6 sm:pt-16">

@@ -177,6 +177,7 @@ export interface Item {
   mpBonus?: number;
   magicBonus?: number;
   icon: string; // Icon helper
+  iconImage?: string; // Official PNG icon URL
   rarity: Rarity;
   minLevel: number;
   source?: 'shop' | 'dungeon' | 'alchemist';

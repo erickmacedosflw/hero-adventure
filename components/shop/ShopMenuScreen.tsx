@@ -3,7 +3,7 @@ import { AlertTriangle, ArrowDown, ArrowLeft, ArrowUp, Heart, Shield, ShoppingBa
 import { Item, Player } from '../../types';
 import { ItemPreviewThree } from '../items/ItemPreviewThree';
 import { GameAssetIcon, GameAssetIconName } from '../ui/game-asset-icon';
-import { isEquipmentType, ItemTypeIcon, ItemTypeLabel } from '../ui/game-display';
+import { isEquipmentType, ItemIcon, ItemTypeIcon, ItemTypeLabel } from '../ui/game-display';
 import { getUnlockedShopRaritiesByStage } from '../../game/mechanics/shopProgression';
 import { getEquipmentBonuses } from '../../game/mechanics/equipmentBonuses';
 
@@ -222,9 +222,9 @@ const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
           </button>
 
           <div className="flex items-start gap-3 pr-10">
-            <span className="text-[44px] leading-none shrink-0 [text-shadow:0_2px_0_#fff,0_-2px_0_#fff,2px_0_0_#fff,-2px_0_0_#fff,0_0_12px_rgba(255,255,255,0.4)]">
-              {item.icon}
-            </span>
+            <div className="h-[44px] w-[44px] shrink-0 flex items-center justify-center">
+              <ItemIcon item={item} emojiClassName="text-[44px] leading-none [text-shadow:0_2px_0_#fff,0_-2px_0_#fff,2px_0_0_#fff,-2px_0_0_#fff,0_0_12px_rgba(255,255,255,0.4)]" />
+            </div>
             <div className="min-w-0">
               <h2 className="text-xl font-black text-white leading-tight">{item.name}</h2>
               <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
@@ -426,9 +426,7 @@ const ItemCard = ({
         </span>
       )}
       <div className="mx-auto mt-2 flex h-16 w-16 items-center justify-center">
-        <span className="text-[38px] leading-none [text-shadow:0_2px_0_#fff,0_-2px_0_#fff,2px_0_0_#fff,-2px_0_0_#fff,0_0_10px_rgba(255,255,255,0.4)]">
-          {item.icon}
-        </span>
+        <ItemIcon item={item} emojiClassName="text-[38px] leading-none [text-shadow:0_2px_0_#fff,0_-2px_0_#fff,2px_0_0_#fff,-2px_0_0_#fff,0_0_10px_rgba(255,255,255,0.4)]" />
       </div>
       <div className="mt-2 text-center text-[11px] font-black leading-tight text-white line-clamp-2 min-h-[2rem]">
         {item.name}

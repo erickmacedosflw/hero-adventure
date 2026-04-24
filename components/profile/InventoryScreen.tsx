@@ -3,7 +3,7 @@ import { ArrowDown, ArrowLeft, ArrowUp, FlaskConical, Heart, Shield, Sparkles, S
 import { Item, Player } from '../../types';
 import { ItemPreviewThree } from '../items/ItemPreviewThree';
 import { GameAssetIcon } from '../ui/game-asset-icon';
-import { isEquipmentType, ItemTypeIcon, ItemTypeLabel } from '../ui/game-display';
+import { isEquipmentType, ItemIcon, ItemTypeIcon, ItemTypeLabel } from '../ui/game-display';
 import { getEquipmentBonuses } from '../../game/mechanics/equipmentBonuses';
 
 const BAG_POTION_URL = new URL('../../game/assets/Mochila/Mochila_Aberta_Consumiveis.png', import.meta.url).href;
@@ -225,9 +225,7 @@ const InventoryCard: React.FC<{
 
       {/* Icon */}
       <div className="mx-auto mt-3 flex h-14 w-14 items-center justify-center">
-        <span className="text-[38px] leading-none [text-shadow:0_2px_0_#fff,0_-2px_0_#fff,2px_0_0_#fff,-2px_0_0_#fff,0_0_10px_rgba(255,255,255,0.4)]">
-          {item.icon}
-        </span>
+        <ItemIcon item={item} emojiClassName="text-[38px] leading-none [text-shadow:0_2px_0_#fff,0_-2px_0_#fff,2px_0_0_#fff,-2px_0_0_#fff,0_0_10px_rgba(255,255,255,0.4)]" />
       </div>
 
       {/* Name */}
@@ -318,7 +316,7 @@ const ItemDetailModal: React.FC<{
         {/* Modal header */}
         <div className="shrink-0 flex items-start gap-3 p-5 pb-3">
           <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[16px] border border-white/10 bg-white/5">
-            <span className="text-[42px] leading-none [text-shadow:0_2px_0_#fff,0_-2px_0_#fff,2px_0_0_#fff,-2px_0_0_#fff,0_0_12px_rgba(255,255,255,0.5)]">{item.icon}</span>
+            <ItemIcon item={item} emojiClassName="text-[42px] leading-none [text-shadow:0_2px_0_#fff,0_-2px_0_#fff,2px_0_0_#fff,-2px_0_0_#fff,0_0_12px_rgba(255,255,255,0.5)]" />
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-1.5">
@@ -472,7 +470,9 @@ const SellQuantityModal: React.FC<{
       >
         <div className="text-[10px] font-black uppercase tracking-widest text-white/40">Vender item</div>
         <h3 className="mt-1 inline-flex items-center gap-2.5 text-lg font-black text-white">
-          <span className="text-[32px] leading-none">{item.icon}</span>
+          <span className="inline-flex h-8 w-8 items-center justify-center">
+            <ItemIcon item={item} emojiClassName="text-[32px] leading-none" />
+          </span>
           {item.name}
         </h3>
 

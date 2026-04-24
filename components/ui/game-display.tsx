@@ -56,6 +56,18 @@ export const ItemTypeIcon = ({ type, size = 14 }: { type: Item['type']; size?: n
   return <Sparkles size={size} />;
 };
 
+/** Renders an item's official PNG icon, falling back to the emoji icon. */
+export const ItemIcon: React.FC<{
+  item: Item;
+  emojiClassName?: string;
+  imgClassName?: string;
+}> = ({ item, emojiClassName, imgClassName }) => {
+  if (item.iconImage) {
+    return <img src={item.iconImage} draggable={false} className={imgClassName ?? 'w-full h-full object-contain'} alt={item.name} />;
+  }
+  return <span className={emojiClassName}>{item.icon}</span>;
+};
+
 export const ItemTypeLabel = ({ type }: { type: Item['type'] }) => {
   if (type === 'weapon') return <>Arma</>;
   if (type === 'shield') return <>Escudo</>;

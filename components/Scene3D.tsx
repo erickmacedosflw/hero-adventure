@@ -323,7 +323,7 @@ const BattleActionsHtml: React.FC<{ config: BattleActionsConfig; player: Player;
                 onClick={() => { if (!hasItem || !itemDef) return; if (isDgRecall && onRequestDungeonExtract) { onRequestDungeonExtract(itemDef); closeMenu(); return; } onUseItem(slot.itemId); closeMenu(); }}
                 style={{ display: 'flex', alignItems: 'center', gap: '9px', borderRadius: '10px', border: hasItem ? `1.5px solid ${ic}55` : '1px solid rgba(255,255,255,0.09)', background: hasItem ? 'rgba(251,146,60,0.14)' : 'rgba(0,0,0,0.18)', padding: '7px 10px', flex: 1, minWidth: 0, cursor: hasItem ? 'pointer' : 'default', textAlign: 'left' as const, opacity: isEmpty ? 0.38 : !isPlayerTurn ? 0.55 : 1, ...F }}>
                 <div style={{ width: rowIconSize, height: rowIconSize, flexShrink: 0, borderRadius: 7, border: hasItem ? `1.5px solid ${ic}55` : '1px solid rgba(255,255,255,0.10)', background: hasItem ? `${ic}22` : 'rgba(0,0,0,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: hasItem ? ic : 'rgba(255,255,255,0.20)', fontSize: '16px' }}>
-                  {itemDef ? <span style={{ lineHeight: 1 }}>{itemDef.icon}</span> : <FlaskConical size={12} />}
+                  {itemDef ? (itemDef.iconImage ? <img src={itemDef.iconImage} style={{ width: 18, height: 18, objectFit: 'contain' }} draggable={false} alt={itemDef.name} /> : <span style={{ lineHeight: 1 }}>{itemDef.icon}</span>) : <FlaskConical size={12} />}
                 </div>
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <div style={{ fontSize: rowSlotFont, fontWeight: 800, textTransform: 'uppercase' as const, letterSpacing: '0.18em', color: 'rgba(255,255,255,0.35)', lineHeight: 1 }}>Slot {i + 1}</div>
@@ -3218,7 +3218,9 @@ const HeroInspectCanvas = ({
                       <SlotIcon size={18} />
                     </span>
                     {it && (
-                      <span style={{ fontSize: '17px', lineHeight: 1, position: 'relative', zIndex: 1 }}>{it.icon}</span>
+                      it.iconImage
+                        ? <img src={it.iconImage} style={{ width: 22, height: 22, objectFit: 'contain', position: 'relative', zIndex: 1 }} draggable={false} alt={it.name} />
+                        : <span style={{ fontSize: '17px', lineHeight: 1, position: 'relative', zIndex: 1 }}>{it.icon}</span>
                     )}
                   </div>
                   <div style={{ minWidth: 0, flex: 1 }}>
@@ -3390,7 +3392,9 @@ const HeroInspectCanvas = ({
                       onMouseLeave={e => (e.currentTarget.style.filter = 'brightness(1)')}
                     >
                       {it
-                        ? <span style={{ fontSize: '15px', lineHeight: 1 }}>{it.icon}</span>
+                        ? (it.iconImage
+                            ? <img src={it.iconImage} style={{ width: 18, height: 18, objectFit: 'contain' }} draggable={false} alt={it.name} />
+                            : <span style={{ fontSize: '15px', lineHeight: 1 }}>{it.icon}</span>)
                         : <span style={{ color: 'rgba(255,255,255,0.28)', display: 'flex' }}><SlotIcon size={13} /></span>
                       }
                     </button>
@@ -3592,7 +3596,7 @@ const HeroInspectCanvas = ({
                           color: hasItem ? itemColor : 'rgba(255,255,255,0.20)',
                           fontSize: '18px', lineHeight: 1,
                         }}>
-                          {slotItem?.icon ? slotItem.icon : <FlaskConical size={13} />}
+                          {slotItem ? (slotItem.iconImage ? <img src={slotItem.iconImage} style={{ width: 20, height: 20, objectFit: 'contain' }} draggable={false} alt={slotItem.name} /> : slotItem.icon) : <FlaskConical size={13} />}
                         </div>);
                         })()}
                         {/* Text + qty badge */}

@@ -4,6 +4,7 @@ import { Player, Enemy, EnemyIntentPreview, BattleLog, TurnState, Item, Skill, G
 import { Sword, Shield, Zap, Heart, Coins, ShoppingBag, Skull, Play, Plus, FlaskConical, User, X, Home, LogOut, DollarSign, AlertTriangle, MousePointerClick, Shirt, Footprints, Crown, LayoutGrid, Sparkles, Crosshair, ArrowLeft, Star, Clock, Orbit, Info } from 'lucide-react';
 import { ItemPreviewThree } from './items/ItemPreviewThree';
 import { GameAssetIcon } from './ui/game-asset-icon';
+import { ItemIcon } from './ui/game-display';
 import { CharacterSheetModal } from './profile/CharacterSheetModal';
 import { InventoryScreen as InventoryModal } from './profile/InventoryScreen';
 import { SkillsScreen as SkillsModal } from './profile/SkillsScreen';
@@ -471,7 +472,7 @@ export const KillLootOverlay = ({ loot }: { loot: LootResult | null }) => {
                                     : item.rarity === 'silver' ? 'bg-slate-50 border-slate-400 text-slate-700'
                                     : 'bg-[#f8eddf] border-[#d6b9a3] text-[#6b3141]'}
                                 `}>
-                                    <span className="text-sm sm:text-base">{item.icon}</span>
+                                    <span className="text-sm sm:text-base">{item.iconImage ? <img src={item.iconImage} className="w-5 h-5 object-contain inline-block" draggable={false} alt={item.name} /> : item.icon}</span>
                                     <span>{item.name}</span>
                                 </div>
                             ))}
@@ -659,7 +660,7 @@ const InventoryScreen = ({ player, shopItems, onClose, onEquip, onUse }: { playe
                                         `}
                                     >
                                         <div className="w-12 h-12 bg-slate-950 rounded-lg border border-slate-700 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform relative">
-                                            <span className="text-2xl leading-none select-none">{item.icon}</span>
+                                            <ItemIcon item={item} emojiClassName="text-2xl leading-none select-none" />
                                             <span className="absolute -bottom-0.5 -right-0.5 game-icon-badge w-4 h-4 text-cyan-400"><ItemTypeIcon type={item.type} size={8} /></span>
                                         </div>
                                         <div className="flex-1 overflow-hidden">
@@ -879,7 +880,7 @@ const CharacterSheet = ({ player, shopItems, onClose, onOpenInventory }: { playe
                         <div className="w-12 h-12 bg-slate-900 rounded border border-slate-700 flex items-center justify-center relative shrink-0">
                             {slot.item ? (
                                 <>
-                                    <span className="text-2xl leading-none select-none">{slot.item.icon}</span>
+                                    <ItemIcon item={slot.item} emojiClassName="text-2xl leading-none select-none" />
                                     <span className="absolute -bottom-0.5 -right-0.5 game-icon-badge w-4 h-4 text-cyan-400"><ItemTypeIcon type={slot.type} size={8} /></span>
                                 </>
                             ) : (
@@ -2449,7 +2450,7 @@ export const DungeonResultScreen: React.FC<{ result: DungeonResult, onContinue: 
                             <div className="flex flex-wrap gap-2 max-h-[28vh] overflow-y-auto pr-1">
                                 {rewardItems.map(({ item, quantity }) => (
                                     <div key={item.id} className={`flex items-center gap-1.5 rounded-full border pl-1.5 pr-3 py-1.5 shrink-0 ${lootItemClasses}`}>
-                                        <div className={`h-7 w-7 rounded-full border flex items-center justify-center text-sm leading-none ${lootItemInnerClasses}`}>{item.icon}</div>
+                                        <div className={`h-7 w-7 rounded-full border flex items-center justify-center text-sm leading-none ${lootItemInnerClasses}`}>{item.iconImage ? <img src={item.iconImage} className="w-5 h-5 object-contain" draggable={false} alt={item.name} /> : item.icon}</div>
                                         <span className={`text-sm font-black ${lootItemTextClass}`}>{item.name}</span>
                                         {quantity > 1 && <span className={`rounded-full border px-1.5 py-0.5 text-[10px] font-black ${lootChipClasses}`}>�{quantity}</span>}
                                     </div>
@@ -2580,7 +2581,7 @@ export const BossVictoryModal: React.FC<{
                                 <div className="flex flex-wrap gap-2 max-h-[22vh] overflow-y-auto pr-1">
                                     {rewardItems.map(({ item, quantity }) => (
                                         <div key={item.id} className="flex items-center gap-1.5 rounded-full border border-[#cfab91] bg-[#f7ecdd] pl-1.5 pr-3 py-1.5 shrink-0">
-                                            <div className="h-7 w-7 rounded-full border border-[#dcc0aa] bg-[#f4e5d4] flex items-center justify-center text-sm leading-none">{item.icon}</div>
+                                            <div className="h-7 w-7 rounded-full border border-[#dcc0aa] bg-[#f4e5d4] flex items-center justify-center text-sm leading-none">{item.iconImage ? <img src={item.iconImage} className="w-5 h-5 object-contain" draggable={false} alt={item.name} /> : item.icon}</div>
                                             <span className="text-sm font-black text-[#6b3141]">{item.name}</span>
                                             {quantity > 1 && <span className="rounded-full border border-[#cfab91] bg-[#f4e5d4] px-1.5 py-0.5 text-[10px] font-black text-[#8f6c67]">x{quantity}</span>}
                                         </div>
@@ -3296,7 +3297,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                               <div className="flex flex-wrap gap-1.5 max-h-[30vh] overflow-y-auto pr-1">
                                   {dungeonRewardItems.map(({ item, quantity }) => (
                                       <div key={item.id} className="flex items-center gap-1 rounded-full border border-[#cfab91] bg-[#f7ecdd] pl-1 pr-2.5 py-1 shrink-0">
-                                          <div className="h-6 w-6 rounded-full border border-[#dcc0aa] bg-[#f4e5d4] flex items-center justify-center text-xs leading-none">{item.icon}</div>
+                                          <div className="h-6 w-6 rounded-full border border-[#dcc0aa] bg-[#f4e5d4] flex items-center justify-center text-xs leading-none">{item.iconImage ? <img src={item.iconImage} className="w-4 h-4 object-contain" draggable={false} alt={item.name} /> : item.icon}</div>
                                           <span className="text-xs font-black text-[#6b3141]">{item.name}</span>
                                           {quantity > 1 && <span className="rounded-full border border-[#cfab91] bg-[#f4e5d4] px-1.5 py-0.5 text-[9px] font-black text-[#8f6c67]">�{quantity}</span>}
                                       </div>
@@ -4347,7 +4348,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                                                                                     }}>
                                                                                     {/* Icon box */}
                                                                                     <div style={{ width: '32px', height: '32px', flexShrink: 0, borderRadius: '8px', border: hasItem ? `1.5px solid ${itemColor}55` : '1px solid rgba(255,255,255,0.10)', background: hasItem ? `${itemColor}20` : 'rgba(0,0,0,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: hasItem ? itemColor : 'rgba(255,255,255,0.20)', fontSize: '18px' }}>
-                                                                                        {itemDef ? <span style={{ lineHeight: 1 }}>{itemDef.icon}</span> : <FlaskConical size={16} />}
+                                                                                        {itemDef ? <span style={{ lineHeight: 1 }}>{itemDef.iconImage ? <img src={itemDef.iconImage} style={{ width: 18, height: 18, objectFit: 'contain' }} draggable={false} alt={itemDef.name} /> : itemDef.icon}</span> : <FlaskConical size={16} />}
                                                                                     </div>
                                                                                     {/* Text */}
                                                                                     <div style={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column', gap: '3px' }}>
