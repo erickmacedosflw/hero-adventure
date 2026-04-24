@@ -87,7 +87,7 @@ export const WorldLootDisplay = ({ loot }: { loot: LootResultData | null }) => {
           {/* XP */}
           <div style={rowStyle}>
             <img src={_XP_URL} style={imgStyle} draggable={false} alt="XP" />
-            <span style={valStyle('#c084fc')}>+{loot.xp} XP</span>
+            <span style={valStyle('#d97706')}>+{loot.xp} XP</span>
           </div>
           {/* Diamonds */}
           {loot.diamonds && loot.diamonds > 0 && (
@@ -102,7 +102,7 @@ export const WorldLootDisplay = ({ loot }: { loot: LootResultData | null }) => {
               {drop.iconImage
                 ? <img src={drop.iconImage} style={imgStyle} draggable={false} alt={drop.name} />
                 : <span style={{ fontSize: '20px', lineHeight: 1, flexShrink: 0 }}>{drop.icon}</span>}
-              <span style={{ ...valStyle(itemColor(drop.rarity)), fontSize: '12px', maxWidth: '100px', overflow: 'hidden', textOverflow: 'ellipsis' }}>{drop.name}</span>
+              <span style={{ ...valStyle(itemColor(drop.rarity)), fontSize: '12px' }}>{drop.name}</span>
             </div>
           ))}
         </div>
