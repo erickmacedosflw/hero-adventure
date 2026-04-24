@@ -59,7 +59,7 @@ import type {
   DeveloperMonsterSceneProps,
   DeveloperScenarioComposerSceneProps,
 } from './scene3d/developer-scenes';
-import { MeshParticle, WorldFloatingTexts } from './scene3d/effects';
+import { MeshParticle, WorldFloatingTexts, WorldLootDisplay, type LootResultData } from './scene3d/effects';
 import {
   getKitbashRootSlot,
   KITBASH_MAIN_SLOTS,
@@ -635,6 +635,8 @@ interface SceneProps {
   enemyGltfBodyType?: GltfMonsterBodyType;
   /** Mobile-only battle action panel rendered via <Html> in 3D space next to the hero. */
   battleActionsConfig?: BattleActionsConfig;
+  /** Kill-loot rewards to display in 3D world space at enemy position. */
+  lootResult?: LootResultData | null;
 }
 
 // --- MAIN COMPONENTS ---
@@ -5235,6 +5237,7 @@ export const GameScene: React.FC<SceneProps> = (props) => {
 
         {visibleParticles.map((particle) => <MeshParticle key={particle.id} {...particle} />)}
         <WorldFloatingTexts texts={props.floatingTexts} />
+        <WorldLootDisplay loot={props.lootResult ?? null} />
 
         {shouldUsePostProcessing && !shouldUseRuntimeScenarioEditorParity ? (
           <EffectComposer multisampling={postProcessingMultisampling}>

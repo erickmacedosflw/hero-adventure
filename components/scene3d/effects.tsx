@@ -1,8 +1,115 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Html } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import type { FloatingText, Particle } from '../../types';
+import type { FloatingText, Item, Particle } from '../../types';
+
+const _COIN_URL = new URL('../../game/assets/Icons/Misc/Golden Coin.png', import.meta.url).href;
+const _DIAMOND_URL = new URL('../../game/assets/Icons/Ore & Gem/Diamond.png', import.meta.url).href;
+const _XP_URL = new URL('../../game/assets/Icons/Misc/Rune Stone.png', import.meta.url).href;
+
+export interface LootResultData {
+  gold: number;
+  xp: number;
+  diamonds?: number;
+  drops: Item[];
+  isBoss: boolean;
+}
+
+export const WorldLootDisplay = ({ loot }: { loot: LootResultData | null }) => {
+  const groupRef = useRef<THREE.Group>(null);
+  const htmlRef = useRef<HTMLDivElement>(null);
+  const startTimeRef = useRef<number | null>(null);
+  const DURATION = 3.0;
+
+  // Reset animation whenever a new loot result appears
+  useEffect(() => {
+    if (loot) {
+      startTimeRef.current = null;
+    }
+  }, [loot]);
+
+  useFrame((state) => {
+    if (!groupRef.current || !loot) return;
+    if (startTimeRef.current === null) startTimeRef.current = state.clock.elapsedTime;
+    const elapsed = state.clock.elapsedTime - startTimeRef.current;
+    const progress = Math.min(1, elapsed / DURATION);
+    const lift = elapsed * 0.22;
+    groupRef.current.position.set(2, 0.5 + lift, 0.15);
+    let opacity = 1;
+    if (progress < 0.12) {
+      opacity = progress / 0.12;
+    } else if (progress > 0.65) {
+      const t = (progress - 0.65) / 0.35;
+      const s = t * t * (3 - 2 * t);
+      opacity = 1 - s;
+    }
+    if (htmlRef.current) htmlRef.current.style.opacity = String(Math.max(0, opacity));
+  });
+
+  if (!loot) return null;
+
+  const borderColor = loot.isBoss ? 'rgba(251,191,36,0.7)' : 'rgba(180,140,100,0.5)';
+
+  const rowStyle: React.CSSProperties = {
+    display: 'flex', alignItems: 'center', gap: '6px',
+    background: 'rgba(0,0,0,0.72)',
+    borderRadius: '22px',
+    padding: '5px 12px 5px 6px',
+    border: `1px solid ${borderColor}`,
+    backdropFilter: 'blur(8px)',
+    WebkitBackdropFilter: 'blur(8px)',
+    boxShadow: '0 4px 14px rgba(0,0,0,0.55)',
+    whiteSpace: 'nowrap' as const,
+    fontFamily: "'Segoe UI', system-ui, sans-serif",
+  };
+  const imgStyle: React.CSSProperties = { width: 26, height: 26, objectFit: 'contain', flexShrink: 0 };
+  const valStyle = (color: string): React.CSSProperties => ({
+    color, fontWeight: 900, fontSize: '15px', letterSpacing: '0.02em',
+  });
+
+  const itemBorderColor = (rarity: Item['rarity']) =>
+    rarity === 'gold' ? 'rgba(251,191,36,0.65)'
+    : rarity === 'silver' ? 'rgba(148,163,184,0.65)'
+    : 'rgba(180,140,100,0.5)';
+  const itemColor = (rarity: Item['rarity']) =>
+    rarity === 'gold' ? '#fcd34d' : rarity === 'silver' ? '#cbd5e1' : '#d4a07a';
+
+  return (
+    <group ref={groupRef} position={[2, 0.5, 0.15]}>
+      <Html center sprite distanceFactor={10} zIndexRange={[120, 0]}>
+        <div ref={htmlRef} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px', opacity: 0, pointerEvents: 'none' }}>
+          {/* Gold */}
+          <div style={rowStyle}>
+            <img src={_COIN_URL} style={imgStyle} draggable={false} alt="Ouro" />
+            <span style={valStyle('#fbbf24')}>+{loot.gold}</span>
+          </div>
+          {/* XP */}
+          <div style={rowStyle}>
+            <img src={_XP_URL} style={imgStyle} draggable={false} alt="XP" />
+            <span style={valStyle('#c084fc')}>+{loot.xp} XP</span>
+          </div>
+          {/* Diamonds */}
+          {loot.diamonds && loot.diamonds > 0 && (
+            <div style={rowStyle}>
+              <img src={_DIAMOND_URL} style={imgStyle} draggable={false} alt="Gema" />
+              <span style={valStyle('#38bdf8')}>+{loot.diamonds}</span>
+            </div>
+          )}
+          {/* Item drops */}
+          {loot.drops.map((drop) => (
+            <div key={drop.id} style={{ ...rowStyle, border: `1px solid ${itemBorderColor(drop.rarity)}` }}>
+              {drop.iconImage
+                ? <img src={drop.iconImage} style={imgStyle} draggable={false} alt={drop.name} />
+                : <span style={{ fontSize: '20px', lineHeight: 1, flexShrink: 0 }}>{drop.icon}</span>}
+              <span style={{ ...valStyle(itemColor(drop.rarity)), fontSize: '12px', maxWidth: '100px', overflow: 'hidden', textOverflow: 'ellipsis' }}>{drop.name}</span>
+            </div>
+          ))}
+        </div>
+      </Html>
+    </group>
+  );
+};
 
 const SOFT_PARTICLE_TEXTURE = (() => {
   const size = 64;
