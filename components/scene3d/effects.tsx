@@ -208,17 +208,19 @@ const WorldFloatingText = ({
       <Html center sprite distanceFactor={10} zIndexRange={[120, 0]}>
         <div
           ref={textRef}
-          className={`px-1 text-center font-black whitespace-nowrap leading-none ${tone} ${textSize} select-none`}
+          className={`px-1 text-center font-black whitespace-nowrap leading-none ${tone} ${textSize} select-none flex items-center justify-center`}
           style={{
-            WebkitTextStroke: '4px rgba(255,255,255,1)',
+            WebkitTextStroke: (type === 'item' && text.iconImage) ? undefined : '4px rgba(255,255,255,1)',
             paintOrder: 'stroke fill',
             opacity: 0.94,
             transition: 'opacity 80ms linear, transform 80ms linear',
             ...customToneStyle,
-            ...itemOutlineStyle,
+            ...(type === 'item' && text.iconImage ? undefined : itemOutlineStyle),
           }}
         >
-          {text.text}
+          {type === 'item' && text.iconImage
+            ? <img src={text.iconImage} draggable={false} alt={text.text} style={{ width: '2.4rem', height: '2.4rem', objectFit: 'contain', display: 'block' }} />
+            : text.text}
         </div>
       </Html>
     </group>
