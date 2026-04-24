@@ -220,7 +220,7 @@ const WorldFloatingText = ({
         >
           {type === 'item' && text.iconImage
             ? (
-                <span style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '3rem', lineHeight: 1 }}>
+                <span style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '5rem', lineHeight: 1 }}>
                   <span style={{ opacity: 0 }}>{text.text}</span>
                   <img src={text.iconImage} draggable={false} alt={text.text} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain' }} />
                 </span>

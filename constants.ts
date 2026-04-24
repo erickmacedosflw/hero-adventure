@@ -11,6 +11,10 @@ const _hlmIcon = (f: string) => new URL(`./game/assets/Icons/Mercante/Capacetes/
 const _legIcon = (f: string) => new URL(`./game/assets/Icons/Mercante/Pernas/${f}`, import.meta.url).href;
 const _shdIcon = (f: string) => new URL(`./game/assets/Icons/Mercante/Escudos/${f}`, import.meta.url).href;
 const _itmIcon = (f: string) => new URL(`./game/assets/Icons/Mercante/Itens/${f}`, import.meta.url).href;
+const _matIcon = (f: string) => new URL(`./game/assets/Icons/Material/${f}`, import.meta.url).href;
+const _monIcon = (f: string) => new URL(`./game/assets/Icons/Monster Part/${f}`, import.meta.url).href;
+const _oreIcon = (f: string) => new URL(`./game/assets/Icons/Ore & Gem/${f}`, import.meta.url).href;
+const _miscIcon = (f: string) => new URL(`./game/assets/Icons/Misc/${f}`, import.meta.url).href;
 
 const BASE_SHOP_ITEMS: Item[] = [
   // --- POTIONS & CONSUMABLES ---
@@ -100,45 +104,45 @@ const rebalanceShopEquipmentPrice = (item: Item): Item => {
 export const SHOP_ITEMS: Item[] = BASE_SHOP_ITEMS.map(rebalanceShopEquipmentPrice);
 
 export const MATERIALS: Item[] = [
-  { id: 'mat_wood', name: 'Madeira', description: 'Um pedaço de madeira comum.', cost: 10, type: 'material', value: 0, icon: '🪵', rarity: 'bronze', minLevel: 1 },
-  { id: 'mat_bone', name: 'Osso', description: 'Um osso velho e ressecado.', cost: 15, type: 'material', value: 0, icon: '🦴', rarity: 'bronze', minLevel: 1 },
-  { id: 'mat_slime', name: 'Gosma', description: 'Uma substância pegajosa e nojenta.', cost: 12, type: 'material', value: 0, icon: '💧', rarity: 'bronze', minLevel: 1 },
-  { id: 'mat_cloth', name: 'Retalho de Pano', description: 'Um pedaço de tecido rasgado.', cost: 8, type: 'material', value: 0, icon: '🧻', rarity: 'bronze', minLevel: 1 },
-  { id: 'mat_iron', name: 'Fragmento de Ferro', description: 'Um pedaço de metal enferrujado.', cost: 25, type: 'material', value: 0, icon: '🔩', rarity: 'silver', minLevel: 3 },
-  { id: 'mat_gold', name: 'Pepita de Ouro', description: 'Pequena, mas valiosa.', cost: 100, type: 'material', value: 0, icon: '🪙', rarity: 'gold', minLevel: 5 },
+  { id: 'mat_wood', name: 'Madeira', description: 'Um pedaço de madeira comum.', cost: 10, type: 'material', value: 0, icon: '🪵', iconImage: _matIcon('Wood Log.png'), rarity: 'bronze', minLevel: 1 },
+  { id: 'mat_bone', name: 'Osso', description: 'Um osso velho e ressecado.', cost: 15, type: 'material', value: 0, icon: '🦴', iconImage: _monIcon('Bone.png'), rarity: 'bronze', minLevel: 1 },
+  { id: 'mat_slime', name: 'Gosma', description: 'Uma substância pegajosa e nojenta.', cost: 12, type: 'material', value: 0, icon: '💧', iconImage: _monIcon('Slime Gel.png'), rarity: 'bronze', minLevel: 1 },
+  { id: 'mat_cloth', name: 'Retalho de Pano', description: 'Um pedaço de tecido rasgado.', cost: 8, type: 'material', value: 0, icon: '🧻', iconImage: _matIcon('Fabric.png'), rarity: 'bronze', minLevel: 1 },
+  { id: 'mat_iron', name: 'Fragmento de Ferro', description: 'Um pedaço de metal enferrujado.', cost: 25, type: 'material', value: 0, icon: '🔩', iconImage: _miscIcon('Gear.png'), rarity: 'silver', minLevel: 3 },
+  { id: 'mat_gold', name: 'Pepita de Ouro', description: 'Pequena, mas valiosa.', cost: 100, type: 'material', value: 0, icon: '🪙', iconImage: _oreIcon('Gold Nugget.png'), rarity: 'gold', minLevel: 5 },
 ];
 
 export const DUNGEON_ITEMS: Item[] = [
-  { id: 'mat_dg_coal', name: 'Carvão Impuro', description: 'Carvão poroso retirado das camadas rasas da dungeon.', cost: 18, type: 'material', value: 0, icon: '🪨', rarity: 'bronze', minLevel: 1, source: 'dungeon' },
-  { id: 'mat_dg_copper_ore', name: 'Minério de Cobre', description: 'Veio metálico comum, útil para ligas iniciais.', cost: 22, type: 'material', value: 0, icon: '🟤', rarity: 'bronze', minLevel: 1, source: 'dungeon' },
-  { id: 'mat_dg_limestone', name: 'Calcário Fraturado', description: 'Pedra sedimentar que se desfaz com pressão.', cost: 20, type: 'material', value: 0, icon: '🪨', rarity: 'bronze', minLevel: 1, source: 'dungeon' },
-  { id: 'mat_dg_moss_fiber', name: 'Fibra de Musgo Abissal', description: 'Trama orgânica úmida que cresce entre ruínas.', cost: 24, type: 'material', value: 0, icon: '🌿', rarity: 'bronze', minLevel: 1, source: 'dungeon' },
-  { id: 'mat_dg_fossil_bone', name: 'Osso Fossilizado', description: 'Fragmento endurecido de criatura antiga.', cost: 26, type: 'material', value: 0, icon: '🦴', rarity: 'bronze', minLevel: 1, source: 'dungeon' },
-  { id: 'mat_dg_cracked_shell', name: 'Carapaça Quebrada', description: 'Casco mineralizado de monstro subterrâneo.', cost: 28, type: 'material', value: 0, icon: '🛡️', rarity: 'bronze', minLevel: 1, source: 'dungeon' },
-  { id: 'mat_dg_salt_crystal', name: 'Cristal de Sal Sombrio', description: 'Cristal opaco formado em salões fechados.', cost: 30, type: 'material', value: 0, icon: '🧂', rarity: 'bronze', minLevel: 1, source: 'dungeon' },
-  { id: 'mat_dg_rusty_chain', name: 'Elo Enferrujado', description: 'Restos de correntes antigas corroídas.', cost: 19, type: 'material', value: 0, icon: '⛓️', rarity: 'bronze', minLevel: 1, source: 'dungeon' },
-  { id: 'mat_dg_dark_clay', name: 'Argila Escura', description: 'Argila densa com alta concentração mineral.', cost: 21, type: 'material', value: 0, icon: '🟫', rarity: 'bronze', minLevel: 1, source: 'dungeon' },
-  { id: 'mat_dg_sulfur_powder', name: 'Pó de Enxofre', description: 'Resíduo inflamável coletado de fendas quentes.', cost: 23, type: 'material', value: 0, icon: '🟡', rarity: 'bronze', minLevel: 1, source: 'dungeon' },
-  { id: 'mat_dg_silver_ore', name: 'Minério de Prata', description: 'Metal brilhante e estável para peças refinadas.', cost: 72, type: 'material', value: 0, icon: '⚪', rarity: 'silver', minLevel: 5, source: 'dungeon' },
-  { id: 'mat_dg_moonstone', name: 'Pedra Lunar', description: 'Gema fria que pulsa com brilho azulado.', cost: 84, type: 'material', value: 0, icon: '🌙', rarity: 'silver', minLevel: 5, source: 'dungeon' },
-  { id: 'mat_dg_amber_resin', name: 'Resina Âmbar', description: 'Seiva cristalizada de raízes antigas.', cost: 78, type: 'material', value: 0, icon: '🟠', rarity: 'silver', minLevel: 5, source: 'dungeon' },
-  { id: 'mat_dg_shadow_ink', name: 'Tinta Sombria', description: 'Pigmento arcano usado em inscrições ocultas.', cost: 90, type: 'material', value: 0, icon: '🖤', rarity: 'silver', minLevel: 5, source: 'dungeon' },
-  { id: 'mat_dg_arcane_dust', name: 'Pó Arcano', description: 'Partículas místicas deixadas por rituais antigos.', cost: 96, type: 'material', value: 0, icon: '✨', rarity: 'silver', minLevel: 5, source: 'dungeon' },
-  { id: 'mat_dg_steel_nodule', name: 'Nódulo de Aço', description: 'Concreção metálica de altíssima dureza.', cost: 88, type: 'material', value: 0, icon: '🔩', rarity: 'silver', minLevel: 5, source: 'dungeon' },
-  { id: 'mat_dg_cobalt_shard', name: 'Fragmento de Cobalto', description: 'Minério azul escuro encontrado em veios profundos.', cost: 94, type: 'material', value: 0, icon: '🔷', rarity: 'silver', minLevel: 5, source: 'dungeon' },
-  { id: 'mat_dg_onyx_chip', name: 'Lasca de Ônix', description: 'Pedra negra compacta de corte preciso.', cost: 102, type: 'material', value: 0, icon: '🪨', rarity: 'silver', minLevel: 5, source: 'dungeon' },
-  { id: 'mat_dg_ghost_essence', name: 'Essência Espectral', description: 'Névoa condensada em frasco lacrado.', cost: 110, type: 'material', value: 0, icon: '👻', rarity: 'silver', minLevel: 5, source: 'dungeon' },
-  { id: 'mat_dg_lumen_pearl', name: 'Pérola de Lúmen', description: 'Nódulo luminescente cultivado em água parada.', cost: 118, type: 'material', value: 0, icon: '💠', rarity: 'silver', minLevel: 5, source: 'dungeon' },
-  { id: 'mat_dg_emerald_cluster', name: 'Cacho de Esmeralda', description: 'Cristais verdes de alto valor alquímico.', cost: 240, type: 'material', value: 0, icon: '💚', rarity: 'gold', minLevel: 10, source: 'dungeon' },
-  { id: 'mat_dg_ruby_prism', name: 'Prisma Rubi', description: 'Cristal rubro com núcleo incandescente.', cost: 260, type: 'material', value: 0, icon: '❤️', rarity: 'gold', minLevel: 10, source: 'dungeon' },
-  { id: 'mat_dg_sapphire_core', name: 'Núcleo de Safira', description: 'Gema azul pura forjada sob alta pressão.', cost: 280, type: 'material', value: 0, icon: '💙', rarity: 'gold', minLevel: 10, source: 'dungeon' },
-  { id: 'mat_dg_void_opal', name: 'Opala do Vazio', description: 'Pedra iridescente que distorce a luz ao redor.', cost: 320, type: 'material', value: 0, icon: '🌌', rarity: 'gold', minLevel: 10, source: 'dungeon' },
-  { id: 'mat_dg_dragonite_heart', name: 'Coração de Dragonita', description: 'Núcleo mineral quase indestrutível.', cost: 360, type: 'material', value: 0, icon: '🐉', rarity: 'gold', minLevel: 10, source: 'dungeon' },
-  { id: 'mat_dg_star_diamond', name: 'Diamante Estelar', description: 'Cristal lendário que brilha como constelação.', cost: 420, type: 'material', value: 0, icon: '💎', rarity: 'gold', minLevel: 10, source: 'dungeon' },
-  { id: 'mat_ether_shard', name: 'Fragmento de Ether', description: 'Cristal instável recolhido das galerias da dungeon.', cost: 55, type: 'material', value: 0, icon: '🧿', rarity: 'silver', minLevel: 4, source: 'dungeon' },
-  { id: 'mat_obsidian_heart', name: 'Coração de Obsidiana', description: 'Núcleo denso e quente arrancado de bestas abissais.', cost: 120, type: 'material', value: 0, icon: '🪨', rarity: 'gold', minLevel: 7, source: 'dungeon' },
-  { id: 'mat_void_bloom', name: 'Flor do Vazio', description: 'Matéria viva que pulsa com energia da dungeon profunda.', cost: 180, type: 'material', value: 0, icon: '🌌', rarity: 'gold', minLevel: 9, source: 'dungeon' },
-  { id: 'mat_nexus_core', name: 'Núcleo do Nexus', description: 'Relíquia absoluta deixada apenas pelo soberano da dungeon.', cost: 320, type: 'material', value: 0, icon: '💠', rarity: 'gold', minLevel: 12, source: 'dungeon' },
+  { id: 'mat_dg_coal', name: 'Carvão Impuro', description: 'Carvão poroso retirado das camadas rasas da dungeon.', cost: 18, type: 'material', value: 0, icon: '🪨', iconImage: _oreIcon('Coal.png'), rarity: 'bronze', minLevel: 1, source: 'dungeon' },
+  { id: 'mat_dg_copper_ore', name: 'Minério de Cobre', description: 'Veio metálico comum, útil para ligas iniciais.', cost: 22, type: 'material', value: 0, icon: '🟤', iconImage: _oreIcon('Copper Nugget.png'), rarity: 'bronze', minLevel: 1, source: 'dungeon' },
+  { id: 'mat_dg_limestone', name: 'Calcário Fraturado', description: 'Pedra sedimentar que se desfaz com pressão.', cost: 20, type: 'material', value: 0, icon: '🪨', iconImage: _oreIcon('Obsidian.png'), rarity: 'bronze', minLevel: 1, source: 'dungeon' },
+  { id: 'mat_dg_moss_fiber', name: 'Fibra de Musgo Abissal', description: 'Trama orgânica úmida que cresce entre ruínas.', cost: 24, type: 'material', value: 0, icon: '🌿', iconImage: _matIcon('String.png'), rarity: 'bronze', minLevel: 1, source: 'dungeon' },
+  { id: 'mat_dg_fossil_bone', name: 'Osso Fossilizado', description: 'Fragmento endurecido de criatura antiga.', cost: 26, type: 'material', value: 0, icon: '🦴', iconImage: _monIcon('Bone.png'), rarity: 'bronze', minLevel: 1, source: 'dungeon' },
+  { id: 'mat_dg_cracked_shell', name: 'Carapaça Quebrada', description: 'Casco mineralizado de monstro subterrâneo.', cost: 28, type: 'material', value: 0, icon: '🛡️', iconImage: _monIcon('Monster Egg.png'), rarity: 'bronze', minLevel: 1, source: 'dungeon' },
+  { id: 'mat_dg_salt_crystal', name: 'Cristal de Sal Sombrio', description: 'Cristal opaco formado em salões fechados.', cost: 30, type: 'material', value: 0, icon: '🧂', iconImage: _oreIcon('Crystal.png'), rarity: 'bronze', minLevel: 1, source: 'dungeon' },
+  { id: 'mat_dg_rusty_chain', name: 'Elo Enferrujado', description: 'Restos de correntes antigas corroídas.', cost: 19, type: 'material', value: 0, icon: '⛓️', iconImage: _miscIcon('Gear.png'), rarity: 'bronze', minLevel: 1, source: 'dungeon' },
+  { id: 'mat_dg_dark_clay', name: 'Argila Escura', description: 'Argila densa com alta concentração mineral.', cost: 21, type: 'material', value: 0, icon: '🟫', iconImage: _oreIcon('Obsidian.png'), rarity: 'bronze', minLevel: 1, source: 'dungeon' },
+  { id: 'mat_dg_sulfur_powder', name: 'Pó de Enxofre', description: 'Resíduo inflamável coletado de fendas quentes.', cost: 23, type: 'material', value: 0, icon: '🟡', iconImage: _oreIcon('Coal.png'), rarity: 'bronze', minLevel: 1, source: 'dungeon' },
+  { id: 'mat_dg_silver_ore', name: 'Minério de Prata', description: 'Metal brilhante e estável para peças refinadas.', cost: 72, type: 'material', value: 0, icon: '⚪', iconImage: _oreIcon('Silver Nugget.png'), rarity: 'silver', minLevel: 5, source: 'dungeon' },
+  { id: 'mat_dg_moonstone', name: 'Pedra Lunar', description: 'Gema fria que pulsa com brilho azulado.', cost: 84, type: 'material', value: 0, icon: '🌙', iconImage: _oreIcon('Pearl.png'), rarity: 'silver', minLevel: 5, source: 'dungeon' },
+  { id: 'mat_dg_amber_resin', name: 'Resina Âmbar', description: 'Seiva cristalizada de raízes antigas.', cost: 78, type: 'material', value: 0, icon: '🟠', iconImage: _oreIcon('Topaz.png'), rarity: 'silver', minLevel: 5, source: 'dungeon' },
+  { id: 'mat_dg_shadow_ink', name: 'Tinta Sombria', description: 'Pigmento arcano usado em inscrições ocultas.', cost: 90, type: 'material', value: 0, icon: '🖤', iconImage: _oreIcon('Obsidian.png'), rarity: 'silver', minLevel: 5, source: 'dungeon' },
+  { id: 'mat_dg_arcane_dust', name: 'Pó Arcano', description: 'Partículas místicas deixadas por rituais antigos.', cost: 96, type: 'material', value: 0, icon: '✨', iconImage: _oreIcon('Crystal.png'), rarity: 'silver', minLevel: 5, source: 'dungeon' },
+  { id: 'mat_dg_steel_nodule', name: 'Nódulo de Aço', description: 'Concreção metálica de altíssima dureza.', cost: 88, type: 'material', value: 0, icon: '🔩', iconImage: _oreIcon('Silver Ingot.png'), rarity: 'silver', minLevel: 5, source: 'dungeon' },
+  { id: 'mat_dg_cobalt_shard', name: 'Fragmento de Cobalto', description: 'Minério azul escuro encontrado em veios profundos.', cost: 94, type: 'material', value: 0, icon: '🔷', iconImage: _oreIcon('Sapphire.png'), rarity: 'silver', minLevel: 5, source: 'dungeon' },
+  { id: 'mat_dg_onyx_chip', name: 'Lasca de Ônix', description: 'Pedra negra compacta de corte preciso.', cost: 102, type: 'material', value: 0, icon: '🪨', iconImage: _oreIcon('Obsidian.png'), rarity: 'silver', minLevel: 5, source: 'dungeon' },
+  { id: 'mat_dg_ghost_essence', name: 'Essência Espectral', description: 'Névoa condensada em frasco lacrado.', cost: 110, type: 'material', value: 0, icon: '👻', iconImage: _oreIcon('Crystal.png'), rarity: 'silver', minLevel: 5, source: 'dungeon' },
+  { id: 'mat_dg_lumen_pearl', name: 'Pérola de Lúmen', description: 'Nódulo luminescente cultivado em água parada.', cost: 118, type: 'material', value: 0, icon: '💠', iconImage: _oreIcon('Pearl.png'), rarity: 'silver', minLevel: 5, source: 'dungeon' },
+  { id: 'mat_dg_emerald_cluster', name: 'Cacho de Esmeralda', description: 'Cristais verdes de alto valor alquímico.', cost: 240, type: 'material', value: 0, icon: '💚', iconImage: _oreIcon('Emerald.png'), rarity: 'gold', minLevel: 10, source: 'dungeon' },
+  { id: 'mat_dg_ruby_prism', name: 'Prisma Rubi', description: 'Cristal rubro com núcleo incandescente.', cost: 260, type: 'material', value: 0, icon: '❤️', iconImage: _oreIcon('Ruby.png'), rarity: 'gold', minLevel: 10, source: 'dungeon' },
+  { id: 'mat_dg_sapphire_core', name: 'Núcleo de Safira', description: 'Gema azul pura forjada sob alta pressão.', cost: 280, type: 'material', value: 0, icon: '💙', iconImage: _oreIcon('Sapphire.png'), rarity: 'gold', minLevel: 10, source: 'dungeon' },
+  { id: 'mat_dg_void_opal', name: 'Opala do Vazio', description: 'Pedra iridescente que distorce a luz ao redor.', cost: 320, type: 'material', value: 0, icon: '🌌', iconImage: _oreIcon('Crystal.png'), rarity: 'gold', minLevel: 10, source: 'dungeon' },
+  { id: 'mat_dg_dragonite_heart', name: 'Coração de Dragonita', description: 'Núcleo mineral quase indestrutível.', cost: 360, type: 'material', value: 0, icon: '🐉', iconImage: _oreIcon('Ruby.png'), rarity: 'gold', minLevel: 10, source: 'dungeon' },
+  { id: 'mat_dg_star_diamond', name: 'Diamante Estelar', description: 'Cristal lendário que brilha como constelação.', cost: 420, type: 'material', value: 0, icon: '💎', iconImage: _oreIcon('Diamond.png'), rarity: 'gold', minLevel: 10, source: 'dungeon' },
+  { id: 'mat_ether_shard', name: 'Fragmento de Ether', description: 'Cristal instável recolhido das galerias da dungeon.', cost: 55, type: 'material', value: 0, icon: '🧿', iconImage: _oreIcon('Crystal.png'), rarity: 'silver', minLevel: 4, source: 'dungeon' },
+  { id: 'mat_obsidian_heart', name: 'Coração de Obsidiana', description: 'Núcleo denso e quente arrancado de bestas abissais.', cost: 120, type: 'material', value: 0, icon: '🪨', iconImage: _oreIcon('Obsidian.png'), rarity: 'gold', minLevel: 7, source: 'dungeon' },
+  { id: 'mat_void_bloom', name: 'Flor do Vazio', description: 'Matéria viva que pulsa com energia da dungeon profunda.', cost: 180, type: 'material', value: 0, icon: '🌌', iconImage: _oreIcon('Crystal.png'), rarity: 'gold', minLevel: 9, source: 'dungeon' },
+  { id: 'mat_nexus_core', name: 'Núcleo do Nexus', description: 'Relíquia absoluta deixada apenas pelo soberano da dungeon.', cost: 320, type: 'material', value: 0, icon: '💠', iconImage: _oreIcon('Diamond.png'), rarity: 'gold', minLevel: 12, source: 'dungeon' },
   { id: 'pot_dg_recall', name: 'Âncora de Retorno', description: 'Abre uma saída estável da dungeon e permite levar todo o espólio acumulado.', cost: 0, type: 'potion', value: 0, icon: '🧭', rarity: 'gold', minLevel: 1, source: 'dungeon' },
   { id: 'pot_alc_phantom_veil', name: 'Véu Fantasma', description: 'Reveste o corpo com névoa alquímica e garante evasão perfeita por 4 turnos em qualquer batalha.', cost: 0, type: 'potion', value: 1, icon: '👻', rarity: 'gold', minLevel: 1, source: 'alchemist', duration: 4 },
   { id: 'pot_alc_twin_fang', name: 'Presa Gêmea', description: 'Desperta um ritmo feroz e faz o comando Atacar acertar duas vezes por 6 turnos.', cost: 0, type: 'potion', value: 1, icon: '🦷', rarity: 'gold', minLevel: 1, source: 'alchemist', duration: 6 },

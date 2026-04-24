@@ -467,12 +467,12 @@ export const KillLootOverlay = ({ loot }: { loot: LootResult | null }) => {
                         <div className="text-[8px] sm:text-[9px] text-[#9a7068] uppercase tracking-[0.25em] mb-1.5 sm:mb-2 font-black">� Esp�lio �</div>
                         <div className="flex gap-1.5 justify-center flex-wrap">
                             {loot.drops.map((item, i) => (
-                                <div key={i} className={`flex items-center gap-1 px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-[10px] border text-[10px] sm:text-xs font-bold
+                                <div key={i} className={`flex items-center gap-1.5 px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-[12px] border text-[10px] sm:text-xs font-bold
                                     ${item.rarity === 'gold' ? 'bg-amber-50 border-amber-400 text-amber-800'
                                     : item.rarity === 'silver' ? 'bg-slate-50 border-slate-400 text-slate-700'
                                     : 'bg-[#f8eddf] border-[#d6b9a3] text-[#6b3141]'}
                                 `}>
-                                    <span className="text-sm sm:text-base">{item.iconImage ? <img src={item.iconImage} className="w-5 h-5 object-contain inline-block" draggable={false} alt={item.name} /> : item.icon}</span>
+                                    <span className="flex-shrink-0">{item.iconImage ? <img src={item.iconImage} className="w-8 h-8 object-contain" draggable={false} alt={item.name} /> : <span className="text-2xl">{item.icon}</span>}</span>
                                     <span>{item.name}</span>
                                 </div>
                             ))}
@@ -556,7 +556,7 @@ const FloatingTextOverlay = ({ texts }: { texts: FloatingText[] }) => {
                             }
                         `}</style>
                         {isItem && t.iconImage
-                            ? <img src={t.iconImage} draggable={false} alt={t.text} style={{ width: '2.2rem', height: '2.2rem', objectFit: 'contain' }} />
+                            ? <img src={t.iconImage} draggable={false} alt={t.text} style={{ width: '3.8rem', height: '3.8rem', objectFit: 'contain' }} />
                             : t.text}
                     </div>
                 )
