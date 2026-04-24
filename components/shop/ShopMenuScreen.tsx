@@ -1,7 +1,6 @@
 ﻿import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, ArrowDown, ArrowLeft, ArrowUp, Heart, Shield, ShoppingBag, Sparkles, Sword, X, Zap } from 'lucide-react';
 import { Item, Player } from '../../types';
-import { ItemPreviewThree } from '../items/ItemPreviewThree';
 import { GameAssetIcon, GameAssetIconName } from '../ui/game-asset-icon';
 import { isEquipmentType, ItemIcon, ItemTypeIcon, ItemTypeLabel } from '../ui/game-display';
 import { getUnlockedShopRaritiesByStage } from '../../game/mechanics/shopProgression';
@@ -260,11 +259,12 @@ const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
 
         {/* Scrollable body */}
         <div className="flex-1 overflow-y-auto overflow-x-hidden px-5 pb-3" data-scrollable>
-          {/* 3D Preview */}
-          <div className="relative overflow-hidden rounded-[18px] bg-gradient-to-b from-white/5 to-black/30 border border-white/8">
-            <div className="h-[11rem]">
-              <ItemPreviewThree item={item} variant="menu" />
-            </div>
+          {/* Icon Preview */}
+          <div className="relative flex items-center justify-center overflow-hidden rounded-[18px] bg-gradient-to-b from-white/5 to-black/30 border border-white/8 h-[11rem]">
+            {item.iconImage
+              ? <img src={item.iconImage} draggable={false} alt={item.name} className="w-32 h-32 object-contain drop-shadow-2xl" />
+              : <span className="text-8xl leading-none select-none">{item.icon}</span>
+            }
           </div>
 
           {/* Description */}
