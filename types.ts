@@ -617,6 +617,7 @@ export interface Particle {
 export interface FloatingText {
   id: string;
   text: string;
+  iconImage?: string; // Optional PNG icon URL (overrides text display for 'item' type)
   type: 'damage' | 'heal' | 'crit' | 'buff' | 'skill' | 'item';
   target: 'player' | 'enemy'; // Determines screen position
   xOffset: number; // Random slight offset

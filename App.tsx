@@ -1378,6 +1378,7 @@ export default function App() {
       target: 'player' | 'enemy',
       type: 'damage' | 'heal' | 'crit' | 'buff' | 'skill' | 'item',
       color?: string,
+      iconImage?: string,
   ) => {
       const id = Math.random().toString(36);
             const nowMs = Date.now();
@@ -1392,6 +1393,7 @@ export default function App() {
       setFloatingTexts(prev => [...prev, {
           id,
           text: value.toString(),
+          iconImage,
           type,
           target,
           xOffset: isNamedActionText ? 0 : (Math.random() * 40) - 20, // Keep skill/item labels centered and readable

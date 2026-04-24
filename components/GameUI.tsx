@@ -555,7 +555,9 @@ const FloatingTextOverlay = ({ texts }: { texts: FloatingText[] }) => {
                                 100% { transform: translate(-50%, -42px) scale(1); opacity: 0; }
                             }
                         `}</style>
-                        {t.text}
+                        {isItem && t.iconImage
+                            ? <img src={t.iconImage} draggable={false} alt={t.text} style={{ width: '2.2rem', height: '2.2rem', objectFit: 'contain' }} />
+                            : t.text}
                     </div>
                 )
             })}

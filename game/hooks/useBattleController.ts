@@ -85,6 +85,7 @@ interface UseBattleControllerParams {
     target: 'player' | 'enemy',
     type: 'damage' | 'heal' | 'crit' | 'buff' | 'skill' | 'item',
     color?: string,
+    iconImage?: string,
   ) => void;
   setPlayer: Dispatch<SetStateAction<Player>>;
   setEnemy: Dispatch<SetStateAction<Enemy | null>>;
@@ -1339,7 +1340,7 @@ export const useBattleController = ({
       setPlayerImpactAnimationId(null);
       setPlayerImpactAnimationTintColor(null);
       setPlayerImpactAnimationTarget('self');
-      spawnFloatingText(item.icon, 'player', 'item');
+      spawnFloatingText(item.icon, 'player', 'item', undefined, item.iconImage);
     }
 
     const itemExecutionAnimationId = item.animacaoExecucao ?? COMBAT_SPRITE_ANIMATION_DEFAULTS.unarmedExecutionAnimationId;
