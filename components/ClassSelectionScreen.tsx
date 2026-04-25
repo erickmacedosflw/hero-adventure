@@ -11,7 +11,7 @@ import { PlayerAnimationAction, PlayerClassDefinition, PlayerClassId, WeaponGrip
 import { hasRuntimeFbxAssets } from './scene3d/animation';
 import { AnimatedClassHero } from './scene3d/characters';
 import { BattleScenario } from './scene3d/scenarios';
-import { DayNightCycle, SkyboxController, getRenderPowerPreference, getRenderQualityProfile } from './scene3d/environment';
+import { SkyboxController, getRenderPowerPreference, getRenderQualityProfile } from './scene3d/environment';
 
 interface ClassSelectionScreenProps {
   classes: PlayerClassDefinition[];
@@ -613,7 +613,7 @@ const ForestSelectionScene = ({
     [selectionRuntimeConfig?.heroSelectionSlots],
   );
   const scenario = useMemo(() => getScenario('forest'), []);
-  const handleTimeUpdate = useCallback(() => {}, []);
+
 
   const SceneReadyProbe = ({ onReady }: { onReady?: () => void }) => {
     const framesRef = useRef(0);
@@ -708,7 +708,6 @@ const ForestSelectionScene = ({
         <SceneReadyProbe onReady={onSceneReady} />
         <SkyboxController />
         {selectionFogEnabled && <fog attach="fog" args={[selectionFogColor, selectionFogNear, selectionFogFar]} />}
-        <DayNightCycle containerRef={containerRef} onTimeUpdate={handleTimeUpdate} quality={quality} />
 
         {selectionRuntimeScenarioPreset ? (
           <Suspense fallback={null}>
@@ -734,15 +733,9 @@ const ForestSelectionScene = ({
           </Suspense>
         )}
 
-        <ambientLight intensity={selectionLighting?.ambientIntensity ?? 0.6} color={selectionLighting?.ambientColor ?? '#ffffff'} />
-        <directionalLight
-          castShadow
-          intensity={selectionLighting?.directionalIntensity ?? 0.9}
-          color={selectionLighting?.directionalColor ?? '#fff7e8'}
-          position={selectionLighting?.directionalPosition ?? [2.8, 5.6, 4.4]}
-        />
-        <directionalLight intensity={0.42} color="#8fcff7" position={[-4.2, 3.2, -4.8]} />
-        <hemisphereLight intensity={0.45} groundColor="#243a20" color="#f4ffe6" />
+        <ambientLight intensity={selectionLighting?.ambientIntensity ?? 0.85} color={selectionLighting?.ambientColor ?? '#ffffff'} />
+        <directionalLight intensity={0.32} color="#8fcff7" position={[-4.2, 3.2, -4.8]} />
+        <hemisphereLight intensity={0.55} groundColor="#243a20" color="#f4ffe6" />
         <SelectionHeroAccentLights
           focusedClassId={focusedClassId}
           detailsClassId={detailsClassId}

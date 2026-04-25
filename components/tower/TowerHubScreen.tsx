@@ -94,7 +94,7 @@ export const TowerHubScreen: React.FC<TowerHubScreenProps> = ({
   ];
 
   return (
-    <div className="relative min-h-screen bg-[#0a0c10] text-slate-100 overflow-y-auto">
+    <div className="relative h-screen bg-[#0a0c10] text-slate-100 overflow-y-auto">
       {/* Header */}
       <div className="sticky top-0 z-10 bg-[#0a0c10]/95 backdrop-blur-sm border-b border-slate-800 px-4 py-3 flex items-center gap-3">
         <button

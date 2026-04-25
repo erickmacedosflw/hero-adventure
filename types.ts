@@ -34,6 +34,12 @@ export enum TurnState {
   PROCESSING
 }
 
+/** Ação pendente que requer seleção de alvo em grupo de inimigos. */
+export type PendingTargetAction =
+  | { type: 'attack' }
+  | { type: 'skill'; skill: Skill }
+  | null;
+
 export interface Stats {
   hp: number;
   maxHp: number;

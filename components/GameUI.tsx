@@ -1,6 +1,6 @@
 ﻿
 import React, { useState, useEffect, useRef } from 'react';
-import { Player, Enemy, EnemyIntentPreview, BattleLog, TurnState, Item, Skill, GameState, FloatingText, Rarity, ProgressionCard, CardRewardOffer, AlchemistCardOffer, AlchemistItemOffer, DungeonResult, DungeonRewards, BossVictoryContext } from '../types';
+import { Player, Enemy, EnemyIntentPreview, BattleLog, TurnState, Item, Skill, GameState, FloatingText, Rarity, ProgressionCard, CardRewardOffer, AlchemistCardOffer, AlchemistItemOffer, DungeonResult, DungeonRewards, BossVictoryContext, PendingTargetAction } from '../types';
 import { Sword, Shield, Zap, Heart, Coins, ShoppingBag, Skull, Play, Plus, FlaskConical, User, X, Home, LogOut, DollarSign, AlertTriangle, MousePointerClick, Shirt, Footprints, Crown, LayoutGrid, Sparkles, Crosshair, ArrowLeft, Star, Clock, Orbit, Info } from 'lucide-react';
 import { ItemPreviewThree } from './items/ItemPreviewThree';
 import { GameAssetIcon } from './ui/game-asset-icon';
@@ -92,6 +92,14 @@ interface GameUIProps {
     onEquipItemToSlot?: (slotIndex: number, itemId: string | null) => void;
     towerEssence?: number;
     sceneRegion?: 'forest' | 'dungeon' | 'tower';
+    /** Inimigos extras no grupo (multi-inimigo). */
+    additionalEnemies?: Enemy[];
+    /** Ação pendente aguardando seleção de alvo. */
+    pendingTargetAction?: PendingTargetAction;
+    /** Selecionar um inimigo como alvo. */
+    onSelectTarget?: (id: string) => void;
+    /** Cancelar seleção de alvo. */
+    onCancelTargetSelection?: () => void;
 }
 
 // --- HELPERS ---
@@ -1587,7 +1595,7 @@ export const TavernScreen: React.FC<{
     const clockMinutes = isNaN(gtMinutes) ? 0 : gtMinutes;
     const clockTimeStr = `${String(clockHours).padStart(2, '0')}:${String(clockMinutes).padStart(2, '0')}`;
     const clockPeriod = clockHours >= 5 && clockHours < 12
-        ? { label: 'MANH�', color: 'text-amber-300' }
+        ? { label: 'MANHÃ', color: 'text-amber-300' }
         : clockHours >= 12 && clockHours < 18
         ? { label: 'TARDE', color: 'text-orange-400' }
         : clockHours >= 18 && clockHours < 22
@@ -1643,7 +1651,7 @@ export const TavernScreen: React.FC<{
                 {/* CAMP SIDE-RAIL ─ mochila/skill/merchant/alchemist icons, right side below currency */}
                 {!heroInspectOpen && !portalInspectMode && !portalTransitioning && (inventoryUnlocked || showSkillsAction || (merchantUnlocked && sceneRegion === 'forest') || (alchemistUnlocked && sceneRegion === 'dungeon')) && (
                     <div className="absolute right-3 sm:right-5 top-[4.5rem] sm:top-24 z-10 pointer-events-auto flex flex-col gap-4">
-                        {inventoryUnlocked && (
+                        {inventoryUnlocked && !showInventory && (
                             <button
                                 onClick={() => openInventoryModal('all')}
                                 className="group flex items-center justify-end gap-2 p-0 bg-transparent border-0 transition-all duration-200 hover:-translate-y-0.5 hover:scale-105 active:scale-95"
@@ -1656,7 +1664,7 @@ export const TavernScreen: React.FC<{
                                 <img src={ICONE_MOCHILA_URL} alt="" className="h-14 w-14 object-contain" style={{ filter: 'drop-shadow(0.5px 0 0 #fff) drop-shadow(-0.5px 0 0 #fff) drop-shadow(0 0.5px 0 #fff) drop-shadow(0 -0.5px 0 #fff)' }} />
                             </button>
                         )}
-                        {showSkillsAction && (
+                        {showSkillsAction && !showSkillsScreen && (
                             <button
                                 onClick={() => openSkillsScreenModal()}
                                 className="group flex items-center justify-end gap-2 p-0 bg-transparent border-0 transition-all duration-200 hover:-translate-y-0.5 hover:scale-105 active:scale-95"
@@ -2618,8 +2626,18 @@ export const BossVictoryModal: React.FC<{
 
 type ShopFilter = 'all' | 'weapon' | 'shield' | 'helmet' | 'armor' | 'legs' | 'potion';
 
-export const ShopScreen: React.FC<{ player: Player, items: Item[], huntStage: number, onBuy: (i: Item, quantity: number) => void, onSell: (i: Item, quantity: number) => void, onEquip: (i: Item) => void, onLeave: () => void }> = ({ player, items, huntStage, onBuy, onSell, onEquip, onLeave }) => {
-    return <ShopMenuScreen player={player} items={items} huntStage={huntStage} onBuy={onBuy} onSell={onSell} onEquip={onEquip} onLeave={onLeave} />;
+export const ShopScreen: React.FC<{ player: Player, items: Item[], huntStage: number, onBuy: (i: Item, quantity: number) => void, onSell: (i: Item, quantity: number) => void, onEquip: (i: Item) => void, onUnequip: (i: Item) => void, onUse?: (itemId: string) => void, onLeave: () => void }> = ({ player, items, huntStage, onBuy, onSell, onEquip, onUnequip, onUse, onLeave }) => {
+    const [showShopInventory, setShowShopInventory] = useState(false);
+    return (
+      <>
+        <ShopMenuScreen player={player} items={items} huntStage={huntStage} onBuy={onBuy} onSell={onSell} onEquip={onEquip} onLeave={onLeave} onOpenInventory={() => setShowShopInventory(true)} inventoryOpen={showShopInventory} />
+        {showShopInventory && (
+          <div className="absolute inset-0 z-50">
+            <InventoryModal player={player} shopItems={items} onClose={() => setShowShopInventory(false)} onEquip={onEquip} onUnequip={onUnequip} onUse={onUse ?? (() => {})} onSell={onSell} isBattleContext={false} inShopContext={true} />
+          </div>
+        )}
+      </>
+    );
 };
 
 type BattleBadge = { label: string; color: string; bg: string; border: string };
@@ -2647,7 +2665,7 @@ function getPotionBattleBadges(item: Item): BattleBadge[] {
 }
 
 export const BattleHUD: React.FC<GameUIProps> = (props) => {
-    const { player, enemy, turnState, logs, onAttack, onDefend, onChargeImpulse, onAbsorbImpulse, onSkill, onUseItem, enemyIntentPreview = null, onUnlockTalent, onResetTalents, currentNarration, gameState, shopItems, floatingTexts, onFlee, onStartBattle, stage, dungeonPhase = 1, killCount, onEquipItem, onUnequipItem, isDungeonRun, dungeonRewards, dungeonCleared = 0, dungeonTotal = 30, gameTime, restrictProfileToStatusOnly = false, limitBattleActionsToBasics = false, inventoryUnlocked = false, inventoryUnlockPromptActive = false, onAcknowledgeInventoryUnlock, cardsUnlockPromptActive = false, onAcknowledgeCardsUnlock, skillsUnlockPromptActive = false, onAcknowledgeSkillsUnlock, impulseUnlockPromptActive = null, onAcknowledgeImpulseUnlock, constellationUnlockPromptActive = false, onAcknowledgeConstellationUnlock, constellationRespecUnlockPromptActive = false, onAcknowledgeConstellationRespecUnlock, allowCardsInProfile = false, fleeUnlocked = false, showItemsAction = false, showSkillsAction = false, itemsUnlockPromptActive = false, onAcknowledgeItemsUnlock, fleeUnlockPromptActive = false, onAcknowledgeFleeUnlock, autoOpenProfileToken = 0, showDiamondHud = false, diamondUnlockPromptActive = false, onAcknowledgeDiamondUnlock, musicEnabled = true, sfxEnabled = true, renderQualityPreset = 'balanced', recommendedRenderQualityPreset = 'balanced', onUpdateBattleSettings, onEquipSkillToSlot, towerEssence = 0, sceneRegion = 'forest' } = props;
+    const { player, enemy, turnState, logs, onAttack, onDefend, onChargeImpulse, onAbsorbImpulse, onSkill, onUseItem, enemyIntentPreview = null, onUnlockTalent, onResetTalents, currentNarration, gameState, shopItems, floatingTexts, onFlee, onStartBattle, stage, dungeonPhase = 1, killCount, onEquipItem, onUnequipItem, isDungeonRun, dungeonRewards, dungeonCleared = 0, dungeonTotal = 30, gameTime, restrictProfileToStatusOnly = false, limitBattleActionsToBasics = false, inventoryUnlocked = false, inventoryUnlockPromptActive = false, onAcknowledgeInventoryUnlock, cardsUnlockPromptActive = false, onAcknowledgeCardsUnlock, skillsUnlockPromptActive = false, onAcknowledgeSkillsUnlock, impulseUnlockPromptActive = null, onAcknowledgeImpulseUnlock, constellationUnlockPromptActive = false, onAcknowledgeConstellationUnlock, constellationRespecUnlockPromptActive = false, onAcknowledgeConstellationRespecUnlock, allowCardsInProfile = false, fleeUnlocked = false, showItemsAction = false, showSkillsAction = false, itemsUnlockPromptActive = false, onAcknowledgeItemsUnlock, fleeUnlockPromptActive = false, onAcknowledgeFleeUnlock, autoOpenProfileToken = 0, showDiamondHud = false, diamondUnlockPromptActive = false, onAcknowledgeDiamondUnlock, musicEnabled = true, sfxEnabled = true, renderQualityPreset = 'balanced', recommendedRenderQualityPreset = 'balanced', onUpdateBattleSettings, onEquipSkillToSlot, towerEssence = 0, sceneRegion = 'forest', additionalEnemies = [], pendingTargetAction = null, onSelectTarget, onCancelTargetSelection } = props;
   const [activeBattleMenu, setActiveBattleMenu] = useState<'skills' | 'items' | null>(null);
   const [battleInfoPopup, setBattleInfoPopup] = useState<{ type: 'skill' | 'item'; id: string } | null>(null);
   const [showProfile, setShowProfile] = useState(false);
@@ -4136,7 +4154,44 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                       )}
                   </div>
                   )}
-                  <div className="grid w-full max-w-[360px] grid-cols-5 gap-1 sm:gap-1.5 sm:w-[360px]">
+                  <div className="relative grid w-full max-w-[360px] grid-cols-5 gap-1 sm:gap-1.5 sm:w-[360px]">
+                      {/* ── Target selection mode: replace action tiles with enemy pickers + cancel ── */}
+                      {pendingTargetAction !== null ? (
+                          <>
+                              {/* Header spans full row */}
+                              <div style={{ gridColumn: '1 / -1', textAlign: 'center', color: '#f59e0b', fontWeight: 900, fontSize: 11, letterSpacing: '0.18em', textTransform: 'uppercase', paddingBottom: 4, borderBottom: '1px solid #f59e0b44' }}>
+                                  ⚔ Escolha o Alvo
+                              </div>
+                              {/* Enemy selector tiles */}
+                              {[enemy, ...additionalEnemies].filter(Boolean).map(e => {
+                                  const hp = e!.stats.hp; const maxHp = e!.stats.maxHp;
+                                  const pct = Math.round(Math.max(0, hp / Math.max(1, maxHp) * 100));
+                                  const hpColor = pct > 55 ? '#4ade80' : pct > 25 ? '#facc15' : '#f87171';
+                                  return (
+                                      <button key={e!.id} onClick={() => onSelectTarget?.(e!.id)}
+                                          style={{ gridColumn: 'span 2', padding: '6px 4px', background: '#0f172a', border: '1.5px solid #f59e0b', borderRadius: 8, color: '#fff', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, fontSize: 10, transition: 'background 0.15s' }}
+                                          onMouseEnter={e2 => (e2.currentTarget.style.background = '#1e293b')}
+                                          onMouseLeave={e2 => (e2.currentTarget.style.background = '#0f172a')}
+                                      >
+                                          <span style={{ fontWeight: 700, fontSize: 10, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>{e!.name}</span>
+                                          <div style={{ width: '100%', height: 5, background: '#1e293b', borderRadius: 99, overflow: 'hidden', border: '1px solid #ffffff18' }}>
+                                              <div style={{ height: '100%', borderRadius: 99, background: hpColor, width: `${pct}%`, transition: 'width 0.3s' }} />
+                                          </div>
+                                          <span style={{ color: hpColor, fontSize: 9 }}>{pct}% HP</span>
+                                      </button>
+                                  );
+                              })}
+                              {/* Cancel tile — always last */}
+                              <ActionTile
+                                  icon={<X size={16} />}
+                                  label="CANCELAR"
+                                  onClick={onCancelTargetSelection}
+                                  variant="defense"
+                                  forceStyle={{ borderColor: '#6b7280', backgroundColor: '#1f2937', color: '#9ca3af' }}
+                              />
+                          </>
+                      ) : (
+                      <>
                       {impulseUnlocked && (
                           <ActionTile
                               icon={<Zap size={18} />}
@@ -4197,7 +4252,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                                                                             const typeColor = skill?.type === 'physical' ? '#f87171' : skill?.type === 'magic' ? '#c4b5fd' : '#86efac';
                                                                             const typeBg   = skill?.type === 'physical' ? 'rgba(248,113,113,0.14)' : skill?.type === 'magic' ? 'rgba(196,181,253,0.14)' : 'rgba(134,239,172,0.14)';
                                                                             const typeLabel = skill?.type === 'physical' ? 'Físico' : skill?.type === 'magic' ? 'Magia' : 'Cura';
-                                                                            const TypeIcon = skill?.type === 'physical' ? <Sword size={13} /> : skill?.type === 'magic' ? <Sparkles size={13} /> : <Heart size={13} />;
+                                                                            const TypeIcon = skill?.type === 'physical' ? <Sword size={28} /> : skill?.type === 'magic' ? <Sparkles size={28} /> : <Heart size={28} />;
                                                                             const requiredResource = skill?.resourceEffect?.cost ?? 0;
                                                                             const hasResource = player.classResource.value >= requiredResource;
                                                                             const effectiveManaCost = skill ? (player.impulsoAtivo >= 1 ? Math.max(1, Math.floor(skill.manaCost * 0.7)) : skill.manaCost) : 0;
@@ -4228,14 +4283,12 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                                                                                     }}>
                                                                                     {/* Icon */}
                                                                                     <div style={{
-                                                                                        width: '32px', height: '32px', flexShrink: 0,
-                                                                                        borderRadius: '8px',
-                                                                                        border: isEmpty ? '1px solid rgba(255,255,255,0.10)' : `1.5px solid ${typeColor}55`,
-                                                                                        background: isEmpty ? 'rgba(0,0,0,0.25)' : `${typeColor}20`,
+                                                                                        width: '44px', height: '44px', flexShrink: 0,
                                                                                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                                                                                         color: isEmpty ? 'rgba(255,255,255,0.20)' : typeColor,
+                                                                                        filter: skill ? 'drop-shadow(0.5px 0 0 rgba(255,255,255,0.7)) drop-shadow(-0.5px 0 0 rgba(255,255,255,0.7)) drop-shadow(0 0.5px 0 rgba(255,255,255,0.7)) drop-shadow(0 -0.5px 0 rgba(255,255,255,0.7))' : undefined,
                                                                                     }}>
-                                                                                        {skill ? TypeIcon : <Sparkles size={13} />}
+                                                                                        {skill ? TypeIcon : <Sparkles size={22} />}
                                                                                     </div>
                                                                                     {/* Text + badges */}
                                                                                     <div style={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
@@ -4287,7 +4340,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                                                             })()}
                                                         </div>
                                                     )}
-                                                    <ActionTile icon={<Sparkles size={18} />} label="HABILIDADES" onClick={() => setActiveBattleMenu(prev => prev === 'skills' ? null : 'skills')} disabled={!isPlayerTurn || (player.equippedSkillIds ?? []).every(id => !id)} variant="skill" glowColor={impulseButtonGlowColor} glowStrength={24} energized={buttonsEnergized} sparkleColor={currentImpulseFxColor} />
+                                                    <ActionTile icon={<span style={{ filter: 'drop-shadow(0.5px 0 0 rgba(255,255,255,0.7)) drop-shadow(-0.5px 0 0 rgba(255,255,255,0.7)) drop-shadow(0 0.5px 0 rgba(255,255,255,0.7)) drop-shadow(0 -0.5px 0 rgba(255,255,255,0.7))' }}><Sparkles size={24} /></span>} label="HABILIDADES" onClick={() => setActiveBattleMenu(prev => prev === 'skills' ? null : 'skills')} disabled={!isPlayerTurn || (player.equippedSkillIds ?? []).every(id => !id)} variant="skill" glowColor={impulseButtonGlowColor} glowStrength={24} energized={buttonsEnergized} sparkleColor={currentImpulseFxColor} />
                                                 </div>
                                             )}
                                             {showItemsAction && (
@@ -4307,11 +4360,12 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                                                             {/* Slot rows */}
                                                             {(() => {
                                                                 const slots = player.equippedItemSlots ?? [];
+                                                                const MAX_ITEM_SLOTS = getClassSlots(player.classId).items;
                                                                 const itemColor = '#fb923c';
                                                                 const itemBg = 'rgba(251,146,60,0.14)';
                                                                 return (
                                                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                                                        {Array.from({ length: 4 }, (_, i) => {
+                                                                        {Array.from({ length: MAX_ITEM_SLOTS }, (_, i) => {
                                                                             const slot = slots[i] ?? { itemId: '', qty: 0 };
                                                                             const isEmpty = !slot.itemId;
                                                                             const hasItem = !isEmpty && slot.qty > 0;
@@ -4349,8 +4403,8 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                                                                                         transition: 'opacity 0.15s',
                                                                                     }}>
                                                                                     {/* Icon box */}
-                                                                                    <div style={{ width: '32px', height: '32px', flexShrink: 0, borderRadius: '8px', border: hasItem ? `1.5px solid ${itemColor}55` : '1px solid rgba(255,255,255,0.10)', background: hasItem ? `${itemColor}20` : 'rgba(0,0,0,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: hasItem ? itemColor : 'rgba(255,255,255,0.20)', fontSize: '18px' }}>
-                                                                                        {itemDef ? <span style={{ lineHeight: 1 }}>{itemDef.iconImage ? <img src={itemDef.iconImage} style={{ width: 18, height: 18, objectFit: 'contain' }} draggable={false} alt={itemDef.name} /> : itemDef.icon}</span> : <FlaskConical size={16} />}
+                                                                                    <div style={{ width: '44px', height: '44px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: hasItem ? itemColor : 'rgba(255,255,255,0.20)', fontSize: '28px', filter: hasItem ? 'drop-shadow(0.5px 0 0 rgba(255,255,255,0.7)) drop-shadow(-0.5px 0 0 rgba(255,255,255,0.7)) drop-shadow(0 0.5px 0 rgba(255,255,255,0.7)) drop-shadow(0 -0.5px 0 rgba(255,255,255,0.7))' : undefined }}>
+                                                                                        {itemDef ? <span style={{ lineHeight: 1 }}>{itemDef.iconImage ? <img src={itemDef.iconImage} style={{ width: 32, height: 32, objectFit: 'contain' }} draggable={false} alt={itemDef.name} /> : itemDef.icon}</span> : <FlaskConical size={24} />}
                                                                                     </div>
                                                                                     {/* Text */}
                                                                                     <div style={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column', gap: '3px' }}>
@@ -4400,9 +4454,11 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                                                             })()}
                                                         </div>
                                                     )}
-                                                    <ActionTile icon={<FlaskConical size={18} />} label="ITENS" onClick={() => { setBattleInfoPopup(null); setActiveBattleMenu(prev => prev === 'items' ? null : 'items'); }} disabled={!isPlayerTurn || (player.equippedItemSlots ?? []).every(s => !s.itemId || s.qty <= 0)} variant="item" />
+                                                    <ActionTile icon={<span style={{ filter: 'drop-shadow(0.5px 0 0 rgba(255,255,255,0.7)) drop-shadow(-0.5px 0 0 rgba(255,255,255,0.7)) drop-shadow(0 0.5px 0 rgba(255,255,255,0.7)) drop-shadow(0 -0.5px 0 rgba(255,255,255,0.7))' }}><FlaskConical size={24} /></span>} label="ITENS" onClick={() => { setBattleInfoPopup(null); setActiveBattleMenu(prev => prev === 'items' ? null : 'items'); }} disabled={!isPlayerTurn || (player.equippedItemSlots ?? []).every(s => !s.itemId || s.qty <= 0)} variant="item" />
                                                 </div>
                                             )}
+                  </>
+                  )}
                   </div>
               </div>
           </div>

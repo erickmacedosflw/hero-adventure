@@ -95,17 +95,15 @@ const SkillCard: React.FC<{
         }}>S{slotIndex + 1}</div>
       )}
 
-      {/* Icon box — colored by type */}
+      {/* Icon — sem caixa, ícone puro com borda branca */}
       <div style={{
         width: '46px', height: '46px', marginTop: isEquipped ? '10px' : '2px',
-        borderRadius: '13px',
-        border: `1.5px solid ${accent}66`,
-        background: `${accent}20`,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         color: accent,
         flexShrink: 0,
+        filter: 'drop-shadow(0.5px 0 0 rgba(255,255,255,0.7)) drop-shadow(-0.5px 0 0 rgba(255,255,255,0.7)) drop-shadow(0 0.5px 0 rgba(255,255,255,0.7)) drop-shadow(0 -0.5px 0 rgba(255,255,255,0.7))',
       }}>
-        {React.cloneElement(typeMeta.icon as React.ReactElement, { size: 22 })}
+        {React.cloneElement(typeMeta.icon as React.ReactElement, { size: 28 })}
       </div>
 
       {/* Name */}

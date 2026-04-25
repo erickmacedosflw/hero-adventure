@@ -56,6 +56,14 @@ interface UseBattleResolutionParams {
   allowPotionDrops: boolean;
   isTowerBattle?: boolean;
   onTowerVictory?: () => void;
+  /** Retorna lista de inimigos extras vivos no grupo (caça multi-inimigo). */
+  getAdditionalEnemies?: () => Enemy[];
+  /** Chamado quando o inimigo principal morre mas ainda há extras vivos. */
+  onPartialGroupKill?: (deadEnemyId: string, xpGain: number, goldGain: number) => void;
+  /** Chamado após kill parcial para avançar a fila de iniciativa. */
+  onActorTurnDone?: () => void;
+  /** Rewards acumulados dos inimigos já derrotados no grupo. */
+  accumulatedGroupRewards?: { gold: number; xp: number };
 }
 
 export const useBattleResolution = ({
@@ -99,9 +107,28 @@ export const useBattleResolution = ({
   allowPotionDrops,
   isTowerBattle,
   onTowerVictory,
+  getAdditionalEnemies,
+  onPartialGroupKill,
+  onActorTurnDone,
+  accumulatedGroupRewards,
 }: UseBattleResolutionParams) => {
   const handleVictory = useCallback(async (delayMs = 0) => {
     if (!enemy) return;
+
+    // Partial group kill — hunt mode only: more enemies still alive
+    const extraEnemies = getAdditionalEnemies?.() ?? [];
+    if (extraEnemies.length > 0 && !dungeonRun && !isTowerBattle) {
+      const xpGain = Math.floor(enemy.xpReward * (1 + player.cardBonuses.xpGainMultiplier));
+      const goldGain = Math.floor(enemy.goldReward * (1 + player.cardBonuses.goldGainMultiplier));
+      setPlayerAnimationAction('idle');
+      // Don't reset enemy animation — let 'death' finish playing on the dying model
+      // Delay the swap so the death animation fully plays (~900ms)
+      window.setTimeout(() => {
+        if (onPartialGroupKill) onPartialGroupKill(enemy.id, xpGain, goldGain);
+        if (onActorTurnDone) onActorTurnDone();
+      }, 900);
+      return;
+    }
 
     if (isTowerBattle && onTowerVictory) {
       setPlayerAnimationAction('idle');
@@ -332,9 +359,13 @@ export const useBattleResolution = ({
     const dropText = effectiveDrops.length > 0
       ? ` Drops: ${effectiveDrops.map(dropId => ALL_ITEMS.find(item => item.id === dropId)?.name).join(', ')}`
       : '';
-    addLog(`Vitória! +${xpGain} XP, +${goldGain} Ouro.${dropText}`, 'crit');
+    const accGroupGold = accumulatedGroupRewards?.gold ?? 0;
+    const accGroupXp = accumulatedGroupRewards?.xp ?? 0;
+    const totalLootGold = goldGain + accGroupGold;
+    const totalLootXp = xpGain + accGroupXp;
+    addLog(`Vitória! +${totalLootXp} XP, +${totalLootGold} Ouro.${dropText}`, 'crit');
 
-    setLootResult({ gold: goldGain, xp: xpGain, drops: dropItems, isBoss: wasBoss, enemyName: enemy.name });
+    setLootResult({ gold: totalLootGold, xp: totalLootXp, drops: dropItems, isBoss: wasBoss, enemyName: enemy.name });
     window.setTimeout(() => setLootResult(null), 2800);
 
     setEnemy(null);
@@ -424,6 +455,10 @@ export const useBattleResolution = ({
     stage,
     triggerLevelUpPulse,
     onLevelUp,
+    getAdditionalEnemies,
+    onPartialGroupKill,
+    onActorTurnDone,
+    accumulatedGroupRewards,
   ]);
 
   return { handleVictory };

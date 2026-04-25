@@ -135,7 +135,7 @@ export interface BattleActionsConfig {
   onFlee: () => void;
 }
 
-const BattleActionsHtml: React.FC<{ config: BattleActionsConfig; player: Player; isMobile?: boolean }> = ({ config, player, isMobile = false }) => {
+const BattleActionsHtml: React.FC<{ config: BattleActionsConfig; player: Player; isMobile?: boolean; isSelecting?: boolean }> = ({ config, player, isMobile = false, isSelecting = false }) => {
   const [activeMenu, setActiveMenu] = React.useState<'skills' | 'items' | null>(null);
   const [menuVisible, setMenuVisible] = React.useState(false);
   const [infoPopup, setInfoPopup] = React.useState<{ type: 'skill' | 'item'; id: string } | null>(null);
@@ -235,6 +235,7 @@ const BattleActionsHtml: React.FC<{ config: BattleActionsConfig; player: Player;
   const MAX_SKILL_SLOTS = getClassSlots(player.classId).skills;
   const skillIds = [...(player.equippedSkillIds ?? [])];
   while (skillIds.length < MAX_SKILL_SLOTS) skillIds.push('');
+  const MAX_ITEM_SLOTS_BATTLE = getClassSlots(player.classId).items;
   const ic = '#fb923c';
   const itemSlots = player.equippedItemSlots ?? [];
 
@@ -308,7 +309,7 @@ const BattleActionsHtml: React.FC<{ config: BattleActionsConfig; player: Player;
   // ── Shared item rows ──
   const itemRows = (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-      {Array.from({ length: 4 }, (_, i) => {
+      {Array.from({ length: MAX_ITEM_SLOTS_BATTLE }, (_, i) => {
         const slot = itemSlots[i] ?? { itemId: '', qty: 0 };
         const isEmpty = !slot.itemId;
         const hasItem = !isEmpty && slot.qty > 0;
@@ -368,12 +369,12 @@ const BattleActionsHtml: React.FC<{ config: BattleActionsConfig; player: Player;
   return (
     <div ref={containerRef} style={{
       display: 'flex', flexDirection: 'column', gap: S.gap, width: S.w, ...F,
-      opacity: isPlayerTurn ? 1 : 0,
-      transform: isPlayerTurn ? 'translateY(0px) scale(1)' : 'translateY(10px) scale(0.94)',
+      opacity: isPlayerTurn && !isSelecting ? 1 : 0,
+      transform: isPlayerTurn && !isSelecting ? 'translateY(0px) scale(1)' : isSelecting ? 'translateY(6px) scale(0.95)' : 'translateY(10px) scale(0.94)',
       transition: isPlayerTurn
-        ? 'opacity 0.28s ease-out, transform 0.28s cubic-bezier(0.34,1.56,0.64,1)'
+        ? 'opacity 0.22s ease-in, transform 0.22s ease-in'
         : 'opacity 0.18s ease-in, transform 0.18s ease-in',
-      pointerEvents: isPlayerTurn ? 'auto' : 'none',
+      pointerEvents: isPlayerTurn && !isSelecting ? 'auto' : 'none',
     }}>
 
       {/* ── Mobile: full-screen portals ── */}
@@ -637,6 +638,20 @@ interface SceneProps {
   battleActionsConfig?: BattleActionsConfig;
   /** Kill-loot rewards to display in 3D world space at enemy position. */
   lootResult?: LootResultData | null;
+  /** Icon rendered next to the XP value in the world loot display (e.g. player class icon). */
+  xpIconComponent?: React.ReactNode;
+  /** Extra enemies in the group (multi-enemy combat). */
+  additionalEnemies?: Enemy[];
+  /** Pending target action awaiting target selection. */
+  pendingTargetAction?: import('../types').PendingTargetAction;
+  /** Callback when a target enemy is clicked. */
+  onSelectTarget?: (id: string) => void;
+  /** Callback to cancel pending target selection. */
+  onCancelTargetSelection?: () => void;
+  /** Slot index (0/1/2) that the main enemy currently occupies visually. Prevents teleport on target swap. */
+  mainEnemySlotIndex?: number;
+  /** Tamanho inicial do grupo (1, 2 ou 3). Layout é escolhido por este valor e nunca muda quando inimigos morrem. */
+  initialGroupSize?: number;
 }
 
 // --- MAIN COMPONENTS ---
@@ -3209,20 +3224,18 @@ const HeroInspectCanvas = ({
                   onMouseLeave={e => (e.currentTarget.style.filter = 'brightness(1)')}
                 >
                   <div style={{
-                    width: '36px', height: '36px', flexShrink: 0,
+                    width: '40px', height: '40px', flexShrink: 0,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    borderRadius: '9px',
-                    border: `1px solid ${rb}`,
-                    background: 'rgba(0,0,0,0.50)',
                     position: 'relative',
+                    filter: 'drop-shadow(0.5px 0 0 rgba(255,255,255,0.7)) drop-shadow(-0.5px 0 0 rgba(255,255,255,0.7)) drop-shadow(0 0.5px 0 rgba(255,255,255,0.7)) drop-shadow(0 -0.5px 0 rgba(255,255,255,0.7))',
                   }}>
-                    <span style={{ color: ic, opacity: it ? 0.28 : 1, position: 'absolute' }}>
-                      <SlotIcon size={18} />
+                    <span style={{ color: ic, opacity: it ? 0.18 : 1, position: 'absolute' }}>
+                      <SlotIcon size={20} />
                     </span>
                     {it && (
                       it.iconImage
-                        ? <img src={it.iconImage} style={{ width: 22, height: 22, objectFit: 'contain', position: 'relative', zIndex: 1 }} draggable={false} alt={it.name} />
-                        : <span style={{ fontSize: '17px', lineHeight: 1, position: 'relative', zIndex: 1 }}>{it.icon}</span>
+                        ? <img src={it.iconImage} style={{ width: 30, height: 30, objectFit: 'contain', position: 'relative', zIndex: 1 }} draggable={false} alt={it.name} />
+                        : <span style={{ fontSize: '24px', lineHeight: 1, position: 'relative', zIndex: 1 }}>{it.icon}</span>
                     )}
                   </div>
                   <div style={{ minWidth: 0, flex: 1 }}>
@@ -3457,7 +3470,7 @@ const HeroInspectCanvas = ({
                     const typeColor = skill?.type === 'physical' ? '#f87171' : skill?.type === 'magic' ? '#c4b5fd' : '#86efac';
                     const typeBg   = skill?.type === 'physical' ? 'rgba(248,113,113,0.14)' : skill?.type === 'magic' ? 'rgba(196,181,253,0.14)' : 'rgba(134,239,172,0.14)';
                     const typeLabel = skill?.type === 'physical' ? 'Físico' : skill?.type === 'magic' ? 'Magia' : 'Cura';
-                    const TypeIcon = skill?.type === 'physical' ? <Sword size={13} /> : skill?.type === 'magic' ? <Sparkles size={13} /> : <Heart size={13} />;
+                    const TypeIcon = skill?.type === 'physical' ? <Sword size={22} /> : skill?.type === 'magic' ? <Sparkles size={22} /> : <Heart size={22} />;
                     const isSkillInfoOpen = campSkillInfoId === skillId && !!skill;
                     return (
                       <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
@@ -3480,14 +3493,12 @@ const HeroInspectCanvas = ({
                           }}>
                           {/* Icon box */}
                           <div style={{
-                            width: '32px', height: '32px', flexShrink: 0,
-                            borderRadius: '9px',
-                            border: skill ? `1.5px solid ${typeColor}55` : '1px solid rgba(255,255,255,0.10)',
-                            background: skill ? `${typeColor}20` : 'rgba(0,0,0,0.25)',
+                            width: '36px', height: '36px', flexShrink: 0,
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
                             color: skill ? typeColor : 'rgba(255,255,255,0.20)',
+                            filter: skill ? 'drop-shadow(0.5px 0 0 rgba(255,255,255,0.7)) drop-shadow(-0.5px 0 0 rgba(255,255,255,0.7)) drop-shadow(0 0.5px 0 rgba(255,255,255,0.7)) drop-shadow(0 -0.5px 0 rgba(255,255,255,0.7))' : undefined,
                           }}>
-                            {skill ? TypeIcon : <Sparkles size={13} />}
+                            {skill ? TypeIcon : <Sparkles size={16} />}
                           </div>
                           {/* Text + badges */}
                           <div style={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column', gap: '3px' }}>
@@ -3590,15 +3601,13 @@ const HeroInspectCanvas = ({
                         {/* Icon box */}
                         {(() => { const slotItem = slot.itemId ? ALL_ITEMS.find(it => it.id === slot.itemId) : null; return (
                         <div style={{
-                          width: '32px', height: '32px', flexShrink: 0,
-                          borderRadius: '9px',
-                          border: hasItem ? `1.5px solid ${itemColor}55` : '1px solid rgba(255,255,255,0.10)',
-                          background: hasItem ? `${itemColor}20` : 'rgba(0,0,0,0.25)',
+                          width: '36px', height: '36px', flexShrink: 0,
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
                           color: hasItem ? itemColor : 'rgba(255,255,255,0.20)',
-                          fontSize: '18px', lineHeight: 1,
+                          fontSize: '24px', lineHeight: 1,
+                          filter: hasItem ? 'drop-shadow(0.5px 0 0 rgba(255,255,255,0.7)) drop-shadow(-0.5px 0 0 rgba(255,255,255,0.7)) drop-shadow(0 0.5px 0 rgba(255,255,255,0.7)) drop-shadow(0 -0.5px 0 rgba(255,255,255,0.7))' : undefined,
                         }}>
-                          {slotItem ? (slotItem.iconImage ? <img src={slotItem.iconImage} style={{ width: 20, height: 20, objectFit: 'contain' }} draggable={false} alt={slotItem.name} /> : slotItem.icon) : <FlaskConical size={13} />}
+                          {slotItem ? (slotItem.iconImage ? <img src={slotItem.iconImage} style={{ width: 28, height: 28, objectFit: 'contain' }} draggable={false} alt={slotItem.name} /> : slotItem.icon) : <FlaskConical size={16} />}
                         </div>);
                         })()}
                         {/* Text + qty badge */}
@@ -3981,9 +3990,12 @@ const HeroVoxel = ({ classId = 'knight', playerAnimationAction = 'idle', animati
           </mesh>
           <pointLight position={[0, 0.8, 0.25]} color="#fb923c" intensity={1.35} distance={4.2} decay={2} />
         </group>
-        <ContactShadows opacity={0.35} scale={3} blur={1.8} far={2} resolution={contactShadowResolution} />
         <pointLight ref={damageLightRef} color="#ef4444" intensity={0} distance={8} decay={2.5} position={[0, 0.8, 0.3]} />
         <pointLight ref={healLightRef} color="#86efac" intensity={0} distance={9} decay={2.5} position={[0, 0.8, 0.3]} />
+        {/* Rim light — behind the hero (Z positive = closer to camera side, hero faces away) */}
+        <pointLight color="#bfdbfe" intensity={0.9} distance={5} decay={2} position={[0, 1.1, 1.6]} />
+        {/* Fill light — subtle warm from below for volume */}
+        <pointLight color="#fde68a" intensity={0.32} distance={3.5} decay={2.5} position={[0, -0.6, -0.4]} />
         {/* Turn indicator ring — visible during player turn in battle */}
         <mesh ref={turnRingRef} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.06, 0]}>
           <ringGeometry args={[0.78, 0.98, 56]} />
@@ -4015,6 +4027,7 @@ const HeroVoxel = ({ classId = 'knight', playerAnimationAction = 'idle', animati
             </Html>
           </>
         ) : null}
+        <ContactShadows opacity={0.34} scale={3.2} blur={4.5} far={2.5} resolution={contactShadowResolution} />
       </group>
       
       {/* Energy Shield Effect */}
@@ -4185,7 +4198,6 @@ const CombinedHeroVoxel = ({
           }) : null}
         </Suspense>
       </group>
-      <ContactShadows opacity={0.35} scale={2.8} blur={1.8} far={2} resolution={contactShadowResolution} />
     </group>
   );
 };
@@ -4617,11 +4629,59 @@ const MenuNavigationPortal = ({
   );
 };
 
+const FpsCap = ({ fps }: { fps: number }) => {
+  // Use invalidate() instead of advance(timestamp).
+  // advance(timestamp) passes raw rAF ms values into R3F's clock, breaking
+  // THREE.Clock and causing the day cycle to run 1000× too fast.
+  // invalidate() simply tells R3F "render next frame" without touching the clock.
+  const invalidate = useThree((state) => state.invalidate);
+
+  useEffect(() => {
+    if (fps <= 0) return undefined;
+
+    const frameIntervalMs = 1000 / fps;
+    let rafId = 0;
+    let lastFrameTime = 0;
+
+    const tick = (now: number) => {
+      rafId = window.requestAnimationFrame(tick);
+      if (lastFrameTime === 0) {
+        // First frame — initialize baseline
+        lastFrameTime = now;
+        invalidate();
+        return;
+      }
+      const elapsed = now - lastFrameTime;
+      if (elapsed < frameIntervalMs) return;
+      // Advance the baseline by whole intervals to avoid drift accumulation.
+      // e.g. at 30fps if a frame fires at 34ms instead of 33.3ms, the next
+      // target becomes 34 - (34 % 33.3) = 33.3ms, keeping cadence steady.
+      lastFrameTime = now - (elapsed % frameIntervalMs);
+      invalidate();
+    };
+
+    rafId = window.requestAnimationFrame(tick);
+    return () => {
+      window.cancelAnimationFrame(rafId);
+    };
+  }, [invalidate, fps]);
+
+  return null;
+};
+
 export const GameScene: React.FC<SceneProps> = (props) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const outlineHeroRef = useRef<THREE.Group>(null);
   const outlineEnemyRef = useRef<THREE.Group>(null);
   const [gameTime, setGameTime] = useState("12:00");
+  const [hoveredEnemyId, setHoveredEnemyId] = useState<string | null>(null);
+  // Reset cursor and hover state when selection mode ends
+  React.useEffect(() => {
+    if (!props.pendingTargetAction) {
+      setHoveredEnemyId(null);
+      if (typeof document !== 'undefined') document.body.style.cursor = '';
+    }
+  }, [props.pendingTargetAction]);
   const handleTimeUpdate = useCallback((time: string) => {
     setGameTime(time);
     props.onGameTimeUpdate?.(time);
@@ -4636,23 +4696,28 @@ export const GameScene: React.FC<SceneProps> = (props) => {
   const shouldUseDungeonDepthOfField = false;
   const forestBloomIntensity = isQualityMode ? 0.5 : (isMobileDevice ? 0.34 : 0.44);
   const dungeonBloomIntensity = isQualityMode ? 0.34 : (isMobileDevice ? 0.22 : 0.28);
-  const forestDepthOfFieldHeight = 440;
+  const forestDepthOfFieldHeight = 360;
   const dungeonDepthOfFieldHeight = 440;
   const isDungeonRun = Boolean(props.isDungeonScene ?? props.isDungeonRun);
   const runtimeCameraMenuFocus = props.menuCameraFocus ?? Boolean(props.isMenuView);
-  // On mobile balanced, postprocessing (Bloom + MSAA) is disabled to reduce GPU heat.
-  // Desktop balanced and all quality presets retain full postprocessing.
-  const isMobileBalanced = isMobileDevice && isBalancedMode;
-  const shouldUsePostProcessing = !isPerformanceMode && !isMobileBalanced;
-  const shouldUseBloomAndVignette = !isPerformanceMode && !isMobileBalanced;
+  // Post-processing: quality always; desktop balanced also gets lightweight bloom
+  // (affordable at 30fps budget — 33ms/frame leaves room for mipmapBlur passes).
+  // Mobile balanced keeps it off to stay within 45fps heat budget.
+  const shouldUsePostProcessing = isQualityMode || (isBalancedMode && !isMobileDevice);
+  const shouldUseBloomAndVignette = isQualityMode || (isBalancedMode && !isMobileDevice);
   const shouldUseVignette = shouldUseBloomAndVignette && !runtimeCameraMenuFocus;
-  const postProcessingMultisampling = isQualityMode ? 4 : (isBalancedMode ? 2 : 0);
+  // MSAA inside EffectComposer doubles GPU cost for all post-processing passes.
+  // Only enable it for quality mode; balanced/performance use 0 (no MSAA) to
+  // avoid 2× overdraw on Bloom, Vignette and outline passes.
+  const postProcessingMultisampling = isQualityMode ? 4 : 0;
   const backfaceOutlineThickness = isPerformanceMode
     ? (isMobileDevice ? 0.045 : 0.06)
     : (isMobileDevice ? 0.055 : 0.07);
   const outlineTargets = useMemo(() => [outlineHeroRef, outlineEnemyRef], []);
   const glPowerPreference = useMemo(() => getRenderPowerPreference(renderQualityPreset), [renderQualityPreset]);
-  const shouldRenderAmbientDrift = isQualityMode || (!isMobileDevice && !isPerformanceMode);
+  // Ambient drift particles: quality always; desktop balanced can afford it at 30fps.
+  // Mobile balanced keeps it off (45fps thermal budget).
+  const shouldRenderAmbientDrift = isQualityMode || (isBalancedMode && !isMobileDevice);
   const particleRenderCap = isPerformanceMode
     ? (isMobileDevice ? 34 : 84)
     : isQualityMode
@@ -4664,7 +4729,7 @@ export const GameScene: React.FC<SceneProps> = (props) => {
   );
   const shouldUseDepthOfField = isDungeonRun ? shouldUseDungeonDepthOfField : shouldUseForestDepthOfField;
   const activeDepthOfFieldRange = isDungeonRun ? DUNGEON_FOCUS_RANGE : FOREST_FOCUS_RANGE;
-  const activeDepthOfFieldBokeh = isDungeonRun ? 1.7 : 1.95;
+  const activeDepthOfFieldBokeh = isDungeonRun ? 1.7 : 0.5;
   const activeDepthOfFieldHeight = isDungeonRun ? dungeonDepthOfFieldHeight : forestDepthOfFieldHeight;
   const activeBloomIntensity = isDungeonRun ? dungeonBloomIntensity : forestBloomIntensity;
   const activeBloomThreshold = isDungeonRun ? 0.5 : (shouldUseDepthOfField ? 0.42 : 0.48);
@@ -4673,17 +4738,29 @@ export const GameScene: React.FC<SceneProps> = (props) => {
   const activeVignetteDarkness = runtimeCameraMenuFocus
     ? 0
     : (isDungeonRun ? 0.42 : (shouldUseDepthOfField ? 0.1 : 0.13));
-  const forestFogNear = quality.isLowQuality ? 12 : 16;
-  const forestFogFar = quality.isLowQuality ? 34 : 46;
+  // Mountain fog: starts close (6u) so objects at mid-distance get misty;
+  // tower in the background (15-30u) gets heavy fog for depth illusion.
+  const forestFogNear = quality.isLowQuality ? 6 : 5;
+  const forestFogFar = quality.isLowQuality ? 22 : 28;
   // Mobile balanced uses PCFShadowMap (faster) instead of PCFSoftShadowMap to cut shadow pass cost.
-  const shadowMapType = (isPerformanceMode || isMobileBalanced) ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
-  // On mobile non-quality, skip the main directional shadow map entirely (saves a full scene re-render pass per frame).
-  // ContactShadows still provides ground shadows for the characters.
-  const noMainShadow = isMobileDevice && !isQualityMode;
+  // Desktop balanced also uses PCFShadowMap — PCFSoftShadowMap custo extra sem ganho visual perceptível.
+  const isMobileBalanced = isMobileDevice && isBalancedMode;
+  const shadowMapType = isQualityMode ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
+  // Skip the main directional shadow map (saves a full scene re-render pass per frame) unless
+  // quality mode is selected. ContactShadows provides ground shadows for all other modes.
+  const noMainShadow = !isQualityMode;
+  // Only enable the canvas shadow renderer for quality mode. For balanced/performance,
+  // noMainShadow=true means no light uses castShadow, so the renderer overhead is wasted.
+  // ContactShadows uses its own WebGLRenderTarget and does NOT depend on this flag.
+  const shadowsEnabled = isQualityMode;
+  // Mobile: 45 FPS via demand+invalidate (equilíbrio suavidade/calor).
+  // Desktop: 60 FPS via demand+invalidate (evita render a 120/144Hz desnecessário).
+  const mobileFpsCap = isMobileDevice ? 45 : 30;
   const battleContactShadowResolution = useMemo(
-    // Cap at 48 for all mobile non-quality — was 84 for mobile balanced, 44–48 for perf.
-    () => isQualityMode ? quality.contactShadowResolution : (isMobileDevice || quality.isLowQuality) ? 48 : Math.min(quality.contactShadowResolution, 96),
-    [isQualityMode, isMobileDevice, quality.contactShadowResolution, quality.isLowQuality],
+    // Quality+Balanced: use profile resolution (72–84 px, good shadow softness).
+    // Performance: cap at 48 to save GPU fill rate.
+    () => isPerformanceMode ? 48 : quality.contactShadowResolution,
+    [isPerformanceMode, quality.contactShadowResolution],
   );
 
   const bgColor = useMemo(() => {
@@ -4733,7 +4810,7 @@ export const GameScene: React.FC<SceneProps> = (props) => {
   const dungeonFogEnabled = activeScenarioConfig?.atmosphere.fogEnabled ?? true;
   const huntSceneBgColor = huntRuntimeConfig?.atmosphere.fogColor ?? bgColor;
   const huntFogEnabled = huntRuntimeConfig?.atmosphere.fogEnabled ?? true;
-  const huntFogColor = huntRuntimeConfig?.atmosphere.fogColor ?? '#d7e6c2';
+  const huntFogColor = huntRuntimeConfig?.atmosphere.fogColor ?? '#c8d8e8';
   const huntFogNear = Math.max(1, huntRuntimeConfig?.atmosphere.fogNear ?? forestFogNear);
   const huntFogFar = Math.max(huntFogNear + 1, huntRuntimeConfig?.atmosphere.fogFar ?? forestFogFar);
   const sceneBackgroundColor = isDungeonRun && activeScenarioConfig ? dungeonSceneBgColor : huntSceneBgColor;
@@ -4778,13 +4855,14 @@ export const GameScene: React.FC<SceneProps> = (props) => {
       )}
 
       <Canvas
-        shadows={{ type: shadowMapType }}
+        shadows={shadowsEnabled ? { type: shadowMapType } : false}
         dpr={quality.dpr}
         gl={{ antialias: quality.antialias, powerPreference: glPowerPreference }}
         performance={{ min: 0.5 }}
-        frameloop="always"
+        frameloop='demand'
         style={{ touchAction: 'none' }}
       >
+        {<FpsCap fps={mobileFpsCap} />}
         <CameraController
           screenShake={runtimeCameraScreenShake}
           menuFocus={runtimeCameraMenuFocus}
@@ -4794,11 +4872,20 @@ export const GameScene: React.FC<SceneProps> = (props) => {
           heroInspectMode={props.heroInspectMode}
           portalInspectMode={props.portalInspectMode}
         />
+        {/* fog/background must be at Canvas root (scene level) — THREE.js only reads scene.fog and scene.background */}
+        {isDungeonRun ? (
+          <>
+            <color attach="background" args={[dungeonSceneBgColor]} />
+            {dungeonFogEnabled ? <fog attach="fog" args={[dungeonFogColor, dungeonFogNear, dungeonFogFar]} /> : null}
+          </>
+        ) : (
+          <>
+            {huntFogEnabled ? <fog attach="fog" args={[huntFogColor, huntFogNear, huntFogFar]} /> : null}
+          </>
+        )}
         <group>
           {isDungeonRun ? (
             <>
-              <color attach="background" args={[dungeonSceneBgColor]} />
-              {dungeonFogEnabled ? <fog attach="fog" args={[dungeonFogColor, dungeonFogNear, dungeonFogFar]} /> : null}
               {shouldShowDungeonReferenceGround ? (
                 <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -1.16, 0]} receiveShadow>
                   <planeGeometry args={[60, 60]} />
@@ -4840,21 +4927,11 @@ export const GameScene: React.FC<SceneProps> = (props) => {
                   <DungeonScenario />
                 </>
               )}
-              {!shouldUseRuntimeScenarioEditorParity ? (
-                <ContactShadows
-                  position={[0, -1.05, -0.2]}
-                  opacity={0.38}
-                  scale={24}
-                  blur={2.2}
-                  far={11}
-                  resolution={battleContactShadowResolution}
-                />
-              ) : null}
+              {/* Scene-level ContactShadows removed — per-character ones on hero/enemy avoid the square artifact */}
             </>
           ) : (
             <>
               <SkyboxController />
-              {huntFogEnabled ? <fog attach="fog" args={[huntFogColor, huntFogNear, huntFogFar]} /> : null}
               <DayNightCycle containerRef={containerRef} onTimeUpdate={handleTimeUpdate} quality={quality} noMainShadow={noMainShadow} />
               {huntRuntimeConfig ? (
                 <>
@@ -4877,56 +4954,64 @@ export const GameScene: React.FC<SceneProps> = (props) => {
                   ))}
                 </>
               ) : null}
-              {/* ContactShadows is expensive (full FBO + blur per frame). Skip during menu view
-                  where the HeroVoxel's own inner ContactShadows already covers the player. */}
-              {!props.isMenuView && (
-                <ContactShadows
-                  position={[0, -1.04, -0.2]}
-                  opacity={0.34}
-                  scale={22}
-                  blur={2.2}
-                  far={10}
-                  resolution={battleContactShadowResolution}
-                />
-              )}
+              {/* Scene-level ContactShadows removed — per-character ContactShadows on
+                  HeroVoxel and EnemyCharacter provide ground shadows without the large
+                  square boundary artifact that a scale=22 plane with low blur produces. */}
             </>
           )}
         </group>
 
-        <group ref={outlineHeroRef}>
-          <HeroVoxel
-            classId={props.playerClassId}
-            playerAnimationAction={props.playerAnimationAction}
-            isAttacking={props.isPlayerAttacking}
-            isDefending={props.isPlayerDefending}
-            weaponId={props.equippedWeaponId}
-            armorId={props.equippedArmorId}
-            helmetId={props.equippedHelmetId}
-            legsId={props.equippedLegsId}
-            shieldId={props.equippedShieldId}
-            isLevelingUp={props.isLevelingUp}
-            levelUpCardCategory={props.levelUpCardCategory}
-            isMenuView={props.isMenuView}
-            isHit={props.isPlayerHit}
-            isPlayerCritHit={props.isPlayerCritHit}
-            hasPerfectEvadeAura={props.hasPerfectEvadeAura}
-            hasDoubleAttackAura={props.hasDoubleAttackAura}
-            impulseLevel={props.impulseLevel}
-            activeImpulseLevel={props.activeImpulseLevel}
-            playerState={props.playerState}
-            isPlayerTurn={props.battleActionsConfig?.isPlayerTurn ?? false}
-            contactShadowResolution={quality.contactShadowResolution}
-            loadSecondaryAnimationBundles
-            onHeroClick={props.onMenuHeroClick}
-            idlePositionX={isDungeonRun && activeScenarioConfig ? dungeonHeroBasePosition[0] : undefined}
-            attackPositionX={isDungeonRun && activeScenarioConfig ? dungeonHeroAttackX : undefined}
-            defendPositionX={isDungeonRun && activeScenarioConfig ? dungeonHeroDefendX : undefined}
-            idlePositionY={isDungeonRun && activeScenarioConfig ? dungeonHeroBasePosition[1] : undefined}
-            attackPositionY={isDungeonRun && activeScenarioConfig ? dungeonHeroBasePosition[1] : undefined}
-            defendPositionY={isDungeonRun && activeScenarioConfig ? dungeonHeroBasePosition[1] : undefined}
-            originPosition={isDungeonRun && activeScenarioConfig ? dungeonHeroBasePosition : undefined}
-          />
-        </group>
+        {/* Hero attack position: moves toward selected target in group combat */}
+        {(() => {
+          // Slot idleX table (mirrors GRP in the enemy IIFE below, kept in sync)
+          const HERO_GRP_IDLE_X = [
+            [2.0],
+            [1.5, 3.8],
+            [0.9, 3.0, 4.6],
+          ];
+          const heroExtras = props.additionalEnemies ?? [];
+          const heroGrpSize = Math.min(3, Math.max(1, props.initialGroupSize ?? (1 + heroExtras.length)));
+          const heroSlot   = props.mainEnemySlotIndex ?? 0;
+          const targetIdleX = HERO_GRP_IDLE_X[heroGrpSize - 1]?.[heroSlot] ?? 2.0;
+          // Hero stops ~1.5 units left of the target enemy
+          const huntHeroAttackX = !isDungeonRun ? targetIdleX - 1.5 : undefined;
+          return (
+            <group ref={outlineHeroRef}>
+              <HeroVoxel
+                classId={props.playerClassId}
+                playerAnimationAction={props.playerAnimationAction}
+                isAttacking={props.isPlayerAttacking}
+                isDefending={props.isPlayerDefending}
+                weaponId={props.equippedWeaponId}
+                armorId={props.equippedArmorId}
+                helmetId={props.equippedHelmetId}
+                legsId={props.equippedLegsId}
+                shieldId={props.equippedShieldId}
+                isLevelingUp={props.isLevelingUp}
+                levelUpCardCategory={props.levelUpCardCategory}
+                isMenuView={props.isMenuView}
+                isHit={props.isPlayerHit}
+                isPlayerCritHit={props.isPlayerCritHit}
+                hasPerfectEvadeAura={props.hasPerfectEvadeAura}
+                hasDoubleAttackAura={props.hasDoubleAttackAura}
+                impulseLevel={props.impulseLevel}
+                activeImpulseLevel={props.activeImpulseLevel}
+                playerState={props.playerState}
+                isPlayerTurn={props.battleActionsConfig?.isPlayerTurn ?? false}
+                contactShadowResolution={quality.contactShadowResolution}
+                loadSecondaryAnimationBundles
+                onHeroClick={props.onMenuHeroClick}
+                idlePositionX={isDungeonRun && activeScenarioConfig ? dungeonHeroBasePosition[0] : undefined}
+                attackPositionX={isDungeonRun && activeScenarioConfig ? dungeonHeroAttackX : huntHeroAttackX}
+                defendPositionX={isDungeonRun && activeScenarioConfig ? dungeonHeroDefendX : undefined}
+                idlePositionY={isDungeonRun && activeScenarioConfig ? dungeonHeroBasePosition[1] : undefined}
+                attackPositionY={isDungeonRun && activeScenarioConfig ? dungeonHeroBasePosition[1] : undefined}
+                defendPositionY={isDungeonRun && activeScenarioConfig ? dungeonHeroBasePosition[1] : undefined}
+                originPosition={isDungeonRun && activeScenarioConfig ? dungeonHeroBasePosition : undefined}
+              />
+            </group>
+          );
+        })()}
 
         {props.isMenuView && props.showMenuNavigationPortal ? (
           <Suspense fallback={null}>
@@ -4948,9 +5033,11 @@ export const GameScene: React.FC<SceneProps> = (props) => {
             distanceFactor={isMobileDevice ? 7 : 10}
             zIndexRange={[150, 0]}
           >
-            <BattleActionsHtml config={props.battleActionsConfig} player={props.playerState} isMobile={isMobileDevice} />
+            <BattleActionsHtml config={props.battleActionsConfig} player={props.playerState} isMobile={isMobileDevice} isSelecting={!!props.pendingTargetAction} />
           </Html>
         )}
+
+
 
         {props.heroInspectMode && props.isMenuView && props.playerState && (
           <HeroInspectCanvas
@@ -4986,60 +5073,264 @@ export const GameScene: React.FC<SceneProps> = (props) => {
           </>
         )}
 
-        <group ref={outlineEnemyRef}>
-          {!props.isMenuView && props.enemyGltfModelUrl ? (
-            <GltfEnemyCharacter
-              modelUrl={props.enemyGltfModelUrl}
-              bodyType={props.enemyGltfBodyType ?? 'Big'}
-              animationAction={props.enemyAnimationAction}
-              scale={props.enemyScale}
-              isAttacking={props.isEnemyAttacking}
-              isDefending={props.isEnemyDefending}
-              defendImpulseLevel={props.enemyState?.impulseGuardLevel ?? 0}
-              isHit={props.isEnemyHit}
-              contactShadowResolution={quality.contactShadowResolution}
-              statusOverlay={enemyOverlay}
-              idlePositionX={isDungeonRun && activeScenarioConfig ? dungeonEnemyBasePosition[0] : undefined}
-              attackPositionX={isDungeonRun && activeScenarioConfig ? dungeonEnemyAttackX : undefined}
-              defendPositionX={isDungeonRun && activeScenarioConfig ? dungeonEnemyDefendX : undefined}
-              idlePositionY={isDungeonRun && activeScenarioConfig ? dungeonEnemyBasePosition[1] : undefined}
-              attackPositionY={isDungeonRun && activeScenarioConfig ? dungeonEnemyBasePosition[1] : undefined}
-              defendPositionY={isDungeonRun && activeScenarioConfig ? dungeonEnemyBasePosition[1] : undefined}
-              originPosition={isDungeonRun && activeScenarioConfig ? dungeonEnemyBasePosition : undefined}
-            />
-          ) : !props.isMenuView ? (
-            <EnemyCharacter
-              assets={props.enemyAssets}
-              color={props.enemyColor}
-              scale={props.enemyScale}
-              isAttacking={props.isEnemyAttacking}
-              isDefending={props.isEnemyDefending}
-              defendImpulseLevel={props.enemyState?.impulseGuardLevel ?? 0}
-              animationActionOverride={props.enemyAnimationAction}
-              type={props.enemyType}
-              enemyName={props.enemyName}
-              isBoss={props.isEnemyBoss}
-              isHit={props.isEnemyHit}
-              attackStyle={props.enemyAttackStyle}
-              contactShadowResolution={quality.contactShadowResolution}
-              statusOverlay={enemyOverlay}
-              idlePositionX={isDungeonRun && activeScenarioConfig ? dungeonEnemyBasePosition[0] : undefined}
-              attackPositionX={isDungeonRun && activeScenarioConfig ? dungeonEnemyAttackX : undefined}
-              defendPositionX={isDungeonRun && activeScenarioConfig ? dungeonEnemyDefendX : undefined}
-              idlePositionY={isDungeonRun && activeScenarioConfig ? dungeonEnemyBasePosition[1] : undefined}
-              attackPositionY={isDungeonRun && activeScenarioConfig ? dungeonEnemyBasePosition[1] : undefined}
-              defendPositionY={isDungeonRun && activeScenarioConfig ? dungeonEnemyBasePosition[1] : undefined}
-              originPosition={isDungeonRun && activeScenarioConfig ? dungeonEnemyBasePosition : undefined}
-            />
-          ) : null}
-        </group>
+        {/* ── Group combat: main + extra enemies with world-space position props ── */}
+        {(() => {
+          // Each enemy has ONE fixed anchor point — they never move when attacking or defending.
+          // The attack animation plays in place (model lean/swing) — no X-translation.
+          const GRP = [
+            // solo
+            [{ idleX: 2.0, idleZ: 0.0 }],
+            // 2 enemies
+            [{ idleX: 1.5, idleZ: -0.3 }, { idleX: 3.8, idleZ: 0.6 }],
+            // 3 enemies
+            [{ idleX: 0.9, idleZ: -0.6 }, { idleX: 3.0, idleZ: 0.2 }, { idleX: 4.6, idleZ: -0.3 }],
+          ];
+          const extras = props.additionalEnemies ?? [];
+          // Use INITIAL group size (at spawn) so positions don't shift when enemies die
+          const grpSize = Math.min(3, Math.max(1, props.initialGroupSize ?? (1 + extras.length)));
+          // Only apply group layout in hunt mode — dungeon uses scenario-defined positions
+          const layout = !isDungeonRun ? (GRP[grpSize - 1] ?? GRP[0]) : null;
+          // mainEnemySlotIndex keeps the enemy at its visual slot after target swap (no teleport)
+          const mainSlot = props.mainEnemySlotIndex ?? 0;
+          const mainPos = layout?.[mainSlot];
+          // Extra slots = all layout slots except mainSlot, in ascending order
+          const extraSlots = layout
+            ? layout.map((_, i) => i).filter(i => i !== mainSlot)
+            : [];
+          const isSelecting = props.pendingTargetAction !== null;
+          // Hero class ring color: use the actual auraColor from class data (vivid color matching the hero ring)
+          const heroRingColor = getPlayerClassById((props.playerClassId ?? 'knight') as import('../types').PlayerClassId).visualProfile.auraColor ?? '#f59e0b';
 
-        {/* ── Enemy nameplate — floats above the 3D model ── */}
-        {!props.isMenuView && props.enemyState && (
+          return (
+            <>
+              {/* ── Main enemy ── */}
+              <group ref={outlineEnemyRef}>
+                {!props.isMenuView && props.enemyGltfModelUrl ? (
+                  <GltfEnemyCharacter
+                    modelUrl={props.enemyGltfModelUrl}
+                    bodyType={props.enemyGltfBodyType ?? 'Big'}
+                    animationAction={props.enemyAnimationAction}
+                    scale={props.enemyScale}
+                    isAttacking={props.isEnemyAttacking}
+                    isDefending={props.isEnemyDefending}
+                    defendImpulseLevel={props.enemyState?.impulseGuardLevel ?? 0}
+                    isHit={props.isEnemyHit}
+                    contactShadowResolution={quality.contactShadowResolution}
+                    statusOverlay={enemyOverlay}
+                    idlePositionX={isDungeonRun && activeScenarioConfig ? dungeonEnemyBasePosition[0] : mainPos?.idleX}
+                    attackPositionX={isDungeonRun && activeScenarioConfig ? dungeonEnemyAttackX : mainPos?.idleX}
+                    defendPositionX={isDungeonRun && activeScenarioConfig ? dungeonEnemyDefendX : mainPos?.idleX}
+                    idlePositionY={isDungeonRun && activeScenarioConfig ? dungeonEnemyBasePosition[1] : undefined}
+                    attackPositionY={isDungeonRun && activeScenarioConfig ? dungeonEnemyBasePosition[1] : undefined}
+                    defendPositionY={isDungeonRun && activeScenarioConfig ? dungeonEnemyBasePosition[1] : undefined}
+                    originPosition={isDungeonRun && activeScenarioConfig
+                      ? dungeonEnemyBasePosition
+                      : mainPos ? [mainPos.idleX, -1, mainPos.idleZ] : undefined}
+                  />
+                ) : !props.isMenuView ? (
+                  <EnemyCharacter
+                    assets={props.enemyAssets}
+                    color={props.enemyColor}
+                    scale={props.enemyScale}
+                    isAttacking={props.isEnemyAttacking}
+                    isDefending={props.isEnemyDefending}
+                    defendImpulseLevel={props.enemyState?.impulseGuardLevel ?? 0}
+                    animationActionOverride={props.enemyAnimationAction}
+                    type={props.enemyType}
+                    enemyName={props.enemyName}
+                    isBoss={props.isEnemyBoss}
+                    isHit={props.isEnemyHit}
+                    attackStyle={props.enemyAttackStyle}
+                    contactShadowResolution={quality.contactShadowResolution}
+                    statusOverlay={enemyOverlay}
+                    idlePositionX={isDungeonRun && activeScenarioConfig ? dungeonEnemyBasePosition[0] : mainPos?.idleX}
+                    attackPositionX={isDungeonRun && activeScenarioConfig ? dungeonEnemyAttackX : mainPos?.idleX}
+                    defendPositionX={isDungeonRun && activeScenarioConfig ? dungeonEnemyDefendX : mainPos?.idleX}
+                    idlePositionY={isDungeonRun && activeScenarioConfig ? dungeonEnemyBasePosition[1] : undefined}
+                    attackPositionY={isDungeonRun && activeScenarioConfig ? dungeonEnemyBasePosition[1] : undefined}
+                    defendPositionY={isDungeonRun && activeScenarioConfig ? dungeonEnemyBasePosition[1] : undefined}
+                    originPosition={isDungeonRun && activeScenarioConfig
+                      ? dungeonEnemyBasePosition
+                      : mainPos ? [mainPos.idleX, -1, mainPos.idleZ] : undefined}
+                  />
+                ) : null}
+              </group>
+
+              {/* ── Extra enemies — rendered at their fixed visual slot, using own model/color ── */}
+              {!props.isMenuView && extras.map((extraEnemy, idx) => {
+                const slotIdx = extraSlots[idx] ?? idx + 1;
+                const pos = layout?.[slotIdx];
+                const idleX  = pos?.idleX  ?? (3.8 + idx * 1.4);
+                const idleZ  = pos?.idleZ  ?? (0.6 + idx * 0.4);
+                // Fixed anchor — extras never move when attacking or defending
+                const nameplateY = -1 + extraEnemy.scale * 2 + 0.2;
+                return (
+                  <React.Fragment key={extraEnemy.id}>
+                    {/* Use correct renderer: GltfEnemyCharacter for GLTF monsters, EnemyCharacter for voxel */}
+                    {extraEnemy.gltfModelUrl ? (
+                      <GltfEnemyCharacter
+                        modelUrl={extraEnemy.gltfModelUrl}
+                        bodyType={extraEnemy.gltfBodyType ?? 'Big'}
+                        animationAction="battle-idle"
+                        scale={extraEnemy.scale}
+                        isAttacking={false}
+                        isDefending={false}
+                        defendImpulseLevel={0}
+                        isHit={false}
+                        contactShadowResolution={quality.contactShadowResolution}
+                        idlePositionX={idleX}
+                        attackPositionX={idleX}
+                        defendPositionX={idleX}
+                        idlePositionY={-1}
+                        originPosition={[idleX, -1, idleZ]}
+                      />
+                    ) : (
+                      <EnemyCharacter
+                        assets={extraEnemy.assets}
+                        color={extraEnemy.color}
+                        scale={extraEnemy.scale}
+                        isAttacking={false}
+                        isDefending={false}
+                        defendImpulseLevel={0}
+                        animationActionOverride="battle-idle"
+                        type={extraEnemy.type}
+                        enemyName={extraEnemy.name}
+                        isBoss={false}
+                        isHit={false}
+                        attackStyle={extraEnemy.attackStyle}
+                        contactShadowResolution={quality.contactShadowResolution}
+                        idlePositionX={idleX}
+                        attackPositionX={idleX}
+                        defendPositionX={idleX}
+                        idlePositionY={-1}
+                        originPosition={[idleX, -1, idleZ]}
+                      />
+                    )}
+                    {/* Selection hitbox + ring at enemy position — big clickable target over the 3D model */}
+                    {isSelecting && (() => {
+                      const hitboxH = Math.max(2.2, extraEnemy.scale * 2.6);
+                      const isHov = hoveredEnemyId === extraEnemy.id;
+                      const ringColor = isHov ? '#ffffff' : heroRingColor;
+                      const ringIntensity = isHov ? 3.2 : 1.6;
+                      const ringOpacity = isHov ? 1 : 0.95;
+                      return (
+                        <group position={[idleX, -0.97, idleZ]}>
+                          {/* Tall invisible cylinder over model — easy click target */}
+                          <mesh
+                            position={[0, hitboxH / 2, 0]}
+                            onClick={(e) => { e.stopPropagation(); props.onSelectTarget?.(extraEnemy.id); }}
+                            onPointerDown={(e) => { e.stopPropagation(); props.onSelectTarget?.(extraEnemy.id); }}
+                            onPointerEnter={(e) => { e.stopPropagation(); setHoveredEnemyId(extraEnemy.id); if (typeof document !== 'undefined') document.body.style.cursor = 'pointer'; }}
+                            onPointerLeave={(e) => { e.stopPropagation(); setHoveredEnemyId(null); if (typeof document !== 'undefined') document.body.style.cursor = ''; }}
+                          >
+                            <cylinderGeometry args={[0.9, 0.9, hitboxH, 16]} />
+                            <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+                          </mesh>
+                          {/* Visible ring on ground — glows white on hover */}
+                          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}
+                            scale={isHov ? [1.18, 1.18, 1] : [1, 1, 1]}
+                          >
+                            <ringGeometry args={[0.7, 0.95, 40]} />
+                            <meshStandardMaterial color={ringColor} emissive={ringColor} emissiveIntensity={ringIntensity} transparent opacity={ringOpacity} />
+                          </mesh>
+                        </group>
+                      );
+                    })()}
+                    {/* HP nameplate at actual world position */}
+                    <Html
+                      center
+                      distanceFactor={isMobileDevice ? 7 : 11}
+                      zIndexRange={[90, 0]}
+                      position={[idleX, nameplateY, idleZ + 0.4]}
+                    >
+                      {(() => {
+                        const hpPct = Math.max(0, (extraEnemy.stats.hp / extraEnemy.stats.maxHp) * 100);
+                        const hpColor = hpPct > 55 ? '#4ade80' : hpPct > 25 ? '#facc15' : '#f87171';
+                        const cardW = isMobileDevice ? '230px' : '150px';
+                        return (
+                          <div
+                            style={{
+                              width: cardW, background: 'rgba(15,10,40,0.60)', backdropFilter: 'blur(18px)',
+                              border: `1px solid ${isSelecting ? '#38bdf8' : 'rgba(148,163,184,0.3)'}`,
+                              borderRadius: '10px', padding: isMobileDevice ? '10px 14px' : '6px 10px',
+                              display: 'flex', flexDirection: 'column', gap: 4, boxSizing: 'border-box',
+                              cursor: isSelecting ? 'pointer' : 'default',
+                              boxShadow: isSelecting ? '0 0 12px #38bdf866' : 'none',
+                            }}
+                            onClick={() => isSelecting && props.onSelectTarget?.(extraEnemy.id)}
+                          >
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <span style={{ fontSize: isMobileDevice ? '15px' : '11px', fontWeight: 800, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{extraEnemy.name}</span>
+                              <span style={{ fontSize: isMobileDevice ? '12px' : '9px', color: '#94a3b8', marginLeft: 4 }}>Nv{extraEnemy.level}</span>
+                            </div>
+                            <div style={{ height: isMobileDevice ? '10px' : '6px', borderRadius: '99px', background: 'rgba(0,0,0,0.5)', overflow: 'hidden' }}>
+                              <div style={{ height: '100%', borderRadius: '99px', background: hpColor, width: `${hpPct}%`, transition: 'width 0.35s ease' }} />
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </Html>
+                  </React.Fragment>
+                );
+              })}
+
+              {/* Selection ring on main enemy — in hero class color */}
+              {!props.isMenuView && isSelecting && props.enemyState && (() => {
+                const mX = !isDungeonRun ? (mainPos?.idleX ?? 2.0) : dungeonEnemyBasePosition[0];
+                const mZ = !isDungeonRun ? (mainPos?.idleZ ?? 0.0) : dungeonEnemyBasePosition[2];
+                const hitboxH = Math.max(2.2, (props.enemyScale ?? 1) * 2.6);
+                const mainEnemyId = props.enemyState!.id;
+                const isHov = hoveredEnemyId === mainEnemyId;
+                const ringColor = isHov ? '#ffffff' : heroRingColor;
+                const ringIntensity = isHov ? 3.2 : 1.6;
+                return (
+                  <group position={[mX, -0.97, mZ]}>
+                    {/* Big tall invisible hitbox covering the whole enemy model — easy click target */}
+                    <mesh
+                      position={[0, hitboxH / 2, 0]}
+                      onClick={(e) => { e.stopPropagation(); props.onSelectTarget?.(mainEnemyId); }}
+                      onPointerDown={(e) => { e.stopPropagation(); props.onSelectTarget?.(mainEnemyId); }}
+                      onPointerEnter={(e) => { e.stopPropagation(); setHoveredEnemyId(mainEnemyId); if (typeof document !== 'undefined') document.body.style.cursor = 'pointer'; }}
+                      onPointerLeave={(e) => { e.stopPropagation(); setHoveredEnemyId(null); if (typeof document !== 'undefined') document.body.style.cursor = ''; }}
+                    >
+                      <cylinderGeometry args={[0.9, 0.9, hitboxH, 16]} />
+                      <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+                    </mesh>
+                    {/* Visible class-colored ring on the ground — glows white on hover */}
+                    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}
+                      scale={isHov ? [1.18, 1.18, 1] : [1, 1, 1]}
+                    >
+                      <ringGeometry args={[0.7, 0.95, 40]} />
+                      <meshStandardMaterial color={ringColor} emissive={ringColor} emissiveIntensity={ringIntensity} transparent opacity={0.95} />
+                    </mesh>
+                  </group>
+                );
+              })()}
+            </>
+          );
+        })()}
+
+        {/* ── Enemy nameplate — floats above the 3D model at its actual slot position ── */}
+        {!props.isMenuView && props.enemyState && (() => {
+          // Slot idle positions (mirrors GRP table above, kept in sync)
+          const npGRP = [
+            [{ idleX: 2.0, idleZ: 0.0 }],
+            [{ idleX: 1.5, idleZ: -0.3 }, { idleX: 3.8, idleZ: 0.6 }],
+            [{ idleX: 0.9, idleZ: -0.6 }, { idleX: 3.0, idleZ: 0.2 }, { idleX: 4.6, idleZ: -0.3 }],
+          ];
+          const npExtras = props.additionalEnemies ?? [];
+          const npGrpSize = Math.min(3, Math.max(1, props.initialGroupSize ?? (1 + npExtras.length)));
+          const npLayout = !isDungeonRun ? (npGRP[npGrpSize - 1] ?? npGRP[0]) : null;
+          const npSlot = props.mainEnemySlotIndex ?? 0;
+          const npPos = npLayout?.[npSlot];
+          const npX = isDungeonRun && activeScenarioConfig ? dungeonEnemyBasePosition[0] : (npPos?.idleX ?? 2.0);
+          const npZ = isDungeonRun && activeScenarioConfig ? dungeonEnemyBasePosition[2] : (npPos?.idleZ ?? 0.0);
+          const npY = isDungeonRun && activeScenarioConfig
+            ? dungeonEnemyBasePosition[1] + props.enemyScale * 2 + 0.9
+            : props.enemyScale * 2 - 0.1;
+          return (
           <Html
-            position={isDungeonRun && activeScenarioConfig
-              ? [dungeonEnemyBasePosition[0], dungeonEnemyBasePosition[1] + props.enemyScale * 2 + 0.9, dungeonEnemyBasePosition[2] + 0.5]
-              : [2.2, props.enemyScale * 2 - 0.1, 0.5]}
+            position={[npX, npY, npZ + 0.5]}
             center
             distanceFactor={isMobileDevice ? 7 : 11}
             zIndexRange={[100, 0]}
@@ -5108,7 +5399,8 @@ export const GameScene: React.FC<SceneProps> = (props) => {
               );
             })()}
           </Html>
-        )}
+          );
+        })()}
 
         {/* ── Hero nameplate — floats above the hero 3D model ── */}
         {!props.isMenuView && props.playerState && (
@@ -5193,7 +5485,7 @@ export const GameScene: React.FC<SceneProps> = (props) => {
             targets={outlineTargets}
             thickness={backfaceOutlineThickness}
             color="#000000"
-            throttleFps={isMobileDevice && !isQualityMode ? 30 : undefined}
+            throttleFps={!isQualityMode ? 20 : undefined}
           />
         ) : null}
 
@@ -5236,8 +5528,27 @@ export const GameScene: React.FC<SceneProps> = (props) => {
         ) : null}
 
         {visibleParticles.map((particle) => <MeshParticle key={particle.id} {...particle} />)}
-        <WorldFloatingTexts texts={props.floatingTexts} />
-        <WorldLootDisplay loot={props.lootResult ?? null} />
+        {(() => {
+          // Compute main enemy world anchor so floating text + loot appear over the actual model
+          const ANCHOR_GRP = [
+            [{ x: 2.0, z: 0.0 }],
+            [{ x: 1.5, z: -0.3 }, { x: 3.8, z: 0.6 }],
+            [{ x: 0.9, z: -0.6 }, { x: 3.0, z: 0.2 }, { x: 4.6, z: -0.3 }],
+          ];
+          const anchorExtras = props.additionalEnemies ?? [];
+          const anchorSize = Math.min(3, Math.max(1, props.initialGroupSize ?? (1 + anchorExtras.length)));
+          const anchorSlot = props.mainEnemySlotIndex ?? 0;
+          const a = ANCHOR_GRP[anchorSize - 1]?.[anchorSlot] ?? ANCHOR_GRP[0][0];
+          const enemyAnchor: [number, number, number] = isDungeonRun && activeScenarioConfig
+            ? [dungeonEnemyBasePosition[0], dungeonEnemyBasePosition[1] + 1.5, dungeonEnemyBasePosition[2]]
+            : [a.x, 0.5, a.z];
+          return (
+            <>
+              <WorldFloatingTexts texts={props.floatingTexts} enemyAnchor={enemyAnchor} />
+              <WorldLootDisplay loot={props.lootResult ?? null} xpIcon={props.xpIconComponent} enemyAnchor={enemyAnchor} />
+            </>
+          );
+        })()}
 
         {shouldUsePostProcessing && !shouldUseRuntimeScenarioEditorParity ? (
           <EffectComposer multisampling={postProcessingMultisampling}>
@@ -5653,7 +5964,7 @@ const ModularClassHeroVoxel = ({
             );
           })}
         </Suspense>
-        <ContactShadows opacity={0.35} scale={3} blur={1.8} far={2} resolution={contactShadowResolution} />
+        <ContactShadows opacity={0.32} scale={2.6} blur={4} far={1.8} resolution={contactShadowResolution} />
       </group>
     </group>
   );

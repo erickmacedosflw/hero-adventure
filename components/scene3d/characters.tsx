@@ -99,9 +99,13 @@ export const AnimatedClassHero = ({
   );
   const animationAssets = animationAssetsOverride ?? assets;
   const animationMap = animationAssets.animationMap;
+  // Use a fixed action for primary bundle selection so it never changes mid-battle.
+  // Changing animationAction here would cause primaryAnimationBundle URL to change, which
+  // forces mergedClips + boundClips + useAnimations to recompute — causing a visible freeze
+  // on every animation transition. All clips remain available via secondaryBundles.
   const primaryAnimationBundle = useMemo(
-    () => selectPrimaryAnimationBundle(animationAssets, animationAction, preferredAnimationBundle),
-    [animationAction, animationAssets, preferredAnimationBundle],
+    () => selectPrimaryAnimationBundle(animationAssets, 'battle-idle', preferredAnimationBundle),
+    [animationAssets, preferredAnimationBundle],
   );
   const animationSource = useLoader(FBXLoader, primaryAnimationBundle.url) as THREE.Group;
   const secondaryBundles = useMemo(
@@ -237,10 +241,35 @@ export const AnimatedClassHero = ({
     console.groupEnd();
   }, [boundClips, debugTargetId, knightReferenceModel, preparedModel]);
 
-  const { actions } = useAnimations(boundClips, preparedModel);
+  const { actions, mixer } = useAnimations(boundClips, preparedModel);
   const activePlaybackKeyRef = useRef<string | null>(null);
   const activeActionRef = useRef<THREE.AnimationAction | null>(null);
   const equippedWeaponGrip = getEquippedWeaponGrip(equippedWeaponId);
+
+  // Throttle the hero mixer to 30fps: intercept mixer.update so drei's internal
+  // useFrame still calls it every frame, but we only advance the skeleton when
+  // 1/30s of delta has accumulated. Preserves crossfades and weight blending.
+  useEffect(() => {
+    if (!mixer) return undefined;
+    type MixerWithPatch = THREE.AnimationMixer & { __origUpdate?: (delta: number) => void };
+    const m = mixer as MixerWithPatch;
+    const orig = m.update.bind(m);
+    let acc = 0;
+    m.__origUpdate = orig;
+    m.update = (delta: number) => {
+      acc += delta;
+      if (acc >= 1 / 30) {
+        orig(acc);
+        acc = 0;
+      }
+    };
+    return () => {
+      if (m.__origUpdate) {
+        m.update = m.__origUpdate;
+        delete m.__origUpdate;
+      }
+    };
+  }, [mixer]);
 
   useEffect(() => {
     const fallbackClip = clipMap['battle-idle'] ?? clipMap.idle ?? boundClips[0]?.name;
@@ -428,24 +457,7 @@ interface EnemyCharacterProps {
   statusOverlay?: React.ReactNode;
 }
 
-const MissingEnemyAssetPlaceholder = ({ scale = 1 }: { scale?: number }) => (
-  <group>
-    <mesh position={[0, 0.9, 0]}>
-      <boxGeometry args={[0.7 * scale, 1.3 * scale, 0.52 * scale]} />
-      <meshStandardMaterial color="#f87171" wireframe transparent opacity={0.88} />
-    </mesh>
-    <mesh position={[0, 0.16, 0]} rotation={[Math.PI / 2, 0, 0]}>
-      <torusGeometry args={[0.7 * scale, 0.05 * scale, 10, 24]} />
-      <meshStandardMaterial color="#fca5a5" emissive="#fca5a5" emissiveIntensity={0.85} transparent opacity={0.6} />
-    </mesh>
-    <pointLight color="#fca5a5" intensity={1.1} distance={4.8 * scale} decay={2} position={[0, 1.4 * scale, 0.3]} />
-    <Html center sprite distanceFactor={8} position={[0, 2.25 * scale, 0]} zIndexRange={[170, 0]}>
-      <div className="rounded-lg border border-rose-200/70 bg-[#111827]/78 px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-rose-100 shadow-[0_10px_24px_rgba(0,0,0,0.45)]">
-        Modelo do inimigo indisponivel
-      </div>
-    </Html>
-  </group>
-);
+const MissingEnemyAssetPlaceholder = (_props: { scale?: number }) => null;
 
 export const EnemyCharacter = ({
   assets,
@@ -592,7 +604,7 @@ export const EnemyCharacter = ({
       <group ref={group} position={originPosition} rotation={[0, baseRotationY, 0]}>
         <MissingEnemyAssetPlaceholder scale={Math.max(0.92, scale * 0.85)} />
         {statusOverlay}
-        <ContactShadows opacity={0.26} scale={3} blur={1.8} far={2} resolution={contactShadowResolution} />
+        <ContactShadows opacity={0.24} scale={2.6} blur={4} far={1.8} resolution={contactShadowResolution} />
       </group>
     );
   }
@@ -603,8 +615,13 @@ export const EnemyCharacter = ({
         <AnimatedEnemyCharacter assets={runtimeEnemyAssets} animationAction={enemyAnimationAction} attackStyle={attackStyle} />
       </Suspense>
       {statusOverlay}
-      <ContactShadows opacity={0.35} scale={3} blur={1.8} far={2} resolution={contactShadowResolution} />
+      <ContactShadows opacity={0.32} scale={2.6} blur={4} far={1.8} resolution={contactShadowResolution} />
+      {/* Damage flash light */}
       <pointLight ref={enemyDamageLightRef} color="#ef4444" intensity={0} distance={8} decay={2.5} position={[0, 0.8, -0.3]} />
+      {/* Rim light — behind the model (Z negative = away from camera), separates silhouette */}
+      <pointLight color="#c4b5fd" intensity={1.1} distance={5} decay={2} position={[0, 1.1, -1.8]} />
+      {/* Fill light — subtle warm light from below for volume */}
+      <pointLight color="#fde68a" intensity={0.38} distance={3.5} decay={2.5} position={[0, -0.6, 0.6]} />
       <group ref={enemyShieldRef} position={[0, 0.9, 0]} visible={false}>
         <mesh>
           <sphereGeometry args={[1.4, 12, 12]} />
@@ -721,9 +738,14 @@ const GltfEnemyModel: React.FC<{
     mixer.clipAction(clip).reset().setLoop(THREE.LoopRepeat, Infinity).play();
   }, [animationAction, bodyType, clonedScene, gltf.animations]);
 
-  // Avança o mixer a cada frame
+  // Avança o mixer a 30 fps para reduzir CPU sem afetar a renderização.
+  const animAccRef = useRef(0);
   useFrame((_, delta) => {
-    mixerRef.current?.update(delta);
+    animAccRef.current += delta;
+    if (animAccRef.current >= 1 / 30) {
+      mixerRef.current?.update(animAccRef.current);
+      animAccRef.current = 0;
+    }
   });
 
   return <primitive object={clonedScene} position={[0, floorOffsetY, 0]} />;

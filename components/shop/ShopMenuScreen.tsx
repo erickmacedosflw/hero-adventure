@@ -8,6 +8,7 @@ import { getEquipmentBonuses } from '../../game/mechanics/equipmentBonuses';
 
 const MERCHANT_BG_URL = new URL('../../game/assets/Imagens/Background_Mercador.png', import.meta.url).href;
 const MERCHANT_AVATAR_URL = new URL('../../game/assets/Avatares/Personagem_Mercante.png', import.meta.url).href;
+const ICONE_MOCHILA_URL = new URL('../../game/assets/Icons/Menu/Icone_Mochila.png', import.meta.url).href;
 
 type ShopFilter = 'weapon' | 'shield' | 'helmet' | 'armor' | 'legs' | 'potion';
 
@@ -19,6 +20,8 @@ type ShopMenuScreenProps = {
   onEquip: (item: Item) => void;
   onSell: (item: Item, quantity: number) => void;
   onLeave: () => void;
+  onOpenInventory?: () => void;
+  inventoryOpen?: boolean;
 };
 
 const FILTERS: Array<{ id: ShopFilter; label: string; iconName: GameAssetIconName }> = [
@@ -239,22 +242,6 @@ const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
             </div>
           </div>
 
-          {/* Buy / Sell tabs */}
-          <div className="mt-4 flex gap-1 rounded-xl border border-white/10 bg-white/5 p-1">
-            <button
-              onClick={() => setTab('buy')}
-              className={`flex-1 rounded-lg py-1.5 text-xs font-black uppercase tracking-widest transition-all ${tab === 'buy' ? 'bg-[#e2b652] text-[#5c3f0d] shadow-sm' : 'text-white/50 hover:text-white/80'}`}
-            >
-              Comprar
-            </button>
-            <button
-              onClick={() => setTab('sell')}
-              disabled={!canSell}
-              className={`flex-1 rounded-lg py-1.5 text-xs font-black uppercase tracking-widest transition-all disabled:opacity-30 disabled:cursor-not-allowed ${tab === 'sell' && canSell ? 'bg-emerald-600 text-white shadow-sm' : 'text-white/50 hover:text-white/80'}`}
-            >
-              Vender {canSell ? `(x${ownedQty})` : ''}
-            </button>
-          </div>
         </div>
 
         {/* Scrollable body */}
@@ -284,9 +271,8 @@ const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
             </div>
           )}
 
-          {/* BUY tab */}
-          {tab === 'buy' && (
-            <div className="mt-4">
+          {/* Buy section */}
+          <div className="mt-4">
               <div className="grid grid-cols-2 gap-2 mb-3">
                 <div className="rounded-[14px] border border-white/8 bg-white/5 px-3 py-2">
                   <div className="text-[9px] font-black uppercase tracking-widest text-white/40">Voce gasta</div>
@@ -319,72 +305,25 @@ const ItemDetailModal: React.FC<ItemDetailModalProps> = ({
                 </div>
               )}
             </div>
-          )}
-
-          {/* SELL tab */}
-          {tab === 'sell' && (
-            <div className="mt-4">
-              <div className="grid grid-cols-2 gap-2 mb-3">
-                <div className="rounded-[14px] border border-white/8 bg-white/5 px-3 py-2">
-                  <div className="text-[9px] font-black uppercase tracking-widest text-white/40">Voce recebe</div>
-                  <div className="mt-1 inline-flex items-center gap-1.5 text-lg font-black text-emerald-400">
-                    <GameAssetIcon name="coin" size={18} />{sellTotal}
-                  </div>
-                </div>
-                <div className="rounded-[14px] border border-white/8 bg-white/5 px-3 py-2">
-                  <div className="text-[9px] font-black uppercase tracking-widest text-white/40">Ficara com</div>
-                  <div className="mt-1 inline-flex items-center gap-1.5 text-lg font-black text-emerald-400">
-                    <GameAssetIcon name="coin" size={18} />{sellGoldAfter}
-                  </div>
-                </div>
-              </div>
-              <div className="rounded-[16px] border border-white/8 bg-white/5 p-3">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-black uppercase tracking-widest text-white/50">Quantidade</span>
-                  <button onClick={() => setSellQty(maxSellQty || 1)} disabled={maxSellQty <= 0} className="rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] font-black uppercase tracking-wide text-white/70 hover:bg-white/10 disabled:opacity-30">Tudo</button>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button onClick={() => setSellQty((c) => clampQuantity(c - 1, maxSellQty))} className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-lg font-black text-white hover:bg-white/10">-</button>
-                  <input type="number" min={1} max={Math.max(1, maxSellQty)} value={sellQty} onChange={(e) => setSellQty(clampQuantity(Number(e.target.value), maxSellQty))} className="h-11 w-full rounded-xl border border-white/10 bg-white/5 px-3 text-center text-lg font-black text-white outline-none focus:border-emerald-400/50" />
-                  <button onClick={() => setSellQty((c) => clampQuantity(c + 1, maxSellQty))} className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-lg font-black text-white hover:bg-white/10">+</button>
-                </div>
-                <div className="mt-2 text-[11px] text-white/30 font-semibold">Disponivel: {maxSellQty}x | Preco unitario: {unitSellPrice}</div>
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Footer */}
         <div className="shrink-0 border-t border-white/8 bg-black/20 px-5 py-4">
-          {tab === 'buy' ? (
-            <div className="flex gap-2">
-              <button onClick={onClose} className="rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-xs font-black uppercase tracking-widest text-white/60 hover:bg-white/10 transition-colors">Fechar</button>
-              {isEquipped ? (
-                <button onClick={() => { onEquip(item); onClose(); }} className="flex-1 rounded-xl border border-white/20 bg-white/10 px-4 py-2.5 text-xs font-black uppercase tracking-widest text-white/70">Ja equipado</button>
-              ) : (
-                <button
-                  onClick={() => { if (!canBuy) return; onBuyConfirm(item, buyQty); }}
-                  disabled={!canBuy}
-                  className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl border border-[#c8942f] bg-[#e2b652] px-4 py-2.5 text-sm font-black uppercase tracking-widest text-[#5c3f0d] transition-all hover:-translate-y-0.5 hover:bg-[#ecc265] disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  <GameAssetIcon name="coin" size={22} />
-                  {canBuy ? `Comprar - ${buyTotal}` : !hasLevel ? `Nivel ${item.minLevel}` : 'Sem ouro'}
-                </button>
-              )}
-            </div>
-          ) : (
-            <div className="flex gap-2">
-              <button onClick={onClose} className="rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-xs font-black uppercase tracking-widest text-white/60 hover:bg-white/10 transition-colors">Fechar</button>
+          <div className="flex gap-2">
+            <button onClick={onClose} className="rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-xs font-black uppercase tracking-widest text-white/60 hover:bg-white/10 transition-colors">Fechar</button>
+            {isEquipped ? (
+              <button onClick={() => { onEquip(item); onClose(); }} className="flex-1 rounded-xl border border-white/20 bg-white/10 px-4 py-2.5 text-xs font-black uppercase tracking-widest text-white/70">Ja equipado</button>
+            ) : (
               <button
-                onClick={() => { if (!canSell) return; onSellConfirm(item, sellQty); }}
-                disabled={!canSell}
-                className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl border border-emerald-500/60 bg-emerald-600 px-4 py-2.5 text-sm font-black uppercase tracking-widest text-white transition-all hover:-translate-y-0.5 hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-40"
+                onClick={() => { if (!canBuy) return; onBuyConfirm(item, buyQty); }}
+                disabled={!canBuy}
+                className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl border border-[#c8942f] bg-[#e2b652] px-4 py-2.5 text-sm font-black uppercase tracking-widest text-[#5c3f0d] transition-all hover:-translate-y-0.5 hover:bg-[#ecc265] disabled:cursor-not-allowed disabled:opacity-40"
               >
-                <GameAssetIcon name="coinCopper" size={20} />
-                {canSell ? `Vender +${sellTotal}` : 'Sem itens'}
+                <GameAssetIcon name="coin" size={22} />
+                {canBuy ? `Comprar - ${buyTotal}` : !hasLevel ? `Nivel ${item.minLevel}` : 'Sem ouro'}
               </button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -445,8 +384,8 @@ const ItemCard = ({
           {getRarityLabel(item.rarity)}
         </div>
       )}
-      <div className={`mt-2 inline-flex w-full items-center justify-center gap-1 rounded-lg border py-1 text-[10px] font-black ${!canAfford || !hasLevel || isEquipped ? 'border-white/10 bg-white/5 text-white/30' : 'border-amber-400/30 bg-amber-400/10 text-amber-300'}`}>
-        <GameAssetIcon name="coin" size={12} />
+      <div className={`mt-2 inline-flex w-full items-center justify-center gap-1.5 rounded-lg border py-1.5 text-sm font-black ${!canAfford || !hasLevel || isEquipped ? 'border-white/10 bg-white/5 text-white/30' : 'border-amber-400/30 bg-amber-400/10 text-amber-300'}`}>
+        <GameAssetIcon name="coin" size={14} />
         {isEquipped ? 'Equipado' : !hasLevel ? `Nv.${item.minLevel}` : item.cost}
       </div>
     </button>
@@ -456,7 +395,7 @@ const ItemCard = ({
 // Main component
 
 export const ShopMenuScreen: React.FC<ShopMenuScreenProps> = ({
-  player, items, huntStage, onBuy, onEquip, onSell, onLeave,
+  player, items, huntStage, onBuy, onEquip, onSell, onLeave, onOpenInventory, inventoryOpen = false,
 }) => {
   const MODAL_CLOSE_MS = 180;
   const [mounted, setMounted] = useState(false);
@@ -580,11 +519,32 @@ export const ShopMenuScreen: React.FC<ShopMenuScreenProps> = ({
           <span className="text-base font-black uppercase tracking-[0.18em] text-white">Mercador</span>
         </div>
 
-        <div className="inline-flex items-center gap-1.5 rounded-xl border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-sm font-black text-amber-300">
-          <GameAssetIcon name="coin" size={20} />
-          {player.gold}
+        <div className="flex items-center gap-3">
+          <div className="inline-flex items-center gap-1.5 rounded-xl border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-sm font-black text-amber-300">
+            <GameAssetIcon name="coin" size={20} />
+            {player.gold}
+          </div>
         </div>
       </header>
+
+      {/* SIDE RAIL — mochila */}
+      {onOpenInventory && !inventoryOpen && (
+        <div className="absolute right-3 sm:right-5 top-[4.5rem] sm:top-20 z-10 flex flex-col gap-4">
+          <button
+            onClick={onOpenInventory}
+            className="group flex flex-col items-center gap-1 p-0 bg-transparent border-0 transition-all duration-200 hover:-translate-y-0.5 hover:scale-105 active:scale-95"
+            title="Mochila"
+            aria-label="Mochila"
+          >
+            <div className="flex items-center justify-center w-full">
+              <img src={ICONE_MOCHILA_URL} alt="" className="h-14 w-14 object-contain" style={{ filter: 'drop-shadow(0.5px 0 0 #fff) drop-shadow(-0.5px 0 0 #fff) drop-shadow(0 0.5px 0 #fff) drop-shadow(0 -0.5px 0 #fff)' }} />
+            </div>
+            <span className="inline-flex items-center gap-1 rounded-full border border-emerald-400/50 bg-emerald-500/20 px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-emerald-400">
+              <GameAssetIcon name="coin" size={11} />Vender
+            </span>
+          </button>
+        </div>
+      )}
 
       {/* Spacer — background visible here */}
       <div className="relative z-0 flex-1 min-h-0" />

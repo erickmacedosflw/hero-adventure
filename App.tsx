@@ -1,14 +1,15 @@
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { ShoppingBag, Play, Sword, Home, Orbit, Shield, Sparkles, Crosshair, Zap } from 'lucide-react';
+import { ShoppingBag, Play, Sword, Swords, Home, Orbit, Shield, Sparkles, Crosshair, Zap, Heart } from 'lucide-react';
 import { DeveloperConsole } from './components/DeveloperConsole';
 import { GameScene, type BattleActionsConfig } from './components/Scene3D';
 import { OpeningScreen } from './components/OpeningScreen';
 import { ClassSelectionScreen } from './components/ClassSelectionScreen';
 import { BattleHUD, MenuScreen, ShopScreen, TavernScreen, CardChoiceScreen, DungeonResultScreen, BossVictoryModal } from './components/GameUI';
+import { AdminPanel } from './components/AdminPanel';
 import { AlchemistScreen } from './components/shop/AlchemistMenuScreen';
 import { 
-    Player, Enemy, EnemyIntentPreview, GameState, TurnState, BattleLog, Item, Skill, Stats, Particle, FloatingText, ProgressionCard, CardRewardOffer, AlchemistCardOffer, AlchemistItemOffer, DungeonRunState, DungeonResult, DungeonRewards, EnemyTemplate, DungeonEnemyTemplate, DungeonBossTemplate, PlayerAnimationAction, BossVictoryContext, CardCategory, GltfMonsterBodyType, PlayerClassId
+    Player, Enemy, EnemyIntentPreview, GameState, TurnState, BattleLog, Item, Skill, Stats, Particle, FloatingText, ProgressionCard, CardRewardOffer, AlchemistCardOffer, AlchemistItemOffer, DungeonRunState, DungeonResult, DungeonRewards, EnemyTemplate, DungeonEnemyTemplate, DungeonBossTemplate, PlayerAnimationAction, BossVictoryContext, CardCategory, GltfMonsterBodyType, PlayerClassId, PendingTargetAction
 } from './types';
 import { 
     INITIAL_PLAYER, SHOP_ITEMS, ALL_ITEMS, MATERIALS, SKILLS, ENEMY_DATA, ENEMY_COLORS, DUNGEON_ENEMY_DATA, DUNGEON_BOSS, ALCHEMIST_ITEM_OFFERS 
@@ -18,7 +19,7 @@ import { applyPlayerClass, getPlayerClassById, PLAYER_CLASSES } from './game/dat
 import { gameMusicManager, isNightTime, type MusicTrackId } from './game/audio/music';
 import { battleSfx } from './game/audio/sfx';
 import { uiSfx } from './game/audio/uiSfx';
-import { createEmptyBuffState } from './game/mechanics/combat';
+import { createEmptyBuffState, consumeTurnBuffs } from './game/mechanics/combat';
 import { createClassResourceState, getTalentBonuses, getUnlockedResourceMax, resetTalentNodes, syncPlayerConstellationSkills, unlockTalentNode } from './game/mechanics/classProgression';
 import { buyItemForPlayer, sellItemFromPlayer } from './game/mechanics/inventory';
 import { applyEquipmentBonusesToStats } from './game/mechanics/equipmentBonuses';
@@ -713,8 +714,23 @@ export default function App() {
 
   const [gameState, setGameState] = useState<GameState>(GameState.TAVERN);
   const [turnState, setTurnState] = useState<TurnState>(TurnState.PLAYER_INPUT);
+  /** Ativa o painel de admin quando a URL contém ?admin=true */
+  const isAdminMode = useMemo(() => new URLSearchParams(window.location.search).get('admin') === 'true', []);
     const [player, setPlayer] = useState<Player>(() => clonePlayer(INITIAL_PLAYER));
   const [enemy, setEnemy] = useState<Enemy | null>(null);
+  // Multi-enemy group combat
+  const [additionalEnemies, setAdditionalEnemies] = useState<Enemy[]>([]);
+  const [pendingTargetAction, setPendingTargetAction] = useState<PendingTargetAction>(null);
+  const [targetCardLeaving, setTargetCardLeaving] = useState(false);
+  const [accumulatedGroupRewards, setAccumulatedGroupRewards] = useState<{ gold: number; xp: number }>({ gold: 0, xp: 0 });
+  const [roundActorQueue, setRoundActorQueue] = useState<string[]>([]); // 'player' | enemy.id, sorted by speed desc
+  const [primaryEnemyId, setPrimaryEnemyId] = useState<string | null>(null); // player's chosen target
+  /** Slot de layout ocupado pelo inimigo principal (0=centro, 1=direita, 2=mais direita). Evita teleporte visual ao selecionar alvo. */
+  const [mainEnemySlotIndex, setMainEnemySlotIndex] = useState<number>(0);
+  /** Mapeamento estável id → slot visual. Definido no spawn, nunca reordenado. */
+  const [enemySlotAssignments, setEnemySlotAssignments] = useState<Record<string, number>>({});
+  /** Tamanho inicial do grupo (1, 2 ou 3). Usado para escolher layout fixo — inimigos não se mexem quando outro morre. */
+  const [initialGroupSize, setInitialGroupSize] = useState<number>(1);
   const [enemyIntentPreview, setEnemyIntentPreview] = useState<EnemyIntentPreview | null>(null);
   const [logs, setLogs] = useState<BattleLog[]>([]);
   const [narration, setNarration] = useState<string>("");
@@ -747,6 +763,17 @@ export default function App() {
     const towerRunRef = useRef<TowerRunState | null>(null);
     const postCardFlowRef = useRef<'tavern' | 'boss-victory' | 'resume-hunt' | null>(null);
     const bossVictoryContextRef = useRef<BossVictoryContext | null>(null);
+    // Refs for queue useEffect (always current)
+    const enemyRef = useRef<Enemy | null>(null);
+    const additionalEnemiesRef = useRef<Enemy[]>([]);
+    const playerRef = useRef<Player | null>(null);
+    const primaryEnemyIdRef = useRef<string | null>(null);
+    const enemySlotAssignmentsRef = useRef<Record<string, number>>({});
+    enemyRef.current = enemy;
+    additionalEnemiesRef.current = additionalEnemies;
+    playerRef.current = player;
+    primaryEnemyIdRef.current = primaryEnemyId;
+    enemySlotAssignmentsRef.current = enemySlotAssignments;
     const [pendingDungeonQueue, setPendingDungeonQueue] = useState<CardRewardOffer[]>([]);
     const [isBootReady, setIsBootReady] = useState(() => getBootReadyMemory());
     const [pathname, setPathname] = useState(() => window.location.pathname);
@@ -1807,6 +1834,114 @@ export default function App() {
 
   // --- LOGIC ---
 
+  /** Constrói a fila de iniciativa de um round ordenada por speed descendente. */
+  const buildRoundQueue = (p: Player, enemies: Enemy[]): string[] => {
+    const actors: Array<{ id: string; speed: number }> = [
+      { id: 'player', speed: p.stats.speed },
+      ...enemies.map(e => ({ id: e.id, speed: e.stats.speed })),
+    ];
+    return actors.sort((a, b) => b.speed - a.speed).map(a => a.id);
+  };
+
+  /** Avança a fila de iniciativa: remove o ator que acabou de agir. */
+  const onActorTurnDone = useCallback(() => {
+    setRoundActorQueue(prev => prev.slice(1));
+  }, []);
+
+  /** Chamado quando um inimigo do grupo morre mas outros ainda estão vivos. */
+  const onPartialGroupKill = useCallback((deadEnemyId: string, xpGain: number, goldGain: number) => {
+    setAccumulatedGroupRewards(prev => ({ gold: prev.gold + goldGain, xp: prev.xp + xpGain }));
+    // Animação visual: XP e ouro flutuando sobre o inimigo morto
+    spawnFloatingText(`+${xpGain} XP`, 'enemy', 'buff', '#d97706');
+    spawnFloatingText(`+${goldGain}`, 'enemy', 'buff', '#fbbf24');
+    // Remove o morto da fila
+    setRoundActorQueue(prev => prev.filter(id => id !== deadEnemyId));
+
+    const currentPrimary = enemyRef.current;
+    const currentAdds = additionalEnemiesRef.current;
+    const isPrimaryDead = currentPrimary?.id === deadEnemyId;
+
+    if (isPrimaryDead) {
+      // Primário morreu → promove primeiro sobrevivente como novo "enemy" state
+      // mas PRESERVA o slot visual de cada um (via enemySlotAssignmentsRef)
+      const survivors = currentAdds.filter(e => e.stats.hp > 0);
+      const [nextEnemy, ...rest] = survivors;
+      if (nextEnemy) {
+        setEnemy(nextEnemy);
+        setAdditionalEnemies(rest);
+        setMainEnemySlotIndex(enemySlotAssignmentsRef.current[nextEnemy.id] ?? 0);
+        if (primaryEnemyIdRef.current === deadEnemyId) setPrimaryEnemyId(nextEnemy.id);
+      } else {
+        setEnemy(null);
+        setAdditionalEnemies([]);
+        setMainEnemySlotIndex(0);
+      }
+    } else {
+      // Um extra morreu → remove apenas da lista, inimigo principal permanece no lugar
+      setAdditionalEnemies(currentAdds.filter(e => e.id !== deadEnemyId));
+    }
+  }, [setEnemy, spawnFloatingText]);
+
+  // Fila de iniciativa: dirige quem age quando
+  useEffect(() => {
+    if (gameState !== GameState.BATTLE) return;
+    const currentEnemy = enemyRef.current;
+    const currentAdditionals = additionalEnemiesRef.current;
+    const currentPlayer = playerRef.current;
+
+    if (roundActorQueue.length === 0) {
+      if (!currentEnemy || !currentPlayer) return;
+      // Fim de rodada: expira buffs do jogador e limpa flag de defesa
+      setPlayer((prev) => ({
+        ...prev,
+        isDefending: false,
+        buffs: consumeTurnBuffs(prev.buffs),
+      }));
+      const allEnemies = [currentEnemy, ...currentAdditionals];
+      const newQueue = buildRoundQueue(currentPlayer, allEnemies);
+      setRoundActorQueue(newQueue);
+      return;
+    }
+
+    const nextId = roundActorQueue[0];
+
+    if (nextId === 'player') {
+      // Restaurar inimigo primário antes do input do jogador
+      const primId = primaryEnemyIdRef.current;
+      if (primId && currentEnemy?.id !== primId) {
+        const allEnemies = [currentEnemy, ...currentAdditionals].filter(Boolean) as Enemy[];
+        const primary = allEnemies.find(e => e.id === primId);
+        if (primary) {
+          setEnemy(primary);
+          setAdditionalEnemies(allEnemies.filter(e => e.id !== primId));
+          // Restaura o slot visual correto usando os assignments estáveis
+          setMainEnemySlotIndex(enemySlotAssignmentsRef.current[primId] ?? 0);
+        }
+      }
+      setTurnState(TurnState.PLAYER_INPUT);
+    } else {
+      // Turno de um inimigo — swap para que o battle controller o veja em `enemy`
+      const allEnemies = [currentEnemy, ...currentAdditionals].filter(Boolean) as Enemy[];
+      const nextEnemy = allEnemies.find(e => e.id === nextId);
+      if (!nextEnemy || nextEnemy.stats.hp <= 0) {
+        // Inimigo morto — pular
+        setRoundActorQueue(prev => prev.slice(1));
+        return;
+      }
+      if (nextEnemy.id !== currentEnemy?.id) {
+        setAdditionalEnemies([
+          ...(currentEnemy ? [currentEnemy] : []),
+          ...currentAdditionals.filter(e => e.id !== nextId),
+        ]);
+        setEnemy(nextEnemy);
+      }
+      // Mantém o inimigo no seu slot visual estável (sem teleporte)
+      setMainEnemySlotIndex(enemySlotAssignmentsRef.current[nextId] ?? 0);
+      setTurnState(TurnState.ENEMY_TURN);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roundActorQueue, gameState]);
+
   const addLog = (message: string, type: BattleLog['type'] = 'info') => {
     setLogs(prev => [{ message, type }, ...prev]);
   };
@@ -1975,6 +2110,88 @@ export default function App() {
         probability: 80,
     });
     setEnemy(newEnemy);
+    // Resetar estado de grupo
+    setAdditionalEnemies([]);
+    setAccumulatedGroupRewards({ gold: 0, xp: 0 });
+    setPrimaryEnemyId(newEnemy.id);
+    setMainEnemySlotIndex(0);
+    // Slot assignment inicial: só o inimigo principal no slot 0
+    setEnemySlotAssignments({ [newEnemy.id]: 0 });
+    setInitialGroupSize(1);
+    setRoundActorQueue([]); // Será reconstruída pelo useEffect de iniciativa
+
+    // Spawn de inimigos extras: apenas caça, fase >= 4, inimigo regular (não boss/subboss)
+    if (mode === 'hunt' && currentStage >= 4 && !isBoss && !isSubBossEncounter) {
+      const extraChance = currentStage >= 8 ? 0.55 : 0.40;
+      if (Math.random() < extraChance) {
+        const maxExtra = currentStage >= 8 ? 2 : 1;
+        const extraCount = maxExtra === 2 ? (Math.random() < 0.5 ? 1 : 2) : 1;
+
+        // Pool de monstros GLTF diferentes do principal para variedade
+        const usedIds = new Set<string>([gltfMonsterTemplate?.id ?? '']);
+        const extras: Enemy[] = Array.from({ length: extraCount }, (_, k) => {
+          // Escolhe um monstro aleatório diferente do principal e dos já escolhidos
+          const candidates = GLTF_MONSTER_BESTIARY.filter(t => !usedIds.has(t.id));
+          const tmpl = candidates.length > 0
+            ? candidates[Math.floor(Math.random() * candidates.length)]
+            : GLTF_MONSTER_BESTIARY[Math.floor(Math.random() * GLTF_MONSTER_BESTIARY.length)];
+          usedIds.add(tmpl.id);
+
+          const extraGltfUrl = tmpl.bodyType === 'Flying'
+            ? new URL(`./game/assets/Characters/Monsters/Monsters/Flying/${tmpl.gltfFile}`, import.meta.url).href
+            : new URL(`./game/assets/Characters/Monsters/Monsters/Big/${tmpl.gltfFile}`, import.meta.url).href;
+
+          return {
+            ...newEnemy,
+            id: `enemy_extra_${Date.now()}_${k}`,
+            name: tmpl.name,
+            color: tmpl.color,
+            scale: tmpl.scale * 0.9,
+            gltfModelUrl: extraGltfUrl,
+            gltfBodyType: tmpl.bodyType as GltfMonsterBodyType,
+            attackStyle: tmpl.attackStyle,
+            element: tmpl.element,
+            assets: undefined,
+            isBoss: false as const,
+            isSubBoss: false as const,
+            stats: {
+              ...newEnemy.stats,
+              hp: Math.floor(newEnemy.stats.maxHp * 0.80),
+              maxHp: Math.floor(newEnemy.stats.maxHp * 0.80),
+              atk: Math.floor(newEnemy.stats.atk * 0.80),
+              def: Math.floor(newEnemy.stats.def * 0.80),
+              magic: Math.floor(newEnemy.stats.magic * 0.80),
+              speed: Math.max(1, Math.floor(newEnemy.stats.speed * (0.90 + Math.random() * 0.20))),
+            },
+            xpReward: Math.floor(newEnemy.xpReward * 0.60),
+            goldReward: Math.floor(newEnemy.goldReward * 0.60),
+            skillSet: newEnemy.skillSet.map(s => ({ ...s, currentCooldown: 0 })),
+            aiTurnCounter: 0,
+            stealAttemptsUsed: 0,
+            lastStealTurn: -99,
+            stolenGoldTotal: 0,
+            stolenItems: [],
+            impulso: 0,
+            impulseGuardLevel: 0,
+            isDefending: false,
+            statusEffects: [],
+            lastAction: 'none' as const,
+          };
+        });
+        setAdditionalEnemies(extras);
+        // Build stable slot assignments: main=0, extra_0=1, extra_1=2
+        const newSlotAssignments: Record<string, number> = { [newEnemy.id]: 0 };
+        extras.forEach((e, i) => { newSlotAssignments[e.id] = i + 1; });
+        setEnemySlotAssignments(newSlotAssignments);
+        setInitialGroupSize(1 + extras.length);
+        if (extraCount > 1) {
+          addLog(`${newEnemy.name} apareceu com ${extraCount} aliados!`, 'crit');
+        } else {
+          addLog(`${newEnemy.name} não está sozinho!`, 'crit');
+        }
+      }
+    }
+
         setEnemyAnimationAction('battle-idle');
         if (newEnemy.combatBuffs.turns > 0) {
             addLog(`${newEnemy.name} iniciou a luta com impulso inicial (+ATK/+DEF).`, 'buff');
@@ -2243,6 +2460,8 @@ export default function App() {
       setTurnState(TurnState.PLAYER_INPUT);
     setEnemyAnimationAction('battle-idle');
       setEnemy(null);
+      setAdditionalEnemies([]);
+      setRoundActorQueue([]);
       setLogs([]);
       spawnEnemy(encounterStage, isBoss, mode, isDungeonBattle ? activeDungeonEvolution : undefined);
   };
@@ -2848,6 +3067,10 @@ export default function App() {
           allowPotionDrops: hasPlayerDiedOnce,
         isTowerBattle: Boolean(towerRun),
         onTowerVictory: handleTowerVictory,
+        getAdditionalEnemies: () => additionalEnemiesRef.current,
+        onPartialGroupKill,
+        onActorTurnDone,
+        accumulatedGroupRewards,
   });
 
   const {
@@ -2909,6 +3132,7 @@ export default function App() {
     enemyIntentPreview,
         onPlayerDefeat: () => setHasPlayerDiedOnce(true),
         onTowerDefeat: towerRun ? handleTowerDeath : undefined,
+        onActorTurnDone,
   });
 
   useEffect(() => {
@@ -2924,6 +3148,49 @@ export default function App() {
             }
     }
     }, [addLog, enemy, gameState, handleEnemyTurn, setEnemyAnimationAction, setIsEnemyAttacking, turnState]);
+
+  // Refs para wrappers de seleção de alvo (sempre frescos)
+  const handlePlayerAttackRef = useRef(handlePlayerAttack);
+  handlePlayerAttackRef.current = handlePlayerAttack;
+  const handleSkillRef = useRef(handleSkill);
+  handleSkillRef.current = handleSkill;
+
+  const allEnemiesAlive = [enemy, ...additionalEnemies].filter((e): e is Enemy => Boolean(e) && e!.stats.hp > 0);
+  const hasMultipleEnemies = allEnemiesAlive.length > 1;
+
+  const handleAttackWithTargetCheck = useCallback(() => {
+    if (hasMultipleEnemies) setPendingTargetAction({ type: 'attack' });
+    else handlePlayerAttackRef.current();
+  }, [hasMultipleEnemies]);
+
+  const handleSkillWithTargetCheck = useCallback((skill: Skill) => {
+    const isOffensive = skill.type === 'physical' || skill.type === 'magic';
+    if (hasMultipleEnemies && isOffensive) setPendingTargetAction({ type: 'skill', skill });
+    else handleSkillRef.current(skill);
+  }, [hasMultipleEnemies]);
+
+  const handleSelectTarget = useCallback((targetId: string) => {
+    const all = [enemy, ...additionalEnemies].filter(Boolean) as Enemy[];
+    const target = all.find(e => e.id === targetId) ?? null;
+    if (!target) { setPendingTargetAction(null); return; }
+    // Swap para que o battle controller enxergue o alvo em `enemy`
+    setEnemy(target);
+    setAdditionalEnemies(all.filter(e => e.id !== targetId));
+    setPrimaryEnemyId(targetId);
+    // Usa o slot assignment estável → sem teleporte visual
+    setMainEnemySlotIndex(enemySlotAssignmentsRef.current[targetId] ?? 0);
+    const action = pendingTargetAction;
+    setPendingTargetAction(null);
+    window.setTimeout(() => {
+      if (action?.type === 'attack') handlePlayerAttackRef.current();
+      else if (action?.type === 'skill') handleSkillRef.current(action.skill);
+    }, 0);
+  }, [enemy, additionalEnemies, pendingTargetAction]);
+
+  const handleCancelTargetSelection = useCallback(() => {
+    setTargetCardLeaving(true);
+    setTimeout(() => { setPendingTargetAction(null); setTargetCardLeaving(false); }, 220);
+  }, []);
 
   useEffect(() => {
     if (!enemy) {
@@ -3066,6 +3333,60 @@ export default function App() {
           };
       });
   };
+
+  // ── Admin panel handlers ─────────────────────────────────────────────────
+  const handleAdminSetLevel = useCallback((targetLevel: number) => {
+    const safeLevel = Math.max(1, Math.min(99, Math.floor(targetLevel)));
+    setPlayer(prev => {
+      const next = { ...prev, stats: { ...prev.stats } };
+      next.level = safeLevel;
+      next.xp = 0;
+      next.xpToNext = getXpToNextByLevel(safeLevel);
+      next.talentPoints = Math.max(prev.talentPoints, 0);
+      const maxImpulse = getImpulseCapacityByLevel(safeLevel);
+      next.impulso = Math.min(prev.impulso, maxImpulse);
+      next.impulsoAtivo = Math.min(prev.impulsoAtivo, maxImpulse);
+      // Full HP/MP restore on level set
+      next.stats.hp = next.stats.maxHp;
+      next.stats.mp = next.stats.maxMp;
+      return next;
+    });
+  }, []);
+
+  const handleAdminForceEquip = useCallback((item: Item) => {
+    setPlayer(prev => {
+      // Ensure item is in inventory before equipping
+      const newInventory = { ...prev.inventory, [item.id]: Math.max(1, prev.inventory[item.id] ?? 0) };
+      return { ...prev, inventory: newInventory };
+    });
+    // Use a tiny delay so state settles, then call equipItem
+    window.setTimeout(() => {
+      setPlayer(prev => {
+        const withItem = { ...prev, inventory: { ...prev.inventory, [item.id]: Math.max(1, prev.inventory[item.id] ?? 0) } };
+        // inline equip logic (slot-based)
+        let next: Player = { ...withItem, stats: { ...withItem.stats } };
+        if (item.type === 'weapon') next = { ...next, equippedWeapon: item };
+        else if (item.type === 'armor') next = { ...next, equippedArmor: item };
+        else if (item.type === 'helmet') next = { ...next, equippedHelmet: item };
+        else if (item.type === 'legs') next = { ...next, equippedLegs: item };
+        else if (item.type === 'shield') next = { ...next, equippedShield: item };
+        // Recalculate stats
+        const bonuses = applyEquipmentBonusesToStats(
+          next.stats,
+          next.equippedWeapon ?? null,
+          next.equippedArmor ?? null,
+          next.equippedHelmet ?? null,
+          next.equippedLegs ?? null,
+          next.equippedShield ?? null,
+        );
+        next.stats = { ...next.stats, ...bonuses };
+        next.stats.hp = Math.min(next.stats.hp, next.stats.maxHp);
+        next.stats.mp = Math.min(next.stats.mp, next.stats.maxMp);
+        return next;
+      });
+    }, 0);
+  }, []);
+  // ─────────────────────────────────────────────────────────────────────────
 
   const equipItem = (item: Item) => {
       if (gameState === GameState.BATTLE) {
@@ -3354,11 +3675,11 @@ export default function App() {
       usesBowBasicAttack: shouldUseBowBasicAttack(player.classId, player.equippedWeapon),
       limitBattleActionsToBasics: isFirstBattleActionRestricted,
       shopItems: ALL_ITEMS,
-      onAttack: handlePlayerAttack,
+      onAttack: handleAttackWithTargetCheck,
       onDefend: handlePlayerDefense,
       onChargeImpulse: handleChargeImpulse,
       onAbsorbImpulse: handleAbsorbImpulse,
-      onSkill: handleSkill,
+      onSkill: handleSkillWithTargetCheck,
       onUseItem: handleUseItem,
       showFleeAction: isFleeUnlocked && !dungeonRun && !(enemy?.isBoss) && killCount < 10,
       onFlee: handleFlee,
@@ -4169,8 +4490,108 @@ export default function App() {
                         renderQualityPreset={battleSettings.renderQualityPreset}
                         onMenuHeroClick={resolvedGameState === GameState.TAVERN || resolvedGameState === GameState.BATTLE ? handleMenuHeroClick : undefined}
                         lootResult={lootResult}
+                        xpIconComponent={(() => {
+                            const IconMap: Record<string, React.ComponentType<{ size?: number; color?: string; strokeWidth?: number }>> = { knight: Shield, barbarian: Sword, mage: Sparkles, ranger: Crosshair, rogue: Zap };
+                            const ClassIcon = IconMap[player.classId] ?? Zap;
+                            return <ClassIcon size={20} color="#d97706" strokeWidth={2.5} />;
+                        })()}
+                        additionalEnemies={additionalEnemies}
+                        pendingTargetAction={pendingTargetAction}
+                        onSelectTarget={handleSelectTarget}
+                        onCancelTargetSelection={handleCancelTargetSelection}
+                        mainEnemySlotIndex={mainEnemySlotIndex}
+                        initialGroupSize={initialGroupSize}
                     />
             </SceneErrorBoundary>
+
+            {/* Target selection card overlay — shown when pendingTargetAction is active */}
+            {(pendingTargetAction || targetCardLeaving) && (() => {
+                const ta = pendingTargetAction;
+                if (!ta && !targetCardLeaving) return null;
+                const resolvedTa = ta ?? { type: 'attack' as const };
+                const isSkill = resolvedTa.type === 'skill';
+                const skill = isSkill && resolvedTa.type === 'skill' ? resolvedTa.skill : null;
+                const isMagic = isSkill && skill?.type === 'magic';
+                const isHeal = isSkill && skill?.type === 'heal';
+                const actionLabel = isSkill && skill ? skill.name : 'Atacar';
+                // Icon and color based on action type
+                const iconColor = isHeal ? '#4ade80' : isMagic ? '#c084fc' : '#f87171';
+                const IconComp = isHeal ? Heart : isMagic ? Sparkles : (isSkill ? Swords : Sword);
+                const cardAccent = iconColor;
+                return (
+                    <div
+                        style={{
+                            position: 'absolute', inset: 0, zIndex: 300,
+                            display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+                            paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 80px)',
+                            pointerEvents: 'none',
+                        }}
+                    >
+                        <div
+                            style={{
+                                pointerEvents: 'auto',
+                                backdropFilter: 'blur(28px)',
+                                WebkitBackdropFilter: 'blur(28px)',
+                                background: 'rgba(6,4,18,0.82)',
+                                border: `1.5px solid ${cardAccent}55`,
+                                borderRadius: '20px',
+                                padding: '14px 24px',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                gap: '8px',
+                                boxShadow: `0 8px 40px rgba(0,0,0,0.55), 0 0 0 1px ${cardAccent}22`,
+                                fontFamily: "'Segoe UI',system-ui,sans-serif",
+                                minWidth: '200px',
+                                maxWidth: '80vw',
+                                animation: targetCardLeaving
+                                    ? 'target-select-card-out 0.22s cubic-bezier(0.4,0,0.6,1) both'
+                                    : 'target-select-card-in 0.28s cubic-bezier(0.34,1.56,0.64,1) both',
+                            }}
+                        >
+                            {/* Action icon + name */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '9px' }}>
+                                <div style={{
+                                    width: '32px', height: '32px', borderRadius: '10px',
+                                    background: `${cardAccent}22`,
+                                    border: `1.5px solid ${cardAccent}55`,
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    boxShadow: `0 0 12px ${cardAccent}44`,
+                                }}>
+                                    <IconComp size={16} color={cardAccent} strokeWidth={2.5} />
+                                </div>
+                                <span style={{
+                                    fontSize: '14px', fontWeight: 900,
+                                    textTransform: 'uppercase', letterSpacing: '0.12em',
+                                    color: '#fff',
+                                }}>{actionLabel}</span>
+                            </div>
+                            {/* Instruction */}
+                            <span style={{
+                                fontSize: '11px', color: 'rgba(255,255,255,0.50)',
+                                letterSpacing: '0.06em', fontWeight: 600,
+                            }}>Selecione um alvo</span>
+                            {/* Cancel button */}
+                            <button
+                                onClick={handleCancelTargetSelection}
+                                style={{
+                                    marginTop: '2px',
+                                    background: 'rgba(255,255,255,0.07)',
+                                    border: '1px solid rgba(255,255,255,0.18)',
+                                    borderRadius: '10px',
+                                    padding: '6px 18px',
+                                    color: 'rgba(255,255,255,0.55)',
+                                    fontSize: '10px',
+                                    fontWeight: 900,
+                                    textTransform: 'uppercase',
+                                    letterSpacing: '0.14em',
+                                    cursor: 'pointer',
+                                }}
+                            >Cancelar ação</button>
+                        </div>
+                    </div>
+                );
+            })()}
 
             {/* Portal travel overlay — covers scene swap while new region loads */}
             {portalSceneOverlay && (() => {
@@ -4422,6 +4843,7 @@ export default function App() {
             onBuy={buyItem} 
             onSell={sellItem}
             onEquip={equipItem}
+            onUnequip={unequipItem}
             onLeave={() => {
                 if (shopReturnToInventory) {
                     setOpenInventoryFromShopFilter(shopReturnInventoryFilter);
@@ -4459,13 +4881,17 @@ export default function App() {
         gameState={resolvedGameState}
             turnState={turnState}
             logs={logs}
-            onAttack={handlePlayerAttack}
+            onAttack={handleAttackWithTargetCheck}
             onDefend={handlePlayerDefense}
             onChargeImpulse={handleChargeImpulse}
             onAbsorbImpulse={handleAbsorbImpulse}
-            onSkill={handleSkill}
+            onSkill={handleSkillWithTargetCheck}
             onUseItem={handleUseItem}
             enemyIntentPreview={enemyIntentPreview}
+            additionalEnemies={additionalEnemies}
+            pendingTargetAction={pendingTargetAction}
+            onSelectTarget={handleSelectTarget}
+            onCancelTargetSelection={handleCancelTargetSelection}
             onUnlockTalent={handleUnlockTalent}
             onResetTalents={handleResetTalents}
             onStartBattle={(isBoss) => enterBattle(isBoss)}
@@ -4742,6 +5168,23 @@ export default function App() {
               runItems={towerRunItems}
               onReturnToHub={handleTowerReturnToHub}
           />
+      )}
+
+      {/* ── Admin Panel — visible only with ?admin=true in URL ── */}
+      {isAdminMode && (
+        <AdminPanel
+          player={player}
+          stage={stage}
+          dungeonEvolution={dungeonEvolution}
+          towerEssence={towerMeta.essence}
+          onSetLevel={handleAdminSetLevel}
+          onSetStage={(s) => setStage(Math.max(1, s))}
+          onSetDungeonEvolution={(d) => setDungeonEvolution(Math.max(0, d))}
+          onAddGold={(amount) => setPlayer(prev => ({ ...prev, gold: prev.gold + amount }))}
+          onAddDiamonds={(amount) => setPlayer(prev => ({ ...prev, diamonds: prev.diamonds + amount }))}
+          onAddEssence={(amount) => setTowerMeta(prev => ({ ...prev, essence: prev.essence + amount }))}
+          onForceEquip={handleAdminForceEquip}
+        />
       )}
     </div>
   );

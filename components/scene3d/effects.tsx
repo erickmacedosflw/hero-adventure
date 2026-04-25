@@ -16,7 +16,7 @@ export interface LootResultData {
   isBoss: boolean;
 }
 
-export const WorldLootDisplay = ({ loot }: { loot: LootResultData | null }) => {
+export const WorldLootDisplay = ({ loot, xpIcon, enemyAnchor }: { loot: LootResultData | null; xpIcon?: React.ReactNode; enemyAnchor?: [number, number, number] }) => {
   const groupRef = useRef<THREE.Group>(null);
   const htmlRef = useRef<HTMLDivElement>(null);
   const startTimeRef = useRef<number | null>(null);
@@ -35,7 +35,10 @@ export const WorldLootDisplay = ({ loot }: { loot: LootResultData | null }) => {
     const elapsed = state.clock.elapsedTime - startTimeRef.current;
     const progress = Math.min(1, elapsed / DURATION);
     const lift = elapsed * 0.22;
-    groupRef.current.position.set(2, 0.5 + lift, 0.15);
+    const ax = enemyAnchor?.[0] ?? 2;
+    const ay = enemyAnchor?.[1] ?? 0.5;
+    const az = enemyAnchor?.[2] ?? 0.15;
+    groupRef.current.position.set(ax, ay + lift, az);
     let opacity = 1;
     if (progress < 0.12) {
       opacity = progress / 0.12;
@@ -76,7 +79,7 @@ export const WorldLootDisplay = ({ loot }: { loot: LootResultData | null }) => {
     rarity === 'gold' ? '#fcd34d' : rarity === 'silver' ? '#cbd5e1' : '#d4a07a';
 
   return (
-    <group ref={groupRef} position={[2, 0.5, 0.15]}>
+    <group ref={groupRef} position={enemyAnchor ?? [2, 0.5, 0.15]}>
       <Html center sprite distanceFactor={10} zIndexRange={[120, 0]}>
         <div ref={htmlRef} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px', opacity: 0, pointerEvents: 'none' }}>
           {/* Gold */}
@@ -86,7 +89,9 @@ export const WorldLootDisplay = ({ loot }: { loot: LootResultData | null }) => {
           </div>
           {/* XP */}
           <div style={rowStyle}>
-            <img src={_XP_URL} style={imgStyle} draggable={false} alt="XP" />
+            {xpIcon
+              ? <span style={{ width: 26, height: 26, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{xpIcon}</span>
+              : <img src={_XP_URL} style={imgStyle} draggable={false} alt="XP" />}
             <span style={valStyle('#d97706')}>+{loot.xp} XP</span>
           </div>
           {/* Diamonds */}
@@ -234,20 +239,24 @@ const WorldFloatingText = ({
   type,
   target,
   stackIndex,
+  enemyAnchor,
 }: {
   text: FloatingText;
   type: FloatingText['type'];
   target: FloatingText['target'];
   stackIndex: number;
+  enemyAnchor?: [number, number, number];
 }) => {
   const groupRef = useRef<THREE.Group>(null);
   const textRef = useRef<HTMLDivElement>(null);
   const startTimeRef = useRef<number | null>(null);
-  const basePosition = useMemo<[number, number, number]>(() => (
-    target === 'player'
-      ? [-2, 1.48 - stackIndex * 0.24, 0.15]
-      : [2, 1.62 - stackIndex * 0.24, 0.15]
-  ), [stackIndex, target]);
+  const basePosition = useMemo<[number, number, number]>(() => {
+    if (target === 'player') return [-2, 1.48 - stackIndex * 0.24, 0.15];
+    const ax = enemyAnchor?.[0] ?? 2;
+    const ay = (enemyAnchor?.[1] ?? 0.5) + 1.12;
+    const az = enemyAnchor?.[2] ?? 0.15;
+    return [ax, ay - stackIndex * 0.24, az];
+  }, [stackIndex, target, enemyAnchor]);
   const durationSeconds = Math.max(0.2, (text.durationMs ?? 1100) / 1000);
 
   useFrame((state) => {
@@ -339,7 +348,7 @@ const WorldFloatingText = ({
   );
 };
 
-export const WorldFloatingTexts = ({ texts = [] }: { texts?: FloatingText[] }) => {
+export const WorldFloatingTexts = ({ texts = [], enemyAnchor }: { texts?: FloatingText[]; enemyAnchor?: [number, number, number] }) => {
   const stackIndexes = (() => {
     const nextIndexes = { player: 0, enemy: 0 };
     const result: Record<string, number> = {};
@@ -361,6 +370,7 @@ export const WorldFloatingTexts = ({ texts = [] }: { texts?: FloatingText[] }) =
           type={text.type}
           target={text.target}
           stackIndex={stackIndexes[text.id] ?? 0}
+          enemyAnchor={enemyAnchor}
         />
       ))}
     </group>

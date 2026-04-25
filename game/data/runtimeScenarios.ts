@@ -106,8 +106,8 @@ const RUNTIME_SCENARIO_PRESETS: Record<string, RuntimeScenarioPreset> = {
       atmosphere: {
         fogEnabled: true,
         fogColor: '#5a5735',
-        fogNear: 12,
-        fogFar: 42,
+        fogNear: 14,
+        fogFar: 50,
       },
       particles: {
         dustEnabled: true,
@@ -155,8 +155,8 @@ const RUNTIME_SCENARIO_PRESETS: Record<string, RuntimeScenarioPreset> = {
       atmosphere: {
         fogEnabled: true,
         fogColor: '#7d6991',
-        fogNear: 12,
-        fogFar: 42,
+        fogNear: 8,
+        fogFar: 50,
       },
       particles: {
         dustEnabled: true,
@@ -199,8 +199,8 @@ const RUNTIME_SCENARIO_PRESETS: Record<string, RuntimeScenarioPreset> = {
       atmosphere: {
         fogEnabled: true,
         fogColor: '#517b7b',
-        fogNear: 10,
-        fogFar: 34,
+        fogNear: 12,
+        fogFar: 42,
       },
       particles: {
         dustEnabled: true,
@@ -255,7 +255,7 @@ const RUNTIME_SCENARIO_PRESETS: Record<string, RuntimeScenarioPreset> = {
         fogEnabled: true,
         fogColor: '#94a3b8',
         fogNear: 8,
-        fogFar: 26,
+        fogFar: 70,
       },
       particles: {
         dustEnabled: true,

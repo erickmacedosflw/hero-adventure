@@ -288,8 +288,8 @@ const EquipmentCard = ({ label, item, type, onClick }: { label: string; item: It
 
   return (
   <Component onClick={onClick} className={`relative flex w-full items-center gap-3 overflow-hidden rounded-[18px] border px-3 py-3 text-left transition-all duration-200 ${item ? `${getRarityColor(item.rarity)} bg-[#f4e5d4]` : 'border-[#cfab91] bg-[#f7ecdd] text-[#8f6c67]'} ${onClick ? 'group cursor-pointer hover:-translate-y-[1px] hover:border-[#b98774] hover:bg-[#efdfcd] hover:shadow-[0_10px_22px_rgba(107,49,65,0.14)] active:scale-[0.99]' : ''}`}>
-    <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[#dcc0aa] bg-[#f8eddf] transition-transform duration-200 ${onClick ? 'group-hover:scale-105 group-active:scale-95' : ''}`}>
-      {item ? <ItemIcon item={item} emojiClassName="text-2xl leading-none" imgClassName="w-8 h-8 object-contain" /> : <ItemTypeIcon type={type} size={18} />}
+    <div className={`flex h-12 w-12 shrink-0 items-center justify-center transition-transform duration-200 ${onClick ? 'group-hover:scale-110 group-active:scale-95' : ''}`}>
+      {item ? <ItemIcon item={item} emojiClassName="text-4xl leading-none" imgClassName="w-12 h-12 object-contain" /> : <ItemTypeIcon type={type} size={26} />}
     </div>
     <div className="min-w-0 flex-1">
       <div className="text-[8px] font-black uppercase tracking-[0.14em] text-[#8a5a57]">{label}</div>

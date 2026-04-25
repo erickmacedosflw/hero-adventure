@@ -11,7 +11,7 @@ import {
 import {
   applyStatusEffect,
   calculateDamage,
-  consumeTurnBuffs,
+  consumeTurnBuffs as _consumeTurnBuffs,
   createStatusEffect,
   tickStatusEffects,
 } from '../mechanics/combat';
@@ -122,6 +122,8 @@ interface UseBattleControllerParams {
   enemyIntentPreview?: EnemyIntentPreview | null;
   onPlayerDefeat?: () => void;
   onTowerDefeat?: () => void;
+  /** Chamado quando o ator atual (jogador ou inimigo) termina seu turno. Avança a fila de iniciativa. */
+  onActorTurnDone: () => void;
 }
 
 const getMarkedBonus = (statuses: Enemy['statusEffects'] | undefined, value: number) => (
@@ -389,6 +391,7 @@ export const useBattleController = ({
   enemyIntentPreview,
   onPlayerDefeat,
   onTowerDefeat,
+  onActorTurnDone,
 }: UseBattleControllerParams) => {
   const handleVictoryRef = useRef(handleVictory);
   const lastPlayerActionRef = useRef<'attack' | 'defend' | 'skill' | 'item' | null>(null);
@@ -528,11 +531,10 @@ export const useBattleController = ({
     addLog('Impulso carregado +1.', 'buff');
 
     window.setTimeout(() => {
-      setPlayer((prev) => ({ ...prev, buffs: consumeTurnBuffs(prev.buffs) }));
       setPlayerImpactAnimationId(null);
       setPlayerImpactAnimationTintColor(null);
       setPlayerAnimationAction('idle');
-      window.setTimeout(() => setTurnState(TurnState.ENEMY_TURN), 1000);
+      window.setTimeout(() => onActorTurnDone(), 1000);
     }, impulseFinishDelayMs);
   }, [
     addLog,
@@ -759,7 +761,6 @@ export const useBattleController = ({
 
       const finishOnVictory = () => {
         const finalize = () => {
-          setPlayer((prev) => ({ ...prev, buffs: consumeTurnBuffs(prev.buffs) }));
           setPlayerExecutionAnimationId(null);
           setPlayerExecutionAnimationTintColor(null);
           setPlayerImpactAnimationId(null);
@@ -779,13 +780,12 @@ export const useBattleController = ({
           ? Math.max(idleDelay, 570, bowProjectileImpactDelayMs + 180)
           : Math.max(idleDelay, bowProjectileImpactDelayMs + 180);
         window.setTimeout(() => {
-          setPlayer((prev) => ({ ...prev, buffs: consumeTurnBuffs(prev.buffs) }));
           setPlayerExecutionAnimationId(null);
           setPlayerExecutionAnimationTintColor(null);
           setPlayerImpactAnimationId(null);
           setPlayerImpactAnimationTintColor(null);
           setPlayerAnimationAction('idle');
-          window.setTimeout(() => setTurnState(TurnState.ENEMY_TURN), 1000);
+          window.setTimeout(() => onActorTurnDone(), 1000);
         }, resolvedIdleDelay);
       };
 
@@ -887,14 +887,7 @@ export const useBattleController = ({
     spawnParticles([-2, -1, 0], 10, '#3b82f6', 'spark');
 
     window.setTimeout(() => {
-      setPlayer((prev) => {
-        const consumedBuffs = consumeTurnBuffs(prev.buffs);
-        consumedBuffs.perfectGuardTurns = prev.buffs.perfectGuardTurns;
-        consumedBuffs.guaranteedCounterTurns = prev.buffs.guaranteedCounterTurns;
-        consumedBuffs.impulseDefenseBoostTurns = prev.buffs.impulseDefenseBoostTurns;
-        return { ...prev, buffs: consumedBuffs };
-      });
-      window.setTimeout(() => setTurnState(TurnState.ENEMY_TURN), 1000);
+      window.setTimeout(() => onActorTurnDone(), 1000);
     }, 600);
   }, [
     addLog,
@@ -997,17 +990,12 @@ export const useBattleController = ({
       addLog(`${skill.name}: defesa automatica ativa por 3 turnos.`, 'buff');
 
       window.setTimeout(() => {
-        setPlayer((prev) => {
-          const consumedBuffs = consumeTurnBuffs(prev.buffs);
-          consumedBuffs.autoGuardTurns = prev.buffs.autoGuardTurns;
-          return { ...prev, buffs: consumedBuffs };
-        });
         setPlayerExecutionAnimationId(null);
         setPlayerExecutionAnimationTintColor(null);
         setPlayerImpactAnimationId(null);
         setPlayerImpactAnimationTintColor(null);
         setPlayerAnimationAction('idle');
-        window.setTimeout(() => setTurnState(TurnState.ENEMY_TURN), 1000);
+        window.setTimeout(() => onActorTurnDone(), 1000);
       }, 1500);
       return;
     }
@@ -1066,19 +1054,12 @@ export const useBattleController = ({
       }, impactDelayMs);
 
       window.setTimeout(() => {
-        setPlayer((prev) => {
-          const consumedBuffs = consumeTurnBuffs(prev.buffs);
-          if (grantEmpowerTurns > 0) {
-            consumedBuffs.skillEmpowerTurns = prev.buffs.skillEmpowerTurns;
-          }
-          return { ...prev, buffs: consumedBuffs };
-        });
         setPlayerExecutionAnimationId(null);
         setPlayerExecutionAnimationTintColor(null);
         setPlayerImpactAnimationId(null);
         setPlayerImpactAnimationTintColor(null);
         setPlayerAnimationAction('idle');
-        window.setTimeout(() => setTurnState(TurnState.ENEMY_TURN), 1000);
+        window.setTimeout(() => onActorTurnDone(), 1000);
       }, finishDelayMs);
       return;
     }
@@ -1223,13 +1204,6 @@ export const useBattleController = ({
 
       const finishOnVictory = () => {
         const finalize = () => {
-          setPlayer((prev) => {
-            const consumedBuffs = consumeTurnBuffs(prev.buffs);
-            if (grantEmpowerTurns > 0) {
-              consumedBuffs.skillEmpowerTurns = prev.buffs.skillEmpowerTurns;
-            }
-            return { ...prev, buffs: consumedBuffs };
-          });
           setPlayerExecutionAnimationId(null);
           setPlayerExecutionAnimationTintColor(null);
           setPlayerImpactAnimationId(null);
@@ -1246,19 +1220,12 @@ export const useBattleController = ({
 
       const finishOnEnemyTurn = () => {
         window.setTimeout(() => {
-          setPlayer((prev) => {
-            const consumedBuffs = consumeTurnBuffs(prev.buffs);
-            if (grantEmpowerTurns > 0) {
-              consumedBuffs.skillEmpowerTurns = prev.buffs.skillEmpowerTurns;
-            }
-            return { ...prev, buffs: consumedBuffs };
-          });
           setPlayerExecutionAnimationId(null);
           setPlayerExecutionAnimationTintColor(null);
           setPlayerImpactAnimationId(null);
           setPlayerImpactAnimationTintColor(null);
           setPlayerAnimationAction('idle');
-          window.setTimeout(() => setTurnState(TurnState.ENEMY_TURN), 1000);
+          window.setTimeout(() => onActorTurnDone(), 1000);
         }, Math.max(420, skillImpactPlaybackWindowMs, skillProjectileImpactDelayMs + 220));
       };
 
@@ -1464,32 +1431,12 @@ export const useBattleController = ({
       }
 
       window.setTimeout(() => {
-        setPlayer((prev) => {
-          const consumedBuffs = consumeTurnBuffs(prev.buffs);
-          if (item.id === 'pot_atk') {
-            consumedBuffs.atkTurns = prev.buffs.atkTurns;
-          }
-          if (item.id === 'pot_def') {
-            consumedBuffs.defTurns = prev.buffs.defTurns;
-          }
-          if (item.id === 'pot_alc_phantom_veil') {
-            consumedBuffs.perfectEvadeTurns = prev.buffs.perfectEvadeTurns;
-          }
-          if (item.id === 'pot_alc_twin_fang') {
-            consumedBuffs.doubleAttackTurns = prev.buffs.doubleAttackTurns;
-          }
-          if (item.id === 'pot_war_sigil' || item.id === 'pot_overclock') {
-            consumedBuffs.atkTurns = prev.buffs.atkTurns;
-            consumedBuffs.defTurns = prev.buffs.defTurns;
-          }
-          return { ...prev, buffs: consumedBuffs };
-        });
         setPlayerAnimationAction('idle');
         setPlayerExecutionAnimationId(null);
         setPlayerExecutionAnimationTintColor(null);
         setPlayerImpactAnimationId(null);
         setPlayerImpactAnimationTintColor(null);
-        window.setTimeout(() => setTurnState(TurnState.ENEMY_TURN), 1000);
+        window.setTimeout(() => onActorTurnDone(), 1000);
       }, itemFinishDelayMs);
     }
   }, [
@@ -1693,7 +1640,7 @@ export const useBattleController = ({
       pendingEnemyIntentRef.current = nextIntent;
       setEnemyIntentPreview(createEnemyIntentPreview(nextIntent));
       setPlayerAnimationAction('idle');
-      window.setTimeout(() => setTurnState(TurnState.PLAYER_INPUT), 350);
+      window.setTimeout(() => onActorTurnDone(), 350);
     };
 
     const rollDefensiveCounter = (targetEnemy: Enemy) => {

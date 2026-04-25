@@ -459,6 +459,28 @@ button {
   }
 }
 
+@keyframes target-select-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(28px) scale(0.88);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes target-select-card-out {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(20px) scale(0.90);
+  }
+}
+
 .hero-save-card {
   border-radius: 1rem;
   border: 1px solid rgba(248, 225, 196, 0.28);

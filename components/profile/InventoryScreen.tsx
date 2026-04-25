@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowDown, ArrowLeft, ArrowUp, FlaskConical, Heart, Shield, Sparkles, Sword, Zap } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowUp, CheckCircle2, FlaskConical, Heart, Shield, Sparkles, Sword, Trash2, Zap } from 'lucide-react';
 import { Item, Player } from '../../types';
-import { ItemPreviewThree } from '../items/ItemPreviewThree';
 import { GameAssetIcon } from '../ui/game-asset-icon';
 import { isEquipmentType, ItemIcon, ItemTypeIcon, ItemTypeLabel } from '../ui/game-display';
 import { getEquipmentBonuses } from '../../game/mechanics/equipmentBonuses';
@@ -62,6 +61,7 @@ type InventoryScreenProps = {
   isClosing?: boolean;
   targetItemSlotIndex?: number | null;
   onEquipItemToSlot?: (slotIndex: number, itemId: string | null) => void;
+  inShopContext?: boolean;
 };
 
 type InventoryFilter = 'potion' | 'equipment' | 'material';
@@ -189,7 +189,9 @@ const InventoryCard: React.FC<{
   isBattleContext: boolean;
   inSlotIndex?: number;
   isPicking?: boolean;
-}> = ({ item, quantity, player, isSelected, isEquipped, onClick, onEquipToggle, isBattleContext, inSlotIndex, isPicking }) => {
+  isMultiSelectMode?: boolean;
+  isMultiSelected?: boolean;
+}> = ({ item, quantity, player, isSelected, isEquipped, onClick, onEquipToggle, isBattleContext, inSlotIndex, isPicking, isMultiSelectMode, isMultiSelected }) => {
   const trend = getEquipmentComparisonTrend(player, item);
   const isEquipCard = isEquipmentType(item.type);
   const effectCards = getItemEffectCards(item);
@@ -199,8 +201,24 @@ const InventoryCard: React.FC<{
   return (
     <button
       onClick={onClick}
-      className={`relative shrink-0 w-[130px] flex flex-col rounded-[20px] border-2 ${isPicking ? 'border-amber-400/60' : getRarityBorder(item.rarity)} bg-black/50 backdrop-blur-md p-3 text-left transition-all duration-200 hover:-translate-y-1 active:scale-95 ${getRarityGlow(item.rarity)} ${isSelected ? 'ring-2 ring-white/30 shadow-[0_0_20px_rgba(255,255,255,0.15)]' : 'opacity-85 hover:opacity-100'}`}
+      className={`relative shrink-0 w-[130px] flex flex-col rounded-[20px] border-2 ${
+        isMultiSelectMode
+          ? isMultiSelected ? 'border-emerald-400' : 'border-white/20'
+          : isPicking ? 'border-amber-400/60' : getRarityBorder(item.rarity)
+      } bg-white/8 backdrop-blur-md p-3 text-left transition-all duration-200 hover:-translate-y-1 active:scale-95 ${getRarityGlow(item.rarity)} ${isSelected && !isMultiSelectMode ? 'ring-2 ring-white/30 shadow-[0_0_20px_rgba(255,255,255,0.15)]' : 'opacity-85 hover:opacity-100'}`}
     >
+      {/* Multi-select overlay */}
+      {isMultiSelectMode && (
+        <div className={`absolute inset-0 rounded-[18px] pointer-events-none transition-all duration-150 ${
+          isMultiSelected ? 'bg-emerald-500/20 ring-2 ring-emerald-400/60' : 'bg-black/10'
+        }`}>
+          <div className={`absolute top-2 left-2 flex h-5 w-5 items-center justify-center rounded-full border-2 transition-all ${
+            isMultiSelected ? 'border-emerald-400 bg-emerald-400' : 'border-white/40 bg-black/50'
+          }`}>
+            {isMultiSelected && <CheckCircle2 size={14} className="text-black" />}
+          </div>
+        </div>
+      )}
       {/* Quantity badge */}
       <span className="absolute right-2 top-2 z-10 rounded-full border border-white/20 bg-black/60 px-1.5 py-0.5 text-[9px] font-black text-white">
         x{quantity}
@@ -289,7 +307,8 @@ const ItemDetailModal: React.FC<{
   onSell?: (item: Item, qty: number) => void;
   isEquipped: boolean;
   isBattleContext: boolean;
-}> = ({ item, quantity, player, closing, onClose, onEquip, onUnequip, onUse, onSell, isEquipped, isBattleContext }) => {
+  inShopContext?: boolean;
+}> = ({ item, quantity, player, closing, onClose, onEquip, onUnequip, onUse, onSell, isEquipped, isBattleContext, inShopContext }) => {
   const overlayClass = closing ? 'rpg-modal-overlay-out' : 'rpg-modal-overlay-in';
   const panelClass = closing ? 'rpg-modal-panel-out' : 'rpg-modal-panel-in';
   const effectCards = getItemEffectCards(item);
@@ -299,7 +318,7 @@ const ItemDetailModal: React.FC<{
   const canEquip = !isBattleContext && isEquipCard && !isEquipped;
   const canUnequip = !isBattleContext && isEquipCard && isEquipped;
   const canUse = isBattleContext && item.type === 'potion';
-  const canSell = !isBattleContext && Boolean(onSell) && ownedQty > 0 && !(isEquipCard && isEquipped);
+  const canSell = !!inShopContext && !!onSell && ownedQty > 0;
   const sellValue = Math.floor(item.cost / 2);
   const [sellQty, setSellQty] = useState(1);
   const sellTotal = sellQty * sellValue;
@@ -343,11 +362,9 @@ const ItemDetailModal: React.FC<{
         <div className="flex-1 overflow-y-auto px-5 pb-2" data-scrollable>
           <p className="text-sm text-white/60 leading-relaxed">{item.description}</p>
 
-          {/* 3D preview */}
-          <div className="mt-3 overflow-hidden rounded-[18px] bg-white/3 border border-white/8">
-            <div className="h-[10rem]">
-              <ItemPreviewThree item={item} variant="menu" />
-            </div>
+          {/* Icon preview — igual à loja */}
+          <div className="mt-3 relative flex items-center justify-center overflow-hidden rounded-[18px] bg-gradient-to-b from-white/5 to-black/30 border border-white/8 h-[11rem]">
+            <ItemIcon item={item} emojiClassName="text-8xl leading-none select-none" />
           </div>
 
           {/* Effect cards */}
@@ -546,6 +563,92 @@ const SellQuantityModal: React.FC<{
   );
 };
 
+// ── Batch Sell Modal ─────────────────────────────────────────────────────────
+
+const BatchSellModal: React.FC<{
+  entries: Array<{ item: Item; qty: number }>;
+  player: Player;
+  onRemove: (itemId: string) => void;
+  onConfirm: () => void;
+  onClose: () => void;
+}> = ({ entries, player, onRemove, onConfirm, onClose }) => {
+  const totalGold = entries.reduce((s, e) => s + Math.floor(e.item.cost / 2) * e.qty, 0);
+
+  return (
+    <div
+      className="absolute inset-0 z-[90] flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm p-3 rpg-modal-overlay-in"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-sm rounded-[24px] border border-white/10 bg-[#0d1117] shadow-[0_24px_60px_rgba(0,0,0,0.9)] overflow-hidden rpg-modal-panel-in"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-white/8">
+          <div>
+            <div className="text-[10px] font-black uppercase tracking-widest text-white/40">Venda em lote</div>
+            <h3 className="mt-0.5 text-base font-black text-white">{entries.length} {entries.length === 1 ? 'item' : 'itens'} selecionados</h3>
+          </div>
+          <div className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-3 py-1.5 text-sm font-black text-emerald-300">
+            <GameAssetIcon name="coin" size={16} />+{totalGold}
+          </div>
+        </div>
+
+        {/* Item list */}
+        <div className="max-h-[40vh] overflow-y-auto px-5 py-3 flex flex-col gap-2" data-scrollable>
+          {entries.map(({ item, qty }) => {
+            const unitPrice = Math.floor(item.cost / 2);
+            return (
+              <div key={item.id} className="flex items-center gap-3 rounded-[16px] border border-white/8 bg-white/5 px-3 py-2.5">
+                <div className="shrink-0 flex h-10 w-10 items-center justify-center">
+                  <ItemIcon item={item} emojiClassName="text-[28px] leading-none" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[12px] font-black text-white truncate">{item.name}</div>
+                  <div className="mt-0.5 inline-flex items-center gap-1 text-[10px] font-black text-emerald-400">
+                    <GameAssetIcon name="coin" size={11} />{unitPrice} × {qty} = {unitPrice * qty}
+                  </div>
+                </div>
+                <button
+                  onClick={() => onRemove(item.id)}
+                  className="shrink-0 flex h-8 w-8 items-center justify-center rounded-xl border border-red-500/30 bg-red-500/10 text-red-400 hover:bg-red-500/20 active:scale-95 transition-all"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Summary */}
+        <div className="mx-5 rounded-[14px] border border-white/10 bg-white/5 px-4 py-3 flex items-center justify-between">
+          <span className="text-xs font-black uppercase tracking-widest text-white/50">Ouro após venda</span>
+          <span className="inline-flex items-center gap-1.5 text-sm font-black text-amber-300">
+            <GameAssetIcon name="coin" size={16} />{player.gold + totalGold}
+          </span>
+        </div>
+
+        {/* Footer */}
+        <div className="flex gap-2 px-5 py-4">
+          <button
+            onClick={onClose}
+            className="flex-1 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-xs font-black uppercase tracking-widest text-white/50 hover:bg-white/10 active:scale-95 transition-all"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={entries.length === 0}
+            className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl border border-emerald-500/60 bg-emerald-600 px-4 py-2.5 text-sm font-black uppercase tracking-widest text-white hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed active:scale-95 transition-all"
+          >
+            <GameAssetIcon name="coin" size={18} />Vender Tudo
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ── Main Export ───────────────────────────────────────────────────────────────
 
 export const InventoryScreen = ({
@@ -561,6 +664,7 @@ export const InventoryScreen = ({
   isClosing = false,
   targetItemSlotIndex = null,
   onEquipItemToSlot,
+  inShopContext = false,
 }: InventoryScreenProps) => {
   const MODAL_CLOSE_MS = 180;
 
@@ -583,6 +687,10 @@ export const InventoryScreen = ({
   const [sellClosing, setSellClosing] = useState(false);
   const [shaking, setShaking] = useState(false);
   const [mounted, setMounted] = useState(false);
+  // Multi-select state
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [batchSellOpen, setBatchSellOpen] = useState(false);
   const bagAnimKey = useRef(0);
   const bagTimerRef = useRef<number | null>(null);
   const detailTimerRef = useRef<number | null>(null);
@@ -663,25 +771,11 @@ export const InventoryScreen = ({
 
   const EQUIPMENT_TYPE_ORDER: Item['type'][] = ['weapon', 'shield', 'helmet', 'armor', 'legs'];
 
-  const filteredItems = useMemo(() => {
-    const filtered = inventoryItems.filter(({ item }) => {
-      if (filter === 'equipment') {
-        if (equipmentSubFilter) return item.type === equipmentSubFilter;
-        return isEquipmentType(item.type);
-      }
-      return item.type === filter;
-    });
-    if (filter === 'equipment') {
-      filtered.sort((a, b) => {
-        const ai = EQUIPMENT_TYPE_ORDER.indexOf(a.item.type as Item['type']);
-        const bi = EQUIPMENT_TYPE_ORDER.indexOf(b.item.type as Item['type']);
-        return ai - bi;
-      });
-    }
-    return filtered;
-  }, [filter, inventoryItems, equipmentSubFilter]);
-
-  const totalItems = inventoryItems.reduce((s, e) => s + e.quantity, 0);
+  // IDs de itens em slots de habilidade/item — não devem aparecer na aba consumíveis
+  const slottedItemIds = useMemo(
+    () => new Set((player.equippedItemSlots ?? []).map((s) => s.itemId).filter(Boolean) as string[]),
+    [player.equippedItemSlots],
+  );
 
   const isItemEquipped = (item: Item) => (
     player.equippedWeapon?.id === item.id
@@ -691,11 +785,79 @@ export const InventoryScreen = ({
     || player.equippedShield?.id === item.id
   );
 
+  const filteredItems = useMemo(() => {
+    const filtered = inventoryItems.filter(({ item }) => {
+      if (filter === 'equipment') {
+        if (equipmentSubFilter) return item.type === equipmentSubFilter;
+        return isEquipmentType(item.type);
+      }
+      // Potion/material: ocultar itens em slots de habilidade
+      if (item.type === 'potion' && slottedItemIds.has(item.id)) return false;
+      return item.type === filter;
+    });
+    if (filter === 'equipment') {
+      filtered.sort((a, b) => {
+        const ai = EQUIPMENT_TYPE_ORDER.indexOf(a.item.type as Item['type']);
+        const bi = EQUIPMENT_TYPE_ORDER.indexOf(b.item.type as Item['type']);
+        return ai - bi;
+      });
+    }
+    // No modo seleção de venda: ocultar equipamentos já equipados no herói
+    if (selectionMode) {
+      return filtered.filter(({ item }) => !isItemEquipped(item));
+    }
+    return filtered;
+  }, [filter, inventoryItems, equipmentSubFilter, slottedItemIds, selectionMode]);
+
+  const totalItems = inventoryItems.reduce((s, e) => s + e.quantity, 0);
+
   const activeEntry = filteredItems.find((e) => e.item.id === activeItemId) ?? null;
 
   const openDetail = (item: Item) => {
     setDetailClosing(false);
     setActiveItemId(item.id);
+  };
+
+  const toggleSelectItem = (item: Item) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(item.id)) next.delete(item.id);
+      else next.add(item.id);
+      return next;
+    });
+  };
+
+  const exitSelectionMode = () => {
+    setSelectionMode(false);
+    setSelectedIds(new Set());
+  };
+
+  const openBatchSell = () => {
+    if (selectedIds.size === 0) return;
+    setBatchSellOpen(true);
+  };
+
+  const handleBatchConfirm = () => {
+    batchEntries.forEach(({ item, qty }) => onSell?.(item, qty));
+    setBatchSellOpen(false);
+    exitSelectionMode();
+  };
+
+  // Build batch entries: selected items that are not equipped, qty = inventory count
+  const batchEntries = useMemo(() => {
+    return Array.from(selectedIds)
+      .map((id) => {
+        const entry = inventoryItems.find((e) => e.item.id === id);
+        if (!entry) return null;
+        const qty = player.inventory[id] ?? 0;
+        if (qty <= 0) return null;
+        return { item: entry.item, qty };
+      })
+      .filter(Boolean) as Array<{ item: Item; qty: number }>;
+  }, [selectedIds, inventoryItems, player.inventory]);
+
+  const removeBatchEntry = (itemId: string) => {
+    setSelectedIds((prev) => { const next = new Set(prev); next.delete(itemId); return next; });
   };
 
   const closeDetail = () => {
@@ -810,9 +972,28 @@ export const InventoryScreen = ({
               {totalItems} itens
             </span>
           </div>
-          <div className="inline-flex items-center gap-1.5 rounded-xl border border-amber-400/30 bg-amber-400/10 px-3 py-1.5 text-sm font-black text-amber-300">
-            <GameAssetIcon name="coin" size={16} />
-            {player.gold}
+          <div className="flex items-center gap-2">
+            {inShopContext && onSell && !isPicking && (
+              selectionMode ? (
+                <button
+                  onClick={exitSelectionMode}
+                  className="rounded-xl border border-white/20 bg-white/5 px-2.5 py-1.5 text-[10px] font-black uppercase tracking-widest text-white/60 hover:bg-white/10 active:scale-95 transition-all"
+                >
+                  Cancelar
+                </button>
+              ) : (
+                <button
+                  onClick={() => setSelectionMode(true)}
+                  className="inline-flex items-center gap-1 rounded-xl border border-emerald-400/40 bg-emerald-500/10 px-2.5 py-1.5 text-[10px] font-black uppercase tracking-widest text-emerald-400 hover:bg-emerald-500/20 active:scale-95 transition-all"
+                >
+                  <CheckCircle2 size={12} /> Selecionar
+                </button>
+              )
+            )}
+            <div className="inline-flex items-center gap-1.5 rounded-xl border border-amber-400/30 bg-amber-400/10 px-3 py-1.5 text-sm font-black text-amber-300">
+              <GameAssetIcon name="coin" size={16} />
+              {player.gold}
+            </div>
           </div>
         </div>
 
@@ -878,7 +1059,7 @@ export const InventoryScreen = ({
         )}
 
         {/* Items horizontal scroll */}
-        <div className="flex items-start gap-3 overflow-x-auto px-4 pb-3 no-scrollbar min-h-[180px]" data-scrollable>
+        <div className={`flex items-start gap-3 overflow-x-auto px-4 no-scrollbar min-h-[180px] transition-all duration-200 ${selectionMode ? 'pb-20' : 'pb-3'}`} data-scrollable style={{ isolation: 'isolate' }}>
           {filteredItems.length === 0 ? (
             <div className="flex w-full items-center justify-center rounded-[20px] border border-dashed border-white/10 bg-white/3 px-6 py-8 text-sm text-white/30">
               Nenhum item nesta categoria.
@@ -892,11 +1073,19 @@ export const InventoryScreen = ({
                 player={player}
                 isSelected={activeItemId === item.id}
                 isEquipped={isItemEquipped(item)}
-                onClick={isPicking && item.type === 'potion' ? () => handlePickingClick(item) : () => openDetail(item)}
-                onEquipToggle={handleEquipToggle}
+                onClick={
+                  selectionMode
+                    ? () => toggleSelectItem(item)
+                    : isPicking && item.type === 'potion'
+                      ? () => handlePickingClick(item)
+                      : () => openDetail(item)
+                }
+                onEquipToggle={selectionMode ? undefined : handleEquipToggle}
                 isBattleContext={isBattleContext}
                 inSlotIndex={getItemSlotIndex(item.id)}
                 isPicking={isPicking && item.type === 'potion'}
+                isMultiSelectMode={selectionMode}
+                isMultiSelected={selectedIds.has(item.id)}
               />
             ))
           )}
@@ -904,7 +1093,7 @@ export const InventoryScreen = ({
       </div>
 
       {/* ITEM DETAIL MODAL */}
-      {activeEntry && (
+      {activeEntry && !selectionMode && (
         <ItemDetailModal
           item={activeEntry.item}
           quantity={activeEntry.quantity}
@@ -917,9 +1106,42 @@ export const InventoryScreen = ({
           onSell={onSell ? (item, qty) => { onSell(item, qty); closeDetail(); } : undefined}
           isEquipped={isItemEquipped(activeEntry.item)}
           isBattleContext={isBattleContext}
+          inShopContext={inShopContext}
         />
       )}
 
+      {/* SELECTION MODE floating bar */}
+      {selectionMode && (
+        <div className="absolute bottom-0 left-0 right-0 z-[85] px-4 pb-4 pt-3 bg-gradient-to-t from-black/90 to-transparent pointer-events-none">
+          <div className="pointer-events-auto flex gap-2">
+            <button
+              onClick={exitSelectionMode}
+              className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-xs font-black uppercase tracking-widest text-white/60 hover:bg-white/10 active:scale-95 transition-all"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={openBatchSell}
+              disabled={selectedIds.size === 0}
+              className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl border border-emerald-500/60 bg-emerald-600 px-4 py-3 text-sm font-black uppercase tracking-widest text-white hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed active:scale-95 transition-all"
+            >
+              <GameAssetIcon name="coin" size={18} />
+              {selectedIds.size > 0 ? `Vender ${selectedIds.size} item${selectedIds.size > 1 ? 's' : ''}` : 'Selecione itens'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* BATCH SELL MODAL */}
+      {batchSellOpen && (
+        <BatchSellModal
+          entries={batchEntries}
+          player={player}
+          onRemove={removeBatchEntry}
+          onConfirm={handleBatchConfirm}
+          onClose={() => setBatchSellOpen(false)}
+        />
+      )}
 
     </div>
   );

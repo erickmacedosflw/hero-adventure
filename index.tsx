@@ -24,6 +24,15 @@ if (import.meta.env.PROD) {
   clearServiceWorkers();
 }
 
+// Suppress noisy THREE.js loader warnings that are harmless and unfixable at
+// the game level (the FBX files contain maps three.js simply skips).
+const _origWarn = console.warn.bind(console);
+console.warn = (...args: unknown[]) => {
+  const msg = typeof args[0] === 'string' ? args[0] : '';
+  if (msg.includes('THREE.FBXLoader') && msg.includes('is not supported in three.js')) return;
+  _origWarn(...args);
+};
+
 // iOS PWA (WKWebView) fix: use window — fires before document, before browser
 // decides to handle the gesture natively. Non-passive touchstart "claims" the
 // touch sequence so subsequent touchmove events are cancelable.

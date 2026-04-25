@@ -23,19 +23,19 @@ const DESKTOP_PERFORMANCE_PROFILE: RenderQualityProfile = {
 
 const DESKTOP_BALANCED_PROFILE: RenderQualityProfile = {
   isLowQuality: false,
-  dpr: [0.9, 1.1],
-  shadowMapSize: 768,
-  starsCount: 520,
-  contactShadowResolution: 80,
+  dpr: [1.0, 1.15],
+  shadowMapSize: 640,
+  starsCount: 580,
+  contactShadowResolution: 72,
   antialias: false,
 };
 
 const DESKTOP_QUALITY_PROFILE: RenderQualityProfile = {
   isLowQuality: false,
-  dpr: [1, 1.35],
-  shadowMapSize: 1280,
+  dpr: [1.0, 1.2],
+  shadowMapSize: 1024,
   starsCount: 760,
-  contactShadowResolution: 112,
+  contactShadowResolution: 80,
   antialias: true,
 };
 
@@ -50,16 +50,16 @@ const MOBILE_PERFORMANCE_PROFILE: RenderQualityProfile = {
 
 const MOBILE_BALANCED_PROFILE: RenderQualityProfile = {
   isLowQuality: false,
-  dpr: [0.75, 1.0],
+  dpr: [0.85, 1.1],
   shadowMapSize: 512,
-  starsCount: 420,
-  contactShadowResolution: 84,
+  starsCount: 460,
+  contactShadowResolution: 72,
   antialias: false,
 };
 
 const MOBILE_QUALITY_PROFILE: RenderQualityProfile = {
   isLowQuality: false,
-  dpr: [1.15, 1.8],
+  dpr: [1.0, 1.5],
   shadowMapSize: 1536,
   starsCount: 900,
   contactShadowResolution: 144,
@@ -89,7 +89,7 @@ export const getRenderPlatform = (): RenderPlatform => {
 };
 
 export const getDefaultRenderQualityPreset = (platform = getRenderPlatform()): RenderQualityPreset => (
-  platform === 'mobile' ? 'performance' : 'balanced'
+  platform === 'mobile' ? 'quality' : 'quality'
 );
 
 export const getRenderPowerPreference = (preset?: RenderQualityPreset): WebGLPowerPreference => {
@@ -564,8 +564,8 @@ export const DayNightCycle = ({
     const T_NOITE = DAY_NIGHT_TIMES.noite;
     const frac = (start: number, end: number) => THREE.MathUtils.clamp((t - start) / (end - start), 0, 1);
     const angle = t * Math.PI * 2 - Math.PI / 2;
-    sunPosRef.current.set(Math.cos(angle) * 25, Math.sin(angle) * 15, -15);
-    moonPosRef.current.set(Math.cos(angle + Math.PI) * 25, Math.sin(angle + Math.PI) * 15, -15);
+    sunPosRef.current.set(Math.cos(angle) * 25, Math.sin(angle) * 15, 15);
+    moonPosRef.current.set(Math.cos(angle + Math.PI) * 25, Math.sin(angle + Math.PI) * 15, 15);
 
     let ambientIntensity: number;
     let sunIntensity: number;
@@ -1078,8 +1078,11 @@ export const CameraController = ({
     }
     const portalBlend = THREE.MathUtils.clamp(portalBlendRef.current, 0, 1);
     // Menu camera target
-    menuOrbitRef.current = THREE.MathUtils.lerp(menuOrbitRef.current, menuOrbitTargetRef.current, 0.08);
-    menuHeightRef.current = THREE.MathUtils.lerp(menuHeightRef.current, menuHeightTargetRef.current, 0.08);
+    // Frame-rate independent smoothing: 1 - exp(-speed * delta)
+    // Equivalent to lerp 0.08 at 60fps but consistent at any framerate.
+    const orbitAlpha = 1 - Math.exp(-5 * delta);
+    menuOrbitRef.current = THREE.MathUtils.lerp(menuOrbitRef.current, menuOrbitTargetRef.current, orbitAlpha);
+    menuHeightRef.current = THREE.MathUtils.lerp(menuHeightRef.current, menuHeightTargetRef.current, orbitAlpha);
     const sway = Math.sin(t * 0.4) * 0.06;
     const menuTargetX = (isMobile ? -0.6 : -0.95) + Math.sin(menuOrbitRef.current) * 0.55 + sway;
     const menuTargetY = 1.65 + Math.sin(t * 0.35) * 0.04 + menuHeightRef.current;
@@ -1171,7 +1174,7 @@ export const CameraController = ({
         }
       }
 
-      cameraRef.current.position.lerp(cinematicPosition, 0.22);
+      cameraRef.current.position.lerp(cinematicPosition, 1 - Math.exp(-14 * delta));
       mixedLookTarget.copy(cinematicLook);
     } else if (cameraRef.current && screenShake && focusBlend < 0.2) {
       const shake = screenShake;
@@ -1179,9 +1182,11 @@ export const CameraController = ({
       cameraRef.current.position.y = targetY + (Math.random() - 0.5) * shake;
       cameraRef.current.position.z = targetZ;
     } else if (cameraRef.current) {
-      cameraRef.current.position.x = THREE.MathUtils.lerp(cameraRef.current.position.x, targetX, 0.08);
-      cameraRef.current.position.y = THREE.MathUtils.lerp(cameraRef.current.position.y, targetY, 0.08);
-      cameraRef.current.position.z = THREE.MathUtils.lerp(cameraRef.current.position.z, targetZ, 0.08);
+      // Frame-rate independent camera follow: smooth at 30fps or 60fps.
+      const camAlpha = 1 - Math.exp(-5 * delta);
+      cameraRef.current.position.x = THREE.MathUtils.lerp(cameraRef.current.position.x, targetX, camAlpha);
+      cameraRef.current.position.y = THREE.MathUtils.lerp(cameraRef.current.position.y, targetY, camAlpha);
+      cameraRef.current.position.z = THREE.MathUtils.lerp(cameraRef.current.position.z, targetZ, camAlpha);
     }
 
     if (cameraRef.current) {
