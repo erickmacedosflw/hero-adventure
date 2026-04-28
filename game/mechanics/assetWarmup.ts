@@ -14,6 +14,11 @@ const isLikelyMobileOrIOS = () => {
     return false;
   }
 
+  // Electron desktop build: never treat as mobile/iOS.
+  if ((window as Window & { electronBridge?: { isElectron: boolean } }).electronBridge?.isElectron) {
+    return false;
+  }
+
   const userAgent = navigator.userAgent;
   const touchPoints = navigator.maxTouchPoints ?? 0;
   const isTouchMac = userAgent.includes('Mac') && touchPoints > 1;

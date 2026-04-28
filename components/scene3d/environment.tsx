@@ -66,12 +66,30 @@ const MOBILE_QUALITY_PROFILE: RenderQualityProfile = {
   antialias: true,
 };
 
+// Dedicated high-quality profile used exclusively in the Electron desktop build.
+// No mobile / thermal constraints apply — target the best GPU in the machine.
+const ELECTRON_QUALITY_PROFILE: RenderQualityProfile = {
+  isLowQuality: false,
+  dpr: [1.0, 1.5],
+  shadowMapSize: 2048,
+  starsCount: 900,
+  contactShadowResolution: 100,
+  antialias: true,
+};
+
 const cloneRenderQualityProfile = (profile: RenderQualityProfile): RenderQualityProfile => ({
   ...profile,
   dpr: [profile.dpr[0], profile.dpr[1]],
 });
 
+// Runtime detection — the preload bridge sets this before the page loads.
+const isElectronRuntime = (): boolean =>
+  typeof window !== 'undefined' && (window as Window & { electronBridge?: { isElectron: boolean } }).electronBridge?.isElectron === true;
+
 export const getRenderPlatform = (): RenderPlatform => {
+  // In the Electron build there is no mobile layout — always desktop.
+  if (isElectronRuntime()) return 'desktop';
+
   if (typeof window === 'undefined' || typeof navigator === 'undefined') {
     return 'desktop';
   }
@@ -88,11 +106,16 @@ export const getRenderPlatform = (): RenderPlatform => {
   return 'desktop';
 };
 
-export const getDefaultRenderQualityPreset = (platform = getRenderPlatform()): RenderQualityPreset => (
-  platform === 'mobile' ? 'quality' : 'quality'
-);
+export const getDefaultRenderQualityPreset = (platform = getRenderPlatform()): RenderQualityPreset => {
+  // Electron desktop: always start in quality mode — no thermal/battery limits.
+  if (isElectronRuntime()) return 'quality';
+  return platform === 'mobile' ? 'quality' : 'quality';
+};
 
 export const getRenderPowerPreference = (preset?: RenderQualityPreset): WebGLPowerPreference => {
+  // In the Electron desktop build always request the high-performance GPU.
+  if (isElectronRuntime()) return 'high-performance';
+
   if (preset === 'quality') {
     return 'high-performance';
   }
@@ -117,6 +140,12 @@ export const createModularBuilderQualityProfile = (base: RenderQualityProfile): 
 });
 
 export const getRenderQualityProfile = (preset?: RenderQualityPreset): RenderQualityProfile => {
+  // Electron desktop: always use the maximum quality profile regardless of
+  // preset or platform — no mobile/thermal constraints apply here.
+  if (isElectronRuntime()) {
+    return cloneRenderQualityProfile(ELECTRON_QUALITY_PROFILE);
+  }
+
   const platform = getRenderPlatform();
   const selectedPreset = preset ?? getDefaultRenderQualityPreset(platform);
 
@@ -183,12 +212,16 @@ export const Tree = ({ position, scale = 1 }: { position: [number, number, numbe
 
 const SKYBOX_FACES = ['px.png', 'nx.png', 'py.png', 'ny.png', 'pz.png', 'nz.png'] as const;
 
+// Use BASE_URL as prefix so paths are relative (./skybox/…) in the Electron
+// file:// build and absolute (/skybox/…) in the normal web build.
+const SKYBOX_BASE = import.meta.env.BASE_URL.replace(/\/$/, '');
+
 const SKYBOX_PATHS: Record<string, string> = {
-  manha: '/skybox/manha/',
-  dia: '/skybox/dia/',
-  sol: '/skybox/sol/',
-  tarde: '/skybox/tarde/',
-  noite: '/skybox/noite/',
+  manha: `${SKYBOX_BASE}/skybox/manha/`,
+  dia: `${SKYBOX_BASE}/skybox/dia/`,
+  sol: `${SKYBOX_BASE}/skybox/sol/`,
+  tarde: `${SKYBOX_BASE}/skybox/tarde/`,
+  noite: `${SKYBOX_BASE}/skybox/noite/`,
 };
 
 type SkyboxTheme = keyof typeof SKYBOX_PATHS;
@@ -196,6 +229,10 @@ type SkyboxTheme = keyof typeof SKYBOX_PATHS;
 const getSkyboxLoadOrder = (): SkyboxTheme[] => ['sol', 'dia', 'tarde', 'noite', 'manha'];
 
 const shouldStageSkyboxLoading = () => {
+  // In Electron there are no thermal or memory constraints to work around —
+  // load all skybox cubemaps at once for instant day/night transitions.
+  if (isElectronRuntime()) return false;
+
   if (typeof window === 'undefined') {
     return false;
   }
@@ -895,7 +932,7 @@ export const CameraController = ({
 }) => {
   const cameraRef = useRef<THREE.PerspectiveCamera>(null);
   const clockRef = useRef(0);
-  const isMobile = window.innerWidth < 768;
+  const isMobile = isElectronRuntime() ? false : window.innerWidth < 768;
   const menuDistance = isMobile ? 10.6 : 6.8;
   // Static defaults — these never change so the PerspectiveCamera element props stay stable
   // and don't trigger R3F reconciler snaps during animations.

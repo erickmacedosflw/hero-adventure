@@ -13,14 +13,18 @@ const clearServiceWorkers = () => {
     .catch(() => undefined);
 };
 
-if (import.meta.env.PROD) {
+// VITE_ELECTRON is injected at build time by the electron:build script.
+// Service Workers don't work on the file:// protocol used by Electron.
+const isElectronBuild = import.meta.env.VITE_ELECTRON === 'true';
+
+if (!isElectronBuild && import.meta.env.PROD) {
   registerSW({
     immediate: true,
     onRegisterError(error) {
       console.error('Falha ao registrar Service Worker:', error);
     },
   });
-} else {
+} else if (!isElectronBuild) {
   clearServiceWorkers();
 }
 

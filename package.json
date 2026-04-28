@@ -1,13 +1,18 @@
 {
   "name": "lendas-do-abismo-rpg",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
+  "main": "electron/main.cjs",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "electron:build": "cross-env NODE_OPTIONS=--max-old-space-size=4096 VITE_ELECTRON=true vite build",
+    "electron:preview": "npm run electron:build && electron .",
+    "electron:dev": "concurrently --kill-others-on-fail \"vite\" \"wait-on http://localhost:3000 && cross-env ELECTRON_DEV=true electron .\" --names=VITE,ELECTRON --prefix-colors=cyan,yellow",
+    "dist:win": "npm run electron:build && npx electron-packager . HeroTower --platform=win32 --arch=x64 --out=dist-electron-installer --overwrite --no-asar --electron-version=34.5.8 --ignore=node_modules --ignore=.git --ignore=^/dist$ --ignore=dist-electron-installer --ignore=public --executable-name=HeroTower --icon=electron-assets/icon.ico"
   },
   "dependencies": {
     "@pixi/react": "^8.0.5",
@@ -27,10 +32,42 @@
     "three": "^0.181.2"
   },
   "devDependencies": {
+    "@electron/packager": "^20.0.0",
     "@types/node": "^22.14.0",
     "@vitejs/plugin-react": "^5.0.0",
+    "app-builder-bin": "^5.0.0-alpha.10",
+    "concurrently": "^9.2.1",
+    "cross-env": "^7.0.3",
+    "electron": "^34.5.8",
+    "electron-builder": "^25.1.8",
+    "png-to-ico": "^3.0.1",
+    "sharp": "^0.34.5",
     "typescript": "~5.8.2",
     "vite": "^6.2.0",
-    "vite-plugin-pwa": "^1.2.0"
+    "vite-plugin-pwa": "^1.2.0",
+    "wait-on": "^9.0.5"
+  },
+  "build": {
+    "appId": "com.heroadvergame.app",
+    "productName": "Hero Tower",
+    "electronDist": "node_modules/electron/dist",
+    "asar": false,
+    "directories": {
+      "output": "dist-electron-installer"
+    },
+    "files": [
+      "dist-electron-web/**/*",
+      "electron/**/*"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "electron-assets/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
   }
 }

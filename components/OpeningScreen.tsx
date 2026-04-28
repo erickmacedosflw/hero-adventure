@@ -28,12 +28,19 @@ const FOREST_SCENARIO_TEXTURE_URLS = [
   new URL('../game/assets/Scenario/Florest/forest_texture.png', import.meta.url).href,
 ] as const;
 
+// Relative prefix so paths resolve correctly both in the web build (base='/') and
+// the Electron build (base='./', loaded from file://).
+const _SKYBOX_BASE = import.meta.env.BASE_URL.replace(/\/$/, '');
+const _SKYBOX_FACE_NAMES = ['px.png', 'nx.png', 'py.png', 'ny.png', 'pz.png', 'nz.png'] as const;
+const _makeSkyFaces = (theme: string) =>
+  _SKYBOX_FACE_NAMES.map((f) => `${_SKYBOX_BASE}/skybox/${theme}/${f}`);
+
 const SKYBOX_THEME_FACE_URLS = {
-  manha: ['/skybox/manha/px.png', '/skybox/manha/nx.png', '/skybox/manha/py.png', '/skybox/manha/ny.png', '/skybox/manha/pz.png', '/skybox/manha/nz.png'],
-  dia: ['/skybox/dia/px.png', '/skybox/dia/nx.png', '/skybox/dia/py.png', '/skybox/dia/ny.png', '/skybox/dia/pz.png', '/skybox/dia/nz.png'],
-  sol: ['/skybox/sol/px.png', '/skybox/sol/nx.png', '/skybox/sol/py.png', '/skybox/sol/ny.png', '/skybox/sol/pz.png', '/skybox/sol/nz.png'],
-  tarde: ['/skybox/tarde/px.png', '/skybox/tarde/nx.png', '/skybox/tarde/py.png', '/skybox/tarde/ny.png', '/skybox/tarde/pz.png', '/skybox/tarde/nz.png'],
-  noite: ['/skybox/noite/px.png', '/skybox/noite/nx.png', '/skybox/noite/py.png', '/skybox/noite/ny.png', '/skybox/noite/pz.png', '/skybox/noite/nz.png'],
+  manha: _makeSkyFaces('manha'),
+  dia:   _makeSkyFaces('dia'),
+  sol:   _makeSkyFaces('sol'),
+  tarde: _makeSkyFaces('tarde'),
+  noite: _makeSkyFaces('noite'),
 } as const;
 
 type SkyboxTheme = keyof typeof SKYBOX_THEME_FACE_URLS;
@@ -259,7 +266,7 @@ export const OpeningScreen: React.FC<OpeningScreenProps> = ({ classes, enemies, 
       <Canvas
         frameloop="never"
         dpr={1}
-        gl={{ antialias: false, powerPreference: 'low-power' }}
+        gl={{ antialias: false, powerPreference: (window as Window & { electronBridge?: { isElectron: boolean } }).electronBridge?.isElectron ? 'high-performance' : 'low-power' }}
         style={{ position: 'absolute', width: 1, height: 1, opacity: 0, pointerEvents: 'none' }}
       >
         <Suspense fallback={null}>

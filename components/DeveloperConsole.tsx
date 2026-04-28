@@ -4,7 +4,7 @@ import { ALL_ITEMS, DUNGEON_BOSS, DUNGEON_ENEMY_DATA, ENEMY_DATA } from '../cons
 import { getRegisteredWeapon3DByItemId, REGISTERED_WEAPON_ITEMS } from '../game/data/weaponCatalog';
 import { getPlayerClassById, PLAYER_CLASSES } from '../game/data/classes';
 import { DungeonBossTemplate, DungeonEnemyTemplate, EnemyTemplate, PlayerAnimationAction, PlayerClassId, Rarity } from '../types';
-import { DeveloperClassBuilderScene, DeveloperGltfMonsterScene, DeveloperKitbashScene, DeveloperMonsterScene, DeveloperScenarioComposerScene, DeveloperWeaponCalibrationScene } from './Scene3D';
+import { DeveloperClassBuilderScene, DeveloperGltfMonsterScene, DeveloperKitbashScene, DeveloperMonsterScene, DeveloperScenarioComposerScene, DeveloperWeaponCalibrationScene } from './scene3d/DeveloperSceneAdapters';
 import { SpriteAnimationLab } from './SpriteAnimationLab';
 import type {
   DeveloperAnimationRuntimeDiagnostic,
@@ -1267,7 +1267,7 @@ export const DeveloperConsole: React.FC = () => {
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <div className="text-[11px] font-black uppercase tracking-[0.28em] text-cyan-300/75">Developer Route</div>
-              <h1 className="mt-2 font-gamer text-3xl sm:text-4xl font-black text-white">Hero Adventure Dev Console</h1>
+              <h1 className="mt-2 font-gamer text-3xl sm:text-4xl font-black text-white">Hero Tower Dev Console</h1>
               <p className="mt-2 max-w-3xl text-sm text-slate-400">Ferramentas internas para validar animações de classes, pré-visualizar itens 3D e inspecionar assets do jogo sem entrar no fluxo normal da campanha.</p>
             </div>
             <a href="/" className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm font-black uppercase tracking-[0.18em] text-slate-200 transition-colors hover:border-cyan-400/30 hover:text-white">

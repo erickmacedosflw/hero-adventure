@@ -8,7 +8,7 @@ import { getEquipmentBonuses } from '../../game/mechanics/equipmentBonuses';
 import { getWeaponGripForItem } from '../../game/mechanics/weaponProficiency';
 import { SKILLS } from '../../constants';
 import { ClassTalentTrail, Item, Player, PlayerClassId, ProgressionCard, TalentNode, WeaponGripType, WeaponProficiencyBonusStat } from '../../types';
-import { DeveloperHeroScene } from '../Scene3D';
+import { DeveloperHeroScene } from '../scene3d/DeveloperSceneAdapters';
 import { GameAssetIcon } from '../ui/game-asset-icon';
 import { getCardEffectPreview, getRarityColor, getRarityLabel, ItemIcon, ItemTypeIcon } from '../ui/game-display';
 import { RpgMenuSectionTitle, RpgMenuShell, RpgMenuTab } from '../ui/rpg-menu-shell';

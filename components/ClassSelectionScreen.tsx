@@ -12,12 +12,16 @@ import { hasRuntimeFbxAssets } from './scene3d/animation';
 import { AnimatedClassHero } from './scene3d/characters';
 import { BattleScenario } from './scene3d/scenarios';
 import { SkyboxController, getRenderPowerPreference, getRenderQualityProfile } from './scene3d/environment';
+import { onAction } from '../game/mechanics/inputManager';
+import { useInputMode } from '../game/hooks/useInputMode';
+import { GamepadActionLegend } from './ui/GamepadActionLegend';
 
 interface ClassSelectionScreenProps {
   classes: PlayerClassDefinition[];
   selectedClassId: PlayerClassId;
   onSelect: (classId: PlayerClassId) => void;
   onConfirm: (classId: PlayerClassId) => void;
+  onBack?: () => void;
   onReady?: () => void;
 }
 
@@ -233,7 +237,8 @@ const AnimatedSelectionCamera = ({
   const detailViewProgressRef = useRef(0);
 
   useFrame(() => {
-    const isMobile = size.width < 768;
+    const isElectron = typeof window !== 'undefined' && (window as Window & { electronBridge?: { isElectron: boolean } }).electronBridge?.isElectron === true;
+    const isMobile = isElectron ? false : size.width < 768;
     const layout = stageLayout[activeClassId];
     const [heroX, , heroZ] = layout.position;
     const heroDepth = THREE.MathUtils.clamp(heroZ, -4, 6);
@@ -766,11 +771,13 @@ const QuickHeroCard = ({
   isVisible,
   onClose,
   onConfirm,
+  onCanScroll,
 }: {
   playerClass: PlayerClassDefinition;
   isVisible: boolean;
   onClose: () => void;
   onConfirm: (classId: PlayerClassId) => void;
+  onCanScroll?: (value: boolean) => void;
 }) => {
   const classCopy = CLASS_COPY[playerClass.id];
   const constellation = getConstellationByClassId(playerClass.id);
@@ -779,10 +786,137 @@ const QuickHeroCard = ({
   const actionBorderColor = playerClass.visualProfile.primaryColor;
   const classNamePt = CLASS_NAME_PT[playerClass.id] ?? playerClass.name;
   const proficiencyBadges = playerClass.weaponProficiencies.map((grip) => WEAPON_PROFICIENCY_META[grip]);
+  const { uiProfile, gamepadBrand } = useInputMode();
+  const [holdProgress, setHoldProgress] = useState(0);
+  const holdProgressRef = useRef(0);
+  const mobileScrollRef  = useRef<HTMLDivElement>(null);
+  const desktopScrollRef = useRef<HTMLDivElement>(null);
+  const [canScroll, setCanScroll] = useState(false);
+
+  // Detecta se algum dos containers tem conteúdo que ultrapassa a altura visível
+  useEffect(() => {
+    if (!isVisible) { setCanScroll(false); onCanScroll?.(false); return; }
+    // Checa imediatamente e sempre que o tamanho mudar
+    const initialResult =
+      (mobileScrollRef.current  !== null && mobileScrollRef.current.scrollHeight  > mobileScrollRef.current.clientHeight)  ||
+      (desktopScrollRef.current !== null && desktopScrollRef.current.scrollHeight > desktopScrollRef.current.clientHeight);
+    setCanScroll(initialResult);
+    onCanScroll?.(initialResult);
+    const targets = [mobileScrollRef.current, desktopScrollRef.current].filter(Boolean) as HTMLDivElement[];
+    const ro = new ResizeObserver(() => {
+      const mobile  = mobileScrollRef.current;
+      const desktop = desktopScrollRef.current;
+      const result =
+        (mobile  !== null && mobile.scrollHeight  > mobile.clientHeight)  ||
+        (desktop !== null && desktop.scrollHeight > desktop.clientHeight);
+      setCanScroll(result);
+      onCanScroll?.(result);
+    });
+    targets.forEach(el => ro.observe(el));
+    return () => ro.disconnect();
+  }, [isVisible, playerClass.id, onCanScroll]);
+
+  useEffect(() => {
+    if (!isVisible || uiProfile !== 'gamepad') {
+      holdProgressRef.current = 0;
+      setHoldProgress(0);
+      return;
+    }
+    let rafId: number;
+    let lastTime: number | null = null;
+    const HOLD_MS = 1500;
+    function frame(now: number) {
+      const gpads = Array.from(navigator.getGamepads());
+      const btnDown = gpads.some(g => g && (g.buttons[0]?.pressed || (g.buttons[0]?.value ?? 0) > 0.5));
+      if (lastTime === null) lastTime = now;
+      const dt = Math.min(now - lastTime, 100);
+      lastTime = now;
+      if (btnDown) {
+        const next = Math.min(100, holdProgressRef.current + (dt / HOLD_MS) * 100);
+        holdProgressRef.current = next;
+        setHoldProgress(next);
+        if (next >= 100) {
+          holdProgressRef.current = 0;
+          setHoldProgress(0);
+          onConfirm(playerClass.id);
+          return;
+        }
+      } else {
+        if (holdProgressRef.current > 0) {
+          holdProgressRef.current = 0;
+          setHoldProgress(0);
+          lastTime = null;
+        }
+      }
+      rafId = requestAnimationFrame(frame);
+    }
+    rafId = requestAnimationFrame(frame);
+    return () => cancelAnimationFrame(rafId);
+  }, [isVisible, uiProfile, playerClass.id, onConfirm]);
+
+  // Scroll analógico: RAF lê axes[1] e rola os containers quando painel está aberto
+  useEffect(() => {
+    if (!isVisible || uiProfile !== 'gamepad') return;
+    let rafId: number;
+    const DEADZONE = 0.18;
+    const SPEED    = 10; // px por frame
+    function frame() {
+      const gpads = Array.from(navigator.getGamepads());
+      const gp = gpads.find(g => g !== null);
+      if (gp) {
+        const axisY = gp.axes[1] ?? 0;
+        if (Math.abs(axisY) > DEADZONE) {
+          const delta = axisY * SPEED;
+          mobileScrollRef.current?.scrollBy({ top: delta, behavior: 'instant' as ScrollBehavior });
+          desktopScrollRef.current?.scrollBy({ top: delta, behavior: 'instant' as ScrollBehavior });
+        }
+      }
+      rafId = requestAnimationFrame(frame);
+    }
+    rafId = requestAnimationFrame(frame);
+    return () => cancelAnimationFrame(rafId);
+  }, [isVisible, uiProfile]);
+
+  // D-pad: NAV_UP / NAV_DOWN rola o painel em passos quando está aberto
+  useEffect(() => {
+    if (!isVisible || uiProfile !== 'gamepad') return;
+    return onAction((action) => {
+      if (action === 'NAV_UP') {
+        mobileScrollRef.current?.scrollBy({ top: -90 });
+        desktopScrollRef.current?.scrollBy({ top: -90 });
+      }
+      if (action === 'NAV_DOWN') {
+        mobileScrollRef.current?.scrollBy({ top: 90 });
+        desktopScrollRef.current?.scrollBy({ top: 90 });
+      }
+    });
+  }, [isVisible, uiProfile]);
+
+  const HoldArc = () => {
+    const isSony = gamepadBrand === 'sony';
+    const label = isSony ? '✕' : 'A';
+    const btnColor = isSony ? '#0070D1' : '#107C10';
+    const arcColor = isSony ? '#00d4ff' : '#39ff6e';
+    const R = 13; const circ = 2 * Math.PI * R;
+    const offset = circ * (1 - holdProgress / 100);
+    return (
+      <span style={{ position: 'relative', width: 32, height: 32, flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+        <svg width="32" height="32" style={{ position: 'absolute', top: 0, left: 0, transform: 'rotate(-90deg)', filter: holdProgress > 0 ? `drop-shadow(0 0 4px ${arcColor})` : 'none' }}>
+          <circle cx="16" cy="16" r={R} fill="none" stroke="rgba(255,255,255,0.18)" strokeWidth="3" />
+          <circle cx="16" cy="16" r={R} fill="none" stroke={arcColor} strokeWidth="3"
+            strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round"
+            style={{ transition: holdProgress === 0 ? 'none' : 'stroke-dashoffset 80ms linear' }}
+          />
+        </svg>
+        <span style={{ width: 20, height: 20, borderRadius: '50%', background: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: btnColor, fontWeight: 900, fontSize: 11, fontFamily: 'system-ui,sans-serif', lineHeight: 1, zIndex: 1 }}>{label}</span>
+      </span>
+    );
+  };
 
   return (
     <>
       <div
+        ref={mobileScrollRef}
         className={`absolute inset-0 z-[130] overflow-y-auto md:hidden transition-all duration-300 ease-out ${isVisible ? 'bg-black/20 opacity-100' : 'bg-black/0 opacity-0 pointer-events-none'}`}
       >
         <div className="min-h-[62dvh]" />
@@ -913,16 +1047,20 @@ const QuickHeroCard = ({
             </div>
 
             <button
-              onClick={() => onConfirm(playerClass.id)}
+              onClick={uiProfile !== 'gamepad' ? () => onConfirm(playerClass.id) : undefined}
               className="mt-4 inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-[16px] border-b-4 px-5 py-3 text-sm font-black uppercase tracking-[0.16em] text-white transition-all hover:brightness-105 active:translate-y-0.5 active:border-b-0"
               style={{
                 backgroundColor: actionColor,
                 borderColor: actionBorderColor,
                 boxShadow: `0 10px 22px ${actionColor}30`,
+                cursor: uiProfile === 'gamepad' ? 'default' : undefined,
               }}
             >
-              Confirmar heroi
-              <ArrowRight size={18} />
+              {uiProfile === 'gamepad' && <HoldArc />}
+              <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: 1.1 }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>Confirmar heroi <ArrowRight size={18} /></span>
+                {uiProfile === 'gamepad' && <span style={{ fontSize: '0.62rem', opacity: 0.75, fontWeight: 700 }}>segurar</span>}
+              </span>
             </button>
           </div>
         </div>
@@ -956,7 +1094,7 @@ const QuickHeroCard = ({
           </button>
         </div>
 
-        <div className="mt-4 flex-1 overflow-y-auto pr-1">
+        <div ref={desktopScrollRef} className="mt-4 flex-1 overflow-y-auto pr-1">
           <div
             className="rounded-[24px] border px-4 py-3"
             style={{
@@ -1057,16 +1195,20 @@ const QuickHeroCard = ({
         </div>
 
         <button
-          onClick={() => onConfirm(playerClass.id)}
+          onClick={uiProfile !== 'gamepad' ? () => onConfirm(playerClass.id) : undefined}
           className="mt-4 inline-flex min-h-14 items-center justify-center gap-2 rounded-[16px] border-b-4 px-5 py-3 text-sm font-black uppercase tracking-[0.16em] text-white transition-all hover:brightness-105 active:translate-y-0.5 active:border-b-0"
           style={{
             backgroundColor: actionColor,
             borderColor: actionBorderColor,
             boxShadow: `0 10px 22px ${actionColor}30`,
+            cursor: uiProfile === 'gamepad' ? 'default' : undefined,
           }}
         >
-          Confirmar heroi
-          <ArrowRight size={18} />
+          {uiProfile === 'gamepad' && <HoldArc />}
+          <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: 1.1 }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>Confirmar heroi <ArrowRight size={18} /></span>
+            {uiProfile === 'gamepad' && <span style={{ fontSize: '0.62rem', opacity: 0.75, fontWeight: 700 }}>segurar</span>}
+          </span>
         </button>
       </div>
     </>
@@ -1078,6 +1220,7 @@ export const ClassSelectionScreen: React.FC<ClassSelectionScreenProps> = ({
   selectedClassId,
   onSelect,
   onConfirm,
+  onBack,
   onReady,
 }) => {
   const classOrder = useMemo(() => classes.map((playerClass) => playerClass.id), [classes]);
@@ -1088,6 +1231,20 @@ export const ClassSelectionScreen: React.FC<ClassSelectionScreenProps> = ({
   const [isDetailsPanelVisible, setIsDetailsPanelVisible] = useState(false);
   const [transitionState, setTransitionState] = useState<SelectionTransitionState | null>(null);
   const [showIntroOverlay, setShowIntroOverlay] = useState(true);
+  const [showBackConfirm, setShowBackConfirm] = useState(false);
+  const [backConfirmVisible, setBackConfirmVisible] = useState(false);
+  const [panelCanScroll, setPanelCanScroll] = useState(false);
+  const { uiProfile, gamepadBrand } = useInputMode();
+
+  const openBackConfirm = useCallback(() => {
+    setShowBackConfirm(true);
+    requestAnimationFrame(() => setBackConfirmVisible(true));
+  }, []);
+
+  const closeBackConfirm = useCallback(() => {
+    setBackConfirmVisible(false);
+    setTimeout(() => setShowBackConfirm(false), 260);
+  }, []);
   const dragStateRef = useRef<{ pointerType: string | null; startX: number; lastTouchX: number; active: boolean }>({
     pointerType: null,
     startX: 0,
@@ -1198,6 +1355,62 @@ export const ClassSelectionScreen: React.FC<ClassSelectionScreenProps> = ({
     };
   }, []);
 
+  // ── Gamepad navigation ──────────────────────────────────────────────────────
+  const moveFocusRef          = useRef(moveFocus);
+  const beginConfirmRef       = useRef(beginConfirmTransition);
+  const focusedClassIdRef     = useRef(focusedClassId);
+  const openClassIdRef        = useRef(openClassId);
+  const setOpenClassIdRef     = useRef(setOpenClassId);
+  const onBackRef             = useRef(onBack);
+  const showBackConfirmRef    = useRef(showBackConfirm);
+  const openBackConfirmRef    = useRef(openBackConfirm);
+  const closeBackConfirmRef   = useRef(closeBackConfirm);
+  const uiProfileRef          = useRef(uiProfile);
+  moveFocusRef.current        = moveFocus;
+  beginConfirmRef.current     = beginConfirmTransition;
+  focusedClassIdRef.current   = focusedClassId;
+  openClassIdRef.current      = openClassId;
+  setOpenClassIdRef.current   = setOpenClassId;
+  onBackRef.current           = onBack;
+  showBackConfirmRef.current  = showBackConfirm;
+  openBackConfirmRef.current  = openBackConfirm;
+  closeBackConfirmRef.current = closeBackConfirm;
+  uiProfileRef.current        = uiProfile;
+
+  useEffect(() => {
+    return onAction((action) => {
+      // Modal de confirmação de saída tem prioridade
+      if (showBackConfirmRef.current) {
+        if (action === 'CONFIRM') { closeBackConfirmRef.current(); setTimeout(() => onBackRef.current?.(), 260); }
+        if (action === 'BACK')   { closeBackConfirmRef.current(); }
+        return;
+      }
+      if (action === 'SKILL_2') { openBackConfirmRef.current(); return; }
+      if (action === 'NAV_LEFT')  { moveFocusRef.current(-1); return; }
+      if (action === 'NAV_RIGHT') { moveFocusRef.current(1);  return; }
+      if (action === 'CONFIRM') {
+        if (openClassIdRef.current) {
+          // Panel já aberto — no gamepad o hold no QuickHeroCard é quem confirma
+          if (uiProfileRef.current !== 'gamepad') {
+            beginConfirmRef.current(openClassIdRef.current);
+          }
+        } else {
+          // Abre painel de detalhes da classe focada
+          setOpenClassIdRef.current(focusedClassIdRef.current);
+        }
+        return;
+      }
+      if (action === 'BACK') {
+        if (openClassIdRef.current) {
+          // Fecha painel se estiver aberto
+          setOpenClassIdRef.current(null);
+        }
+        // B nunca abre modal de saída — use Y/△ para isso (SKILL_2)
+        return;
+      }
+    });
+  }, []);
+
   return (
     <div
       className="absolute inset-0 z-[120] overflow-hidden bg-black text-white pointer-events-auto"
@@ -1303,6 +1516,7 @@ export const ClassSelectionScreen: React.FC<ClassSelectionScreenProps> = ({
           onConfirm={(classId) => {
             beginConfirmTransition(classId);
           }}
+          onCanScroll={setPanelCanScroll}
         />
       )}
 
@@ -1338,6 +1552,83 @@ export const ClassSelectionScreen: React.FC<ClassSelectionScreenProps> = ({
           `}</style>
         </div>
       )}
+
+      {/* Modal de confirmação de saída */}
+      {showBackConfirm && (
+        <div
+          className="absolute inset-0 z-[200] flex items-center justify-center px-4"
+          style={{
+            background: backConfirmVisible ? 'rgba(0,0,0,0.65)' : 'rgba(0,0,0,0)',
+            backdropFilter: backConfirmVisible ? 'blur(10px)' : 'blur(0px)',
+            WebkitBackdropFilter: backConfirmVisible ? 'blur(10px)' : 'blur(0px)',
+            transition: 'background 260ms ease, backdrop-filter 260ms ease',
+          }}
+          onClick={closeBackConfirm}
+        >
+          <div
+            className="w-full max-w-sm rounded-[24px] border border-[#f7d2a5]/40 bg-[#1a1208]/97 shadow-[0_32px_80px_rgba(0,0,0,0.7)]"
+            style={{
+              transform: backConfirmVisible ? 'translateY(0) scale(1)' : 'translateY(32px) scale(0.95)',
+              opacity: backConfirmVisible ? 1 : 0,
+              transition: 'transform 280ms cubic-bezier(0.34,1.4,0.64,1), opacity 220ms ease',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-6 pt-6 pb-5">
+              <div className="text-[10px] font-black uppercase tracking-[0.24em] text-[#f8d3a8]">Confirmação</div>
+              <h3 className="mt-2 font-gamer text-xl font-black text-[#fff3df]">Voltar ao menu?</h3>
+              <p className="mt-2 text-sm text-[#f8dcc0]/80">Sua seleção de herói será descartada.</p>
+
+              <div className="mt-5 grid grid-cols-2 gap-3">
+                <button
+                  onClick={closeBackConfirm}
+                  className="hero-menu-action hero-menu-action-secondary"
+                  style={{ fontSize: '0.8rem', padding: '0.6rem 0.8rem', display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                >
+                  {uiProfile === 'gamepad' && (() => {
+                    const isSony = gamepadBrand === 'sony';
+                    const color = isSony ? '#E80000' : '#E52420';
+                    const label = isSony ? '○' : 'B';
+                    return (
+                      <span style={{ width: 22, height: 22, borderRadius: '50%', background: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color, fontWeight: 900, fontSize: 12, fontFamily: 'system-ui,sans-serif', lineHeight: 1 }}>{label}</span>
+                    );
+                  })()}
+                  <span>Cancelar</span>
+                </button>
+                <button
+                  onClick={() => { closeBackConfirm(); setTimeout(() => onBack?.(), 260); }}
+                  className="hero-menu-action hero-menu-action-primary"
+                  style={{ fontSize: '0.8rem', padding: '0.6rem 0.8rem', display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                >
+                  {uiProfile === 'gamepad' && (() => {
+                    const isSony = gamepadBrand === 'sony';
+                    const color = isSony ? '#0070D1' : '#107C10';
+                    const label = isSony ? '✕' : 'A';
+                    return (
+                      <span style={{ width: 22, height: 22, borderRadius: '50%', background: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color, fontWeight: 900, fontSize: 12, fontFamily: 'system-ui,sans-serif', lineHeight: 1 }}>{label}</span>
+                    );
+                  })()}
+                  <span>Menu</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Legenda contextual de gamepad — s\u00f3 mostra a\u00e7\u00f5es poss\u00edveis */}
+      {!transitionState && (() => {
+        if (showBackConfirm) {
+          // Modal de saída: A=Voltar ao menu, B=Cancelar
+          return <GamepadActionLegend confirmText="Voltar ao menu" showCancel />;
+        }
+        if (openClassId) {
+          // Painel de detalhes: A=Confirmar (hold), B=Fechar, analógico=Rolar se houver scroll
+          return <GamepadActionLegend confirmText="Confirmar herói" showCancel showScroll={panelCanScroll} />;
+        }
+        // Navegação normal: A=Selecionar, sem B (não faz nada), Y=Menu
+        return <GamepadActionLegend confirmText="Selecionar" showCancel={false} extras={[{ button: 'skill2', text: 'Menu' }]} />;
+      })()}
     </div>
   );
 };

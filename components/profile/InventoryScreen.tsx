@@ -4,6 +4,10 @@ import { Item, Player } from '../../types';
 import { GameAssetIcon } from '../ui/game-asset-icon';
 import { isEquipmentType, ItemIcon, ItemTypeIcon, ItemTypeLabel } from '../ui/game-display';
 import { getEquipmentBonuses } from '../../game/mechanics/equipmentBonuses';
+import { onAction, pushInputLayer } from '../../game/mechanics/inputManager';
+import { useInputMode } from '../../game/hooks/useInputMode';
+import { uiSfx } from '../../game/audio/uiSfx';
+import { GamepadActionLegend } from '../ui/GamepadActionLegend';
 
 const BAG_POTION_URL = new URL('../../game/assets/Mochila/Mochila_Aberta_Consumiveis.png', import.meta.url).href;
 const BAG_EQUIPMENT_URL = new URL('../../game/assets/Mochila/Mochila_Aberta_Equipamentos.png', import.meta.url).href;
@@ -191,7 +195,10 @@ const InventoryCard: React.FC<{
   isPicking?: boolean;
   isMultiSelectMode?: boolean;
   isMultiSelected?: boolean;
-}> = ({ item, quantity, player, isSelected, isEquipped, onClick, onEquipToggle, isBattleContext, inSlotIndex, isPicking, isMultiSelectMode, isMultiSelected }) => {
+  isGpFocused?: boolean;
+  gpFocusRef?: React.Ref<HTMLButtonElement>;
+  gpHoldXProgress?: number;
+}> = ({ item, quantity, player, isSelected, isEquipped, onClick, onEquipToggle, isBattleContext, inSlotIndex, isPicking, isMultiSelectMode, isMultiSelected, isGpFocused, gpFocusRef, gpHoldXProgress }) => {
   const trend = getEquipmentComparisonTrend(player, item);
   const isEquipCard = isEquipmentType(item.type);
   const effectCards = getItemEffectCards(item);
@@ -200,13 +207,22 @@ const InventoryCard: React.FC<{
 
   return (
     <button
+      ref={gpFocusRef}
       onClick={onClick}
       className={`relative shrink-0 w-[130px] flex flex-col rounded-[20px] border-2 ${
         isMultiSelectMode
           ? isMultiSelected ? 'border-emerald-400' : 'border-white/20'
           : isPicking ? 'border-amber-400/60' : getRarityBorder(item.rarity)
-      } bg-white/8 backdrop-blur-md p-3 text-left transition-all duration-200 hover:-translate-y-1 active:scale-95 ${getRarityGlow(item.rarity)} ${isSelected && !isMultiSelectMode ? 'ring-2 ring-white/30 shadow-[0_0_20px_rgba(255,255,255,0.15)]' : 'opacity-85 hover:opacity-100'}`}
+      } bg-white/8 backdrop-blur-md p-3 text-left transition-all duration-200 hover:-translate-y-1 active:scale-95 ${getRarityGlow(item.rarity)} ${
+        isGpFocused
+          ? 'ring-[3px] ring-white/90 shadow-[0_0_28px_rgba(255,255,255,0.40)] -translate-y-2 scale-[1.06]'
+          : isSelected && !isMultiSelectMode ? 'ring-2 ring-white/30 shadow-[0_0_20px_rgba(255,255,255,0.15)]' : 'opacity-85 hover:opacity-100'
+      }`}
     >
+      {/* Hold-X progress fill on whole card */}
+      {(gpHoldXProgress ?? 0) > 0 && (
+        <span style={{ position: 'absolute', inset: 0, background: (isEquipped && !isPicking) ? 'rgba(245,158,11,0.18)' : 'rgba(16,185,129,0.18)', transform: `scaleX(${gpHoldXProgress ?? 0})`, transformOrigin: 'left', borderRadius: 'inherit', pointerEvents: 'none', zIndex: 2 }} />
+      )}
       {/* Multi-select overlay */}
       {isMultiSelectMode && (
         <div className={`absolute inset-0 rounded-[18px] pointer-events-none transition-all duration-150 ${
@@ -219,6 +235,8 @@ const InventoryCard: React.FC<{
           </div>
         </div>
       )}
+      {/* Hold-X progress bar removed — moved into equip button below */}
+
       {/* Quantity badge */}
       <span className="absolute right-2 top-2 z-10 rounded-full border border-white/20 bg-black/60 px-1.5 py-0.5 text-[9px] font-black text-white">
         x{quantity}
@@ -268,27 +286,51 @@ const InventoryCard: React.FC<{
         </div>
       )}
 
-      {/* Picking mode button — potion only */}
+      {/* Picking mode badge — potion only */}
       {isPicking && item.type === 'potion' && (
-        <div className={`mt-2 inline-flex w-full items-center justify-center gap-1 rounded-lg border px-2 py-1.5 text-[10px] font-black uppercase tracking-[0.1em] transition-all hover:-translate-y-0.5 active:scale-95 cursor-pointer ${isInSlot ? 'border-amber-500/40 bg-amber-500/20 text-amber-300' : 'border-emerald-500/40 bg-emerald-500/20 text-emerald-300'}`}>
+        <div className="mt-2 inline-flex w-full items-center justify-center gap-1 rounded-lg border border-emerald-500/40 bg-emerald-500/20 px-2 py-1 text-[10px] font-black uppercase tracking-[0.1em] text-emerald-300 pointer-events-none">
           <FlaskConical size={10} />
-          {isInSlot ? 'Desequipar' : 'Equipar'}
+          <span>Equipar</span>
         </div>
       )}
 
       {/* Equip/Unequip inline button — equipment only, camp only, not picking */}
-      {!isPicking && isEquipCard && !isBattleContext && onEquipToggle && (
-        <div
-          role="button"
-          tabIndex={0}
-          onClick={(e) => { e.stopPropagation(); onEquipToggle(item); }}
-          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); onEquipToggle(item); } }}
-          className={`mt-2 inline-flex w-full items-center justify-center gap-1 rounded-lg border px-2 py-1.5 text-[10px] font-black uppercase tracking-[0.1em] transition-all hover:-translate-y-0.5 active:scale-95 cursor-pointer ${isEquipped ? 'border-amber-500/40 bg-amber-500/20 text-amber-300' : 'border-emerald-500/40 bg-emerald-500/20 text-emerald-300'}`}
-        >
-          <Shield size={10} />
-          {isEquipped ? 'Desequipar' : 'Equipar'}
-        </div>
-      )}
+      {!isPicking && isEquipCard && !isBattleContext && onEquipToggle && (() => {
+        const holdPct = gpHoldXProgress ?? 0;
+        const isHolding = holdPct > 0;
+        return (
+          <div
+            role="button"
+            tabIndex={0}
+            onClick={(e) => { e.stopPropagation(); onEquipToggle(item); }}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); onEquipToggle(item); } }}
+            style={{ position: 'relative', overflow: 'hidden' }}
+            className={`mt-2 inline-flex w-full items-center justify-center gap-1 rounded-lg border px-2 py-1.5 text-[10px] font-black uppercase tracking-[0.1em] transition-all hover:-translate-y-0.5 active:scale-95 cursor-pointer ${
+              isHolding
+                ? (isEquipped ? 'border-amber-400 bg-amber-500/40 text-amber-200' : 'border-emerald-400 bg-emerald-500/40 text-emerald-200')
+                : (isEquipped ? 'border-amber-500/40 bg-amber-500/20 text-amber-300' : 'border-emerald-500/40 bg-emerald-500/20 text-emerald-300')
+            }`}
+          >
+            {/* Hold fill */}
+            {isHolding && (
+              <span style={{
+                position: 'absolute', inset: 0,
+                background: isEquipped ? 'rgba(245,158,11,0.35)' : 'rgba(16,185,129,0.35)',
+                transform: `scaleX(${holdPct})`,
+                transformOrigin: 'left',
+                borderRadius: 'inherit',
+                pointerEvents: 'none',
+              }} />
+            )}
+            <Shield size={10} style={{ position: 'relative', zIndex: 1 }} />
+            <span style={{ position: 'relative', zIndex: 1 }}>
+              {isHolding
+                ? (holdPct < 1 ? '...' : (isEquipped ? '✓ Desequip.' : '✓ Equipado!'))
+                : (isEquipped ? 'Desequipar' : 'Equipar')}
+            </span>
+          </div>
+        );
+      })()}
     </button>
   );
 };
@@ -308,7 +350,12 @@ const ItemDetailModal: React.FC<{
   isEquipped: boolean;
   isBattleContext: boolean;
   inShopContext?: boolean;
-}> = ({ item, quantity, player, closing, onClose, onEquip, onUnequip, onUse, onSell, isEquipped, isBattleContext, inShopContext }) => {
+  onGamepadAction?: () => void; // CONFIRM do controle → equipa/usa/desequipa
+  isPicking?: boolean;
+  targetItemSlotIndex?: number | null;
+  onEquipItemToSlot?: (slotIndex: number, itemId: string | null) => void;
+  equippedItemSlots?: Array<{ itemId: string; qty: number }>;
+}> = ({ item, quantity, player, closing, onClose, onEquip, onUnequip, onUse, onSell, isEquipped, isBattleContext, inShopContext, onGamepadAction, isPicking, targetItemSlotIndex, onEquipItemToSlot, equippedItemSlots }) => {
   const overlayClass = closing ? 'rpg-modal-overlay-out' : 'rpg-modal-overlay-in';
   const panelClass = closing ? 'rpg-modal-panel-out' : 'rpg-modal-panel-in';
   const effectCards = getItemEffectCards(item);
@@ -319,9 +366,98 @@ const ItemDetailModal: React.FC<{
   const canUnequip = !isBattleContext && isEquipCard && isEquipped;
   const canUse = isBattleContext && item.type === 'potion';
   const canSell = !!inShopContext && !!onSell && ownedQty > 0;
+  const targetSlotId = (isPicking && targetItemSlotIndex != null && equippedItemSlots?.length)
+    ? (equippedItemSlots[targetItemSlotIndex!]?.itemId ?? '')
+    : '';
+  const isInSlot = isPicking && item.type === 'potion' && targetSlotId === item.id;
+  const canEquipToSlot = !!(isPicking && item.type === 'potion' && onEquipItemToSlot && targetItemSlotIndex != null);
   const sellValue = Math.floor(item.cost / 2);
   const [sellQty, setSellQty] = useState(1);
   const sellTotal = sellQty * sellValue;
+  const { uiProfile: detailUiProfile, gamepadBrand: detailBrand } = useInputMode();
+  const BRAND_CONFIRM: Record<string, React.ReactNode> = {
+    xbox: 'A', sony: '✕', nintendo: 'A', generic: 'A',
+  };
+  const BRAND_CANCEL: Record<string, React.ReactNode> = {
+    xbox: 'B', sony: '○', nintendo: 'B', generic: 'B',
+  };
+  const BRAND_BG: Record<string, string> = {
+    xbox: '#107C10', sony: '#0070D1', nintendo: '#107C10', generic: '#4a4a9a',
+  };
+  const BRAND_BG_CANCEL: Record<string, string> = {
+    xbox: '#c0392b', sony: '#c0392b', nintendo: '#c0392b', generic: '#c0392b',
+  };
+  const gpConfirmLabel = BRAND_CONFIRM[detailBrand] ?? 'A';
+  const gpCancelLabel  = BRAND_CANCEL[detailBrand]  ?? 'B';
+  const gpConfirmBg    = BRAND_BG[detailBrand]        ?? '#4a4a9a';
+  const gpCancelBg     = BRAND_BG_CANCEL[detailBrand] ?? '#c0392b';
+  const showGpConfirm  = detailUiProfile === 'gamepad' && (canEquip || canUnequip || canUse || canEquipToSlot);
+  const showGpCancel   = detailUiProfile === 'gamepad';
+
+  // ── Hold-A mechanic ───────────────────────────────────────────────────────
+  const HOLD_DURATION = 600; // ms to hold A to confirm action
+  const [holdProgress, setHoldProgress] = useState(0); // 0..1
+  const holdStartRef   = useRef<number | null>(null);
+  const holdRafRef     = useRef<number | null>(null);
+  const onGamepadActionRef = useRef(onGamepadAction);
+  onGamepadActionRef.current = onGamepadAction;
+
+  useEffect(() => {
+    if (detailUiProfile !== 'gamepad') return;
+    // Wait for A to be released before accepting a hold (avoids auto-fire
+    // from the press that opened the detail modal)
+    let waitingForRelease = true;
+    let fired = false;
+
+    function poll() {
+      const gp = navigator.getGamepads()[0] ?? navigator.getGamepads()[1] ?? null;
+      const aDown = gp ? (gp.buttons[0]?.pressed || (gp.buttons[0]?.value ?? 0) > 0.5) : false;
+
+      if (waitingForRelease) {
+        // Don't start until A is fully released
+        if (!aDown) waitingForRelease = false;
+        holdRafRef.current = requestAnimationFrame(poll);
+        return;
+      }
+
+      if (aDown && (canEquip || canUnequip || canUse || canEquipToSlot) && !fired) {
+        if (holdStartRef.current === null) holdStartRef.current = performance.now();
+        const elapsed = performance.now() - holdStartRef.current;
+        const pct = Math.min(elapsed / HOLD_DURATION, 1);
+        setHoldProgress(pct);
+        if (pct >= 1) {
+          fired = true;
+          setHoldProgress(1);
+          onGamepadActionRef.current?.();
+          // Stop polling after action fires — modal will close
+          return;
+        }
+      } else if (!aDown) {
+        // A released before completion — reset
+        if (!fired) {
+          holdStartRef.current = null;
+          setHoldProgress(0);
+        }
+      }
+
+      holdRafRef.current = requestAnimationFrame(poll);
+    }
+
+    holdRafRef.current = requestAnimationFrame(poll);
+    return () => {
+      if (holdRafRef.current !== null) cancelAnimationFrame(holdRafRef.current);
+      setHoldProgress(0);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [detailUiProfile, canEquip, canUnequip, canUse]);
+
+  // B fecha modal — usa pushInputLayer para ter prioridade sobre o inventário
+  useEffect(() => {
+    return pushInputLayer((action) => {
+      if (action === 'BACK') { onClose(); }
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div
@@ -423,21 +559,67 @@ const ItemDetailModal: React.FC<{
 
         {/* Action buttons */}
         <div className="shrink-0 border-t border-white/8 p-4 flex flex-col gap-2">
+          {canEquipToSlot && (
+            <button
+              onClick={() => onGamepadAction?.()}
+              className="relative overflow-hidden inline-flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-500/50 bg-emerald-600/80 px-4 py-3 text-sm font-black uppercase tracking-widest text-white transition-all hover:-translate-y-0.5 hover:bg-emerald-500 active:scale-95"
+            >
+              {showGpConfirm && holdProgress > 0 && (
+                <span style={{ position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.18)', transform: `scaleX(${holdProgress})`, transformOrigin: 'left', transition: 'transform 60ms linear', borderRadius: 'inherit', pointerEvents: 'none' }} />
+              )}
+              {showGpConfirm && (
+                <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 20, height: 20, borderRadius: '50%', background: '#fff', fontSize: 11, fontWeight: 900, color: '#111', flexShrink: 0, position: 'relative' }}>{gpConfirmLabel}</span>
+              )}
+              <FlaskConical size={16} style={{ position: 'relative' }} />
+              <span style={{ position: 'relative' }}>
+                {`Equipar no Slot ${(targetItemSlotIndex ?? 0) + 1}`}
+              </span>
+              {showGpConfirm && holdProgress > 0 && (
+                <span style={{ position: 'relative', fontSize: 10, fontWeight: 700, opacity: 0.75 }}>
+                  {holdProgress < 1 ? 'Segure...' : '✓'}
+                </span>
+              )}
+            </button>
+          )}
           {(canEquip || canUnequip) && (
             <button
               onClick={() => { canEquip ? onEquip?.(item) : onUnequip?.(item); onClose(); }}
-              className={`inline-flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-black uppercase tracking-widest transition-all hover:-translate-y-0.5 active:scale-95 ${canEquip ? 'border-emerald-500/50 bg-emerald-600/80 text-white hover:bg-emerald-500' : 'border-amber-500/50 bg-amber-600/80 text-white hover:bg-amber-500'}`}
+              className={`relative overflow-hidden inline-flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-black uppercase tracking-widest transition-all hover:-translate-y-0.5 active:scale-95 ${canEquip ? 'border-emerald-500/50 bg-emerald-600/80 text-white hover:bg-emerald-500' : 'border-amber-500/50 bg-amber-600/80 text-white hover:bg-amber-500'}`}
             >
-              <Shield size={16} />
-              {canEquip ? 'Equipar' : 'Desequipar'}
+              {/* Hold-A progress fill */}
+              {showGpConfirm && holdProgress > 0 && (
+                <span style={{ position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.18)', transform: `scaleX(${holdProgress})`, transformOrigin: 'left', transition: 'transform 60ms linear', borderRadius: 'inherit', pointerEvents: 'none' }} />
+              )}
+              {showGpConfirm && (
+                <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 20, height: 20, borderRadius: '50%', background: '#fff', fontSize: 11, fontWeight: 900, color: '#111', flexShrink: 0, position: 'relative' }}>{gpConfirmLabel}</span>
+              )}
+              <Shield size={16} style={{ position: 'relative' }} />
+              <span style={{ position: 'relative' }}>{canEquip ? 'Equipar' : 'Desequipar'}</span>
+              {showGpConfirm && holdProgress > 0 && (
+                <span style={{ position: 'relative', fontSize: 10, fontWeight: 700, opacity: 0.75 }}>
+                  {holdProgress < 1 ? 'Segure...' : '✓'}
+                </span>
+              )}
             </button>
           )}
           {canUse && (
             <button
               onClick={() => { onUse?.(item.id); onClose(); }}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-sky-500/50 bg-sky-600/80 px-4 py-3 text-sm font-black uppercase tracking-widest text-white transition-all hover:-translate-y-0.5 hover:bg-sky-500 active:scale-95"
+              className="relative overflow-hidden inline-flex w-full items-center justify-center gap-2 rounded-xl border border-sky-500/50 bg-sky-600/80 px-4 py-3 text-sm font-black uppercase tracking-widest text-white transition-all hover:-translate-y-0.5 hover:bg-sky-500 active:scale-95"
             >
-              <FlaskConical size={16} /> Usar Item
+              {showGpConfirm && holdProgress > 0 && (
+                <span style={{ position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.18)', transform: `scaleX(${holdProgress})`, transformOrigin: 'left', transition: 'transform 60ms linear', borderRadius: 'inherit', pointerEvents: 'none' }} />
+              )}
+              {showGpConfirm && (
+                <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 20, height: 20, borderRadius: '50%', background: '#fff', fontSize: 11, fontWeight: 900, color: '#111', flexShrink: 0, position: 'relative' }}>{gpConfirmLabel}</span>
+              )}
+              <FlaskConical size={16} style={{ position: 'relative' }} />
+              <span style={{ position: 'relative' }}>Usar Item</span>
+              {showGpConfirm && holdProgress > 0 && (
+                <span style={{ position: 'relative', fontSize: 10, fontWeight: 700, opacity: 0.75 }}>
+                  {holdProgress < 1 ? 'Segure...' : '✓'}
+                </span>
+              )}
             </button>
           )}
           {canSell && (
@@ -452,6 +634,9 @@ const ItemDetailModal: React.FC<{
             onClick={onClose}
             className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-xs font-black uppercase tracking-widest text-white/50 transition-all hover:bg-white/10"
           >
+            {showGpCancel && (
+              <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 18, height: 18, borderRadius: '50%', background: gpCancelBg, fontSize: 10, fontWeight: 900, color: '#fff', flexShrink: 0 }}>{gpCancelLabel}</span>
+            )}
             Fechar
           </button>
         </div>
@@ -696,6 +881,31 @@ export const InventoryScreen = ({
   const detailTimerRef = useRef<number | null>(null);
   const sellTimerRef = useRef<number | null>(null);
 
+  // ── Gamepad state ──────────────────────────────────────────────────────────
+  const { uiProfile: invUiProfile } = useInputMode();
+  const [gpIdx, setGpIdx] = useState(0);
+  const gpIdxRef = useRef(0);
+  gpIdxRef.current = gpIdx;
+  const gpFocusedCardRef = useRef<HTMLButtonElement | null>(null);
+  const [gpHoldXProgress, setGpHoldXProgress] = useState(0);
+  const holdXRafRef = useRef<number | null>(null);
+  const holdXStartRef = useRef<number | null>(null);
+  const holdXFiredRef = useRef(false);
+  const holdXXPrevRef = useRef(false); // edge-detect: só inicia em nova pressionada
+  const onEquipRef = useRef(onEquip);
+  onEquipRef.current = onEquip;
+  const onUnequipRef = useRef(onUnequip);
+  onUnequipRef.current = onUnequip;
+  // Hold-Y: remover item do slot (picking mode)
+  const [gpHoldYProgress, setGpHoldYProgress] = useState(0);
+  const holdYRafRef  = useRef<number | null>(null);
+  const holdYStartRef = useRef<number | null>(null);
+  const holdYFiredRef = useRef(false);
+  const holdYYPrevRef = useRef(false);
+
+  // Reset gpIdx when filter changes
+  useEffect(() => { setGpIdx(0); }, [filter]);
+
   useEffect(() => () => {
     if (detailTimerRef.current) window.clearTimeout(detailTimerRef.current);
     if (sellTimerRef.current) window.clearTimeout(sellTimerRef.current);
@@ -705,7 +915,8 @@ export const InventoryScreen = ({
   useEffect(() => { const t = window.setTimeout(() => setMounted(true), 20); return () => window.clearTimeout(t); }, []);
 
   const changeFilter = (newFilter: InventoryFilter) => {
-    if (newFilter === filter) return;
+    if (newFilter === pendingFilterRef.current) return;
+    pendingFilterRef.current = newFilter; // update immediately so SHOULDER nav is correct
     if (bagTimerRef.current) window.clearTimeout(bagTimerRef.current);
     bagAnimKey.current += 1;   // force img remount → replay shake animation
     setShaking(true);
@@ -728,8 +939,9 @@ export const InventoryScreen = ({
 
   const handlePickingClick = (item: Item) => {
     if (!isPicking || targetItemSlotIndex === null || !onEquipItemToSlot) return;
-    const existingSlot = getItemSlotIndex(item.id);
-    if (existingSlot === targetItemSlotIndex) {
+    // Check if this exact item is already in the TARGET slot (not any slot)
+    const currentSlotItemId = equippedItemSlots[targetItemSlotIndex]?.itemId ?? '';
+    if (currentSlotItemId === item.id) {
       // Desequipar from this slot
       onEquipItemToSlot(targetItemSlotIndex, null);
     } else {
@@ -791,8 +1003,8 @@ export const InventoryScreen = ({
         if (equipmentSubFilter) return item.type === equipmentSubFilter;
         return isEquipmentType(item.type);
       }
-      // Potion/material: ocultar itens em slots de habilidade
-      if (item.type === 'potion' && slottedItemIds.has(item.id)) return false;
+      // Potion/material: ocultar itens em slots de habilidade (exceto no modo seleção de slot)
+      if (item.type === 'potion' && slottedItemIds.has(item.id) && !isPicking) return false;
       return item.type === filter;
     });
     if (filter === 'equipment') {
@@ -816,6 +1028,281 @@ export const InventoryScreen = ({
   const openDetail = (item: Item) => {
     setDetailClosing(false);
     setActiveItemId(item.id);
+  };
+
+  // ── Stable refs for gamepad handler (avoids stale closures) ───────────────
+  const filteredItemsRef   = useRef(filteredItems);
+  filteredItemsRef.current = filteredItems;
+  const activeItemIdRef    = useRef(activeItemId);
+  activeItemIdRef.current  = activeItemId;
+  const filterRef          = useRef(filter);
+  filterRef.current        = filter;
+  // pendingFilterRef: updated immediately when changeFilter is called (before the 200ms state update)
+  const pendingFilterRef   = useRef(filter);
+  pendingFilterRef.current = filter; // sync with state (if no pending change in flight)
+  const isItemEquippedRef  = useRef(isItemEquipped);
+  isItemEquippedRef.current = isItemEquipped;
+  const isPickingRef       = useRef(isPicking);
+  isPickingRef.current     = isPicking;
+  const targetItemSlotIndexRef = useRef(targetItemSlotIndex);
+  targetItemSlotIndexRef.current = targetItemSlotIndex;
+  const equippedItemSlotsRef = useRef(equippedItemSlots);
+  equippedItemSlotsRef.current = equippedItemSlots;
+  const onEquipItemToSlotRef = useRef(onEquipItemToSlot);
+  onEquipItemToSlotRef.current = onEquipItemToSlot;
+  // Stable ref for picking-mode equip (used inside RAF)
+  const handlePickingClickRef = useRef(handlePickingClick);
+  handlePickingClickRef.current = handlePickingClick;
+
+  // Scroll selected card into view when gpIdx changes
+  useEffect(() => {
+    if (invUiProfile !== 'gamepad') return;
+    gpFocusedCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+  }, [gpIdx, invUiProfile]);
+
+  // Main gamepad handler — uses pushInputLayer so ONLY this handler fires
+  // while the inventory is open (suppresses parent screen handlers)
+  useEffect(() => {
+    if (invUiProfile !== 'gamepad') return;
+    return pushInputLayer((action) => {
+      // Se o detail modal está aberto, só processa BACK (o modal em si cuida de CONFIRM)
+      if (activeItemIdRef.current) {
+        if (action === 'BACK') { closeDetail(); }
+        return;
+      }
+      const items = filteredItemsRef.current;
+      if (action === 'BACK') { onClose(); return; }
+      if (action === 'NAV_LEFT' || action === 'NAV_RIGHT') return; // handled by RAF hold-repeat
+      if (action === 'CONFIRM') {
+        const entry = items[gpIdxRef.current];
+        if (!entry) return;
+        openDetail(entry.item);
+        return;
+      }
+      if (action === 'SKILL_2' && !isPickingRef.current) {
+        // Y em modo normal = ver detalhes do item focado
+        const entry = items[gpIdxRef.current];
+        if (!entry) return;
+        openDetail(entry.item);
+        return;
+      }
+      if (action === 'SHOULDER_L' && !equipmentSubFilter) {
+        const idx = FILTERS.findIndex(f => f.id === pendingFilterRef.current);
+        changeFilter(FILTERS[(idx - 1 + FILTERS.length) % FILTERS.length].id);
+        return;
+      }
+      if (action === 'SHOULDER_R' && !equipmentSubFilter) {
+        const idx = FILTERS.findIndex(f => f.id === pendingFilterRef.current);
+        changeFilter(FILTERS[(idx + 1) % FILTERS.length].id);
+        return;
+      }
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [invUiProfile]);
+
+  // Smooth hold-repeat card navigation (RAF polling)
+  useEffect(() => {
+    if (invUiProfile !== 'gamepad') return;
+    const INITIAL_DELAY  = 420;
+    const INTERVAL_START = 130;
+    const INTERVAL_MIN   = 40;
+    const ACCEL = 0.82;
+
+    let rafId: number;
+    let leftNextAt: number | null = null;
+    let rightNextAt: number | null = null;
+    let leftInterval  = INTERVAL_START;
+    let rightInterval = INTERVAL_START;
+    let prevLeft  = false;
+    let prevRight = false;
+
+    const step = (dir: -1 | 1) => {
+      if (activeItemIdRef.current) return; // detail open — skip
+      const len = filteredItemsRef.current.length;
+      if (len === 0) return;
+      setGpIdx(i => {
+        const next = dir === -1 ? Math.max(0, i - 1) : Math.min(len - 1, i + 1);
+        gpIdxRef.current = next;
+        return next;
+      });
+      uiSfx.play('menu_nav');
+    };
+
+    const poll = (now: number) => {
+      const gps = navigator.getGamepads();
+      const gp  = gps[0] ?? gps[1] ?? null;
+      const leftDown  = gp ? ((gp.buttons[14]?.pressed) || (gp.axes[6] ?? 0) < -0.5) : false;
+      const rightDown = gp ? ((gp.buttons[15]?.pressed) || (gp.axes[6] ?? 0) >  0.5) : false;
+
+      if (leftDown) {
+        if (!prevLeft) {
+          step(-1);
+          leftNextAt   = now + INITIAL_DELAY;
+          leftInterval = INTERVAL_START;
+        } else if (leftNextAt !== null && now >= leftNextAt) {
+          step(-1);
+          leftInterval = Math.max(INTERVAL_MIN, leftInterval * ACCEL);
+          leftNextAt   = now + leftInterval;
+        }
+      } else {
+        leftNextAt   = null;
+        leftInterval = INTERVAL_START;
+      }
+
+      if (rightDown) {
+        if (!prevRight) {
+          step(1);
+          rightNextAt   = now + INITIAL_DELAY;
+          rightInterval = INTERVAL_START;
+        } else if (rightNextAt !== null && now >= rightNextAt) {
+          step(1);
+          rightInterval = Math.max(INTERVAL_MIN, rightInterval * ACCEL);
+          rightNextAt   = now + rightInterval;
+        }
+      } else {
+        rightNextAt   = null;
+        rightInterval = INTERVAL_START;
+      }
+
+      prevLeft  = leftDown;
+      prevRight = rightDown;
+      rafId = requestAnimationFrame(poll);
+    };
+
+    rafId = requestAnimationFrame(poll);
+    return () => cancelAnimationFrame(rafId);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [invUiProfile]);
+
+  // Hold-X: equip/unequip diretamente da grade sem abrir detalhes
+  useEffect(() => {
+    if (invUiProfile !== 'gamepad') return;
+    const HOLD_DURATION = 600;
+    function poll() {
+      const gp = navigator.getGamepads()[0] ?? navigator.getGamepads()[1] ?? null;
+      const xDown = gp ? (gp.buttons[2]?.pressed || (gp.buttons[2]?.value ?? 0) > 0.5) : false;
+      const xWas = holdXXPrevRef.current;
+      holdXXPrevRef.current = xDown;
+      const detailOpen = !!activeItemIdRef.current;
+      const entry = filteredItemsRef.current[gpIdxRef.current];
+      const isEquipCard = entry ? isEquipmentType(entry.item.type) : false;
+      if (!xDown) {
+        holdXFiredRef.current = false;
+        holdXStartRef.current = null;
+        setGpHoldXProgress(0);
+      } else if (!detailOpen && isEquipCard && !isPickingRef.current && !holdXFiredRef.current) {
+        // Só inicia o hold se X acabou de ser pressionado (borda de subida)
+        if (holdXStartRef.current === null) {
+          if (!xWas) holdXStartRef.current = performance.now();
+        }
+        if (holdXStartRef.current !== null) {
+          const elapsed = performance.now() - holdXStartRef.current;
+          const pct = Math.min(elapsed / HOLD_DURATION, 1);
+          setGpHoldXProgress(pct);
+          if (pct >= 1) {
+            holdXFiredRef.current = true;
+            holdXStartRef.current = null;
+            setGpHoldXProgress(0);
+            if (isItemEquippedRef.current(entry!.item)) {
+              onUnequipRef.current(entry!.item);
+            } else {
+              onEquipRef.current(entry!.item);
+            }
+          }
+        }
+      } else if (!detailOpen && isPickingRef.current && !holdXFiredRef.current && entry?.item.type === 'potion') {
+        // Picking mode: hold X = equipar item diretamente no slot
+        if (holdXStartRef.current === null) {
+          if (!xWas) holdXStartRef.current = performance.now();
+        }
+        if (holdXStartRef.current !== null) {
+          const elapsed = performance.now() - holdXStartRef.current;
+          const pct = Math.min(elapsed / HOLD_DURATION, 1);
+          setGpHoldXProgress(pct);
+          if (pct >= 1) {
+            holdXFiredRef.current = true;
+            holdXStartRef.current = null;
+            setGpHoldXProgress(0);
+            handlePickingClickRef.current(entry!.item);
+          }
+        }
+      } else if (detailOpen || (!isEquipCard && !isPickingRef.current)) {
+        holdXStartRef.current = null;
+        setGpHoldXProgress(0);
+      }
+      holdXRafRef.current = requestAnimationFrame(poll);
+    }
+    holdXRafRef.current = requestAnimationFrame(poll);
+    return () => {
+      if (holdXRafRef.current) cancelAnimationFrame(holdXRafRef.current);
+      setGpHoldXProgress(0);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [invUiProfile]);
+
+  // Hold-Y: remover item do slot alvo (picking mode)
+  useEffect(() => {
+    if (invUiProfile !== 'gamepad') return;
+    const HOLD_DURATION = 600;
+    function poll() {
+      const gp = navigator.getGamepads()[0] ?? navigator.getGamepads()[1] ?? null;
+      const yDown = gp ? (gp.buttons[3]?.pressed || (gp.buttons[3]?.value ?? 0) > 0.5) : false;
+      const yWas = holdYYPrevRef.current;
+      holdYYPrevRef.current = yDown;
+      const slotIdx = targetItemSlotIndexRef.current;
+      const slots = equippedItemSlotsRef.current;
+      const slotHasItem = slotIdx !== null && !!(slots[slotIdx]?.itemId);
+      const detailOpen = !!activeItemIdRef.current;
+      if (!yDown || !isPickingRef.current || !slotHasItem || detailOpen) {
+        holdYFiredRef.current = false;
+        holdYStartRef.current = null;
+        setGpHoldYProgress(0);
+      } else if (!holdYFiredRef.current) {
+        if (holdYStartRef.current === null) {
+          if (!yWas) holdYStartRef.current = performance.now();
+        }
+        if (holdYStartRef.current !== null) {
+          const elapsed = performance.now() - holdYStartRef.current;
+          const pct = Math.min(elapsed / HOLD_DURATION, 1);
+          setGpHoldYProgress(pct);
+          if (pct >= 1) {
+            holdYFiredRef.current = true;
+            holdYStartRef.current = null;
+            setGpHoldYProgress(0);
+            onEquipItemToSlotRef.current?.(slotIdx!, null);
+          }
+        }
+      }
+      holdYRafRef.current = requestAnimationFrame(poll);
+    }
+    holdYRafRef.current = requestAnimationFrame(poll);
+    return () => {
+      if (holdYRafRef.current) cancelAnimationFrame(holdYRafRef.current);
+      setGpHoldYProgress(0);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [invUiProfile]);
+
+  // Gamepad CONFIRM action for detail modal (equip/unequip/use)
+  const handleDetailGamepadConfirm = () => {
+    if (!activeEntry) return;
+    const item = activeEntry.item;
+    const isEquipCard = isEquipmentType(item.type);
+    // Picking mode: equip/remove potion to/from slot
+    if (isPickingRef.current && item.type === 'potion' && onEquipItemToSlotRef.current && targetItemSlotIndexRef.current != null) {
+      onEquipItemToSlotRef.current(targetItemSlotIndexRef.current, item.id);
+      closeDetail();
+      onClose();
+      return;
+    }
+    if (!isBattleContext && isEquipCard) {
+      if (isItemEquippedRef.current(item)) { onUnequip(item); }
+      else { onEquip(item); onClose(); }
+      closeDetail();
+    } else if (isBattleContext && item.type === 'potion') {
+      onUse(item.id);
+      closeDetail();
+    }
   };
 
   const toggleSelectItem = (item: Item) => {
@@ -999,18 +1486,40 @@ export const InventoryScreen = ({
 
         {/* Picking mode banner */}
         {isPicking && (() => {
-          const currentSlotItem = targetItemSlotIndex !== null ? (equippedItemSlots[targetItemSlotIndex]?.itemId ?? '') : '';
-          const hasCurrentItem = !!currentSlotItem;
+          const currentSlotItemId = targetItemSlotIndex !== null ? (equippedItemSlots[targetItemSlotIndex]?.itemId ?? '') : '';
+          const currentSlotQty    = targetItemSlotIndex !== null ? (equippedItemSlots[targetItemSlotIndex]?.qty ?? 0) : 0;
+          const hasCurrentItem = !!currentSlotItemId;
+          const currentSlotItemObj = hasCurrentItem ? shopItems.find(it => it.id === currentSlotItemId) : null;
           return (
             <div className="mx-4 mt-2 flex items-center gap-2 rounded-xl border border-amber-400/30 bg-amber-500/10 px-3 py-2">
               <FlaskConical size={13} className="shrink-0 text-amber-300" />
-              <span className="flex-1 text-[11px] font-black text-amber-200">Escolhendo para Slot {(targetItemSlotIndex ?? 0) + 1} — toque num item</span>
+              <div className="flex-1 min-w-0">
+                <span className="text-[11px] font-black text-amber-200">
+                  Slot {(targetItemSlotIndex ?? 0) + 1}
+                </span>
+                {hasCurrentItem && currentSlotItemObj ? (
+                  <span className="ml-1.5 inline-flex items-center gap-1 text-[11px] font-black text-amber-100">
+                    — <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center"><ItemIcon item={currentSlotItemObj} emojiClassName="text-sm leading-none" imgClassName="h-4 w-4 object-contain" /></span>
+                    <span className="truncate">{currentSlotItemObj.name}</span>
+                    <span className="text-amber-400/70">×{currentSlotQty}</span>
+                  </span>
+                ) : (
+                  <span className="ml-1 text-[11px] font-black text-amber-300/60"> — vazio</span>
+                )}
+              </div>
               {hasCurrentItem && (
                 <button
-                  onClick={() => { if (onEquipItemToSlot && targetItemSlotIndex !== null) { onEquipItemToSlot(targetItemSlotIndex, null); } onClose(); }}
-                  className="shrink-0 rounded-lg border border-amber-400/30 bg-amber-500/15 px-2 py-1 text-[10px] font-black uppercase tracking-widest text-amber-300 hover:bg-amber-500/25 active:scale-95"
+                  onClick={() => { if (onEquipItemToSlot && targetItemSlotIndex !== null) { onEquipItemToSlot(targetItemSlotIndex, null); } }}
+                  className="shrink-0 relative overflow-hidden inline-flex items-center gap-1.5 rounded-lg border border-amber-400/30 bg-amber-500/15 px-2 py-1 text-[10px] font-black uppercase tracking-widest text-amber-300 hover:bg-amber-500/25 active:scale-95"
                 >
-                  × Remover
+                  {/* hold-Y fill */}
+                  {gpHoldYProgress > 0 && (
+                    <span className="absolute inset-0 bg-amber-500/35 origin-left rounded-[inherit] pointer-events-none" style={{ transform: `scaleX(${gpHoldYProgress})` }} />
+                  )}
+                  {invUiProfile === 'gamepad' && (
+                    <span className="relative inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-yellow-400 text-[7px] font-black text-black shrink-0">Y</span>
+                  )}
+                  <span className="relative">× Remover</span>
                 </button>
               )}
             </div>
@@ -1065,31 +1574,62 @@ export const InventoryScreen = ({
               Nenhum item nesta categoria.
             </div>
           ) : (
-            filteredItems.map(({ item, quantity }) => (
-              <InventoryCard
-                key={item.id}
-                item={item}
-                quantity={quantity}
-                player={player}
-                isSelected={activeItemId === item.id}
-                isEquipped={isItemEquipped(item)}
-                onClick={
-                  selectionMode
-                    ? () => toggleSelectItem(item)
-                    : isPicking && item.type === 'potion'
-                      ? () => handlePickingClick(item)
+            filteredItems.map(({ item, quantity }, cardIdx) => {
+              const isGpFocused = invUiProfile === 'gamepad' && !activeItemId && cardIdx === gpIdx;
+              return (
+                <InventoryCard
+                  key={item.id}
+                  item={item}
+                  quantity={quantity}
+                  player={player}
+                  isSelected={activeItemId === item.id}
+                  isEquipped={isItemEquipped(item)}
+                  onClick={
+                    selectionMode
+                      ? () => toggleSelectItem(item)
                       : () => openDetail(item)
-                }
-                onEquipToggle={selectionMode ? undefined : handleEquipToggle}
-                isBattleContext={isBattleContext}
-                inSlotIndex={getItemSlotIndex(item.id)}
-                isPicking={isPicking && item.type === 'potion'}
-                isMultiSelectMode={selectionMode}
-                isMultiSelected={selectedIds.has(item.id)}
-              />
-            ))
+                  }
+                  onEquipToggle={selectionMode ? undefined : handleEquipToggle}
+                  isBattleContext={isBattleContext}
+                  inSlotIndex={getItemSlotIndex(item.id)}
+                  isPicking={isPicking && item.type === 'potion'}
+                  isMultiSelectMode={selectionMode}
+                  isMultiSelected={selectedIds.has(item.id)}
+                  isGpFocused={isGpFocused}
+                  gpFocusRef={isGpFocused ? gpFocusedCardRef : undefined}
+                  gpHoldXProgress={isGpFocused && !isBattleContext
+                    ? (isPicking && item.type === 'potion' ? gpHoldXProgress : (isEquipmentType(item.type) && !isPicking ? gpHoldXProgress : 0))
+                    : 0}
+                />
+              );
+            })
           )}
         </div>
+
+        {/* GAMEPAD LEGEND — inline, abaixo da lista */}
+        {!activeEntry && !selectionMode && (() => {
+          const focusedItem = filteredItems[gpIdx]?.item;
+          const focusedIsEquip = !!focusedItem && isEquipmentType(focusedItem.type) && !isBattleContext && !isPicking;
+          const focusedIsPickingPotion = isPicking && !!focusedItem && focusedItem.type === 'potion';
+          // No modo picking: Y segurando remove; X segurando equipa
+          const currentSlotHasItem = isPicking && targetItemSlotIndex !== null && !!equippedItemSlots[targetItemSlotIndex]?.itemId;
+          return (
+            <GamepadActionLegend
+              inline
+              showConfirm
+              confirmText="Ver detalhes"
+              showCancel
+              showDPad
+              dPadText="Navegar itens"
+              showLR={!equipmentSubFilter && !isPicking}
+              lrText="Trocar filtro"
+              showSkill1={focusedIsEquip || focusedIsPickingPotion}
+              skill1Text={focusedIsPickingPotion ? 'Segurar X para equipar no slot' : (focusedItem && isItemEquipped(focusedItem) ? 'Segurar para desequipar' : 'Segurar para equipar')}
+              showSkill2={currentSlotHasItem || (!isPicking && !!focusedItem)}
+              skill2Text={currentSlotHasItem ? 'Segurar Y para remover slot' : 'Ver detalhes'}
+            />
+          );
+        })()}
       </div>
 
       {/* ITEM DETAIL MODAL */}
@@ -1107,6 +1647,11 @@ export const InventoryScreen = ({
           isEquipped={isItemEquipped(activeEntry.item)}
           isBattleContext={isBattleContext}
           inShopContext={inShopContext}
+          onGamepadAction={handleDetailGamepadConfirm}
+          isPicking={isPicking}
+          targetItemSlotIndex={targetItemSlotIndex}
+          onEquipItemToSlot={onEquipItemToSlot}
+          equippedItemSlots={equippedItemSlots}
         />
       )}
 
@@ -1142,6 +1687,7 @@ export const InventoryScreen = ({
           onClose={() => setBatchSellOpen(false)}
         />
       )}
+
 
     </div>
   );

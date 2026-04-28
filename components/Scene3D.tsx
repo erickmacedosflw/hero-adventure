@@ -1,6 +1,6 @@
 import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Sword, Shield, Zap, Sparkles, FlaskConical, Crosshair, Shirt, Footprints, Layers, RefreshCw, Swords, Wind, Clover, Heart, Info, X, LogOut } from 'lucide-react';
+import { Sword, Shield, Zap, Sparkles, FlaskConical, Crosshair, Shirt, Footprints, Layers, RefreshCw, Swords, Wind, Clover, Heart, Info, X, LogOut, User } from 'lucide-react';
 import { Canvas, useFrame, useLoader, useThree } from '@react-three/fiber';
 import { ContactShadows, Html, useAnimations, useFBX, useTexture } from '@react-three/drei';
 import { Bloom, DepthOfField, EffectComposer, Vignette } from '@react-three/postprocessing';
@@ -9,7 +9,7 @@ import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { COMBAT_SPRITE_ANIMATION_DEFAULTS, SPRITE_ANIMATION_IDS, SPRITE_ANIMATION_REGISTRY } from '../game/data/sprite-animations/registry';
 import { resolveTrackPlaybackSnapshot } from '../game/mechanics/spriteOverlayPlayback';
-import { CardCategory, Enemy, EnemyIntentPreview, FloatingText, GltfMonsterBodyType, Item, Particle, Player, PlayerAnimationAction, PlayerClassAnimationMap, PlayerClassAssets, PlayerClassId, Skill, SpriteOverlayAnimationDefinition, SpriteTrackDefinition, StatusEffect, TurnState } from '../types';
+import { CardCategory, Enemy, EnemyIntentPreview, FloatingText, GltfMonsterBodyType, Particle, Player, PlayerAnimationAction, PlayerClassAnimationMap, PlayerClassAssets, PlayerClassId, SpriteOverlayAnimationDefinition, SpriteTrackDefinition, StatusEffect, TurnState } from '../types';
 import {
   RIGHT_HAND_BONE_CANDIDATES,
   RuntimeHeroAssets,
@@ -35,30 +35,13 @@ import {
   getRenderQualityProfile,
   type RenderQualityPreset,
 } from './scene3d/environment';
-import {
-  DeveloperClassBuilderSceneRenderer,
-  DeveloperGltfMonsterSceneRenderer,
-  DeveloperHeroSceneRenderer,
-  DeveloperKitbashSceneRenderer,
-  DeveloperMonsterSceneRenderer,
-  DeveloperScenarioComposerSceneRenderer,
-  ScenarioParticleField,
-  DeveloperWeaponCalibrationSceneRenderer,
-} from './scene3d/developer-scenes';
+import { ScenarioParticleField } from './scene3d/developer-scenes';
 import {
   AnimatedClassHero,
   EnemyCharacter,
   GltfEnemyCharacter,
   applyHitFlashToMaterial,
 } from './scene3d/characters';
-import type {
-  DeveloperClassBuilderSceneProps,
-  DeveloperGltfMonsterSceneProps,
-  DeveloperHeroSceneProps,
-  DeveloperKitbashSceneProps,
-  DeveloperMonsterSceneProps,
-  DeveloperScenarioComposerSceneProps,
-} from './scene3d/developer-scenes';
 import { MeshParticle, WorldFloatingTexts, WorldLootDisplay, type LootResultData } from './scene3d/effects';
 import {
   getKitbashRootSlot,
@@ -66,9 +49,6 @@ import {
   prepareRuntimeHeroModel,
   rebindPreparedModelToSkeleton,
 } from './scene3d/kitbash';
-import {
-  resolveRuntimeClassAssets,
-} from './scene3d/developer';
 import { EquippedWeaponAttachment } from './scene3d/weapons';
 import { DungeonScenario } from './scene3d/scenarios';
 import { getRuntimeScenarioPreset } from '../game/data/runtimeScenarios';
@@ -93,11 +73,14 @@ import type {
   DeveloperWeaponTransformOverride,
 } from './scene3d/types';
 import { VoxelPart } from './items/VoxelPart';
-import { getEquipmentBonuses } from '../game/mechanics/equipmentBonuses';
 import { getPlayerClassById } from '../game/data/classes';
 import { shouldUseMagicBasicAttack, shouldUseBowBasicAttack } from '../game/mechanics/weaponProficiency';
 import { getEquippedWeaponGrip, getRegisteredWeapon3DByItemId } from '../game/data/weaponCatalog';
-import { ALL_ITEMS, getClassSlots } from '../constants';
+import { GamepadActionLegend } from './ui/GamepadActionLegend';
+import { HeroItemDetailOverlay } from './scene3d/ItemDetailOverlays';
+import { HeroInspectCanvas } from './scene3d/HeroInspectCanvas';
+import { BattleActionsHtml, type BattleActionsConfig } from './scene3d/BattleActionsHtml';
+import { PortalInspectCanvas } from './scene3d/PortalInspectCanvas';
 export { ItemPreviewCanvas } from './items/ItemPreviewCanvas';
 export type {
   DeveloperAnimationRuntimeDiagnostic,
@@ -109,452 +92,6 @@ export type {
   DeveloperWeaponTransformControlMode,
   DeveloperWeaponTransformOverride,
 } from './scene3d/types';
-
-// ── Battle actions config (passed from App → GameScene → BattleActionsHtml via Html3D) ──────────────────
-export interface BattleActionsConfig {
-  isPlayerTurn: boolean;
-  showSkillsAction: boolean;
-  showItemsAction: boolean;
-  impulseUnlocked: boolean;
-  impulseCapacity: number;
-  impulseReserveColors: string[];
-  classImpulseBaseColor: string;
-  absorbGlowColor: string;
-  usesMagicBasicAttack: boolean;
-  usesBowBasicAttack: boolean;
-  limitBattleActionsToBasics: boolean;
-  shopItems: Item[];
-  onAttack: () => void;
-  onDefend: () => void;
-  onChargeImpulse: () => void;
-  onAbsorbImpulse: () => void;
-  onSkill: (skill: Skill) => void;
-  onUseItem: (itemId: string) => void;
-  onRequestDungeonExtract?: (item: Item) => void;
-  showFleeAction: boolean;
-  onFlee: () => void;
-}
-
-const BattleActionsHtml: React.FC<{ config: BattleActionsConfig; player: Player; isMobile?: boolean; isSelecting?: boolean }> = ({ config, player, isMobile = false, isSelecting = false }) => {
-  const [activeMenu, setActiveMenu] = React.useState<'skills' | 'items' | null>(null);
-  const [menuVisible, setMenuVisible] = React.useState(false);
-  const [infoPopup, setInfoPopup] = React.useState<{ type: 'skill' | 'item'; id: string } | null>(null);
-  const [pressedBtn, setPressedBtn] = React.useState<string | null>(null);
-  const [showFleeConfirm, setShowFleeConfirm] = React.useState(false);
-  const [fleeModalVisible, setFleeModalVisible] = React.useState(false);
-  const [fleeBtnHover, setFleeBtnHover] = React.useState<'cancel' | 'flee' | null>(null);
-  const [fleeBtnPress, setFleeBtnPress] = React.useState<'cancel' | 'flee' | null>(null);
-  const F: React.CSSProperties = { fontFamily: "'Segoe UI',system-ui,sans-serif" };
-  const { isPlayerTurn, showSkillsAction, showItemsAction, impulseUnlocked, impulseCapacity, impulseReserveColors,
-    classImpulseBaseColor, absorbGlowColor, usesMagicBasicAttack, usesBowBasicAttack, limitBattleActionsToBasics,
-    shopItems, onAttack, onDefend, onChargeImpulse, onAbsorbImpulse, onSkill, onUseItem, onRequestDungeonExtract,
-    showFleeAction, onFlee } = config;
-
-  const hasAbsorbed = player.impulsoAtivo > 0;
-  const impulseGlowColor = hasAbsorbed ? absorbGlowColor : null;
-
-  React.useEffect(() => {
-    if (activeMenu) {
-      const raf = requestAnimationFrame(() => setMenuVisible(true));
-      return () => cancelAnimationFrame(raf);
-    } else {
-      setMenuVisible(false);
-    }
-  }, [activeMenu]);
-
-  const containerRef = React.useRef<HTMLDivElement>(null);
-
-  const closeMenu = () => { setActiveMenu(null); setInfoPopup(null); };
-
-  // Flee modal animation
-  React.useEffect(() => {
-    if (showFleeConfirm) {
-      const raf = requestAnimationFrame(() => setFleeModalVisible(true));
-      return () => cancelAnimationFrame(raf);
-    } else {
-      setFleeModalVisible(false);
-      setFleeBtnHover(null);
-      setFleeBtnPress(null);
-    }
-  }, [showFleeConfirm]);
-  const press = (id: string) => setPressedBtn(id);
-  const release = () => setPressedBtn(null);
-
-  // Click-outside: close desktop dropdown when clicking anywhere outside the container
-  React.useEffect(() => {
-    if (isMobile || activeMenu === null) return;
-    const handler = (e: PointerEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        closeMenu();
-      }
-    };
-    const timer = setTimeout(() => document.addEventListener('pointerdown', handler), 30);
-    return () => { clearTimeout(timer); document.removeEventListener('pointerdown', handler); };
-  }, [isMobile, activeMenu]);
-
-  // Size config: mobile = large touch targets, desktop = compact
-  const S = isMobile
-    ? { w: '268px', gap: '11px', btnFont: '15px', btnIcon: 52, btnIco: 24, btnGap: '14px', btnPad: '14px 18px 14px 12px', btnR: '20px', btnIcoR: 14, absFont: '15px', absIco: 20, absSub: '11px', dotW: '30px', dotH: '11px', dotGap: '6px', absGap: '11px', absPad: '13px 18px', absIconS: 40, absIconR: 12 }
-    : { w: '155px', gap: '4px', btnFont: '9px', btnIcon: 26, btnIco: 13, btnGap: '7px', btnPad: '6px 9px 6px 6px', btnR: '10px', btnIcoR: 7, absFont: '9px', absIco: 11, absSub: '7px', dotW: '16px', dotH: '5px', dotGap: '3px', absGap: '6px', absPad: '6px 9px', absIconS: 20, absIconR: 6 };
-
-  const btn = (id: string, color: string, disabled: boolean, onClick: () => void, icon: React.ReactNode, label: string, forceColor?: string) => {
-    const isPressed = pressedBtn === id && !disabled;
-    const gc = forceColor ?? (impulseGlowColor && !disabled ? impulseGlowColor : null);
-    const effectiveColor = gc ?? color;
-    return (
-      <button onClick={onClick} disabled={disabled}
-        onPointerDown={() => !disabled && press(id)}
-        onPointerUp={release} onPointerLeave={release} onPointerCancel={release}
-        style={{
-          display: 'flex', alignItems: 'center', gap: S.btnGap,
-          background: 'rgba(8,5,22,0.55)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)',
-          border: `1.5px solid ${disabled ? 'rgba(255,255,255,0.10)' : effectiveColor + '70'}`,
-          borderRadius: S.btnR, padding: S.btnPad,
-          cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.42 : 1,
-          boxShadow: disabled ? '0 4px 12px rgba(0,0,0,0.25)'
-            : gc ? `0 0 22px ${gc}55, 0 0 8px ${gc}33, 0 4px 18px rgba(0,0,0,0.35)`
-            : `0 0 18px ${color}22, 0 4px 16px rgba(0,0,0,0.35)`,
-          transform: isPressed ? 'scale(0.92)' : 'scale(1)',
-          transition: 'transform 0.13s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.25s ease, border-color 0.25s ease',
-          width: '100%', ...F
-        }}>
-        <div style={{
-          width: S.btnIcon, height: S.btnIcon, borderRadius: S.btnIcoR, flexShrink: 0,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: disabled ? 'rgba(255,255,255,0.05)' : gc ? `${gc}28` : `${color}22`,
-          border: `1.5px solid ${disabled ? 'rgba(255,255,255,0.10)' : effectiveColor + '55'}`,
-          color: disabled ? 'rgba(255,255,255,0.25)' : effectiveColor,
-          boxShadow: gc && !disabled ? `0 0 14px ${gc}66` : 'none',
-          transition: 'all 0.25s ease'
-        }}>{icon}</div>
-        <span style={{ fontSize: S.btnFont, fontWeight: 900, textTransform: 'uppercase' as const, letterSpacing: '0.11em', color: disabled ? 'rgba(255,255,255,0.28)' : '#fff', whiteSpace: 'nowrap' }}>{label}</span>
-      </button>
-    );
-  };
-
-  const MAX_SKILL_SLOTS = getClassSlots(player.classId).skills;
-  const skillIds = [...(player.equippedSkillIds ?? [])];
-  while (skillIds.length < MAX_SKILL_SLOTS) skillIds.push('');
-  const MAX_ITEM_SLOTS_BATTLE = getClassSlots(player.classId).items;
-  const ic = '#fb923c';
-  const itemSlots = player.equippedItemSlots ?? [];
-
-  // ── Inline item badge helper ──
-  const getItemBadges = (item: { id: string; description?: string; value?: number; duration?: number }) => {
-    const lower = (item.description ?? '').toLowerCase();
-    if (['pot_2','pot_mana_2','pot_mana_3','pot_dg_mana'].includes(item.id))
-      return [{ label: `+${item.value} MP`, color: '#7dd3fc', bg: 'rgba(7,89,133,0.30)', border: 'rgba(125,211,252,0.30)' }];
-    if (item.id === 'pot_atk') return [{ label: `ATK↑`, color: '#f87171', bg: 'rgba(127,29,29,0.30)', border: 'rgba(248,113,113,0.30)' }, { label: `${item.duration ?? 3}t`, color: '#fcd34d', bg: 'rgba(120,53,15,0.30)', border: 'rgba(252,211,77,0.28)' }];
-    if (item.id === 'pot_def') return [{ label: `DEF↑`, color: '#93c5fd', bg: 'rgba(30,58,95,0.30)', border: 'rgba(147,197,253,0.30)' }, { label: `${item.duration ?? 3}t`, color: '#fcd34d', bg: 'rgba(120,53,15,0.30)', border: 'rgba(252,211,77,0.28)' }];
-    if (lower.includes('hp') || lower.includes('vida') || lower.includes('cura') || lower.includes('restaura'))
-      return [{ label: `+${item.value} HP`, color: '#86efac', bg: 'rgba(20,83,45,0.30)', border: 'rgba(134,239,172,0.28)' }];
-    if (lower.includes('mp') || lower.includes('mana') || lower.includes('energia'))
-      return [{ label: `+${item.value} MP`, color: '#7dd3fc', bg: 'rgba(7,89,133,0.30)', border: 'rgba(125,211,252,0.28)' }];
-    if ((item.duration ?? 0) > 0)
-      return [{ label: 'BOOST', color: '#fcd34d', bg: 'rgba(120,53,15,0.30)', border: 'rgba(252,211,77,0.28)' }, { label: `${item.duration}t`, color: '#fcd34d', bg: 'rgba(120,53,15,0.20)', border: 'rgba(252,211,77,0.18)' }];
-    return [{ label: 'ESPECIAL', color: '#c4b5fd', bg: 'rgba(76,29,149,0.30)', border: 'rgba(196,181,253,0.28)' }];
-  };
-
-  const rowSlotFont = isMobile ? '9px' : '8px';
-  const rowNameFont = isMobile ? '13px' : '11px';
-  const rowBadgeFont = isMobile ? '9px' : '8px';
-  const rowIconSize = isMobile ? 34 : 26;
-
-  // ── Shared skill rows ──
-  const skillRows = (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-      {skillIds.map((skillId, i) => {
-        const skill = skillId ? player.skills.find(s => s.id === skillId) : null;
-        const tc = skill?.type === 'physical' ? '#f87171' : skill?.type === 'magic' ? '#c4b5fd' : '#86efac';
-        const tbg = skill?.type === 'physical' ? 'rgba(248,113,113,0.16)' : skill?.type === 'magic' ? 'rgba(196,181,253,0.16)' : 'rgba(134,239,172,0.16)';
-        const tLabel = skill?.type === 'physical' ? 'Físico' : skill?.type === 'magic' ? 'Magia' : 'Cura';
-        const TIcon = skill?.type === 'physical' ? <Sword size={13} /> : skill?.type === 'magic' ? <Sparkles size={13} /> : <Heart size={13} />;
-        const rCost = skill?.resourceEffect?.cost ?? 0;
-        const hasRes = player.classResource.value >= rCost;
-        const mp = skill ? (player.impulsoAtivo >= 1 ? Math.max(1, Math.floor(skill.manaCost * 0.7)) : skill.manaCost) : 0;
-        const canCast = !!skill && isPlayerTurn && player.stats.mp >= mp && hasRes;
-        const isEmpty = !skill;
-        const infoOpen = infoPopup?.type === 'skill' && infoPopup?.id === skillId && !!skill;
-        return (
-          <div key={i}>
-            <div style={{ display: 'flex', alignItems: 'stretch', gap: '4px' }}>
-              <button onClick={() => { if (skill && canCast) { onSkill(skill); closeMenu(); } }} disabled={!canCast}
-                style={{ display: 'flex', alignItems: 'center', gap: '9px', borderRadius: '10px', border: isEmpty ? '1px solid rgba(255,255,255,0.09)' : canCast ? `1.5px solid ${tc}55` : '1px solid rgba(255,255,255,0.09)', background: isEmpty ? 'rgba(0,0,0,0.18)' : canCast ? tbg : 'rgba(0,0,0,0.28)', padding: '7px 10px', flex: 1, minWidth: 0, cursor: canCast ? 'pointer' : 'default', textAlign: 'left' as const, opacity: !isEmpty && !canCast ? 0.5 : 1, ...F }}>
-                <div style={{ width: rowIconSize, height: rowIconSize, flexShrink: 0, borderRadius: 7, border: isEmpty ? '1px solid rgba(255,255,255,0.10)' : `1.5px solid ${tc}55`, background: isEmpty ? 'rgba(0,0,0,0.25)' : `${tc}22`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: isEmpty ? 'rgba(255,255,255,0.20)' : tc }}>{skill ? TIcon : <Sparkles size={12} />}</div>
-                <div style={{ minWidth: 0, flex: 1 }}>
-                  <div style={{ fontSize: rowSlotFont, fontWeight: 800, textTransform: 'uppercase' as const, letterSpacing: '0.18em', color: 'rgba(255,255,255,0.35)', lineHeight: 1 }}>Slot {i + 1}</div>
-                  <div style={{ fontSize: rowNameFont, fontWeight: 900, color: skill ? '#fff' : 'rgba(255,255,255,0.30)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const, lineHeight: 1.3 }}>{skill ? skill.name : 'Vazio'}</div>
-                  {skill && <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap', marginTop: '3px' }}>
-                    <span style={{ fontSize: rowBadgeFont, fontWeight: 800, padding: '2px 5px', borderRadius: '99px', background: `${tc}20`, border: `1px solid ${tc}44`, color: tc, lineHeight: 1 }}>{tLabel}</span>
-                    <span style={{ fontSize: rowBadgeFont, fontWeight: 700, padding: '2px 5px', borderRadius: '99px', background: 'rgba(56,189,248,0.15)', border: '1px solid rgba(56,189,248,0.38)', color: '#38bdf8', lineHeight: 1, display: 'inline-flex', alignItems: 'center', gap: '2px' }}><Zap size={8} />{mp} MP</span>
-                    {rCost > 0 && <span style={{ fontSize: rowBadgeFont, fontWeight: 700, padding: '2px 5px', borderRadius: '99px', background: hasRes ? `${player.classResource.color}20` : 'rgba(239,68,68,0.15)', border: `1px solid ${hasRes ? player.classResource.color + '44' : 'rgba(239,68,68,0.35)'}`, color: hasRes ? player.classResource.color : '#f87171', lineHeight: 1 }}>{rCost} {skill.resourceLabel || player.classResource.name}</span>}
-                  </div>}
-                </div>
-              </button>
-              <button onClick={(e) => { e.stopPropagation(); setInfoPopup(prev => (prev?.id === skillId && prev?.type === 'skill') ? null : (skill ? { type: 'skill', id: skillId } : null)); }} disabled={!skill}
-                style={{ width: 28, flexShrink: 0, borderRadius: '8px', border: skill ? `1px solid ${tc}44` : '1px solid rgba(255,255,255,0.08)', background: infoOpen ? `${tc}25` : 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: skill ? 'pointer' : 'default', color: skill ? tc : 'rgba(255,255,255,0.18)', alignSelf: 'stretch' }}>
-                <Info size={11} />
-              </button>
-            </div>
-            {infoOpen && <div style={{ marginTop: '4px', borderRadius: '9px', background: `${tc}10`, border: `1px solid ${tc}33`, padding: '7px 9px' }}>
-              <div style={{ fontSize: rowBadgeFont, fontWeight: 900, textTransform: 'uppercase' as const, letterSpacing: '0.18em', color: tc, marginBottom: '3px' }}>{skill!.name}</div>
-              <div style={{ fontSize: rowSlotFont, color: 'rgba(255,255,255,0.80)', lineHeight: 1.5 }}>{skill!.description}</div>
-            </div>}
-          </div>
-        );
-      })}
-    </div>
-  );
-
-  // ── Shared item rows ──
-  const itemRows = (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-      {Array.from({ length: MAX_ITEM_SLOTS_BATTLE }, (_, i) => {
-        const slot = itemSlots[i] ?? { itemId: '', qty: 0 };
-        const isEmpty = !slot.itemId;
-        const hasItem = !isEmpty && slot.qty > 0;
-        const itemDef = isEmpty ? null : (ALL_ITEMS.find(it => it.id === slot.itemId) ?? shopItems.find(it => it.id === slot.itemId) ?? null);
-        const isDgRecall = slot.itemId === 'pot_dg_recall';
-        const iOpen = infoPopup?.type === 'item' && infoPopup?.id === slot.itemId && !!itemDef;
-        const badges = itemDef ? getItemBadges(itemDef as any) : [];
-        return (
-          <div key={i}>
-            <div style={{ display: 'flex', alignItems: 'stretch', gap: '4px' }}>
-              <button disabled={!isPlayerTurn || isEmpty || slot.qty <= 0}
-                onClick={() => { if (!hasItem || !itemDef) return; if (isDgRecall && onRequestDungeonExtract) { onRequestDungeonExtract(itemDef); closeMenu(); return; } onUseItem(slot.itemId); closeMenu(); }}
-                style={{ display: 'flex', alignItems: 'center', gap: '9px', borderRadius: '10px', border: hasItem ? `1.5px solid ${ic}55` : '1px solid rgba(255,255,255,0.09)', background: hasItem ? 'rgba(251,146,60,0.14)' : 'rgba(0,0,0,0.18)', padding: '7px 10px', flex: 1, minWidth: 0, cursor: hasItem ? 'pointer' : 'default', textAlign: 'left' as const, opacity: isEmpty ? 0.38 : !isPlayerTurn ? 0.55 : 1, ...F }}>
-                <div style={{ width: rowIconSize, height: rowIconSize, flexShrink: 0, borderRadius: 7, border: hasItem ? `1.5px solid ${ic}55` : '1px solid rgba(255,255,255,0.10)', background: hasItem ? `${ic}22` : 'rgba(0,0,0,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: hasItem ? ic : 'rgba(255,255,255,0.20)', fontSize: '16px' }}>
-                  {itemDef ? (itemDef.iconImage ? <img src={itemDef.iconImage} style={{ width: 18, height: 18, objectFit: 'contain' }} draggable={false} alt={itemDef.name} /> : <span style={{ lineHeight: 1 }}>{itemDef.icon}</span>) : <FlaskConical size={12} />}
-                </div>
-                <div style={{ minWidth: 0, flex: 1 }}>
-                  <div style={{ fontSize: rowSlotFont, fontWeight: 800, textTransform: 'uppercase' as const, letterSpacing: '0.18em', color: 'rgba(255,255,255,0.35)', lineHeight: 1 }}>Slot {i + 1}</div>
-                  <div style={{ fontSize: rowNameFont, fontWeight: 900, color: hasItem ? '#fff' : 'rgba(255,255,255,0.25)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const, lineHeight: 1.3 }}>{isEmpty ? 'Vazio' : itemDef?.name ?? slot.itemId}</div>
-                  {hasItem && (
-                    <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap', marginTop: '3px', alignItems: 'center' }}>
-                      <span style={{ fontSize: rowBadgeFont, fontWeight: 800, padding: '2px 5px', borderRadius: '99px', background: `${ic}20`, border: `1px solid ${ic}44`, color: ic, lineHeight: 1 }}>{slot.qty}×</span>
-                      {badges.map((b, bi) => (
-                        <span key={bi} style={{ fontSize: rowBadgeFont, fontWeight: 800, padding: '2px 5px', borderRadius: '99px', background: b.bg, border: `1px solid ${b.border}`, color: b.color, lineHeight: 1 }}>{b.label}</span>
-                      ))}
-                    </div>
-                  )}
-                  {!isEmpty && slot.qty === 0 && <span style={{ fontSize: rowBadgeFont, fontWeight: 800, color: 'rgba(255,255,255,0.30)', lineHeight: 1 }}>Esgotado</span>}
-                </div>
-              </button>
-              {itemDef && <button onClick={(e) => { e.stopPropagation(); setInfoPopup(prev => (prev?.id === slot.itemId && prev?.type === 'item') ? null : { type: 'item', id: slot.itemId }); }}
-                style={{ width: 28, flexShrink: 0, borderRadius: '8px', border: `1px solid ${ic}44`, background: iOpen ? `${ic}25` : 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: ic, alignSelf: 'stretch' }}>
-                <Info size={11} />
-              </button>}
-            </div>
-            {iOpen && <div style={{ marginTop: '4px', borderRadius: '9px', background: `${ic}10`, border: `1px solid ${ic}33`, padding: '7px 9px' }}>
-              <div style={{ fontSize: rowBadgeFont, fontWeight: 900, textTransform: 'uppercase' as const, color: ic, marginBottom: '3px' }}>{itemDef!.name}</div>
-              <div style={{ fontSize: rowSlotFont, color: 'rgba(255,255,255,0.78)', lineHeight: 1.5 }}>{itemDef!.description}</div>
-            </div>}
-          </div>
-        );
-      })}
-    </div>
-  );
-
-  /* Mobile: portal backdrop; Desktop: inline dropdown */
-  const bdStyle: React.CSSProperties = { position: 'fixed', inset: '0', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)' };
-  const cardStyle: React.CSSProperties = { width: 'min(92vw, 390px)', borderRadius: '26px', background: 'rgba(10,6,26,0.72)', backdropFilter: 'blur(48px)', WebkitBackdropFilter: 'blur(48px)', border: '1px solid rgba(255,255,255,0.20)', padding: '24px', boxShadow: '0 32px 80px rgba(0,0,0,0.45)', transform: menuVisible ? 'scale(1)' : 'scale(0.80)', opacity: menuVisible ? 1 : 0, transition: 'transform 0.24s cubic-bezier(0.34,1.56,0.64,1), opacity 0.18s ease', ...F };
-  const deskDrop: React.CSSProperties = { position: 'absolute', bottom: 'calc(100% + 8px)', left: 0, zIndex: 50, width: '260px', borderRadius: '16px', background: 'rgba(8,5,22,0.88)', backdropFilter: 'blur(28px)', WebkitBackdropFilter: 'blur(28px)', border: '1px solid rgba(255,255,255,0.18)', padding: '12px', boxShadow: '0 20px 56px rgba(0,0,0,0.60)', transform: menuVisible ? 'scale(1)' : 'scale(0.90)', opacity: menuVisible ? 1 : 0, transformOrigin: 'bottom left', transition: 'transform 0.20s cubic-bezier(0.34,1.56,0.64,1), opacity 0.16s ease', ...F };
-  const deskDropHeader = (title: string, icon: React.ReactNode) => (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-      <span style={{ fontSize: '10px', fontWeight: 900, textTransform: 'uppercase' as const, letterSpacing: '0.22em', color: 'rgba(255,255,255,0.55)', display: 'inline-flex', alignItems: 'center', gap: '7px' }}>{icon}{title}</span>
-      <button onClick={closeMenu} style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '8px', padding: '5px 8px', cursor: 'pointer', color: 'rgba(255,255,255,0.55)', display: 'flex', alignItems: 'center' }}><X size={12} /></button>
-    </div>
-  );
-
-  return (
-    <div ref={containerRef} style={{
-      display: 'flex', flexDirection: 'column', gap: S.gap, width: S.w, ...F,
-      opacity: isPlayerTurn && !isSelecting ? 1 : 0,
-      transform: isPlayerTurn && !isSelecting ? 'translateY(0px) scale(1)' : isSelecting ? 'translateY(6px) scale(0.95)' : 'translateY(10px) scale(0.94)',
-      transition: isPlayerTurn
-        ? 'opacity 0.22s ease-in, transform 0.22s ease-in'
-        : 'opacity 0.18s ease-in, transform 0.18s ease-in',
-      pointerEvents: isPlayerTurn && !isSelecting ? 'auto' : 'none',
-    }}>
-
-      {/* ── Mobile: full-screen portals ── */}
-      {isMobile && showSkillsAction && !limitBattleActionsToBasics && activeMenu === 'skills' && createPortal(
-        <div style={bdStyle} onClick={closeMenu}>
-          <div style={cardStyle} onClick={e => e.stopPropagation()}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <span style={{ fontSize: '13px', fontWeight: 900, textTransform: 'uppercase' as const, letterSpacing: '0.22em', color: 'rgba(255,255,255,0.60)', display: 'inline-flex', alignItems: 'center', gap: '8px' }}><Sparkles size={16} style={{ color: '#c4b5fd' }} /> Habilidades</span>
-              <button onClick={closeMenu} style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.18)', borderRadius: '10px', padding: '7px 10px', cursor: 'pointer', color: 'rgba(255,255,255,0.60)', display: 'flex', alignItems: 'center' }}><X size={15} /></button>
-            </div>
-            {skillRows}
-          </div>
-        </div>,
-        document.body
-      )}
-      {isMobile && showItemsAction && !limitBattleActionsToBasics && activeMenu === 'items' && createPortal(
-        <div style={bdStyle} onClick={closeMenu}>
-          <div style={cardStyle} onClick={e => e.stopPropagation()}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: 900, textTransform: 'uppercase' as const, letterSpacing: '0.22em', color: 'rgba(255,255,255,0.65)' }}><FlaskConical size={16} color={ic} /> Itens de Batalha</span>
-              <button onClick={closeMenu} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.16)', background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.60)', cursor: 'pointer' }}><X size={15} /></button>
-            </div>
-            {itemRows}
-          </div>
-        </div>,
-        document.body
-      )}
-
-      {/* Impulse dots */}
-      {impulseUnlocked && (
-        <div style={{ display: 'flex', justifyContent: 'center', gap: S.dotGap, marginBottom: '2px' }}>
-          {Array.from({ length: impulseCapacity }, (_, slot) => {
-            const filled = player.impulso > slot;
-            return <span key={slot} style={{ display: 'inline-block', width: S.dotW, height: S.dotH, borderRadius: '5px', border: filled ? '1.5px solid rgba(255,255,255,0.85)' : '1.5px solid rgba(255,255,255,0.18)', background: filled ? `linear-gradient(135deg,${impulseReserveColors[slot]},${impulseReserveColors[slot]}cc)` : 'rgba(255,255,255,0.05)', boxShadow: filled ? `0 0 8px ${impulseReserveColors[slot]}` : 'none', transition: 'all 0.25s ease' }} />;
-          })}
-        </div>
-      )}
-
-      {/* Absorver */}
-      {impulseUnlocked && player.impulso > 0 && (() => {
-        const d = !isPlayerTurn || player.impulsoAtivo >= impulseCapacity;
-        const isPressed = pressedBtn === 'absorver' && !d;
-        return (
-          <button onClick={() => { closeMenu(); onAbsorbImpulse(); }} disabled={d}
-            onPointerDown={() => !d && press('absorver')}
-            onPointerUp={release} onPointerLeave={release} onPointerCancel={release}
-            style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: S.absGap,
-              borderRadius: S.btnR, padding: S.absPad,
-              background: d ? `${absorbGlowColor}08` : `linear-gradient(135deg, ${absorbGlowColor}28, ${absorbGlowColor}14)`,
-              backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)',
-              border: d ? `1.5px solid ${absorbGlowColor}22` : `1.5px solid ${absorbGlowColor}88`,
-              cursor: d ? 'default' : 'pointer', opacity: d ? 0.5 : 1,
-              boxShadow: d ? 'none' : `0 0 20px ${absorbGlowColor}55, 0 0 8px ${absorbGlowColor}33, 0 4px 16px rgba(0,0,0,0.30)`,
-              transform: isPressed ? 'scale(0.92)' : 'scale(1)',
-              transition: 'transform 0.13s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.25s ease',
-              width: '100%', ...F
-            }}>
-            <div style={{ width: S.absIconS, height: S.absIconS, borderRadius: S.absIconR, display: 'flex', alignItems: 'center', justifyContent: 'center', background: d ? `${absorbGlowColor}12` : `${absorbGlowColor}35`, border: `1.5px solid ${d ? absorbGlowColor + '28' : absorbGlowColor + '77'}`, color: d ? `${absorbGlowColor}66` : absorbGlowColor, boxShadow: d ? 'none' : `0 0 12px ${absorbGlowColor}55`, flexShrink: 0 }}>
-              <Zap size={S.absIco} />
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-              <span style={{ fontSize: S.absFont, fontWeight: 900, textTransform: 'uppercase' as const, letterSpacing: '0.10em', color: d ? `${absorbGlowColor}66` : '#fff', lineHeight: 1.1 }}>Absorver</span>
-              <span style={{ fontSize: S.absSub, fontWeight: 700, color: d ? `${absorbGlowColor}44` : absorbGlowColor, letterSpacing: '0.08em', lineHeight: 1.2 }}>Ativar impulso</span>
-            </div>
-          </button>
-        );
-      })()}
-
-      {/* Impulso */}
-      {impulseUnlocked && (() => {
-        const d = !isPlayerTurn || player.impulso >= impulseCapacity;
-        return btn('imp', classImpulseBaseColor, d, () => { closeMenu(); onChargeImpulse(); }, <Zap size={S.btnIco} />, 'IMPULSO', classImpulseBaseColor);
-      })()}
-
-      {/* Atacar */}
-      {btn('atk', '#f43f5e', !isPlayerTurn, () => { closeMenu(); onAttack(); },
-        usesMagicBasicAttack ? <Sparkles size={S.btnIco} /> : usesBowBasicAttack ? <Crosshair size={S.btnIco} /> : <Sword size={S.btnIco} />,
-        usesMagicBasicAttack ? 'MAGIA' : 'ATACAR')}
-
-      {/* Defender */}
-      {btn('def', '#3b82f6', !isPlayerTurn, () => { closeMenu(); onDefend(); }, <Shield size={S.btnIco} />, 'DEFENDER')}
-
-      {/* Habilidades — desktop: inline dropdown; mobile: portal */}
-      {showSkillsAction && !limitBattleActionsToBasics && (() => {
-        const sc = '#a855f7';
-        const noSkills = skillIds.every(id => !id);
-        const d = !isPlayerTurn || noSkills;
-        if (!isMobile) {
-          return (
-            <div style={{ position: 'relative' }}>
-              {activeMenu === 'skills' && <div style={deskDrop}>{deskDropHeader('Habilidades', <Sparkles size={13} style={{ color: '#c4b5fd' }} />)}{skillRows}</div>}
-              {btn('ski', sc, d, () => setActiveMenu(prev => prev === 'skills' ? null : 'skills'), <Sparkles size={S.btnIco} />, 'HABILIDADES')}
-            </div>
-          );
-        }
-        return btn('ski', sc, d, () => setActiveMenu(prev => prev === 'skills' ? null : 'skills'), <Sparkles size={S.btnIco} />, 'HABILIDADES');
-      })()}
-
-      {/* Itens — desktop: inline dropdown; mobile: portal */}
-      {showItemsAction && !limitBattleActionsToBasics && (() => {
-        const noItems = itemSlots.every(s => !s.itemId || s.qty <= 0);
-        const d = !isPlayerTurn || noItems;
-        if (!isMobile) {
-          return (
-            <div style={{ position: 'relative' }}>
-              {activeMenu === 'items' && <div style={deskDrop}>{deskDropHeader('Itens de Batalha', <FlaskConical size={12} color={ic} />)}{itemRows}</div>}
-              {btn('itm', ic, d, () => { setInfoPopup(null); setActiveMenu(prev => prev === 'items' ? null : 'items'); }, <FlaskConical size={S.btnIco} />, 'ITENS', ic)}
-            </div>
-          );
-        }
-        return btn('itm', ic, d, () => { setInfoPopup(null); setActiveMenu(prev => prev === 'items' ? null : 'items'); }, <FlaskConical size={S.btnIco} />, 'ITENS', ic);
-      })()}
-
-      {/* Fugir — modal portal com animação */}
-      {showFleeAction && showFleeConfirm && createPortal(
-        <div
-          style={{
-            position: 'fixed', inset: 0, zIndex: 9999,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            background: fleeModalVisible ? 'rgba(0,0,0,0.52)' : 'rgba(0,0,0,0)',
-            backdropFilter: fleeModalVisible ? 'blur(14px)' : 'blur(0px)',
-            WebkitBackdropFilter: fleeModalVisible ? 'blur(14px)' : 'blur(0px)',
-            transition: 'background 0.22s ease, backdrop-filter 0.22s ease, -webkit-backdrop-filter 0.22s ease',
-          }}
-          onClick={() => setShowFleeConfirm(false)}
-        >
-          <style>{`@keyframes _flee_icon { 0%,100%{transform:scale(1) rotate(0deg)} 35%{transform:scale(1.18) rotate(-10deg)} 65%{transform:scale(1.09) rotate(5deg)} }`}</style>
-          <div
-            style={{
-              width: 'min(88vw,320px)', borderRadius: '24px',
-              background: 'rgba(10,6,24,0.92)',
-              backdropFilter: 'blur(44px)', WebkitBackdropFilter: 'blur(44px)',
-              border: '1px solid rgba(156,163,175,0.26)',
-              padding: '28px 22px 22px',
-              boxShadow: '0 28px 72px rgba(0,0,0,0.65)',
-              transform: fleeModalVisible ? 'scale(1) translateY(0px)' : 'scale(0.86) translateY(22px)',
-              opacity: fleeModalVisible ? 1 : 0,
-              transition: 'transform 0.28s cubic-bezier(0.34,1.56,0.64,1), opacity 0.22s ease',
-              ...F
-            }}
-            onClick={e => e.stopPropagation()}
-          >
-            <div style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              width: 54, height: 54, borderRadius: 16,
-              background: 'rgba(156,163,175,0.11)', border: '1.5px solid rgba(156,163,175,0.28)',
-              margin: '0 auto 18px', color: '#9ca3af',
-              animation: fleeModalVisible ? '_flee_icon 0.52s ease 0.16s both' : 'none',
-            }}>
-              <LogOut size={24} />
-            </div>
-            <div style={{ fontSize: '17px', fontWeight: 900, color: '#f3f4f6', textAlign: 'center' as const, marginBottom: '8px', letterSpacing: '-0.01em' }}>Fugir da batalha?</div>
-            <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.44)', textAlign: 'center' as const, marginBottom: '24px', lineHeight: 1.55 }}>Você vai gastar 50 de ouro para escapar.</div>
-            <div style={{ display: 'flex', gap: '10px' }}>
-              <button
-                onMouseEnter={() => setFleeBtnHover('cancel')}
-                onMouseLeave={() => { setFleeBtnHover(null); setFleeBtnPress(null); }}
-                onPointerDown={() => setFleeBtnPress('cancel')}
-                onPointerUp={() => setFleeBtnPress(null)}
-                onClick={() => setShowFleeConfirm(false)}
-                style={{ flex: 1, padding: '12px', borderRadius: '13px', border: '1px solid rgba(255,255,255,0.15)', background: fleeBtnHover === 'cancel' ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.06)', cursor: 'pointer', color: 'rgba(255,255,255,0.62)', fontSize: '13px', fontWeight: 800, transform: fleeBtnPress === 'cancel' ? 'scale(0.94)' : 'scale(1)', transition: 'transform 0.12s cubic-bezier(0.34,1.56,0.64,1), background 0.15s ease', outline: 'none', ...F }}
-              >Cancelar</button>
-              <button
-                onMouseEnter={() => setFleeBtnHover('flee')}
-                onMouseLeave={() => { setFleeBtnHover(null); setFleeBtnPress(null); }}
-                onPointerDown={() => setFleeBtnPress('flee')}
-                onPointerUp={() => setFleeBtnPress(null)}
-                onClick={() => { setShowFleeConfirm(false); onFlee(); }}
-                style={{ flex: 1, padding: '12px', borderRadius: '13px', border: '1px solid rgba(156,163,175,0.42)', background: fleeBtnHover === 'flee' ? 'rgba(156,163,175,0.26)' : 'rgba(156,163,175,0.13)', cursor: 'pointer', color: '#e5e7eb', fontSize: '13px', fontWeight: 900, transform: fleeBtnPress === 'flee' ? 'scale(0.94)' : fleeBtnHover === 'flee' ? 'scale(1.03)' : 'scale(1)', transition: 'transform 0.12s cubic-bezier(0.34,1.56,0.64,1), background 0.15s ease, box-shadow 0.15s ease', boxShadow: fleeBtnHover === 'flee' ? '0 4px 18px rgba(156,163,175,0.22)' : 'none', outline: 'none', ...F }}
-              >Fugir</button>
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
-      {showFleeAction && btn('fug', '#9ca3af', !isPlayerTurn, () => setShowFleeConfirm(true), <LogOut size={S.btnIco} />, 'FUGIR', '#9ca3af')}
-    </div>
-  );
-};
 
 interface SceneProps {
   enemyColor: string;
@@ -613,6 +150,7 @@ interface SceneProps {
   isDungeonScene?: boolean;
   stage?: number;
   isDungeonRun?: boolean;
+  menuGamepadFocus?: 'hero' | 'portal' | null;
   onGameTimeUpdate?: (time: string) => void;
   onMenuHeroClick?: () => void;
   onMenuPortalClick?: () => void;
@@ -623,8 +161,12 @@ interface SceneProps {
   heroInspectMode?: boolean;
   onHeroInspectClose?: () => void;
   onHeroEquipSlotClick?: (slot: 'weapon' | 'shield' | 'helmet' | 'armor' | 'legs') => void;
+  onHeroUnequipSlotClick?: (item: any) => void;
+  onHeroShowItemDetail?: (item: any) => void;
   onHeroSkillSlotClick?: (slotIndex: number) => void;
   onHeroItemSlotClick?: (slotIndex: number) => void;
+  onHeroUnequipItemSlot?: (slotIndex: number) => void;
+  onHeroUnequipSkillSlot?: (slotIndex: number) => void;
   portalInspectMode?: boolean;
   currentSceneRegion?: 'forest' | 'dungeon' | 'tower';
   dungeonUnlocked?: boolean;
@@ -650,7 +192,7 @@ interface SceneProps {
   onCancelTargetSelection?: () => void;
   /** Slot index (0/1/2) that the main enemy currently occupies visually. Prevents teleport on target swap. */
   mainEnemySlotIndex?: number;
-  /** Tamanho inicial do grupo (1, 2 ou 3). Layout é escolhido por este valor e nunca muda quando inimigos morrem. */
+  /** Tamanho inicial do grupo (1, 2 ou 3). Layout ÃƒÂ© escolhido por este valor e nunca muda quando inimigos morrem. */
   initialGroupSize?: number;
 }
 
@@ -2849,821 +2391,9 @@ const INSPECT_CLASS_ICON: Record<PlayerClassId, React.ComponentType<{ size?: num
   rogue: Zap,
 };
 
-// Slot type icons — always shown even when empty
-const SLOT_ICON: Record<string, React.ComponentType<{ size?: number; color?: string }>> = {
-  weapon: Sword,
-  shield: Shield,
-  helmet: Layers,
-  armor: Shirt,
-  legs: Footprints,
-};
+// Ã¢â€â‚¬Ã¢â€â‚¬ Potion slot stat badges Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
-type EquipSlotKey = 'weapon' | 'shield' | 'helmet' | 'armor' | 'legs';
-
-// ── Portal thumbnail URLs ──────────────────────────────────────────────────
-const PORTAL_THUMB_MOUNTAIN = new URL('../game/assets/Scenario/Moutain/cenario_thumbnail_montanha.png', import.meta.url).href;
-const PORTAL_THUMB_DUNGEON  = new URL('../game/assets/Scenario/Dungeon/cenario_thumbnail_dungeon.png', import.meta.url).href;
-const PORTAL_THUMB_TOWER_3D = new URL('../game/assets/Scenario/Tower/cenario_thumbnail_torre.png', import.meta.url).href;
-
-type PortalRegion = 'forest' | 'dungeon' | 'tower';
-
-// All three destinations; PortalInspectCanvas filters out the current region
-const PORTAL_DESTINATIONS: { region: PortalRegion; name: string; color: string; thumb: string }[] = [
-  { region: 'forest',  name: 'Montanha',     color: '#b87a3a', thumb: PORTAL_THUMB_MOUNTAIN },
-  { region: 'dungeon', name: 'Dungeon',       color: '#4d7a96', thumb: PORTAL_THUMB_DUNGEON  },
-  { region: 'tower',   name: 'Torre Heroica', color: '#6d28d9', thumb: PORTAL_THUMB_TOWER_3D },
-];
-
-const PortalInspectCanvas = ({
-  currentRegion = 'forest',
-  dungeonUnlocked = false,
-  towerUnlocked = false,
-  onClose,
-  onTravelTo,
-}: {
-  currentRegion?: PortalRegion;
-  dungeonUnlocked?: boolean;
-  towerUnlocked?: boolean;
-  onClose: () => void;
-  onTravelTo: (region: PortalRegion) => void;
-}) => {
-  const { viewport } = useThree();
-  const isMobile = viewport.width < 9;
-  const font: React.CSSProperties = { fontFamily: "'Segoe UI',system-ui,sans-serif" };
-
-  // Portal world position: [-4.22, -0.97, 0.58] — cards float in front/above
-  const panelX = isMobile ? -4.2 : -4.2;
-  const panelY = isMobile ? 1.8 : 2.0;
-  const df = isMobile ? 7.5 : 6.5;
-
-  // Only show destinations that aren't the current region
-  const visibleDestinations = PORTAL_DESTINATIONS.filter(d => d.region !== currentRegion);
-
-  return (
-    <Html center sprite distanceFactor={df} position={[panelX, panelY, 0.58]} zIndexRange={[210, 0]}>
-      <div style={{ ...font }} onClick={(e) => e.stopPropagation()}>
-        {/* Destination cards row */}
-        <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
-          {visibleDestinations.map((dest) => {
-            const locked = dest.region === 'dungeon' && !dungeonUnlocked;
-            return (
-              <div
-                key={dest.region}
-                onClick={() => { if (!locked) onTravelTo(dest.region); }}
-                style={{
-                  width: isMobile ? '120px' : '140px',
-                  borderRadius: '16px',
-                  background: locked ? 'rgba(0,0,0,0.25)' : `${dest.color}18`,
-                  backdropFilter: 'blur(20px)',
-                  WebkitBackdropFilter: 'blur(20px)',
-                  border: `1.5px solid ${locked ? 'rgba(255,255,255,0.15)' : `${dest.color}80`}`,
-                  boxShadow: locked ? 'none' : `0 0 20px ${dest.color}45, 0 6px 24px rgba(0,0,0,0.55)`,
-                  overflow: 'hidden',
-                  cursor: locked ? 'default' : 'pointer',
-                  opacity: locked ? 0.45 : 1,
-                  transition: 'transform 0.18s ease, box-shadow 0.18s ease',
-                  userSelect: 'none' as const,
-                }}
-                onMouseEnter={e => { if (!locked) (e.currentTarget as HTMLElement).style.transform = 'translateY(-5px) scale(1.05)'; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = ''; }}
-              >
-                {/* Thumbnail */}
-                <div style={{ width: '100%', height: isMobile ? '90px' : '106px', overflow: 'hidden', position: 'relative' }}>
-                  <img
-                    src={dest.thumb}
-                    alt={dest.name}
-                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block',
-                      filter: locked ? 'grayscale(70%) brightness(0.45)' : 'brightness(0.88)' }}
-                  />
-                  {locked && (
-                    <div style={{
-                      position: 'absolute', inset: 0,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      background: 'rgba(0,0,0,0.35)', fontSize: '22px',
-                    }}>🔒</div>
-                  )}
-                  {/* Color gradient overlay at bottom */}
-                  {!locked && (
-                    <div style={{
-                      position: 'absolute', bottom: 0, left: 0, right: 0, height: '36px',
-                      background: `linear-gradient(to top, ${dest.color}70, transparent)`,
-                    }} />
-                  )}
-                </div>
-                {/* Name */}
-                <div style={{ padding: '10px 12px 12px', textAlign: 'center' }}>
-                  <div style={{
-                    fontSize: '13px', fontWeight: 900,
-                    color: locked ? 'rgba(255,255,255,0.35)' : dest.color,
-                    lineHeight: 1.2, letterSpacing: '0.04em',
-                    textShadow: locked ? 'none' : `0 0 14px ${dest.color}90`,
-                  }}>{dest.name}</div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    </Html>
-  );
-};
-
-// ── Potion slot stat badges ──────────────────────────────────────────────────
-type SlotBadge = { label: string; color: string; bg: string; border: string };
-function getPotionSlotBadges(item: Item): SlotBadge[] {
-  const lower = (item.description ?? '').toLowerCase();
-  if (item.id === 'pot_2' || item.id === 'pot_mana_2' || item.id === 'pot_mana_3' || item.id === 'pot_dg_mana') {
-    return [{ label: `+${item.value} MP`, color: '#7dd3fc', bg: 'rgba(7,89,133,0.35)', border: 'rgba(125,211,252,0.30)' }];
-  }
-  if (item.id === 'pot_atk') {
-    return [
-      { label: `+${Math.round((item.value as number) * 100)}% ATK`, color: '#f87171', bg: 'rgba(127,29,29,0.35)', border: 'rgba(248,113,113,0.30)' },
-      { label: `${item.duration ?? 3} turnos`, color: '#fcd34d', bg: 'rgba(120,53,15,0.35)', border: 'rgba(252,211,77,0.30)' },
-    ];
-  }
-  if (item.id === 'pot_def') {
-    return [
-      { label: `+${Math.round((item.value as number) * 100)}% DEF`, color: '#93c5fd', bg: 'rgba(30,58,95,0.35)', border: 'rgba(147,197,253,0.30)' },
-      { label: `${item.duration ?? 3} turnos`, color: '#fcd34d', bg: 'rgba(120,53,15,0.35)', border: 'rgba(252,211,77,0.30)' },
-    ];
-  }
-  if (lower.includes('hp') || lower.includes('vida') || lower.includes('cura') || lower.includes('restaura')) {
-    return [{ label: `+${item.value} HP`, color: '#86efac', bg: 'rgba(20,83,45,0.35)', border: 'rgba(134,239,172,0.30)' }];
-  }
-  if (lower.includes('mp') || lower.includes('mana') || lower.includes('energia')) {
-    return [{ label: `+${item.value} MP`, color: '#7dd3fc', bg: 'rgba(7,89,133,0.35)', border: 'rgba(125,211,252,0.30)' }];
-  }
-  if ((item.duration ?? 0) > 0) {
-    return [
-      { label: 'BOOST', color: '#fcd34d', bg: 'rgba(120,53,15,0.35)', border: 'rgba(252,211,77,0.30)' },
-      { label: `${item.duration}t`, color: '#fcd34d', bg: 'rgba(120,53,15,0.25)', border: 'rgba(252,211,77,0.20)' },
-    ];
-  }
-  return [{ label: 'ESPECIAL', color: '#c4b5fd', bg: 'rgba(76,29,149,0.35)', border: 'rgba(196,181,253,0.30)' }];
-}
-
-const HeroInspectCanvas = ({
-  player,
-  onClose,
-  onEquipSlot,
-  onSkillSlotClick,
-  onItemSlotClick,
-}: {
-  player: Player;
-  onClose: () => void;
-  onEquipSlot: (slot: EquipSlotKey) => void;
-  onSkillSlotClick?: (slotIndex: number) => void;
-  onItemSlotClick?: (slotIndex: number) => void;
-}) => {
-  const { viewport } = useThree();
-  // viewport.width is in world units; mobile portrait is typically < 9 world units
-  const isMobile = viewport.width < 9;
-  const [cardPage, setCardPage] = useState<0 | 1 | 2 | 3>(0); // 0=equip 1=attrs 2=skills 3=items
-  const showAttrs = cardPage === 1; // keep existing refs working
-  const [campSkillInfoId, setCampSkillInfoId] = useState<string | null>(null);
-  const [campItemInfoIdx, setCampItemInfoIdx] = useState<number | null>(null);
-  const pClass = getPlayerClassById(player.classId);
-  const ClassIcon = INSPECT_CLASS_ICON[player.classId as PlayerClassId] ?? Shield;
-  const classNamePt = HERO_CLASS_NAME_PT[player.classId as PlayerClassId] ?? player.classId;
-  const accentColor = pClass.visualProfile.secondaryColor;
-
-  const hpPct = player.stats.maxHp > 0 ? Math.min(100, (player.stats.hp / player.stats.maxHp) * 100) : 0;
-  const mpPct = player.stats.maxMp > 0 ? Math.min(100, (player.stats.mp / player.stats.maxMp) * 100) : 0;
-  const xpPct = player.xpToNext > 0 ? Math.min(100, (player.xp / player.xpToNext) * 100) : 0;
-
-  const slots: { key: EquipSlotKey; label: string; item: any }[] = [
-    { key: 'weapon',  label: 'Arma',     item: player.equippedWeapon  },
-    { key: 'shield',  label: 'Escudo',   item: player.equippedShield  },
-    { key: 'helmet',  label: 'Capacete', item: player.equippedHelmet  },
-    { key: 'armor',   label: 'Armadura', item: player.equippedArmor   },
-    { key: 'legs',    label: 'Pernas',   item: player.equippedLegs    },
-  ];
-
-  const rarityBorder = (r?: string) =>
-    r === 'gold' ? 'rgba(251,191,36,0.6)' : r === 'silver' ? 'rgba(148,163,184,0.6)' : r ? 'rgba(184,137,86,0.6)' : 'rgba(255,255,255,0.10)';
-  const rarityBg = (r?: string) =>
-    r === 'gold' ? 'rgba(100,40,5,0.55)' : r === 'silver' ? 'rgba(20,30,50,0.65)' : r ? 'rgba(50,30,8,0.55)' : 'rgba(0,0,0,0.14)';
-  const rarityLabel = (r?: string) =>
-    r === 'gold' ? 'Lendário' : r === 'silver' ? 'Raro' : r ? 'Comum' : '';
-  const rarityLabelColor = (r?: string) =>
-    r === 'gold' ? '#fbbf24' : r === 'silver' ? '#94a3b8' : '#d4a56a';
-  const slotIconColor = (r?: string) =>
-    r === 'gold' ? '#fbbf24' : r === 'silver' ? '#94a3b8' : r ? '#d4a56a' : 'rgba(255,255,255,0.72)';
-
-  const font: React.CSSProperties = { fontFamily: "'Segoe UI',system-ui,sans-serif" };
-  // Hero model origin is at (-2, -1, 0); model is ~2.2u tall → head ≈ y 1.2
-  // Equipment panel anchored at mid-body height, right of hero (closer to model)
-  // Mobile: panel closer to hero on the right side
-  const equipX = isMobile ? -0.70 : -0.55;
-  // On mobile, stats card is fixed near top; equipment card is always a set distance below it
-  const statsX = isMobile ? equipX : -2.0;
-  const statsY = isMobile ? 2.0 : 2.0;
-  const equipY = isMobile ? statsY - 2 : 0.1;
-  // distanceFactor controls apparent panel size; larger = smaller panels on screen
-  // On mobile with tighter zoom, use larger factor to keep panels inside the screen
-  const df = isMobile ? 6.0 : 5.8;
-  // Stats card uses a larger distanceFactor on mobile → appears smaller
-  const dfStats = isMobile ? 5.4 : df;
-
-  return (
-    <>
-      {/* ── Profile card — above head (desktop) or above equipment list (mobile) */}
-      <Html
-        center
-        sprite
-        distanceFactor={dfStats}
-        position={[statsX, statsY, 0]}
-        zIndexRange={[200, 0]}
-        style={{ pointerEvents: 'none' }}>
-        <div style={{ ...font, width: '220px' }}>
-          <div style={{
-            background: 'rgba(8,5,22,0.38)',
-            backdropFilter: 'blur(28px)',
-            WebkitBackdropFilter: 'blur(28px)',
-            borderRadius: '16px',
-            border: `2px solid ${accentColor}70`,
-            padding: '12px 14px',
-            boxShadow: `0 10px 40px rgba(0,0,0,0.45), 0 0 0 1px ${accentColor}18, 0 0 28px ${accentColor}30`,
-          }}>
-            {/* Class icon + name + level */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
-              <div style={{
-                width: '38px', height: '38px', flexShrink: 0,
-                background: `${accentColor}25`,
-                border: `1.5px solid ${accentColor}55`,
-                borderRadius: '10px',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: accentColor,
-              }}>
-                <ClassIcon size={19} />
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: '7px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.22em', color: accentColor, opacity: 0.9, lineHeight: 1.2 }}>{classNamePt}</div>
-                <div style={{ fontSize: '15px', fontWeight: 900, color: '#fff', lineHeight: 1.15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{player.name}</div>
-              </div>
-              <div style={{
-                flexShrink: 0,
-                background: `${accentColor}30`,
-                border: `1px solid ${accentColor}50`,
-                borderRadius: '8px',
-                padding: '4px 9px',
-                fontSize: '13px',
-                fontWeight: 900,
-                color: accentColor,
-                lineHeight: 1.3,
-              }}>Nv {player.level}</div>
-            </div>
-            {/* Stat bars */}
-            {[
-              { label: 'HP', cur: player.stats.hp, max: player.stats.maxHp, pct: hpPct, color: '#f43f5e', grad: 'linear-gradient(90deg,#9f1239,#f43f5e)' },
-              { label: 'MP', cur: player.stats.mp, max: player.stats.maxMp, pct: mpPct, color: '#3b82f6', grad: 'linear-gradient(90deg,#1e40af,#3b82f6)' },
-              { label: 'XP', cur: player.xp,       max: player.xpToNext,    pct: xpPct, color: '#f59e0b', grad: 'linear-gradient(90deg,#92400e,#f59e0b)' },
-            ].map(bar => (
-              <div key={bar.label} style={{ marginBottom: '7px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '4px' }}>
-                  <span style={{ fontSize: '9px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.14em', color: bar.color, opacity: 0.85 }}>{bar.label}</span>
-                  <span style={{ fontSize: '12px', fontWeight: 900, color: '#fff', letterSpacing: '0.03em' }}>{bar.cur}<span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.45)', fontWeight: 700 }}>/{bar.max}</span></span>
-                </div>
-                <div style={{ height: '7px', borderRadius: '99px', background: 'rgba(255,255,255,0.08)', overflow: 'hidden' }}>
-                  <div style={{ height: '100%', width: `${bar.pct}%`, background: bar.grad, borderRadius: '99px', transition: 'width 0.5s' }} />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </Html>
-
-      {/* ── Equipment / Attributes panel ─────────────────── */}
-      <Html
-        center
-        sprite
-        distanceFactor={df}
-        position={[equipX, equipY, 0]}
-        zIndexRange={[200, 0]}
-      >
-        <div style={{ ...font, display: 'flex', flexDirection: 'row', gap: '6px', alignItems: 'flex-start' }} onClick={(e) => e.stopPropagation()}>
-
-          {/* ── Tab navigation ── */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', flexShrink: 0 }}>
-            {([
-              { page: 0 as const, Icon: Shield as React.FC<{size?:number}>,       label: 'Equipamentos' },
-              { page: 2 as const, Icon: Zap as React.FC<{size?:number}>,           label: 'Habilidades' },
-              { page: 3 as const, Icon: FlaskConical as React.FC<{size?:number}>, label: 'Itens de Batalha' },
-              { page: 1 as const, Icon: Swords as React.FC<{size?:number}>,       label: 'Status' },
-            ] as { page: 0|1|2|3; Icon: React.FC<{size?:number}>; label: string }[]).map(({ page, Icon, label }) => {
-              const isActive = cardPage === page;
-              return (
-                <button key={page} onClick={(e) => { e.stopPropagation(); setCardPage(page); }} title={label} style={{
-                  width: isMobile ? '34px' : '28px', height: isMobile ? '34px' : '28px', padding: 0,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  borderRadius: '9px',
-                  border: isActive ? '1px solid rgba(255,255,255,0.28)' : '1px solid rgba(255,255,255,0.08)',
-                  background: isActive ? 'rgba(255,255,255,0.16)' : 'rgba(0,0,0,0.30)',
-                  cursor: 'pointer', color: isActive ? '#fff' : 'rgba(255,255,255,0.35)',
-                  transition: 'all 0.15s', flexShrink: 0, boxSizing: 'border-box',
-                  backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
-                }}>
-                  <Icon size={isMobile ? 15 : 13} />
-                </button>
-              );
-            })}
-          </div>
-
-          {/* ── Cards container ── */}
-          <div style={{ position: 'relative', width: isMobile ? '270px' : '230px', flexShrink: 0 }}>
-
-          {/* ── Equipment Card ── */}
-          <div style={{
-            borderRadius: '16px',
-            background: 'rgba(8,5,22,0.40)',
-            backdropFilter: 'blur(28px)',
-            WebkitBackdropFilter: 'blur(28px)',
-            border: '1px solid rgba(255,255,255,0.14)',
-            padding: '10px',
-            boxSizing: 'border-box' as const,
-            pointerEvents: cardPage === 0 ? 'auto' : 'none',
-            opacity: cardPage === 0 ? 1 : 0,
-            transform: cardPage === 0 ? 'translateX(0px) scale(1)' : 'translateX(-24px) scale(0.97)',
-            transition: 'opacity 0.32s ease, transform 0.32s cubic-bezier(0.4,0,0.2,1)',
-            position: 'relative',
-            top: 0, left: 0, width: '100%',
-          }}>
-            {/* Header */}
-            <div style={{ marginBottom: '7px', padding: '0 2px' }}>
-              <span style={{ fontSize: '8px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.25em', color: 'rgba(255,255,255,0.40)' }}>Equipamento</span>
-            </div>
-            {/* Slot rows */}
-            {slots.map((slot, i) => {
-              const it = slot.item as any;
-              const rb = rarityBorder(it?.rarity);
-              const bg = rarityBg(it?.rarity);
-              const rl = rarityLabel(it?.rarity);
-              const rlc = rarityLabelColor(it?.rarity);
-              const ic = slotIconColor(it?.rarity);
-              const SlotIcon = SLOT_ICON[slot.key];
-              return (
-                <button
-                  key={slot.key}
-                  onClick={(e) => { e.stopPropagation(); onEquipSlot(slot.key); }}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: '9px',
-                    borderRadius: '11px',
-                    border: `1px solid ${rb}`,
-                    background: bg,
-                    padding: '8px 10px',
-                    cursor: 'pointer',
-                    backdropFilter: 'blur(16px)',
-                    WebkitBackdropFilter: 'blur(16px)',
-                    textAlign: 'left',
-                    width: '100%',
-                    marginBottom: i < slots.length - 1 ? '5px' : '0',
-                    boxSizing: 'border-box',
-                    transition: 'filter 0.12s',
-                  }}
-                  onMouseEnter={e => (e.currentTarget.style.filter = 'brightness(1.3)')}
-                  onMouseLeave={e => (e.currentTarget.style.filter = 'brightness(1)')}
-                >
-                  <div style={{
-                    width: '40px', height: '40px', flexShrink: 0,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    position: 'relative',
-                    filter: 'drop-shadow(0.5px 0 0 rgba(255,255,255,0.7)) drop-shadow(-0.5px 0 0 rgba(255,255,255,0.7)) drop-shadow(0 0.5px 0 rgba(255,255,255,0.7)) drop-shadow(0 -0.5px 0 rgba(255,255,255,0.7))',
-                  }}>
-                    <span style={{ color: ic, opacity: it ? 0.18 : 1, position: 'absolute' }}>
-                      <SlotIcon size={20} />
-                    </span>
-                    {it && (
-                      it.iconImage
-                        ? <img src={it.iconImage} style={{ width: 30, height: 30, objectFit: 'contain', position: 'relative', zIndex: 1 }} draggable={false} alt={it.name} />
-                        : <span style={{ fontSize: '24px', lineHeight: 1, position: 'relative', zIndex: 1 }}>{it.icon}</span>
-                    )}
-                  </div>
-                  <div style={{ minWidth: 0, flex: 1 }}>
-                    <div style={{ fontSize: '6px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.18em', color: 'rgba(255,255,255,0.62)', lineHeight: 1.3 }}>{slot.label}</div>
-                    <div style={{ fontSize: '10px', fontWeight: 900, color: it ? '#fff' : 'rgba(255,255,255,0.20)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.25 }}>{it ? it.name : 'Vazio'}</div>
-                    {it && <div style={{ fontSize: '7px', fontWeight: 700, color: rlc, lineHeight: 1.2 }}>{rl}</div>}
-                  </div>
-                  <span style={{ color: 'rgba(255,255,255,0.22)', fontSize: '14px', flexShrink: 0 }}>›</span>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* ── Attributes Card ── */}
-          <div style={{
-            borderRadius: '16px',
-            background: 'rgba(8,5,22,0.40)',
-            backdropFilter: 'blur(28px)',
-            WebkitBackdropFilter: 'blur(28px)',
-            border: '1px solid rgba(255,255,255,0.14)',
-            padding: '10px',
-            boxSizing: 'border-box' as const,
-            pointerEvents: cardPage === 1 ? 'auto' : 'none',
-            opacity: cardPage === 1 ? 1 : 0,
-            transform: cardPage === 1 ? 'translateX(0px) scale(1)' : cardPage === 0 ? 'translateX(24px) scale(0.97)' : 'translateX(-24px) scale(0.97)',
-            transition: 'opacity 0.32s ease, transform 0.32s cubic-bezier(0.4,0,0.2,1)',
-            position: 'absolute',
-            top: 0, left: 0, width: '100%',
-          }}>
-            {/* Header */}
-            <div style={{ marginBottom: '7px', padding: '0 2px' }}>
-              <span style={{ fontSize: '8px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.25em', color: 'rgba(255,255,255,0.40)' }}>Atributos</span>
-            </div>
-
-            {/* ── Mini stat cards ── */}
-            {(() => {
-              const ms = [
-                { abbr: 'ATQ', value: player.stats.atk,   color: '#f43f5e', Icon: Swords as React.FC<{size?: number}> },
-                { abbr: 'DEF', value: player.stats.def,   color: '#3b82f6', Icon: Shield as React.FC<{size?: number}> },
-                { abbr: 'MAG', value: player.stats.magic, color: '#a855f7', Icon: Sparkles as React.FC<{size?: number}> },
-                { abbr: 'VEL', value: player.stats.speed, color: '#10b981', Icon: Wind as React.FC<{size?: number}> },
-                { abbr: 'SRT', value: player.stats.luck,  color: '#f59e0b', Icon: Clover as React.FC<{size?: number}> },
-              ] as { abbr: string; value: number; color: string; Icon: React.FC<{size?: number}> }[];
-              return (
-                <div style={{ display: 'flex', gap: '4px', marginBottom: '10px' }}>
-                  {ms.map(s => (
-                    <div key={s.abbr} style={{
-                      flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px',
-                      borderRadius: '9px', padding: '5px 2px',
-                      background: `${s.color}14`,
-                      border: `1px solid ${s.color}30`,
-                      boxSizing: 'border-box' as const,
-                    }}>
-                      <span style={{ color: s.color, display: 'flex' }}><s.Icon size={10} /></span>
-                      <span style={{ fontSize: '5px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: s.color, opacity: 0.75, lineHeight: 1 }}>{s.abbr}</span>
-                      <span style={{ fontSize: '10px', fontWeight: 900, color: '#fff', lineHeight: 1 }}>{s.value}</span>
-                    </div>
-                  ))}
-                </div>
-              );
-            })()}
-
-            {/* ── Radar Chart (base + equipment overlay) ── */}
-            {(() => {
-              // Calc total equipment bonus per stat
-              const eqItems = [player.equippedWeapon, player.equippedArmor, player.equippedHelmet, player.equippedLegs, player.equippedShield];
-              const eqBonus = { atk: 0, def: 0, speed: 0, magic: 0, luck: 0 };
-              eqItems.forEach((it: any) => {
-                if (!it) return;
-                const b = getEquipmentBonuses(it);
-                eqBonus.atk   += b.atk;
-                eqBonus.def   += b.def;
-                eqBonus.speed += b.speed;
-                eqBonus.magic += b.magic;
-              });
-              const hasEquip = eqItems.some(Boolean);
-
-              const ra = [
-                { value: player.stats.atk,   base: player.stats.atk - eqBonus.atk,   bonus: eqBonus.atk,   color: '#f43f5e', Icon: Swords as React.FC<{size?: number}> },
-                { value: player.stats.magic, base: player.stats.magic - eqBonus.magic, bonus: eqBonus.magic, color: '#a855f7', Icon: Sparkles as React.FC<{size?: number}> },
-                { value: player.stats.luck,  base: player.stats.luck,                  bonus: 0,             color: '#f59e0b', Icon: Clover as React.FC<{size?: number}> },
-                { value: player.stats.speed, base: player.stats.speed - eqBonus.speed, bonus: eqBonus.speed, color: '#10b981', Icon: Wind as React.FC<{size?: number}> },
-                { value: player.stats.def,   base: player.stats.def - eqBonus.def,    bonus: eqBonus.def,   color: '#3b82f6', Icon: Shield as React.FC<{size?: number}> },
-              ] as { value: number; base: number; bonus: number; color: string; Icon: React.FC<{size?: number}> }[];
-
-              const maxVal = Math.max(...ra.map(a => a.value)) + 10;
-              const cx = 88, cy = 94, r = 64;
-              const angles = ra.map((_, i) => -Math.PI / 2 + (i * 2 * Math.PI / ra.length));
-              const tip = (dist: number, i: number) => ({
-                x: cx + dist * Math.cos(angles[i]),
-                y: cy + dist * Math.sin(angles[i]),
-              });
-              const vpTotal = (i: number) => tip(r * (ra[i].value / maxVal), i);
-              const vpBase  = (i: number) => tip(r * (Math.max(0, ra[i].base) / maxVal), i);
-              const totalPts = ra.map((_, i) => { const p = vpTotal(i); return `${p.x.toFixed(1)},${p.y.toFixed(1)}`; }).join(' ');
-              const basePts  = ra.map((_, i) => { const p = vpBase(i);  return `${p.x.toFixed(1)},${p.y.toFixed(1)}`; }).join(' ');
-              const gridPts  = (lv: number) => ra.map((_, i) => { const p = tip(r * lv, i); return `${p.x.toFixed(1)},${p.y.toFixed(1)}`; }).join(' ');
-
-              return (
-                <svg width="176" height="202" style={{ display: 'block', overflow: 'visible' as any }} overflow="visible">
-                  {/* Grid rings */}
-                  {[0.25, 0.5, 0.75, 1].map(lv => (
-                    <polygon key={lv} points={gridPts(lv)} fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth="0.8" />
-                  ))}
-                  {/* Axis lines */}
-                  {ra.map((_, i) => { const t = tip(r, i); return <line key={i} x1={cx} y1={cy} x2={t.x.toFixed(1)} y2={t.y.toFixed(1)} stroke="rgba(255,255,255,0.08)" strokeWidth="0.8" />; })}
-                  {/* Equipment bonus outer polygon (gold) */}
-                  {hasEquip && (
-                    <polygon points={totalPts} fill="rgba(251,191,36,0.16)" stroke="rgba(251,191,36,0.65)" strokeWidth="1.2" strokeLinejoin="round" strokeDasharray="3 2" />
-                  )}
-                  {/* Base stats polygon (purple) */}
-                  <polygon points={basePts} fill="rgba(130,80,255,0.22)" stroke="rgba(165,105,255,0.85)" strokeWidth="1.5" strokeLinejoin="round" />
-                  {/* Vertex dots — base */}
-                  {ra.map((a, i) => { const p = vpBase(i); return <circle key={i} cx={p.x.toFixed(1)} cy={p.y.toFixed(1)} r="2.5" fill={a.color} stroke="rgba(0,0,0,0.45)" strokeWidth="0.7" />; })}
-                  {/* Vertex dots — total (if different) */}
-                  {hasEquip && ra.map((a, i) => {
-                    if (a.bonus <= 0) return null;
-                    const p = vpTotal(i);
-                    return <circle key={`t${i}`} cx={p.x.toFixed(1)} cy={p.y.toFixed(1)} r="2.5" fill="#fbbf24" stroke="rgba(0,0,0,0.45)" strokeWidth="0.7" />;
-                  })}
-                  {/* Icons only at tips — no values */}
-                  {ra.map((a, i) => {
-                    const ip = tip(r + 16, i);
-                    return (
-                      <foreignObject key={i} x={(ip.x - 6).toFixed(1)} y={(ip.y - 6).toFixed(1)} width="12" height="12">
-                        <div style={{ width: '12px', height: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: a.color }}>
-                          <a.Icon size={10} />
-                        </div>
-                      </foreignObject>
-                    );
-                  })}
-                  {/* Center label */}
-                  <text x={cx} y={cy} textAnchor="middle" dominantBaseline="middle" fontSize="4.5" fill="rgba(255,255,255,0.18)" style={{ fontFamily: 'inherit', letterSpacing: '0.1em' }}>STATS</text>
-                </svg>
-              );
-            })()}
-
-            {/* ── Equipment slot strip — temporarily hidden ── */}
-            {false && <div style={{ marginTop: '10px' }}>
-              <div style={{ fontSize: '7px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.22em', color: 'rgba(255,255,255,0.35)', marginBottom: '6px', paddingLeft: '2px' }}>Equipamentos</div>
-              <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
-              {slots.map(slot => {
-                const it = slot.item as any;
-                const rb = rarityBorder(it?.rarity);
-                const SlotIcon = SLOT_ICON[slot.key];
-                const bonusChips: { label: string; val: number; color: string }[] = [];
-                if (it) {
-                  const b = getEquipmentBonuses(it);
-                  if (b.atk   > 0) bonusChips.push({ label: 'ATQ', val: b.atk,   color: '#f43f5e' });
-                  if (b.def   > 0) bonusChips.push({ label: 'DEF', val: b.def,   color: '#3b82f6' });
-                  if (b.magic > 0) bonusChips.push({ label: 'MAG', val: b.magic, color: '#a855f7' });
-                  if (b.speed > 0) bonusChips.push({ label: 'VEL', val: b.speed, color: '#10b981' });
-                  if (b.maxHp > 0) bonusChips.push({ label: 'HP',  val: b.maxHp, color: '#22c55e' });
-                  if (b.maxMp > 0) bonusChips.push({ label: 'MP',  val: b.maxMp, color: '#818cf8' });
-                }
-                return (
-                  <div key={slot.key} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px' }}>
-                    <button onClick={(e) => { e.stopPropagation(); onEquipSlot(slot.key); }}
-                      style={{
-                        width: '30px', height: '30px', borderRadius: '8px', padding: 0,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        border: `1px solid ${rb}`,
-                        background: it ? 'rgba(0,0,0,0.45)' : 'rgba(255,255,255,0.04)',
-                        cursor: 'pointer', flexShrink: 0,
-                        transition: 'filter 0.12s',
-                        boxSizing: 'border-box' as const,
-                      }}
-                      onMouseEnter={e => (e.currentTarget.style.filter = 'brightness(1.4)')}
-                      onMouseLeave={e => (e.currentTarget.style.filter = 'brightness(1)')}
-                    >
-                      {it
-                        ? (it.iconImage
-                            ? <img src={it.iconImage} style={{ width: 18, height: 18, objectFit: 'contain' }} draggable={false} alt={it.name} />
-                            : <span style={{ fontSize: '15px', lineHeight: 1 }}>{it.icon}</span>)
-                        : <span style={{ color: 'rgba(255,255,255,0.28)', display: 'flex' }}><SlotIcon size={13} /></span>
-                      }
-                    </button>
-                    {/* Bonus chips */}
-                    {bonusChips.map(chip => (
-                      <div key={chip.label} style={{
-                        fontSize: '8px', fontWeight: 900, lineHeight: 1,
-                        color: chip.color,
-                        background: `${chip.color}1a`,
-                        border: `1px solid ${chip.color}50`,
-                        borderRadius: '5px', padding: '2px 4px',
-                        whiteSpace: 'nowrap',
-                        letterSpacing: '0.02em',
-                      }}>
-                        +{chip.val}
-                      </div>
-                    ))}
-                  </div>
-                );
-              })}
-            </div>
-            </div>}
-          </div>
-
-          {/* ── Skills Card (page 2) ── */}
-          {(() => {
-            const equippedIds: string[] = player.equippedSkillIds ?? [];
-            const MAX_SLOTS = getClassSlots(player.classId).skills;
-            const paddedIds = [...equippedIds];
-            while (paddedIds.length < MAX_SLOTS) paddedIds.push('');
-            const availableSkills = player.skills ?? [];
-            return (
-              <div style={{
-                borderRadius: '16px',
-                background: 'rgba(8,5,22,0.40)',
-                backdropFilter: 'blur(28px)',
-                WebkitBackdropFilter: 'blur(28px)',
-                border: '1px solid rgba(255,255,255,0.14)',
-                padding: '10px',
-                boxSizing: 'border-box' as const,
-                pointerEvents: cardPage === 2 ? 'auto' : 'none',
-                opacity: cardPage === 2 ? 1 : 0,
-                transform: cardPage === 2 ? 'translateX(0px) scale(1)' : 'translateX(24px) scale(0.97)',
-                transition: 'opacity 0.32s ease, transform 0.32s cubic-bezier(0.4,0,0.2,1)',
-                position: 'absolute',
-                top: 0, left: 0, width: '100%',
-              }}>
-                {/* Header */}
-                <div style={{ marginBottom: '8px', padding: '0 2px' }}>
-                  <span style={{ fontSize: '8px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.25em', color: 'rgba(255,255,255,0.40)' }}>Habilidades</span>
-                </div>
-
-                {/* Equipped slots — tap to open SkillsScreen modal */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                  {Array.from({ length: MAX_SLOTS }, (_, i) => {
-                    const skillId = paddedIds[i];
-                    const skill = skillId ? availableSkills.find((s: any) => s.id === skillId) : null;
-                    const typeColor = skill?.type === 'physical' ? '#f87171' : skill?.type === 'magic' ? '#c4b5fd' : '#86efac';
-                    const typeBg   = skill?.type === 'physical' ? 'rgba(248,113,113,0.14)' : skill?.type === 'magic' ? 'rgba(196,181,253,0.14)' : 'rgba(134,239,172,0.14)';
-                    const typeLabel = skill?.type === 'physical' ? 'Físico' : skill?.type === 'magic' ? 'Magia' : 'Cura';
-                    const TypeIcon = skill?.type === 'physical' ? <Sword size={22} /> : skill?.type === 'magic' ? <Sparkles size={22} /> : <Heart size={22} />;
-                    const isSkillInfoOpen = campSkillInfoId === skillId && !!skill;
-                    return (
-                      <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
-                        <div style={{ display: 'flex', alignItems: 'stretch', gap: '3px', width: '100%', overflow: 'hidden' }}>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); onSkillSlotClick?.(i); }}
-                          style={{
-                            display: 'flex', alignItems: 'center', gap: '8px',
-                            borderRadius: '11px',
-                            border: skill ? `1.5px solid ${typeColor}55` : '1px solid rgba(255,255,255,0.09)',
-                            background: skill ? typeBg : 'rgba(0,0,0,0.18)',
-                            padding: '7px 9px',
-                            boxSizing: 'border-box' as const,
-                            flex: 1,
-                            minWidth: 0,
-                            cursor: 'pointer',
-                            textAlign: 'left',
-                            boxShadow: skill ? `0 0 10px ${typeColor}18` : 'none',
-                            transition: 'border 0.18s, background 0.18s, box-shadow 0.18s',
-                          }}>
-                          {/* Icon box */}
-                          <div style={{
-                            width: '36px', height: '36px', flexShrink: 0,
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            color: skill ? typeColor : 'rgba(255,255,255,0.20)',
-                            filter: skill ? 'drop-shadow(0.5px 0 0 rgba(255,255,255,0.7)) drop-shadow(-0.5px 0 0 rgba(255,255,255,0.7)) drop-shadow(0 0.5px 0 rgba(255,255,255,0.7)) drop-shadow(0 -0.5px 0 rgba(255,255,255,0.7))' : undefined,
-                          }}>
-                            {skill ? TypeIcon : <Sparkles size={16} />}
-                          </div>
-                          {/* Text + badges */}
-                          <div style={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                            <div style={{ fontSize: '6px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.18em', color: 'rgba(255,255,255,0.32)', lineHeight: 1 }}>Slot {i + 1}</div>
-                            <div style={{ fontSize: '10px', fontWeight: 900, color: skill ? '#fff' : 'rgba(255,255,255,0.30)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.2 }}>
-                              {skill ? skill.name : 'Vazio'}
-                            </div>
-                            {skill && (
-                              <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-                                <span style={{ fontSize: '7px', fontWeight: 800, padding: '1.5px 5px', borderRadius: '99px', background: `${typeColor}20`, border: `1px solid ${typeColor}44`, color: typeColor, display: 'inline-flex', alignItems: 'center', gap: '2px', lineHeight: 1 }}>
-                                  {typeLabel}
-                                </span>
-                                <span style={{ fontSize: '7px', fontWeight: 700, padding: '1.5px 5px', borderRadius: '99px', background: 'rgba(56,189,248,0.15)', border: '1px solid rgba(56,189,248,0.38)', color: '#38bdf8', display: 'inline-flex', alignItems: 'center', gap: '2px', lineHeight: 1 }}>
-                                  <Zap size={8} />{skill.manaCost} MP
-                                </span>
-                              </div>
-                            )}
-                          </div>
-                          <span style={{ color: skill ? `${typeColor}80` : 'rgba(255,255,255,0.20)', fontSize: '14px', flexShrink: 0 }}>›</span>
-                        </button>
-                        {skill && (
-                          <button
-                            onClick={(e) => { e.stopPropagation(); setCampSkillInfoId(prev => prev === skillId ? null : skillId); }}
-                            style={{ width: '28px', flexShrink: 0, borderRadius: '7px', border: `1px solid ${typeColor}44`, background: isSkillInfoOpen ? `${typeColor}25` : 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: typeColor, alignSelf: 'stretch' }}
-                            aria-label="Info da habilidade"
-                          ><Info size={11} /></button>
-                        )}
-                        </div>
-                        {isSkillInfoOpen && (
-                          <div style={{ marginTop: '3px', borderRadius: '9px', background: `${typeColor}10`, border: `1px solid ${typeColor}33`, padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                            <span style={{ fontSize: '8px', fontWeight: 900, textTransform: 'uppercase' as const, letterSpacing: '0.18em', color: typeColor, lineHeight: 1 }}>{skill!.name}</span>
-                            <span style={{ fontSize: '10px', fontWeight: 500, color: 'rgba(255,255,255,0.78)', lineHeight: 1.45 }}>{skill!.description}</span>
-                            {(skill!.damageMult ?? 0) > 0 && <span style={{ fontSize: '8px', fontWeight: 700, color: typeColor, lineHeight: 1 }}>⚔ Mult. dano: {skill!.damageMult}×</span>}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })()}
-
-          {/* ── Items card (page 3) ── */}
-          {(() => {
-            const equippedItemSlots: Array<{ itemId: string; qty: number }> = player.equippedItemSlots ?? [];
-            const MAX_ITEM_SLOTS = getClassSlots(player.classId).items;
-            const itemColor = '#fb923c';
-            const itemBg = 'rgba(251,146,60,0.14)';
-            return (
-              <div style={{
-                borderRadius: '16px',
-                background: 'rgba(8,5,22,0.40)',
-                backdropFilter: 'blur(28px)',
-                WebkitBackdropFilter: 'blur(28px)',
-                border: '1px solid rgba(255,255,255,0.14)',
-                padding: '10px',
-                boxSizing: 'border-box' as const,
-                pointerEvents: cardPage === 3 ? 'auto' : 'none',
-                opacity: cardPage === 3 ? 1 : 0,
-                transform: cardPage === 3 ? 'translateX(0px) scale(1)' : 'translateX(24px) scale(0.97)',
-                transition: 'opacity 0.32s ease, transform 0.32s cubic-bezier(0.4,0,0.2,1)',
-                position: 'absolute',
-                top: 0, left: 0, width: '100%',
-              }}>
-                {/* Header */}
-                <div style={{ marginBottom: '8px', padding: '0 2px', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                  <FlaskConical size={11} color={itemColor} />
-                  <span style={{ fontSize: '8px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.25em', color: 'rgba(255,255,255,0.40)' }}>Itens de Batalha</span>
-                </div>
-
-                {/* Item slots — tap to open InventoryScreen modal */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                  {Array.from({ length: MAX_ITEM_SLOTS }, (_, i) => {
-                    const slot = equippedItemSlots[i] ?? { itemId: '', qty: 0 };
-                    const hasItem = !!slot.itemId && slot.qty > 0;
-                    const isEmpty = !slot.itemId;
-                    const isItemInfoOpen = campItemInfoIdx === i && !!slot.itemId;
-                    const slotItemForInfo = slot.itemId ? ALL_ITEMS.find(it => it.id === slot.itemId) : null;
-                    return (
-                      <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
-                      <div style={{ display: 'flex', alignItems: 'stretch', gap: '3px' }}>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); onItemSlotClick?.(i); }}
-                        style={{
-                          display: 'flex', alignItems: 'center', gap: '8px',
-                          borderRadius: '11px',
-                          border: hasItem ? `1.5px solid ${itemColor}55` : '1px solid rgba(255,255,255,0.09)',
-                          background: hasItem ? itemBg : 'rgba(0,0,0,0.18)',
-                          padding: '7px 9px',
-                          boxSizing: 'border-box' as const,
-                          flex: 1,
-                          minWidth: 0,
-                          cursor: 'pointer',
-                          textAlign: 'left',
-                          boxShadow: hasItem ? `0 0 10px ${itemColor}18` : 'none',
-                          transition: 'border 0.18s, background 0.18s',
-                          opacity: !isEmpty && slot.qty === 0 ? 0.45 : 1,
-                        }}>
-                        {/* Icon box */}
-                        {(() => { const slotItem = slot.itemId ? ALL_ITEMS.find(it => it.id === slot.itemId) : null; return (
-                        <div style={{
-                          width: '36px', height: '36px', flexShrink: 0,
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          color: hasItem ? itemColor : 'rgba(255,255,255,0.20)',
-                          fontSize: '24px', lineHeight: 1,
-                          filter: hasItem ? 'drop-shadow(0.5px 0 0 rgba(255,255,255,0.7)) drop-shadow(-0.5px 0 0 rgba(255,255,255,0.7)) drop-shadow(0 0.5px 0 rgba(255,255,255,0.7)) drop-shadow(0 -0.5px 0 rgba(255,255,255,0.7))' : undefined,
-                        }}>
-                          {slotItem ? (slotItem.iconImage ? <img src={slotItem.iconImage} style={{ width: 28, height: 28, objectFit: 'contain' }} draggable={false} alt={slotItem.name} /> : slotItem.icon) : <FlaskConical size={16} />}
-                        </div>);
-                        })()}
-                        {/* Text + qty badge */}
-                        {(() => { const slotItem = slot.itemId ? ALL_ITEMS.find(it => it.id === slot.itemId) : null; return (
-                        <div style={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                          <div style={{ fontSize: '6px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.18em', color: 'rgba(255,255,255,0.32)', lineHeight: 1 }}>Slot {i + 1}</div>
-                          <div style={{ fontSize: '10px', fontWeight: 900, color: hasItem ? '#fff' : 'rgba(255,255,255,0.30)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.2 }}>
-                            {isEmpty ? 'Vazio' : slot.qty === 0 ? 'Esgotado' : (slotItem?.name ?? slot.itemId)}
-                          </div>
-                          {hasItem && (
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px', alignItems: 'center' }}>
-                              <span style={{ fontSize: '7px', fontWeight: 800, padding: '1.5px 5px', borderRadius: '99px', background: `${itemColor}20`, border: `1px solid ${itemColor}44`, color: itemColor, display: 'inline-flex', alignItems: 'center', gap: '2px', lineHeight: 1 }}>
-                                {slot.qty}×
-                              </span>
-                              {slotItem && getPotionSlotBadges(slotItem).map((b, bi) => (
-                                <span key={bi} style={{ fontSize: '7px', fontWeight: 800, padding: '1.5px 5px', borderRadius: '99px', background: b.bg, border: `1px solid ${b.border}`, color: b.color, display: 'inline-flex', alignItems: 'center', lineHeight: 1 }}>
-                                  {b.label}
-                                </span>
-                              ))}
-                            </div>
-                          )}
-                        </div>);
-                        })()}
-                        <span style={{ color: hasItem ? `${itemColor}80` : 'rgba(255,255,255,0.20)', fontSize: '14px', flexShrink: 0 }}>›</span>
-                      </button>
-                      {slotItemForInfo && (
-                        <button
-                          onClick={(e) => { e.stopPropagation(); setCampItemInfoIdx(prev => prev === i ? null : i); }}
-                          style={{ width: '28px', flexShrink: 0, borderRadius: '7px', border: `1px solid ${itemColor}44`, background: isItemInfoOpen ? `${itemColor}25` : 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: itemColor, alignSelf: 'stretch' }}
-                          aria-label="Info do item"
-                        ><Info size={11} /></button>
-                      )}
-                      </div>
-                      {isItemInfoOpen && slotItemForInfo && (
-                        <div style={{ marginTop: '3px', borderRadius: '9px', background: `${itemColor}10`, border: `1px solid ${itemColor}33`, padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                          <span style={{ fontSize: '8px', fontWeight: 900, textTransform: 'uppercase' as const, letterSpacing: '0.18em', color: itemColor, lineHeight: 1 }}>{slotItemForInfo.name}</span>
-                          <span style={{ fontSize: '10px', fontWeight: 500, color: 'rgba(255,255,255,0.78)', lineHeight: 1.45 }}>{slotItemForInfo.description}</span>
-                        </div>
-                      )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })()}
-
-          </div>{/* end cards container */}
-
-        </div>
-      </Html>
-    </>
-  );
-};
-
-const HeroVoxel = ({ classId = 'knight', playerAnimationAction = 'idle', animationClipName, preferredAnimationBundle, onAvailableAnimationClipsChange, loadAllAnimationBundles = false, loadSecondaryAnimationBundles = true, previewLoopAllActions = false, isAttacking, isDefending, weaponId, armorId, helmetId, legsId, shieldId, isLevelingUp, levelUpCardCategory = 'especial', isMenuView = false, isHit, isPlayerCritHit, hasPerfectEvadeAura, hasDoubleAttackAura, impulseLevel = 0, activeImpulseLevel = 0, contactShadowResolution = 256, idlePositionX = -2, attackPositionX = 0.5, defendPositionX = -1.5, idlePositionY = -1, attackPositionY = -1, defendPositionY = -1, originPosition = [-2, -1, 0], baseRotationY = 0.5, hiddenPartSlots, visiblePartSlots, runtimeAssetsOverride, calibrationOverride, debugRuntimeId, debugRuntimeLabel, onRuntimeDiagnosticChange, statusOverlay, onHeroClick, playerState, isPlayerTurn = false }: any) => {
+export const HeroVoxel = ({ classId = 'knight', playerAnimationAction = 'idle', animationClipName, preferredAnimationBundle, onAvailableAnimationClipsChange, loadAllAnimationBundles = false, loadSecondaryAnimationBundles = true, previewLoopAllActions = false, isAttacking, isDefending, weaponId, armorId, helmetId, legsId, shieldId, isLevelingUp, levelUpCardCategory = 'especial', isMenuView = false, isHit, isPlayerCritHit, hasPerfectEvadeAura, hasDoubleAttackAura, impulseLevel = 0, activeImpulseLevel = 0, contactShadowResolution = 256, idlePositionX = -2, attackPositionX = 0.5, defendPositionX = -1.5, idlePositionY = -1, attackPositionY = -1, defendPositionY = -1, originPosition = [-2, -1, 0], baseRotationY = 0.5, hiddenPartSlots, visiblePartSlots, runtimeAssetsOverride, calibrationOverride, debugRuntimeId, debugRuntimeLabel, onRuntimeDiagnosticChange, statusOverlay, onHeroClick, playerState, isPlayerTurn = false, forceHighlight = false }: any) => {
   const playerClass = getPlayerClassById(classId);
   const runtimeHeroAssets = runtimeAssetsOverride ?? (hasRuntimeFbxAssets(playerClass.assets) ? playerClass.assets : null);
   const group = useRef<THREE.Group>(null);
@@ -3745,7 +2475,7 @@ const HeroVoxel = ({ classId = 'knight', playerAnimationAction = 'idle', animati
       }
     }
     if (group.current) {
-      // Idle/Action movement — stay at attack position while animation is still playing
+      // Idle/Action movement Ã¢â‚¬â€ stay at attack position while animation is still playing
       const isInAttackAnimation = isAttacking;
       if (isInAttackAnimation) {
         group.current.position.x = THREE.MathUtils.lerp(group.current.position.x, attackPositionX, 0.2);
@@ -3824,7 +2554,7 @@ const HeroVoxel = ({ classId = 'knight', playerAnimationAction = 'idle', animati
       const ringMaterial = heroHighlightRingRef.current.material as THREE.MeshBasicMaterial;
       const pulse = 1 + (Math.sin(state.clock.elapsedTime * 5.1) * 0.08);
       heroHighlightRingRef.current.scale.set(pulse, pulse, 1);
-      ringMaterial.opacity = isHeroHighlighted
+      ringMaterial.opacity = isHeroHighlighted || forceHighlight
         ? 0.72 + ((Math.sin(state.clock.elapsedTime * 6.2) + 1) * 0.08)
         : 0;
     }
@@ -3992,26 +2722,26 @@ const HeroVoxel = ({ classId = 'knight', playerAnimationAction = 'idle', animati
         </group>
         <pointLight ref={damageLightRef} color="#ef4444" intensity={0} distance={8} decay={2.5} position={[0, 0.8, 0.3]} />
         <pointLight ref={healLightRef} color="#86efac" intensity={0} distance={9} decay={2.5} position={[0, 0.8, 0.3]} />
-        {/* Rim light — behind the hero (Z positive = closer to camera side, hero faces away) */}
+        {/* Rim light Ã¢â‚¬â€ behind the hero (Z positive = closer to camera side, hero faces away) */}
         <pointLight color="#bfdbfe" intensity={0.9} distance={5} decay={2} position={[0, 1.1, 1.6]} />
-        {/* Fill light — subtle warm from below for volume */}
+        {/* Fill light Ã¢â‚¬â€ subtle warm from below for volume */}
         <pointLight color="#fde68a" intensity={0.32} distance={3.5} decay={2.5} position={[0, -0.6, -0.4]} />
-        {/* Turn indicator ring — visible during player turn in battle */}
+        {/* Turn indicator ring Ã¢â‚¬â€ visible during player turn in battle */}
         <mesh ref={turnRingRef} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.06, 0]}>
           <ringGeometry args={[0.78, 0.98, 56]} />
           <meshBasicMaterial color={heroClassColor} transparent opacity={0} depthWrite={false} side={THREE.DoubleSide} />
         </mesh>
         {onHeroClick ? (
           <>
-            <mesh ref={heroHighlightRingRef} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.08, 0]} visible={isHeroHighlighted}>
+            <mesh ref={heroHighlightRingRef} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.08, 0]} visible={isHeroHighlighted || !!forceHighlight}>
               <ringGeometry args={[0.82, 1.04, 56]} />
               <meshBasicMaterial color="#ffffff" transparent opacity={0.86} depthWrite={false} side={THREE.DoubleSide} />
             </mesh>
             <Html center position={[0, 2.45, 0]} distanceFactor={8.4} zIndexRange={[170, 0]} style={{ pointerEvents: 'none' }}>
               <div
                 style={{
-                  opacity: isHeroHighlighted ? 1 : 0,
-                  transform: `translateY(${isHeroHighlighted ? '0px' : '4px'}) scale(${isHeroHighlighted ? 1 : 0.96})`,
+                  opacity: isHeroHighlighted || !!forceHighlight ? 1 : 0,
+                  transform: `translateY(${isHeroHighlighted || !!forceHighlight ? '0px' : '4px'}) scale(${isHeroHighlighted || !!forceHighlight ? 1 : 0.96})`,
                   transition: 'opacity 140ms ease, transform 140ms ease',
                   fontSize: 'clamp(0.72rem, 1.7vw, 0.9rem)',
                   fontWeight: 900,
@@ -4065,7 +2795,7 @@ const HeroVoxel = ({ classId = 'knight', playerAnimationAction = 'idle', animati
   );
 };
 
-const CombinedHeroVoxel = ({
+export const CombinedHeroVoxel = ({
   baseClassId,
   donorAssets,
   animationAction = 'idle',
@@ -4430,11 +3160,13 @@ const MenuNavigationPortal = ({
   transform,
   onActivate,
   reducedMotion = false,
+  forceHighlight = false,
 }: {
   region: 'forest' | 'dungeon' | 'tower';
   transform: RuntimeMenuPortalTransform;
   onActivate?: () => void;
   reducedMotion?: boolean;
+  forceHighlight?: boolean;
 }) => {
   const sourcePortal = useFBX(MENU_PORTAL_FBX_URL);
   const [albedoTexture, emissiveTexture, metallicTexture] = useTexture([
@@ -4536,7 +3268,7 @@ const MenuNavigationPortal = ({
       const ringMaterial = highlightRingRef.current.material as THREE.MeshBasicMaterial;
       const pulse = 1 + (Math.sin(t * 5.2) * 0.08);
       highlightRingRef.current.scale.set(pulse, pulse, 1);
-      ringMaterial.opacity = isPortalHighlighted
+      ringMaterial.opacity = isPortalHighlighted || forceHighlight
         ? 0.72 + ((Math.sin(t * 6.1) + 1) * 0.08)
         : 0;
     }
@@ -4603,15 +3335,15 @@ const MenuNavigationPortal = ({
         <circleGeometry args={[1.05, 48]} />
         <meshBasicMaterial color={region === 'tower' ? '#c4b5fd' : '#7dd3fc'} transparent opacity={0.24} depthWrite={false} />
       </mesh>
-      <mesh ref={highlightRingRef} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.08, 0]} visible={isPortalHighlighted}>
+      <mesh ref={highlightRingRef} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.08, 0]} visible={isPortalHighlighted || forceHighlight}>
         <ringGeometry args={[1.08, 1.3, 64]} />
         <meshBasicMaterial color="#ffffff" transparent opacity={0.86} depthWrite={false} side={THREE.DoubleSide} />
       </mesh>
       <Html center position={[0, 2.6, 0]} distanceFactor={8.8} zIndexRange={[170, 0]} style={{ pointerEvents: 'none' }}>
         <div
           style={{
-            opacity: isPortalHighlighted ? 1 : 0,
-            transform: `translateY(${isPortalHighlighted ? '0px' : '4px'}) scale(${isPortalHighlighted ? 1 : 0.96})`,
+            opacity: isPortalHighlighted || forceHighlight ? 1 : 0,
+            transform: `translateY(${isPortalHighlighted || forceHighlight ? '0px' : '4px'}) scale(${isPortalHighlighted || forceHighlight ? 1 : 0.96})`,
             transition: 'opacity 140ms ease, transform 140ms ease',
             fontSize: 'clamp(0.74rem, 1.8vw, 0.9rem)',
             fontWeight: 900,
@@ -4632,7 +3364,7 @@ const MenuNavigationPortal = ({
 const FpsCap = ({ fps }: { fps: number }) => {
   // Use invalidate() instead of advance(timestamp).
   // advance(timestamp) passes raw rAF ms values into R3F's clock, breaking
-  // THREE.Clock and causing the day cycle to run 1000× too fast.
+  // THREE.Clock and causing the day cycle to run 1000Ãƒâ€” too fast.
   // invalidate() simply tells R3F "render next frame" without touching the clock.
   const invalidate = useThree((state) => state.invalidate);
 
@@ -4646,7 +3378,7 @@ const FpsCap = ({ fps }: { fps: number }) => {
     const tick = (now: number) => {
       rafId = window.requestAnimationFrame(tick);
       if (lastFrameTime === 0) {
-        // First frame — initialize baseline
+        // First frame Ã¢â‚¬â€ initialize baseline
         lastFrameTime = now;
         invalidate();
         return;
@@ -4675,6 +3407,7 @@ export const GameScene: React.FC<SceneProps> = (props) => {
   const outlineEnemyRef = useRef<THREE.Group>(null);
   const [gameTime, setGameTime] = useState("12:00");
   const [hoveredEnemyId, setHoveredEnemyId] = useState<string | null>(null);
+  const [heroItemDetail, setHeroItemDetail] = useState<any | null>(null);
   // Reset cursor and hover state when selection mode ends
   React.useEffect(() => {
     if (!props.pendingTargetAction) {
@@ -4701,14 +3434,14 @@ export const GameScene: React.FC<SceneProps> = (props) => {
   const isDungeonRun = Boolean(props.isDungeonScene ?? props.isDungeonRun);
   const runtimeCameraMenuFocus = props.menuCameraFocus ?? Boolean(props.isMenuView);
   // Post-processing: quality always; desktop balanced also gets lightweight bloom
-  // (affordable at 30fps budget — 33ms/frame leaves room for mipmapBlur passes).
+  // (affordable at 30fps budget Ã¢â‚¬â€ 33ms/frame leaves room for mipmapBlur passes).
   // Mobile balanced keeps it off to stay within 45fps heat budget.
   const shouldUsePostProcessing = isQualityMode || (isBalancedMode && !isMobileDevice);
   const shouldUseBloomAndVignette = isQualityMode || (isBalancedMode && !isMobileDevice);
   const shouldUseVignette = shouldUseBloomAndVignette && !runtimeCameraMenuFocus;
   // MSAA inside EffectComposer doubles GPU cost for all post-processing passes.
   // Only enable it for quality mode; balanced/performance use 0 (no MSAA) to
-  // avoid 2× overdraw on Bloom, Vignette and outline passes.
+  // avoid 2Ãƒâ€” overdraw on Bloom, Vignette and outline passes.
   const postProcessingMultisampling = isQualityMode ? 4 : 0;
   const backfaceOutlineThickness = isPerformanceMode
     ? (isMobileDevice ? 0.045 : 0.06)
@@ -4743,7 +3476,7 @@ export const GameScene: React.FC<SceneProps> = (props) => {
   const forestFogNear = quality.isLowQuality ? 6 : 5;
   const forestFogFar = quality.isLowQuality ? 22 : 28;
   // Mobile balanced uses PCFShadowMap (faster) instead of PCFSoftShadowMap to cut shadow pass cost.
-  // Desktop balanced also uses PCFShadowMap — PCFSoftShadowMap custo extra sem ganho visual perceptível.
+  // Desktop balanced also uses PCFShadowMap Ã¢â‚¬â€ PCFSoftShadowMap custo extra sem ganho visual perceptÃƒÂ­vel.
   const isMobileBalanced = isMobileDevice && isBalancedMode;
   const shadowMapType = isQualityMode ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
   // Skip the main directional shadow map (saves a full scene re-render pass per frame) unless
@@ -4753,11 +3486,13 @@ export const GameScene: React.FC<SceneProps> = (props) => {
   // noMainShadow=true means no light uses castShadow, so the renderer overhead is wasted.
   // ContactShadows uses its own WebGLRenderTarget and does NOT depend on this flag.
   const shadowsEnabled = isQualityMode;
-  // Mobile: 45 FPS via demand+invalidate (equilíbrio suavidade/calor).
-  // Desktop: 60 FPS via demand+invalidate (evita render a 120/144Hz desnecessário).
-  const mobileFpsCap = isMobileDevice ? 45 : 30;
+  // Electron desktop: 60 FPS Ã¢â‚¬â€ GPU dedicada suporta confortavelmente.
+  // Mobile: 45 FPS (equilÃƒÂ­brio suavidade/calor).
+  // Desktop web: 30 FPS via demand+invalidate (evita render a 120/144Hz desnecessÃƒÂ¡rio).
+  const isElectron = typeof window !== 'undefined' && (window as Window & { electronBridge?: { isElectron: boolean } }).electronBridge?.isElectron === true;
+  const mobileFpsCap = isElectron ? 60 : (isMobileDevice ? 45 : 30);
   const battleContactShadowResolution = useMemo(
-    // Quality+Balanced: use profile resolution (72–84 px, good shadow softness).
+    // Quality+Balanced: use profile resolution (72Ã¢â‚¬â€œ84 px, good shadow softness).
     // Performance: cap at 48 to save GPU fill rate.
     () => isPerformanceMode ? 48 : quality.contactShadowResolution,
     [isPerformanceMode, quality.contactShadowResolution],
@@ -4846,7 +3581,13 @@ export const GameScene: React.FC<SceneProps> = (props) => {
       style={{ backgroundColor: sceneBackgroundColor, touchAction: 'none' }}
       onClick={() => { if (props.heroInspectMode) props.onHeroInspectClose?.(); }}
     >
-      {/* Time Display Overlay - Desktop only */}
+      {/* Hero equip item detail overlay Ã¢â‚¬â€ fora do Canvas para evitar erro R3F */}
+      {heroItemDetail && (
+        <HeroItemDetailOverlay
+          item={heroItemDetail}
+          onClose={() => setHeroItemDetail(null)}
+        />
+      )}
       {!isDungeonRun && (
         <div className="absolute top-6 left-6 z-10 bg-black/40 border border-white/10 px-4 py-1 rounded-full hidden sm:flex items-center gap-3 pointer-events-none">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-400 shrink-0"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
@@ -4872,7 +3613,7 @@ export const GameScene: React.FC<SceneProps> = (props) => {
           heroInspectMode={props.heroInspectMode}
           portalInspectMode={props.portalInspectMode}
         />
-        {/* fog/background must be at Canvas root (scene level) — THREE.js only reads scene.fog and scene.background */}
+        {/* fog/background must be at Canvas root (scene level) Ã¢â‚¬â€ THREE.js only reads scene.fog and scene.background */}
         {isDungeonRun ? (
           <>
             <color attach="background" args={[dungeonSceneBgColor]} />
@@ -4927,7 +3668,7 @@ export const GameScene: React.FC<SceneProps> = (props) => {
                   <DungeonScenario />
                 </>
               )}
-              {/* Scene-level ContactShadows removed — per-character ones on hero/enemy avoid the square artifact */}
+              {/* Scene-level ContactShadows removed Ã¢â‚¬â€ per-character ones on hero/enemy avoid the square artifact */}
             </>
           ) : (
             <>
@@ -4954,7 +3695,7 @@ export const GameScene: React.FC<SceneProps> = (props) => {
                   ))}
                 </>
               ) : null}
-              {/* Scene-level ContactShadows removed — per-character ContactShadows on
+              {/* Scene-level ContactShadows removed Ã¢â‚¬â€ per-character ContactShadows on
                   HeroVoxel and EnemyCharacter provide ground shadows without the large
                   square boundary artifact that a scale=22 plane with low blur produces. */}
             </>
@@ -5001,6 +3742,7 @@ export const GameScene: React.FC<SceneProps> = (props) => {
                 contactShadowResolution={quality.contactShadowResolution}
                 loadSecondaryAnimationBundles
                 onHeroClick={props.onMenuHeroClick}
+                forceHighlight={props.menuGamepadFocus === 'hero'}
                 idlePositionX={isDungeonRun && activeScenarioConfig ? dungeonHeroBasePosition[0] : undefined}
                 attackPositionX={isDungeonRun && activeScenarioConfig ? dungeonHeroAttackX : huntHeroAttackX}
                 defendPositionX={isDungeonRun && activeScenarioConfig ? dungeonHeroDefendX : undefined}
@@ -5020,11 +3762,12 @@ export const GameScene: React.FC<SceneProps> = (props) => {
               transform={menuPortalTransform}
               onActivate={props.onMenuPortalClick}
               reducedMotion={isMobileDevice && !isQualityMode}
+              forceHighlight={props.menuGamepadFocus === 'portal'}
             />
           </Suspense>
         ) : null}
 
-        {/* ── Battle actions: Html3D panel next to hero (non-menu, all devices) ── */}
+        {/* Ã¢â€â‚¬Ã¢â€â‚¬ Battle actions: Html3D panel next to hero (non-menu, all devices) Ã¢â€â‚¬Ã¢â€â‚¬ */}
         {!props.isMenuView && props.battleActionsConfig && props.playerState && (
           <Html
             position={isDungeonRun && activeScenarioConfig
@@ -5044,8 +3787,12 @@ export const GameScene: React.FC<SceneProps> = (props) => {
             player={props.playerState}
             onClose={() => props.onHeroInspectClose?.()}
             onEquipSlot={(slot) => props.onHeroEquipSlotClick?.(slot)}
+            onUnequipSlot={(item) => props.onHeroUnequipSlotClick?.(item)}
             onSkillSlotClick={props.onHeroSkillSlotClick}
             onItemSlotClick={props.onHeroItemSlotClick}
+            onUnequipItemSlot={props.onHeroUnequipItemSlot}
+            onUnequipSkillSlot={props.onHeroUnequipSkillSlot}
+            onShowItemDetail={(item) => setHeroItemDetail(item)}
           />
         )}
 
@@ -5053,7 +3800,7 @@ export const GameScene: React.FC<SceneProps> = (props) => {
           <>
             {/* Transparent backdrop: click OUTSIDE cards closes portal.
                 Uses onClick (not onPointerDown) so it only fires when the canvas
-                itself is the click target — HTML card clicks go to the DOM element
+                itself is the click target Ã¢â‚¬â€ HTML card clicks go to the DOM element
                 and never reach the canvas, avoiding a race condition where the
                 backdrop unmounts the Html before the card onClick fires. */}
             <mesh
@@ -5073,10 +3820,10 @@ export const GameScene: React.FC<SceneProps> = (props) => {
           </>
         )}
 
-        {/* ── Group combat: main + extra enemies with world-space position props ── */}
+        {/* Ã¢â€â‚¬Ã¢â€â‚¬ Group combat: main + extra enemies with world-space position props Ã¢â€â‚¬Ã¢â€â‚¬ */}
         {(() => {
-          // Each enemy has ONE fixed anchor point — they never move when attacking or defending.
-          // The attack animation plays in place (model lean/swing) — no X-translation.
+          // Each enemy has ONE fixed anchor point Ã¢â‚¬â€ they never move when attacking or defending.
+          // The attack animation plays in place (model lean/swing) Ã¢â‚¬â€ no X-translation.
           const GRP = [
             // solo
             [{ idleX: 2.0, idleZ: 0.0 }],
@@ -5088,7 +3835,7 @@ export const GameScene: React.FC<SceneProps> = (props) => {
           const extras = props.additionalEnemies ?? [];
           // Use INITIAL group size (at spawn) so positions don't shift when enemies die
           const grpSize = Math.min(3, Math.max(1, props.initialGroupSize ?? (1 + extras.length)));
-          // Only apply group layout in hunt mode — dungeon uses scenario-defined positions
+          // Only apply group layout in hunt mode Ã¢â‚¬â€ dungeon uses scenario-defined positions
           const layout = !isDungeonRun ? (GRP[grpSize - 1] ?? GRP[0]) : null;
           // mainEnemySlotIndex keeps the enemy at its visual slot after target swap (no teleport)
           const mainSlot = props.mainEnemySlotIndex ?? 0;
@@ -5103,7 +3850,7 @@ export const GameScene: React.FC<SceneProps> = (props) => {
 
           return (
             <>
-              {/* ── Main enemy ── */}
+              {/* Ã¢â€â‚¬Ã¢â€â‚¬ Main enemy Ã¢â€â‚¬Ã¢â€â‚¬ */}
               <group ref={outlineEnemyRef}>
                 {!props.isMenuView && props.enemyGltfModelUrl ? (
                   <GltfEnemyCharacter
@@ -5156,13 +3903,13 @@ export const GameScene: React.FC<SceneProps> = (props) => {
                 ) : null}
               </group>
 
-              {/* ── Extra enemies — rendered at their fixed visual slot, using own model/color ── */}
+              {/* Ã¢â€â‚¬Ã¢â€â‚¬ Extra enemies Ã¢â‚¬â€ rendered at their fixed visual slot, using own model/color Ã¢â€â‚¬Ã¢â€â‚¬ */}
               {!props.isMenuView && extras.map((extraEnemy, idx) => {
                 const slotIdx = extraSlots[idx] ?? idx + 1;
                 const pos = layout?.[slotIdx];
                 const idleX  = pos?.idleX  ?? (3.8 + idx * 1.4);
                 const idleZ  = pos?.idleZ  ?? (0.6 + idx * 0.4);
-                // Fixed anchor — extras never move when attacking or defending
+                // Fixed anchor Ã¢â‚¬â€ extras never move when attacking or defending
                 const nameplateY = -1 + extraEnemy.scale * 2 + 0.2;
                 return (
                   <React.Fragment key={extraEnemy.id}>
@@ -5206,7 +3953,7 @@ export const GameScene: React.FC<SceneProps> = (props) => {
                         originPosition={[idleX, -1, idleZ]}
                       />
                     )}
-                    {/* Selection hitbox + ring at enemy position — big clickable target over the 3D model */}
+                    {/* Selection hitbox + ring at enemy position Ã¢â‚¬â€ big clickable target over the 3D model */}
                     {isSelecting && (() => {
                       const hitboxH = Math.max(2.2, extraEnemy.scale * 2.6);
                       const isHov = hoveredEnemyId === extraEnemy.id;
@@ -5215,7 +3962,7 @@ export const GameScene: React.FC<SceneProps> = (props) => {
                       const ringOpacity = isHov ? 1 : 0.95;
                       return (
                         <group position={[idleX, -0.97, idleZ]}>
-                          {/* Tall invisible cylinder over model — easy click target */}
+                          {/* Tall invisible cylinder over model Ã¢â‚¬â€ easy click target */}
                           <mesh
                             position={[0, hitboxH / 2, 0]}
                             onClick={(e) => { e.stopPropagation(); props.onSelectTarget?.(extraEnemy.id); }}
@@ -5226,7 +3973,7 @@ export const GameScene: React.FC<SceneProps> = (props) => {
                             <cylinderGeometry args={[0.9, 0.9, hitboxH, 16]} />
                             <meshBasicMaterial transparent opacity={0} depthWrite={false} />
                           </mesh>
-                          {/* Visible ring on ground — glows white on hover */}
+                          {/* Visible ring on ground Ã¢â‚¬â€ glows white on hover */}
                           <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}
                             scale={isHov ? [1.18, 1.18, 1] : [1, 1, 1]}
                           >
@@ -5274,7 +4021,7 @@ export const GameScene: React.FC<SceneProps> = (props) => {
                 );
               })}
 
-              {/* Selection ring on main enemy — in hero class color */}
+              {/* Selection ring on main enemy Ã¢â‚¬â€ in hero class color */}
               {!props.isMenuView && isSelecting && props.enemyState && (() => {
                 const mX = !isDungeonRun ? (mainPos?.idleX ?? 2.0) : dungeonEnemyBasePosition[0];
                 const mZ = !isDungeonRun ? (mainPos?.idleZ ?? 0.0) : dungeonEnemyBasePosition[2];
@@ -5285,7 +4032,7 @@ export const GameScene: React.FC<SceneProps> = (props) => {
                 const ringIntensity = isHov ? 3.2 : 1.6;
                 return (
                   <group position={[mX, -0.97, mZ]}>
-                    {/* Big tall invisible hitbox covering the whole enemy model — easy click target */}
+                    {/* Big tall invisible hitbox covering the whole enemy model Ã¢â‚¬â€ easy click target */}
                     <mesh
                       position={[0, hitboxH / 2, 0]}
                       onClick={(e) => { e.stopPropagation(); props.onSelectTarget?.(mainEnemyId); }}
@@ -5296,7 +4043,7 @@ export const GameScene: React.FC<SceneProps> = (props) => {
                       <cylinderGeometry args={[0.9, 0.9, hitboxH, 16]} />
                       <meshBasicMaterial transparent opacity={0} depthWrite={false} />
                     </mesh>
-                    {/* Visible class-colored ring on the ground — glows white on hover */}
+                    {/* Visible class-colored ring on the ground Ã¢â‚¬â€ glows white on hover */}
                     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}
                       scale={isHov ? [1.18, 1.18, 1] : [1, 1, 1]}
                     >
@@ -5310,7 +4057,7 @@ export const GameScene: React.FC<SceneProps> = (props) => {
           );
         })()}
 
-        {/* ── Enemy nameplate — floats above the 3D model at its actual slot position ── */}
+        {/* Ã¢â€â‚¬Ã¢â€â‚¬ Enemy nameplate Ã¢â‚¬â€ floats above the 3D model at its actual slot position Ã¢â€â‚¬Ã¢â€â‚¬ */}
         {!props.isMenuView && props.enemyState && (() => {
           // Slot idle positions (mirrors GRP table above, kept in sync)
           const npGRP = [
@@ -5345,7 +4092,7 @@ export const GameScene: React.FC<SceneProps> = (props) => {
               const isBoss = props.isEnemyBoss;
               const isSubBoss = en.isSubBoss;
               const accentColor = isBoss ? '#ef4444' : isSubBoss ? '#f59e0b' : (props.enemyColor ?? '#94a3b8');
-              const badgeLabel = isBoss ? 'CHEFÃO' : isSubBoss ? 'SUBCHEFE' : null;
+              const badgeLabel = isBoss ? 'CHEFÃƒÆ’O' : isSubBoss ? 'SUBCHEFE' : null;
               const F: React.CSSProperties = { fontFamily: "'Segoe UI',system-ui,sans-serif" };
               const cardW = isMobileDevice ? '280px' : '190px';
               const nameFz = isMobileDevice ? '18px' : '13px';
@@ -5402,7 +4149,7 @@ export const GameScene: React.FC<SceneProps> = (props) => {
           );
         })()}
 
-        {/* ── Hero nameplate — floats above the hero 3D model ── */}
+        {/* Ã¢â€â‚¬Ã¢â€â‚¬ Hero nameplate Ã¢â‚¬â€ floats above the hero 3D model Ã¢â€â‚¬Ã¢â€â‚¬ */}
         {!props.isMenuView && props.playerState && (
           <Html
             position={isDungeonRun && activeScenarioConfig
@@ -5462,7 +4209,7 @@ export const GameScene: React.FC<SceneProps> = (props) => {
                       <div style={{ height: barH, borderRadius: '99px', background: 'rgba(0,0,0,0.55)', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)' }}>
                         <div style={{ height: '100%', borderRadius: '99px', background: `linear-gradient(90deg, ${hpColor}99, ${hpColor})`, width: `${hpPct}%`, transition: 'width 0.35s ease, background 0.5s ease' }} />
                       </div>
-                      {/* Mana bar — only if hero currently has mana */}
+                      {/* Mana bar Ã¢â‚¬â€ only if hero currently has mana */}
                       {hasMana && (
                         <div style={{ height: barH, borderRadius: '99px', background: 'rgba(0,0,0,0.55)', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)' }}>
                           <div style={{ height: '100%', borderRadius: '99px', background: 'linear-gradient(90deg, #2b687899, #66b8d2)', width: `${mpPct}%`, transition: 'width 0.35s ease' }} />
@@ -5574,426 +4321,4 @@ export const GameScene: React.FC<SceneProps> = (props) => {
     </div>
   );
 };
-
-export const DeveloperHeroScene: React.FC<DeveloperHeroSceneProps> = (props) => (
-  <DeveloperHeroSceneRenderer {...props} HeroVoxelComponent={HeroVoxel} />
-);
-
-export const DeveloperMonsterScene: React.FC<DeveloperMonsterSceneProps> = (props) => (
-  <DeveloperMonsterSceneRenderer {...props} EnemyCharacterComponent={EnemyCharacter} />
-);
-
-export const DeveloperGltfMonsterScene: React.FC<DeveloperGltfMonsterSceneProps> = (props) => (
-  <DeveloperGltfMonsterSceneRenderer {...props} HeroVoxelComponent={HeroVoxel} />
-);
-
-const ModularClassHeroVoxel = ({
-  baseClassId,
-  partSelections,
-  partTransforms,
-  equippedWeaponId,
-  weaponTransformOverride,
-  showWeaponAnchorHelper = false,
-  showWeaponTransformControls = false,
-  weaponTransformControlMode = 'translate',
-  onWeaponTransformOverrideChange,
-  animationAction = 'idle',
-  animationClipName,
-  preferredAnimationBundle,
-  loadAllAnimationBundles = false,
-  loadSecondaryAnimationBundles = true,
-  onAvailableAnimationClipsChange,
-  onRuntimeDiagnosticChange,
-  isAttacking,
-  isDefending,
-  isHit,
-  contactShadowResolution = 256,
-}: {
-  baseClassId: PlayerClassId;
-  partSelections: Record<DeveloperKitbashMainSlot, PlayerClassId>;
-  partTransforms?: Partial<Record<DeveloperKitbashMainSlot, DeveloperKitbashTransform>>;
-  equippedWeaponId?: string;
-  weaponTransformOverride?: DeveloperWeaponTransformOverride;
-  showWeaponAnchorHelper?: boolean;
-  showWeaponTransformControls?: boolean;
-  weaponTransformControlMode?: DeveloperWeaponTransformControlMode;
-  onWeaponTransformOverrideChange?: (transform: DeveloperWeaponTransformOverride) => void;
-  animationAction?: PlayerAnimationAction;
-  animationClipName?: string;
-  preferredAnimationBundle?: string;
-  loadAllAnimationBundles?: boolean;
-  loadSecondaryAnimationBundles?: boolean;
-  onAvailableAnimationClipsChange?: (clipNames: string[]) => void;
-  onRuntimeDiagnosticChange?: (diagnostic: DeveloperAnimationRuntimeDiagnostic) => void;
-  isAttacking?: boolean;
-  isDefending?: boolean;
-  isHit?: boolean;
-  contactShadowResolution?: number;
-}) => {
-  const baseClass = getPlayerClassById(baseClassId);
-  const group = useRef<THREE.Group>(null);
-  const flashRef = useRef<number>(0);
-  const flashMaterialsRef = useRef<THREE.Material[]>([]);
-  const baseRuntimeAssets = baseClass.assets as RuntimeHeroAssets;
-  const headAssets = resolveRuntimeClassAssets(partSelections.head) ?? baseRuntimeAssets;
-  const torsoAssets = resolveRuntimeClassAssets(partSelections.torso) ?? baseRuntimeAssets;
-  const armsAssets = resolveRuntimeClassAssets(partSelections.arms) ?? baseRuntimeAssets;
-  const legsAssets = resolveRuntimeClassAssets(partSelections.legs) ?? baseRuntimeAssets;
-  const baseModelSource = useFBX(baseRuntimeAssets.modelUrl);
-  const baseTexture = useTexture(baseRuntimeAssets.textureUrl);
-  const headModelSource = useFBX(headAssets.modelUrl);
-  const torsoModelSource = useFBX(torsoAssets.modelUrl);
-  const armsModelSource = useFBX(armsAssets.modelUrl);
-  const legsModelSource = useFBX(legsAssets.modelUrl);
-  const headTexture = useTexture(headAssets.textureUrl);
-  const torsoTexture = useTexture(torsoAssets.textureUrl);
-  const armsTexture = useTexture(armsAssets.textureUrl);
-  const legsTexture = useTexture(legsAssets.textureUrl);
-  const animationMap = baseRuntimeAssets.animationMap;
-  const primaryAnimationBundle = useMemo(
-    () => selectPrimaryAnimationBundle(baseRuntimeAssets, animationAction, preferredAnimationBundle),
-    [animationAction, baseRuntimeAssets, preferredAnimationBundle],
-  );
-  const animationSource = useLoader(FBXLoader, primaryAnimationBundle.url) as THREE.Group;
-  const secondaryBundles = useMemo(
-    () => selectSecondaryAnimationBundles(baseRuntimeAssets, primaryAnimationBundle.fileName, loadAllAnimationBundles, loadSecondaryAnimationBundles),
-    [baseRuntimeAssets, loadAllAnimationBundles, loadSecondaryAnimationBundles, primaryAnimationBundle.fileName],
-  );
-  const secondaryAnimationSources = useLoader(FBXLoader, secondaryBundles.map((bundle) => bundle.url)) as THREE.Group[];
-  const evadeDirectionRef = useRef<'left' | 'right'>('left');
-  const previousAnimationActionRef = useRef<PlayerAnimationAction>(animationAction);
-  const activePlaybackKeyRef = useRef<string | null>(null);
-  const activeActionRef = useRef<THREE.AnimationAction | null>(null);
-  const layers = useMemo(() => KITBASH_MAIN_SLOTS.map((slot) => ({
-    slot,
-    classId: partSelections[slot],
-    assets: resolveRuntimeClassAssets(partSelections[slot]),
-  })).filter((layer): layer is { slot: DeveloperKitbashMainSlot; classId: PlayerClassId; assets: RuntimeHeroAssets } => Boolean(layer.assets)), [partSelections]);
-
-  const hiddenBaseSlots = useMemo(
-    () => KITBASH_MAIN_SLOTS.filter((slot) => partSelections[slot] !== baseClassId),
-    [baseClassId, partSelections],
-  );
-
-  const basePreparedModel = useMemo(() => prepareRuntimeHeroModel({
-    sourceModel: baseModelSource,
-    texture: baseTexture,
-    calibration: baseClass.assets.calibration,
-    hiddenPartSlots: hiddenBaseSlots,
-  }), [baseClass.assets.calibration, baseModelSource, baseTexture, hiddenBaseSlots]);
-
-  const backgroundClips = useMemo(() => (
-    secondaryBundles.flatMap((bundle, index) => {
-      const source = secondaryAnimationSources[index];
-
-      if (!source) {
-        return [];
-      }
-
-      return source.animations.map((clip) => {
-        const renamedClip = clip.clone();
-        renamedClip.name = `${bundle.fileName.replace(/\.fbx$/i, '')}:${clip.name}`;
-        return renamedClip;
-      });
-    })
-  ), [secondaryAnimationSources, secondaryBundles]);
-
-  const mergedClips = useMemo(() => {
-    const primaryClips = animationSource.animations.map((clip) => {
-      const renamedClip = clip.clone();
-      renamedClip.name = `${primaryAnimationBundle.fileName.replace(/\.fbx$/i, '')}:${clip.name}`;
-      return renamedClip;
-    });
-
-    return [...primaryClips, ...backgroundClips];
-  }, [animationSource.animations, backgroundClips, primaryAnimationBundle.fileName]);
-
-  const boundClips = useMemo(
-    () => remapClipBindingsToSkeleton({ clips: mergedClips, targetModel: basePreparedModel }),
-    [basePreparedModel, mergedClips],
-  );
-
-  const clipMap = useMemo(() => ({
-    'battle-idle': findBestClipName(boundClips, 'battle-idle'),
-    idle: findBestClipName(boundClips, 'idle'),
-    attack: findBestClipName(boundClips, 'attack'),
-    defend: findBestClipName(boundClips, 'defend'),
-    'defend-hit': findBestClipName(boundClips, 'defend-hit'),
-    hit: findBestClipName(boundClips, 'hit'),
-    'critical-hit': findBestClipName(boundClips, 'critical-hit'),
-    item: findBestClipName(boundClips, 'item'),
-    heal: findBestClipName(boundClips, 'heal'),
-    skill: findBestClipName(boundClips, 'skill'),
-    evade: findBestClipName(boundClips, 'evade'),
-    death: findBestClipName(boundClips, 'death'),
-  }), [boundClips]);
-
-  const overlayModels = useMemo(() => {
-    const preparedBySlot: Record<DeveloperKitbashMainSlot, THREE.Group> = {
-      head: prepareRuntimeHeroModel({
-        sourceModel: headModelSource,
-        texture: headTexture,
-        calibration: baseClass.assets.calibration,
-        visiblePartSlots: ['head'],
-      }),
-      torso: prepareRuntimeHeroModel({
-        sourceModel: torsoModelSource,
-        texture: torsoTexture,
-        calibration: baseClass.assets.calibration,
-        visiblePartSlots: ['torso'],
-      }),
-      arms: prepareRuntimeHeroModel({
-        sourceModel: armsModelSource,
-        texture: armsTexture,
-        calibration: baseClass.assets.calibration,
-        visiblePartSlots: ['arms'],
-      }),
-      legs: prepareRuntimeHeroModel({
-        sourceModel: legsModelSource,
-        texture: legsTexture,
-        calibration: baseClass.assets.calibration,
-        visiblePartSlots: ['legs'],
-      }),
-    };
-
-    return layers.map((layer) => {
-      const preparedOverlay = preparedBySlot[layer.slot];
-      rebindPreparedModelToSkeleton({ sourceModel: preparedOverlay, targetModel: basePreparedModel });
-      return {
-        ...layer,
-        preparedModel: preparedOverlay,
-      };
-    });
-  }, [armsModelSource, armsTexture, baseClass.assets.calibration, basePreparedModel, headModelSource, headTexture, layers, legsModelSource, legsTexture, torsoModelSource, torsoTexture]);
-
-  const { actions } = useAnimations(boundClips, basePreparedModel);
-
-  useEffect(() => {
-    if (!onAvailableAnimationClipsChange) {
-      return;
-    }
-
-    onAvailableAnimationClipsChange(boundClips.map((clip) => clip.name).sort((left, right) => left.localeCompare(right)));
-  }, [boundClips, onAvailableAnimationClipsChange]);
-
-  useEffect(() => {
-    if (animationAction === 'evade' && previousAnimationActionRef.current !== 'evade') {
-      evadeDirectionRef.current = Math.random() < 0.5 ? 'left' : 'right';
-    }
-
-    previousAnimationActionRef.current = animationAction;
-  }, [animationAction]);
-
-  const equippedWeaponGrip = getEquippedWeaponGrip(equippedWeaponId);
-
-  useEffect(() => {
-    const fallbackClip = clipMap['battle-idle'] ?? clipMap.idle ?? boundClips[0]?.name;
-    const automaticClipName = resolveAutomaticClipName({
-      clips: boundClips,
-      animationMap,
-      action: animationAction,
-      hasWeapon: Boolean(equippedWeaponId),
-      equippedWeaponGrip,
-      evadeDirection: evadeDirectionRef.current,
-    });
-    const targetClipName = animationClipName && actions[animationClipName]
-      ? animationClipName
-      : automaticClipName ?? clipMap[animationAction] ?? fallbackClip;
-    const isManualPreview = Boolean(animationClipName && actions[animationClipName]);
-
-    const emitStatus = (status: DeveloperAnimationRuntimeDiagnostic['status'], actionStarted: boolean) => {
-      layers.forEach((layer) => {
-        onRuntimeDiagnosticChange?.({
-          previewId: `modular-${layer.slot}`,
-          label: `Modular ${layer.slot}`,
-          animationAction,
-          targetClipName,
-          automaticClipName,
-          boundClipCount: boundClips.length,
-          actionStarted,
-          status,
-        });
-      });
-    };
-
-    if (!targetClipName) {
-      emitStatus('missing-target-clip', false);
-      return;
-    }
-
-    const nextAction = actions[targetClipName];
-    if (!nextAction) {
-      emitStatus('missing-action', false);
-      return;
-    }
-
-    const playbackKey = `${animationAction}:${targetClipName}:${isManualPreview ? 'manual' : 'auto'}:${loadAllAnimationBundles ? 'all' : 'partial'}`;
-    const shouldRestartAction = activeActionRef.current !== nextAction
-      || activePlaybackKeyRef.current !== playbackKey
-      || !nextAction.isRunning();
-
-    if (!shouldRestartAction) {
-      emitStatus('playing', true);
-      return;
-    }
-
-    Object.entries(actions).forEach(([name, action]) => {
-      if (!action || name === targetClipName) {
-        return;
-      }
-
-      action.fadeOut(0.14);
-    });
-
-    nextAction.enabled = true;
-    nextAction.reset();
-    nextAction.setEffectiveWeight(1);
-    nextAction.setEffectiveTimeScale(isManualPreview ? 1 : animationAction === 'defend' ? 0.85 : animationAction === 'heal' ? 0.92 : animationAction === 'death' ? 0.82 : 1);
-
-    if (isManualPreview || animationAction === 'idle' || animationAction === 'battle-idle' || animationAction === 'defend') {
-      nextAction.setLoop(THREE.LoopRepeat, Infinity);
-      nextAction.clampWhenFinished = false;
-    } else {
-      nextAction.setLoop(THREE.LoopOnce, 1);
-      nextAction.clampWhenFinished = true;
-    }
-
-    nextAction.fadeIn(0.14).play();
-    activeActionRef.current = nextAction;
-    activePlaybackKeyRef.current = playbackKey;
-    emitStatus('playing', true);
-  }, [actions, animationAction, animationClipName, animationMap, boundClips, clipMap, equippedWeaponGrip, equippedWeaponId, layers, loadAllAnimationBundles, onRuntimeDiagnosticChange]);
-
-  useEffect(() => () => {
-    activeActionRef.current?.fadeOut(0.12);
-    activeActionRef.current = null;
-    activePlaybackKeyRef.current = null;
-  }, []);
-
-  useEffect(() => {
-    if (!group.current) {
-      return;
-    }
-
-    const collectedMaterials: THREE.Material[] = [];
-    group.current.traverse((child: THREE.Object3D) => {
-      const mesh = child as THREE.Mesh;
-
-      if (!mesh.isMesh || !mesh.material) {
-        return;
-      }
-
-      if (Array.isArray(mesh.material)) {
-        mesh.material.forEach((material) => collectedMaterials.push(material));
-      } else {
-        collectedMaterials.push(mesh.material);
-      }
-    });
-
-    flashMaterialsRef.current = collectedMaterials;
-  }, [overlayModels, partTransforms]);
-
-  useFrame(() => {
-    if (!group.current) {
-      return;
-    }
-
-    if (isAttacking) {
-      group.current.position.x = THREE.MathUtils.lerp(group.current.position.x, 0.18, 0.2);
-      group.current.position.y = THREE.MathUtils.lerp(group.current.position.y, -1, 0.2);
-    } else if (isDefending) {
-      group.current.position.x = THREE.MathUtils.lerp(group.current.position.x, -0.12, 0.1);
-      group.current.position.y = THREE.MathUtils.lerp(group.current.position.y, -1, 0.12);
-      group.current.rotation.x = 0.2;
-    } else {
-      group.current.position.x = THREE.MathUtils.lerp(group.current.position.x, 0, 0.1);
-      group.current.position.y = THREE.MathUtils.lerp(group.current.position.y, -1, 0.12);
-      group.current.rotation.x = 0;
-    }
-
-    group.current.rotation.y = THREE.MathUtils.lerp(group.current.rotation.y, 0.35, 0.16);
-
-    if (isHit) {
-      flashRef.current = 1;
-    } else {
-      flashRef.current = THREE.MathUtils.lerp(flashRef.current, 0, 0.1);
-    }
-
-    if (!isHit && flashRef.current < 0.01) {
-      return;
-    }
-
-    flashMaterialsRef.current.forEach((material) => applyHitFlashToMaterial(material, Boolean(isHit), flashRef.current * 2));
-  });
-
-  return (
-    <group>
-      <group ref={group} position={[0, -1, 0]} rotation={[0, 0.35, 0]}>
-        <Suspense fallback={null}>
-          <group>
-            <primitive object={basePreparedModel} />
-            {getRegisteredWeapon3DByItemId(equippedWeaponId) ? (
-              <EquippedWeaponAttachment
-                characterModel={basePreparedModel}
-                weaponId={equippedWeaponId}
-                weaponTransformOverride={weaponTransformOverride}
-                showAnchorHelper={showWeaponAnchorHelper}
-                showTransformControls={showWeaponTransformControls}
-                transformControlMode={weaponTransformControlMode}
-                onWeaponTransformChange={onWeaponTransformOverrideChange}
-              />
-            ) : null}
-          </group>
-          {overlayModels.map((layer) => {
-            const transform = partTransforms?.[layer.slot];
-            const layerPosition = transform?.positionOffset ?? [0, 0, 0];
-            const layerPivot = transform?.pivot ?? [0, 0, 0];
-            const layerScale = transform ? [transform.scale, transform.scale, transform.scale] as [number, number, number] : [1, 1, 1] as [number, number, number];
-            const inversePivot = transform ? [-transform.pivot[0], -transform.pivot[1], -transform.pivot[2]] as [number, number, number] : [0, 0, 0] as [number, number, number];
-
-            return (
-              <group key={`modular-${layer.slot}-${layer.classId}`} position={layerPosition}>
-                <group position={layerPivot}>
-                  <group scale={layerScale}>
-                    <group position={inversePivot}>
-                      <primitive object={layer.preparedModel} />
-                    </group>
-                  </group>
-                </group>
-              </group>
-            );
-          })}
-        </Suspense>
-        <ContactShadows opacity={0.32} scale={2.6} blur={4} far={1.8} resolution={contactShadowResolution} />
-      </group>
-    </group>
-  );
-};
-
-export const DeveloperClassBuilderScene: React.FC<DeveloperClassBuilderSceneProps> = (props) => (
-  <DeveloperClassBuilderSceneRenderer
-    {...props}
-    ModularClassHeroVoxelComponent={ModularClassHeroVoxel}
-  />
-);
-
-export const DeveloperWeaponCalibrationScene = DeveloperWeaponCalibrationSceneRenderer;
-
-export const DeveloperScenarioComposerScene: React.FC<DeveloperScenarioComposerSceneProps> = (props) => (
-  <DeveloperScenarioComposerSceneRenderer
-    {...props}
-    HeroVoxelComponent={HeroVoxel}
-    EnemyCharacterComponent={EnemyCharacter}
-  />
-);
-
-export const DeveloperKitbashScene: React.FC<DeveloperKitbashSceneProps> = (props) => (
-  <DeveloperKitbashSceneRenderer
-    {...props}
-    HeroVoxelComponent={HeroVoxel}
-    CombinedHeroVoxelComponent={CombinedHeroVoxel}
-    AnimatedClassHeroComponent={AnimatedClassHero}
-    EnemyCharacterComponent={EnemyCharacter}
-  />
-);
 

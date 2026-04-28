@@ -1,7 +1,6 @@
 
-import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import React, { Suspense, useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { ShoppingBag, Play, Sword, Swords, Home, Orbit, Shield, Sparkles, Crosshair, Zap, Heart } from 'lucide-react';
-import { DeveloperConsole } from './components/DeveloperConsole';
 import { GameScene, type BattleActionsConfig } from './components/Scene3D';
 import { OpeningScreen } from './components/OpeningScreen';
 import { ClassSelectionScreen } from './components/ClassSelectionScreen';
@@ -28,6 +27,12 @@ import { WeaponProficiencyAppliedBonuses, applyWeaponProficiencyBonusesToStats, 
 import { SavePayload, SaveSlotId, SaveSlotSummary, getActiveSaveSlotId, listSaveSlots, loadSaveFromSlot, saveToActiveSlot, setActiveSaveSlotId, clearSlot } from './game/mechanics/saveSystem';
 import { useBattleController } from './game/hooks/useBattleController';
 import { useBattleResolution } from './game/hooks/useBattleResolution';
+import { initInputManager, onAction, getInputState } from './game/mechanics/inputManager';
+import { useInputMode } from './game/hooks/useInputMode';
+import { PF } from './game/data/promptFont';
+import { GamepadHint } from './components/ui/GamepadHint';
+import { GamepadIndicator } from './components/ui/GamepadIndicator';
+import { GamepadActionLegend } from './components/ui/GamepadActionLegend';
 import { generateBattleDescription, generateVictorySpeech } from './services/battleNarrationService';
 import { TowerRunState, TowerMeta, TowerNode, TowerNodeType, TowerSanctuaryOption, TowerEventOption, RunCard, ConsumableSlot } from './types';
 import { DEFAULT_TOWER_META, TOWER_CONSUMABLE_UPGRADE_COST, getClassSlots } from './constants';
@@ -39,6 +44,10 @@ import { buildTowerRunState, getDefaultTowerMeta, resolveTowerDeath, completeNod
 import { TOWER_RUN_CARDS, TOWER_EVENTS } from './game/data/tower';
 import { getDefaultRenderQualityPreset, type RenderQualityPreset } from './components/scene3d/environment';
 import { GLTF_MONSTER_BESTIARY, getGltfMonsterPoolForStage } from './game/data/gltfMonsters';
+
+const DeveloperConsole = React.lazy(async () => ({
+    default: (await import('./components/DeveloperConsole')).DeveloperConsole,
+}));
 
 type BootWindow = Window & { __heroAdventureBootReady?: boolean };
 const MENU_CAMERA_TRANSITION_MS = 2500;
@@ -714,6 +723,124 @@ export default function App() {
 
   const [gameState, setGameState] = useState<GameState>(GameState.TAVERN);
   const [turnState, setTurnState] = useState<TurnState>(TurnState.PLAYER_INPUT);
+
+  // ── Input system — inicializa no root para que o controle funcione em todas as telas ──
+  useEffect(() => {
+    return initInputManager();
+  }, []);
+
+  // ── Modo de input reativo (para hints de botão) ──
+  const { uiProfile: menuUiProfile, gamepadBrand: menuGamepadBrand } = useInputMode();
+
+  // ── Gamepad → menu de save slots ───────────────────────────────────────────
+  // ⚠️ Deve estar ANTES dos refs que usam setSaveMenuFocusIdx (evita TDZ)
+  const [saveMenuFocusIdx, setSaveMenuFocusIdx] = useState(0);
+
+  // Refs sempre frescos para não precisar re-assinar o handler
+  const isBootReadyRef          = useRef(false);
+  const hasSavePromptRef        = useRef(false);
+  const hasConfirmedClassRef    = useRef(false);
+  const saveMenuFocusRef        = useRef(0);
+  const saveMenuSlotsRef        = useRef<SaveSlotSummary[]>([]);
+  const canCreateNewSaveRef     = useRef(false);
+  const setSaveMenuFocusIdxRef  = useRef(setSaveMenuFocusIdx);
+  const handleNewGameFromSlotRef= useRef<() => void>(() => {});
+  const showSlotContinueModalRef     = useRef(false);
+  const modalCloseRef               = useRef<() => void>(() => {});
+  const modalConfirmRef             = useRef<() => void>(() => {});
+  const showClearSaveConfirmModalRef = useRef(false);
+  const clearModalCloseRef          = useRef<() => void>(() => {});
+  const clearModalConfirmRef        = useRef<() => void>(() => {});
+  const canDesfazarRef              = useRef(false);
+  const openClearModalRef           = useRef<() => void>(() => {});
+  const setSelectedSaveSlotIdRef    = useRef<(id: SaveSlotId) => void>(() => {});
+  const menuUiProfileRef            = useRef<string>(menuUiProfile);
+  const clearHoldProgressRef        = useRef(0);
+  const slotHoldProgressRef         = useRef(0);
+  menuUiProfileRef.current = menuUiProfile;
+  setSaveMenuFocusIdxRef.current = setSaveMenuFocusIdx;
+
+  // Sincroniza refs com estado atual (atualizado a cada render)
+  useEffect(() => { isBootReadyRef.current = isBootReady; });
+  useEffect(() => { hasSavePromptRef.current = hasSavePromptDecision; });
+
+  useEffect(() => {
+    return onAction((action) => {
+      // Só age na tela de save slots
+      if (!isBootReadyRef.current) return;
+      if (hasSavePromptRef.current) return;
+      if (hasConfirmedClassRef.current) return;
+
+      // ── Modal aberto → foco vai para o modal, não para a lista de slots ──
+      if (showSlotContinueModalRef.current) {
+        // No modo gamepad, CONFIRM é segurar o botão — tratado pelo RAF de hold
+        if (action === 'CONFIRM' && menuUiProfileRef.current !== 'gamepad') { modalConfirmRef.current(); }
+        if (action === 'BACK')    { modalCloseRef.current(); }
+        return;
+      }
+      if (showClearSaveConfirmModalRef.current) {
+        // No modo gamepad, CONFIRM é segurar o botão — tratado pelo RAF de hold
+        if (action === 'CONFIRM' && menuUiProfileRef.current !== 'gamepad') { clearModalConfirmRef.current(); }
+        if (action === 'BACK')    { clearModalCloseRef.current(); }
+        return;
+      }
+
+      const slots = saveMenuSlotsRef.current;
+      const canNew = canCreateNewSaveRef.current;
+      const canDesfazar = canDesfazarRef.current;
+      // Itens navegáveis: slots existentes + (Novo Jogo se disponível) + (Desfazer se todos os slots cheios)
+      const itemCount = slots.length + (canNew ? 1 : 0) + (!canNew && canDesfazar ? 1 : 0);
+      if (itemCount === 0) return;
+
+      if (action === 'NAV_UP' || action === 'NAV_LEFT') {
+        setSaveMenuFocusIdxRef.current(prev => (prev - 1 + itemCount) % itemCount);
+        uiSfx.play('click_in');
+        return;
+      }
+      if (action === 'NAV_DOWN' || action === 'NAV_RIGHT') {
+        setSaveMenuFocusIdxRef.current(prev => (prev + 1) % itemCount);
+        uiSfx.play('click_in');
+        return;
+      }
+      if (action === 'CONFIRM') {
+        const idx = saveMenuFocusRef.current;
+        if (idx < slots.length) {
+          // Slot existente — abre modal de continuar
+          const slot = slots[idx];
+          if (!slot) return;
+          uiSfx.play('modal_open');
+          setSelectedSaveSlotId(slot.slotId);
+          setActiveSaveSlotId(slot.slotId);
+          setPendingContinueSlot(slot);
+          setShowSlotContinueModal(true);
+          requestAnimationFrame(() => setSlotContinueModalVisible(true));
+        } else if (canNew) {
+          // Último item = Novo Jogo
+          uiSfx.play('confirm_hunt_dungeon');
+          handleNewGameFromSlotRef.current();
+        } else if (canDesfazar) {
+          // Último item = Desfazer save
+          uiSfx.play('modal_open');
+          openClearModalRef.current();
+        }
+        return;
+      }
+      if (action === 'SKILL_2') {
+        // Y / Triângulo — abre modal de desfazer para o slot focado
+        const idx = saveMenuFocusRef.current;
+        if (idx < slots.length) {
+          const slot = slots[idx];
+          if (!slot) return;
+          uiSfx.play('modal_open');
+          setSelectedSaveSlotIdRef.current(slot.slotId);
+          openClearModalRef.current();
+        }
+        return;
+      }
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   /** Ativa o painel de admin quando a URL contém ?admin=true */
   const isAdminMode = useMemo(() => new URLSearchParams(window.location.search).get('admin') === 'true', []);
     const [player, setPlayer] = useState<Player>(() => clonePlayer(INITIAL_PLAYER));
@@ -784,12 +911,107 @@ export default function App() {
     const [selectedSaveSlotId, setSelectedSaveSlotId] = useState<SaveSlotId>(() => getActiveSaveSlotId());
     const [hasSavePromptDecision, setHasSavePromptDecision] = useState(false);
     const [showClearSaveConfirmModal, setShowClearSaveConfirmModal] = useState(false);
+    const [clearSaveModalVisible, setClearSaveModalVisible] = useState(false);
+    const [clearHoldProgress, setClearHoldProgress] = useState(0);
     const [showSlotContinueModal, setShowSlotContinueModal] = useState(false);
     const [slotContinueModalVisible, setSlotContinueModalVisible] = useState(false);
+    const [slotHoldProgress, setSlotHoldProgress] = useState(0);
     const [pendingContinueSlot, setPendingContinueSlot] = useState<SaveSlotSummary | null>(null);
     const [loadingSplash, setLoadingSplash] = useState<{ slot: SaveSlotSummary; visible: boolean } | null>(null);
     const [resourceUnlockModal, setResourceUnlockModal] = useState<{ name: string; color: string } | null>(null);
     const [levelUpModal, setLevelUpModal] = useState<{ levelsGained: number; nextLevel: number } | null>(null);
+
+    // ── Sincroniza refs do save menu (usados no handler de gamepad sem re-assinar) ──
+    useEffect(() => { hasConfirmedClassRef.current = hasConfirmedStartingClass; });
+    useEffect(() => {
+      const existingSlots = saveSlots.filter(s => s.hasSave);
+      const firstEmpty = saveSlots.find(s => !s.hasSave)?.slotId ?? null;
+      saveMenuSlotsRef.current = existingSlots;
+      canCreateNewSaveRef.current = firstEmpty !== null;
+      canDesfazarRef.current = firstEmpty === null && existingSlots.length > 0;
+    }, [saveSlots]);
+    useEffect(() => { saveMenuFocusRef.current = saveMenuFocusIdx; }, [saveMenuFocusIdx]);
+    useEffect(() => { showSlotContinueModalRef.current = showSlotContinueModal; }, [showSlotContinueModal]);
+    useEffect(() => { showClearSaveConfirmModalRef.current = showClearSaveConfirmModal; }, [showClearSaveConfirmModal]);
+
+    // ── Hold-to-confirm: rastrea quanto tempo o botão A/✕ é segurado no modal de exclusão ──
+    useEffect(() => {
+      if (!showClearSaveConfirmModal || menuUiProfile !== 'gamepad') {
+        clearHoldProgressRef.current = 0;
+        setClearHoldProgress(0);
+        return;
+      }
+      let rafId: number;
+      let lastTime: number | null = null;
+      const HOLD_MS = 1500;
+      function frame(now: number) {
+        const gpads = Array.from(navigator.getGamepads());
+        const btnDown = gpads.some(g => g && (g.buttons[0]?.pressed || (g.buttons[0]?.value ?? 0) > 0.5));
+        if (lastTime === null) lastTime = now;
+        const dt = Math.min(now - lastTime, 100);
+        lastTime = now;
+        if (btnDown) {
+          const next = Math.min(100, clearHoldProgressRef.current + (dt / HOLD_MS) * 100);
+          clearHoldProgressRef.current = next;
+          setClearHoldProgress(next);
+          if (next >= 100) {
+            clearHoldProgressRef.current = 0;
+            setClearHoldProgress(0);
+            clearModalConfirmRef.current();
+            return;
+          }
+        } else {
+          if (clearHoldProgressRef.current > 0) {
+            clearHoldProgressRef.current = 0;
+            setClearHoldProgress(0);
+            lastTime = null;
+          }
+        }
+        rafId = requestAnimationFrame(frame);
+      }
+      rafId = requestAnimationFrame(frame);
+      return () => cancelAnimationFrame(rafId);
+    }, [showClearSaveConfirmModal, menuUiProfile]);
+
+    // ── Hold-to-confirm: modal de continuar slot (Jogar) ──
+    useEffect(() => {
+      if (!showSlotContinueModal || menuUiProfile !== 'gamepad') {
+        slotHoldProgressRef.current = 0;
+        setSlotHoldProgress(0);
+        return;
+      }
+      let rafId: number;
+      let lastTime: number | null = null;
+      const HOLD_MS = 1500;
+      function frame(now: number) {
+        const gpads = Array.from(navigator.getGamepads());
+        const btnDown = gpads.some(g => g && (g.buttons[0]?.pressed || (g.buttons[0]?.value ?? 0) > 0.5));
+        if (lastTime === null) lastTime = now;
+        const dt = Math.min(now - lastTime, 100);
+        lastTime = now;
+        if (btnDown) {
+          const next = Math.min(100, slotHoldProgressRef.current + (dt / HOLD_MS) * 100);
+          slotHoldProgressRef.current = next;
+          setSlotHoldProgress(next);
+          if (next >= 100) {
+            slotHoldProgressRef.current = 0;
+            setSlotHoldProgress(0);
+            modalConfirmRef.current();
+            return;
+          }
+        } else {
+          if (slotHoldProgressRef.current > 0) {
+            slotHoldProgressRef.current = 0;
+            setSlotHoldProgress(0);
+            lastTime = null;
+          }
+        }
+        rafId = requestAnimationFrame(frame);
+      }
+      rafId = requestAnimationFrame(frame);
+      return () => cancelAnimationFrame(rafId);
+    }, [showSlotContinueModal, menuUiProfile]);
+
     const openConstellationToken = 0;
     const bootEnemies = useMemo(() => [...ENEMY_DATA, ...DUNGEON_ENEMY_DATA, DUNGEON_BOSS], []);
     const heroClassDefinition = useMemo(
@@ -871,6 +1093,7 @@ export default function App() {
     const [heroSkillSlotOpenIndex, setHeroSkillSlotOpenIndex] = useState(0);
     const [heroItemSlotOpenToken, setHeroItemSlotOpenToken] = useState(0);
     const [heroItemSlotOpenIndex, setHeroItemSlotOpenIndex] = useState(0);
+    const [campGamepadFocusForScene, setCampGamepadFocusForScene] = useState<'hero' | 'portal' | null>(null);
     const huntEnemyBagRef = useRef<EnemyTemplate[]>([]);
     const dungeonEnemyBagRef = useRef<DungeonEnemyTemplate[]>([]);
     const [sceneRegion, setSceneRegion] = useState<SceneRegion>('forest');
@@ -2244,6 +2467,10 @@ export default function App() {
         setHasSavePromptDecision(true);
         lastSavedSignatureRef.current = '';
     };
+    // Ref sempre fresco para uso no handler de gamepad (closure estável)
+    handleNewGameFromSlotRef.current = handleNewGameFromSlot;
+    openClearModalRef.current = () => { setShowClearSaveConfirmModal(true); requestAnimationFrame(() => setClearSaveModalVisible(true)); };
+    setSelectedSaveSlotIdRef.current = setSelectedSaveSlotId;
 
     const handleClearSelectedSaveSlot = () => {
         if (!selectedSlotSummary?.hasSave) {
@@ -3192,6 +3419,48 @@ export default function App() {
     setTimeout(() => { setPendingTargetAction(null); setTargetCardLeaving(false); }, 220);
   }, []);
 
+  // ── Gamepad → ações de batalha ──────────────────────────────────────────────
+  // Refs sempre frescos para que o useEffect não precise re-assinar
+  const handleAttackRef2    = useRef(handleAttackWithTargetCheck);
+  const handleDefenseRef    = useRef(handlePlayerDefense);
+  const handleFleeRef       = useRef(handleFlee);
+  handleAttackRef2.current  = handleAttackWithTargetCheck;
+  handleDefenseRef.current  = handlePlayerDefense;
+  handleFleeRef.current     = handleFlee;
+
+  const gameStateRef = useRef(gameState);
+  const turnStateRef = useRef(turnState);
+  gameStateRef.current = gameState;
+  turnStateRef.current = turnState;
+
+  const equippedSkillsRef = useRef(player.equippedSkillIds);
+  equippedSkillsRef.current = player.equippedSkillIds;
+
+  useEffect(() => {
+    return onAction((action) => {
+      if (gameStateRef.current !== GameState.BATTLE) return;
+      if (turnStateRef.current !== TurnState.PLAYER_INPUT) return;
+
+      if (action === 'CONFIRM') {
+        handleAttackRef2.current();
+      } else if (action === 'BACK') {
+        handleDefenseRef.current();
+      } else if (action === 'SKILL_1') {
+        // Usa o primeiro skill equipado, se disponível
+        const skillId = equippedSkillsRef.current?.[0];
+        if (!skillId) return;
+        const skill = SKILLS.find(s => s.id === skillId);
+        if (skill) handleSkillRef.current(skill);
+      } else if (action === 'SKILL_2') {
+        const skillId = equippedSkillsRef.current?.[1];
+        if (!skillId) return;
+        const skill = SKILLS.find(s => s.id === skillId);
+        if (skill) handleSkillRef.current(skill);
+      }
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     if (!enemy) {
       setEnemyIntentPreview(null);
@@ -3586,13 +3855,8 @@ export default function App() {
           if (!itemId) {
               slots[slotIndex] = { itemId: '', qty: 0 };
           } else {
-              // Same item can't be in two slots — remove from any other slot first, returning qty
-              for (let i = 0; i < slots.length; i++) {
-                  if (i !== slotIndex && slots[i].itemId === itemId) {
-                      newInv[itemId] = (newInv[itemId] ?? 0) + slots[i].qty;
-                      slots[i] = { itemId: '', qty: 0 };
-                  }
-              }
+              // Each slot independently draws up to 5x of the item from inventory.
+              // The same item can appear in multiple slots simultaneously.
               const available = newInv[itemId] ?? 0;
               const transfer = Math.min(available, 5);
               newInv[itemId] = available - transfer;
@@ -4110,22 +4374,30 @@ export default function App() {
     if (pathname.startsWith('/developer')) {
         return (
             <div className="absolute inset-0 overflow-y-auto" data-scrollable>
-                <DeveloperConsole />
+                <Suspense fallback={<div className="flex min-h-screen items-center justify-center bg-slate-950 text-sm font-semibold text-slate-200">Carregando ferramentas de desenvolvimento...</div>}>
+                    <DeveloperConsole />
+                </Suspense>
             </div>
         );
     }
 
     if (!isBootReady) {
         return (
+            <>
             <div className="w-full h-screen bg-black overflow-hidden select-none">
                 <OpeningScreen classes={PLAYER_CLASSES} enemies={bootEnemies} onReady={handleBootReady} />
             </div>
+            <GamepadHint />
+            <GamepadIndicator />
+            <GamepadActionLegend />
+            </>
         );
     }
 
     if (!hasConfirmedStartingClass) {
         if (!isSaveSlotCatalogReady) {
             return (
+                <>
                 <div className="relative w-full h-screen overflow-hidden select-none hero-brand-root">
                     <div className="hero-brand-background" style={{ backgroundImage: `url(${MENU_BACKGROUND_IMAGE_URL})` }} />
                     <div className="hero-brand-vignette" />
@@ -4144,11 +4416,16 @@ export default function App() {
                         </div>
                     </div>
                 </div>
+                <GamepadHint />
+                <GamepadIndicator />
+                <GamepadActionLegend />
+                </>
             );
         }
 
         if (!hasSavePromptDecision) {
             return (
+                <>
                 <div className="relative w-full h-screen overflow-hidden select-none hero-brand-root">
                     <div className="hero-brand-background" style={{ backgroundImage: `url(${MENU_BACKGROUND_IMAGE_URL})` }} />
                     <div className="hero-brand-vignette" />
@@ -4178,6 +4455,7 @@ export default function App() {
                                         const slotSceneThumb = SAVE_SCENE_THUMBNAIL[slot.sceneRegion ?? 'forest'] ?? SAVE_THUMB_MOUNTAIN_URL;
                                         const accentColor = slotClassDef?.visualProfile.secondaryColor ?? '#b87a3a';
                                         const auraColor = slotClassDef?.visualProfile.auraColor ?? '#f8c77e';
+                                        const isGpFocused = saveMenuFocusIdx === index;
                                         return (
                                             <button
                                                 key={slot.slotId}
@@ -4191,7 +4469,11 @@ export default function App() {
                                                 className="hero-save-card relative overflow-hidden text-left"
                                                 style={{
                                                     animationDelay: `${index * 55}ms`,
-                                                    boxShadow: `0 0 0 1px ${accentColor}44, 0 14px 30px rgba(0,0,0,0.33)`,
+                                                    boxShadow: isGpFocused
+                                                        ? `0 0 0 2px ${accentColor}, 0 0 18px ${accentColor}88, 0 14px 30px rgba(0,0,0,0.33)`
+                                                        : `0 0 0 1px ${accentColor}44, 0 14px 30px rgba(0,0,0,0.33)`,
+                                                    transform: isGpFocused ? 'scale(1.03)' : undefined,
+                                                    transition: 'box-shadow 150ms, transform 150ms',
                                                 }}
                                             >
                                                 {/* Scenario thumbnail background */}
@@ -4234,14 +4516,30 @@ export default function App() {
                                     <button
                                         onClick={handleNewGameFromSlot}
                                         className="hero-menu-action hero-menu-action-secondary w-full"
+                                        style={{
+                                            boxShadow: saveMenuFocusIdx === existingSaveSlots.length
+                                                ? '0 0 0 2px #f8c77e, 0 0 18px #f8c77e88' : undefined,
+                                            transform: saveMenuFocusIdx === existingSaveSlots.length ? 'scale(1.03)' : undefined,
+                                            transition: 'box-shadow 150ms, transform 150ms',
+                                        }}
                                     >
                                         <Sword size={16} className="shrink-0" /> Novo jogo
                                     </button>
                                 ) : (
                                     <button
-                                        onClick={() => setShowClearSaveConfirmModal(true)}
+                                        onClick={() => {
+                                            setShowClearSaveConfirmModal(true);
+                                            requestAnimationFrame(() => setClearSaveModalVisible(true));
+                                        }}
                                         disabled={!canContinueSelectedSlot}
                                         className="hero-menu-action hero-menu-action-secondary w-full"
+                                        style={{
+                                            display: menuUiProfile === 'gamepad' ? 'none' : undefined,
+                                            boxShadow: saveMenuFocusIdx === existingSaveSlots.length && !canCreateNewSaveSlot
+                                                ? '0 0 0 2px #f8c77e, 0 0 18px #f8c77e88' : undefined,
+                                            transform: saveMenuFocusIdx === existingSaveSlots.length && !canCreateNewSaveSlot ? 'scale(1.03)' : undefined,
+                                            transition: 'box-shadow 150ms, transform 150ms',
+                                        }}
                                     >
                                         Desfazer save
                                     </button>
@@ -4261,6 +4559,17 @@ export default function App() {
                                 setSlotContinueModalVisible(false);
                                 setTimeout(() => setShowSlotContinueModal(false), 260);
                             };
+                            const handleModalPlay = () => {
+                                closeModal();
+                                handleContinueFromSave();
+                                setLoadingSplash({ slot, visible: false });
+                                requestAnimationFrame(() => {
+                                    requestAnimationFrame(() => setLoadingSplash(prev => prev ? { ...prev, visible: true } : prev));
+                                });
+                            };
+                            // Sync refs so the gamepad onAction handler can call them
+                            modalCloseRef.current   = closeModal;
+                            modalConfirmRef.current = handleModalPlay;
                             return (
                                 <div
                                     className="absolute inset-0 z-20 flex items-end sm:items-center justify-center px-4"
@@ -4312,25 +4621,50 @@ export default function App() {
                                                 <button
                                                     onClick={closeModal}
                                                     className="hero-menu-action hero-menu-action-secondary"
-                                                    style={{ fontSize: '0.8rem', padding: '0.7rem 0.8rem' }}
+                                                    style={{ fontSize: '0.8rem', padding: '0.6rem 0.8rem', display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
                                                 >
-                                                    Cancelar
+                                                    {menuUiProfile === 'gamepad' && (() => {
+                                                      const isSony = menuGamepadBrand === 'sony';
+                                                      const color = isSony ? '#E80000' : '#E52420';
+                                                      const label = isSony ? '○' : 'B';
+                                                      return (
+                                                        <span style={{ width: 22, height: 22, borderRadius: '50%', background: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color, fontWeight: 900, fontSize: 12, fontFamily: 'system-ui,sans-serif', lineHeight: 1 }}>{label}</span>
+                                                      );
+                                                    })()}
+                                                    <span>Cancelar</span>
                                                 </button>
                                                 <button
-                                                    onClick={() => {
-                                                        closeModal();
-                                                        // Load the save immediately so the scene starts rendering underneath
-                                                        handleContinueFromSave();
-                                                        // Show splash on top while the 3D scene warms up
-                                                        setLoadingSplash({ slot, visible: false });
-                                                        requestAnimationFrame(() => {
-                                                            requestAnimationFrame(() => setLoadingSplash(prev => prev ? { ...prev, visible: true } : prev));
-                                                        });
-                                                    }}
+                                                    onClick={menuUiProfile !== 'gamepad' ? handleModalPlay : undefined}
                                                     className="hero-menu-action hero-menu-action-primary"
-                                                    style={{ fontSize: '0.8rem', padding: '0.7rem 0.8rem', background: `linear-gradient(180deg, ${accentColor}cc 0%, ${accentColor}aa 100%)`, borderColor: `${accentColor}88`, boxShadow: `0 8px 24px ${accentColor}44` }}
+                                                    style={{ fontSize: '0.8rem', padding: '0.6rem 0.8rem', background: `linear-gradient(180deg, ${accentColor}cc 0%, ${accentColor}aa 100%)`, borderColor: `${accentColor}88`, boxShadow: `0 8px 24px ${accentColor}44`, display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: '6px', cursor: menuUiProfile === 'gamepad' ? 'default' : undefined }}
                                                 >
-                                                    <Play size={14} className="shrink-0" /> Jogar
+                                                    {menuUiProfile === 'gamepad' ? (() => {
+                                                      const isSony = menuGamepadBrand === 'sony';
+                                                      const label = isSony ? '✕' : 'A';
+                                                      const btnColor = isSony ? '#0070D1' : '#107C10';
+                                                      const arcColor = isSony ? '#00d4ff' : '#39ff6e';
+                                                      const R = 13;
+                                                      const circ = 2 * Math.PI * R;
+                                                      const offset = circ * (1 - slotHoldProgress / 100);
+                                                      return (
+                                                        <span style={{ position: 'relative', width: 32, height: 32, flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                          <svg width="32" height="32" style={{ position: 'absolute', top: 0, left: 0, transform: 'rotate(-90deg)', filter: slotHoldProgress > 0 ? `drop-shadow(0 0 4px ${arcColor})` : 'none' }}>
+                                                            <circle cx="16" cy="16" r={R} fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="3" />
+                                                            <circle cx="16" cy="16" r={R} fill="none" stroke={arcColor} strokeWidth="3"
+                                                              strokeDasharray={circ}
+                                                              strokeDashoffset={offset}
+                                                              strokeLinecap="round"
+                                                              style={{ transition: slotHoldProgress === 0 ? 'none' : 'stroke-dashoffset 80ms linear' }}
+                                                            />
+                                                          </svg>
+                                                          <span style={{ width: 20, height: 20, borderRadius: '50%', background: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: btnColor, fontWeight: 900, fontSize: 11, fontFamily: 'system-ui,sans-serif', lineHeight: 1, zIndex: 1 }}>{label}</span>
+                                                        </span>
+                                                      );
+                                                    })() : null}
+                                                    <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: 1.1 }}>
+                                                      <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Play size={13} className="shrink-0" /> Jogar</span>
+                                                      {menuUiProfile === 'gamepad' && <span style={{ fontSize: '0.62rem', opacity: 0.7, fontWeight: 700 }}>segurar</span>}
+                                                    </span>
                                                 </button>
                                             </div>
                                         </div>
@@ -4339,49 +4673,158 @@ export default function App() {
                             );
                         })()}
 
-                        {showClearSaveConfirmModal && canContinueSelectedSlot ? (
-                            <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/60 px-4" onClick={() => setShowClearSaveConfirmModal(false)}>
+                        {showClearSaveConfirmModal && canContinueSelectedSlot && selectedSlotSummary && (() => {
+                            const slot = selectedSlotSummary;
+                            const slotClassDef = slot.classId ? getPlayerClassById(slot.classId as PlayerClassId) : null;
+                            const SlotClassIcon = (slot.classId ? SAVE_CLASS_ICON[slot.classId] : null) ?? Shield;
+                            const slotSceneThumb = SAVE_SCENE_THUMBNAIL[slot.sceneRegion ?? 'forest'] ?? SAVE_THUMB_MOUNTAIN_URL;
+                            const accentColor = slotClassDef?.visualProfile.secondaryColor ?? '#b87a3a';
+                            const auraColor = slotClassDef?.visualProfile.auraColor ?? '#f8c77e';
+                            const closeClearModal = () => {
+                                setClearSaveModalVisible(false);
+                                setTimeout(() => setShowClearSaveConfirmModal(false), 260);
+                            };
+                            const confirmClear = () => {
+                                setClearSaveModalVisible(false);
+                                setTimeout(() => { setShowClearSaveConfirmModal(false); handleClearSelectedSaveSlot(); }, 260);
+                            };
+                            // Sync refs so gamepad can trigger actions
+                            clearModalCloseRef.current   = closeClearModal;
+                            clearModalConfirmRef.current = confirmClear;
+                            return (
                                 <div
-                                    className="w-full max-w-md rounded-[22px] border border-[#f7d2a5]/45 bg-[#221311]/94 p-5 shadow-[0_24px_64px_rgba(6,4,4,0.55)]"
-                                    onClick={(event) => event.stopPropagation()}
+                                    className="absolute inset-0 z-30 flex items-end sm:items-center justify-center px-4"
+                                    style={{
+                                        background: clearSaveModalVisible ? 'rgba(0,0,0,0.65)' : 'rgba(0,0,0,0)',
+                                        backdropFilter: clearSaveModalVisible ? 'blur(10px)' : 'blur(0px)',
+                                        WebkitBackdropFilter: clearSaveModalVisible ? 'blur(10px)' : 'blur(0px)',
+                                        transition: 'background 260ms ease, backdrop-filter 260ms ease',
+                                        paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom, 1.25rem))',
+                                    }}
+                                    onClick={closeClearModal}
                                 >
-                                    <div className="text-[10px] font-black uppercase tracking-[0.24em] text-[#f8d3a8]">Confirmacao</div>
-                                    <h3 className="mt-2 font-gamer text-2xl font-black text-[#fff3df]">Desfazer este save?</h3>
-                                    <p className="mt-2 text-sm text-[#f8dcc0]">
-                                        O conteúdo do {selectedSlotSummary ? `slot ${selectedSlotSummary.slotId}` : 'slot selecionado'} será removido.
-                                    </p>
+                                    <div
+                                        className="relative w-full max-w-sm overflow-hidden rounded-[24px] border"
+                                        style={{
+                                            borderColor: '#c0392b55',
+                                            background: 'linear-gradient(160deg, rgba(30,10,10,0.97) 0%, rgba(18,6,6,0.98) 100%)',
+                                            boxShadow: '0 0 0 1px #c0392b30, 0 32px 80px rgba(0,0,0,0.7)',
+                                            transform: clearSaveModalVisible ? 'translateY(0) scale(1)' : 'translateY(32px) scale(0.95)',
+                                            opacity: clearSaveModalVisible ? 1 : 0,
+                                            transition: 'transform 280ms cubic-bezier(0.34,1.4,0.64,1), opacity 220ms ease',
+                                        }}
+                                        onClick={(e) => e.stopPropagation()}
+                                    >
+                                        {/* Thumbnail header */}
+                                        <div className="relative h-28 overflow-hidden">
+                                            <img src={slotSceneThumb} alt="" className="w-full h-full object-cover opacity-60 grayscale" draggable={false} />
+                                            <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, rgba(180,30,20,0.18) 0%, rgba(18,6,6,0.95) 100%)' }} />
+                                            <div className="absolute bottom-3 left-4 flex items-center gap-2.5">
+                                                <div className="flex items-center justify-center w-9 h-9 rounded-full border-2 opacity-60" style={{ backgroundColor: `${accentColor}30`, borderColor: accentColor, color: auraColor }}>
+                                                    <SlotClassIcon size={17} />
+                                                </div>
+                                                <div>
+                                                    <div className="text-[9px] font-black uppercase tracking-[0.22em] text-white/60">Slot {slot.slotId}</div>
+                                                    <div className="text-base font-black text-white/70 leading-none line-through">Nivel {slot.level ?? 1}</div>
+                                                </div>
+                                            </div>
+                                            {/* Danger stripe */}
+                                            <div className="absolute left-0 top-0 bottom-0 w-1" style={{ backgroundColor: '#c0392b' }} />
+                                            {/* Warning badge */}
+                                            <div className="absolute top-3 right-3 rounded-full bg-red-700/80 px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-white">Excluir</div>
+                                        </div>
 
-                                    <div className="mt-5 grid grid-cols-2 gap-3">
-                                        <button
-                                            onClick={() => setShowClearSaveConfirmModal(false)}
-                                            className="hero-menu-action hero-menu-action-secondary"
-                                        >
-                                            Cancelar
-                                        </button>
-                                        <button
-                                            onClick={handleClearSelectedSaveSlot}
-                                            className="hero-menu-action hero-menu-action-primary"
-                                        >
-                                            Confirmar
-                                        </button>
+                                        <div className="px-5 pt-4 pb-5">
+                                            <div className="text-[10px] font-black uppercase tracking-[0.24em] text-red-400">Confirmar exclus\u00e3o</div>
+                                            <h3 className="mt-1 font-gamer text-xl font-black text-[#fff3df]">Desfazer este save?</h3>
+                                            <div className="mt-1 text-[11px] font-black uppercase tracking-[0.14em]" style={{ color: auraColor }}>
+                                                {(slot.classId ? SAVE_CLASS_NAME_PT[slot.classId] : null) ?? slotClassDef?.name ?? slot.classId ?? 'Sem classe'}
+                                            </div>
+                                            <p className="mt-2 text-xs text-[#f8dcc0]/70">
+                                                Todo o progresso do slot {slot.slotId} ser\u00e1 apagado permanentemente.
+                                            </p>
+
+                                            <div className="mt-4 grid grid-cols-2 gap-2.5">
+                                                <button
+                                                    onClick={closeClearModal}
+                                                    className="hero-menu-action hero-menu-action-secondary"
+                                                    style={{ fontSize: '0.8rem', padding: '0.6rem 0.8rem', display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                                                >
+                                                    {menuUiProfile === 'gamepad' && (() => {
+                                                      const isSony = menuGamepadBrand === 'sony';
+                                                      const color = isSony ? '#E80000' : '#E52420';
+                                                      const label = isSony ? '○' : 'B';
+                                                      return (
+                                                        <span style={{ width: 22, height: 22, borderRadius: '50%', background: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color, fontWeight: 900, fontSize: 12, fontFamily: 'system-ui,sans-serif', lineHeight: 1 }}>{label}</span>
+                                                      );
+                                                    })()}
+                                                    <span>Cancelar</span>
+                                                </button>
+                                                <button
+                                                    onClick={menuUiProfile !== 'gamepad' ? confirmClear : undefined}
+                                                    className="hero-menu-action hero-menu-action-primary"
+                                                    style={{ fontSize: '0.8rem', padding: '0.6rem 0.8rem', background: 'linear-gradient(180deg, #c0392bcc 0%, #a93226aa 100%)', borderColor: '#c0392b88', boxShadow: '0 8px 24px #c0392b44', display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: '6px', cursor: menuUiProfile === 'gamepad' ? 'default' : undefined }}
+                                                >
+                                                    {menuUiProfile === 'gamepad' ? (() => {
+                                                      const isSony = menuGamepadBrand === 'sony';
+                                                      const label = isSony ? '✕' : 'A';
+                                                      const btnColor = isSony ? '#0070D1' : '#107C10';
+                                                      const arcColor = isSony ? '#00d4ff' : '#39ff6e';
+                                                      const R = 13;
+                                                      const circ = 2 * Math.PI * R;
+                                                      const offset = circ * (1 - clearHoldProgress / 100);
+                                                      return (
+                                                        <span style={{ position: 'relative', width: 32, height: 32, flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                          <svg width="32" height="32" style={{ position: 'absolute', top: 0, left: 0, transform: 'rotate(-90deg)', filter: clearHoldProgress > 0 ? `drop-shadow(0 0 4px ${arcColor})` : 'none' }}>
+                                                            <circle cx="16" cy="16" r={R} fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="3" />
+                                                            <circle cx="16" cy="16" r={R} fill="none" stroke={arcColor} strokeWidth="3"
+                                                              strokeDasharray={circ}
+                                                              strokeDashoffset={offset}
+                                                              strokeLinecap="round"
+                                                              style={{ transition: clearHoldProgress === 0 ? 'none' : 'stroke-dashoffset 80ms linear' }}
+                                                            />
+                                                          </svg>
+                                                          <span style={{ width: 20, height: 20, borderRadius: '50%', background: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: btnColor, fontWeight: 900, fontSize: 11, fontFamily: 'system-ui,sans-serif', lineHeight: 1, zIndex: 1 }}>{label}</span>
+                                                        </span>
+                                                      );
+                                                    })() : null}
+                                                    <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: 1.1 }}>
+                                                      <span>Confirmar</span>
+                                                      {menuUiProfile === 'gamepad' && <span style={{ fontSize: '0.62rem', opacity: 0.7, fontWeight: 700 }}>segurar</span>}
+                                                    </span>
+                                                </button>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        ) : null}
+                            );
+                        })()}
                     </div>
                 </div>
+                <GamepadHint />
+                <GamepadIndicator />
+                <GamepadActionLegend
+                  showCancel={showSlotContinueModal || showClearSaveConfirmModal}
+                  extras={saveMenuFocusIdx < existingSaveSlots.length ? [{ button: 'skill2', text: 'Desfazer slot' }] : undefined}
+                />
+                </>
             );
         }
 
         return (
+            <>
             <div className="w-full h-screen bg-[#ead6c2] overflow-hidden select-none">
                 <ClassSelectionScreen
                     classes={PLAYER_CLASSES}
                     selectedClassId={selectedStartingClassId}
                     onSelect={setSelectedStartingClassId}
                     onConfirm={startGame}
+                    onBack={() => setHasSavePromptDecision(false)}
                 />
             </div>
+            <GamepadHint />
+            <GamepadIndicator />
+            </>
         );
     }
 
@@ -4465,6 +4908,9 @@ export default function App() {
                             setHeroEquipOpenFilter(slot);
                             setHeroEquipOpenToken((prev) => prev + 1);
                         }}
+                        onHeroUnequipSlotClick={(item) => {
+                            unequipItem(item);
+                        }}
                         onHeroSkillSlotClick={(slotIndex) => {
                             setHeroSkillSlotOpenIndex(slotIndex);
                             setHeroSkillSlotOpenToken((prev) => prev + 1);
@@ -4472,6 +4918,12 @@ export default function App() {
                         onHeroItemSlotClick={(slotIndex) => {
                             setHeroItemSlotOpenIndex(slotIndex);
                             setHeroItemSlotOpenToken((prev) => prev + 1);
+                        }}
+                        onHeroUnequipItemSlot={(slotIndex) => {
+                            equipItemToSlot(slotIndex, null);
+                        }}
+                        onHeroUnequipSkillSlot={(slotIndex) => {
+                            equipSkillToSlot(slotIndex, null);
                         }}
                         isDungeonScene={sceneRegion === 'dungeon' || sceneRegion === 'tower'}
                         showMenuNavigationPortal={resolvedGameState === GameState.TAVERN}
@@ -4487,6 +4939,7 @@ export default function App() {
                             setPortalInspectMode(false);
                             handleNavigateSceneRegion(region);
                         }}
+                        menuGamepadFocus={resolvedGameState === GameState.TAVERN && !portalInspectMode ? campGamepadFocusForScene : null}
                         renderQualityPreset={battleSettings.renderQualityPreset}
                         onMenuHeroClick={resolvedGameState === GameState.TAVERN || resolvedGameState === GameState.BATTLE ? handleMenuHeroClick : undefined}
                         lootResult={lootResult}
@@ -4822,6 +5275,9 @@ export default function App() {
                         autoOpenItemSlotIndex={heroItemSlotOpenIndex}
                         portalInspectMode={portalInspectMode}
                         portalTransitioning={portalTransitioning}
+                        onPortalInspectOpen={handleOpenPortalTravel}
+                        onPortalInspectClose={() => setPortalInspectMode(false)}
+                        onGamepadFocusChange={setCampGamepadFocusForScene}
                         onEquipSkillToSlot={equipSkillToSlot}
                         onEquipItemToSlot={equipItemToSlot}
           />
@@ -5186,6 +5642,11 @@ export default function App() {
           onForceEquip={handleAdminForceEquip}
         />
       )}
+
+      {/* ── Gamepad hint — exibido quando controle detectado mas sem input ainda ── */}
+      <GamepadHint />
+      {/* ── Gamepad indicator — badge bottom-left quando controle está ativo ── */}
+      <GamepadIndicator />
     </div>
   );
 }

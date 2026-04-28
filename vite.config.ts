@@ -4,9 +4,16 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
+// When building for Electron we need file:// compatible paths and no PWA SW.
+const isElectron = process.env.VITE_ELECTRON === 'true';
+
 export default defineConfig(() => {
     return {
-      base: process.env.VITE_BASE_URL ?? '/',
+      base: isElectron ? './' : (process.env.VITE_BASE_URL ?? '/'),
+      build: {
+        // Separate output dir keeps the web PWA build untouched.
+        outDir: isElectron ? 'dist-electron-web' : 'dist',
+      },
       server: {
         port: 3000,
         host: '0.0.0.0',
@@ -14,9 +21,11 @@ export default defineConfig(() => {
       plugins: [
         react(),
         tailwindcss(),
-        VitePWA({
+        // Service Workers don't work on file://, so skip the PWA plugin for
+        // the Electron build. The stub alias below handles the import in code.
+        ...(isElectron ? [] : [VitePWA({
           registerType: 'autoUpdate',
-          includeAssets: ['pwa-icon.svg', 'pwa-icon-maskable.svg', 'apple-touch-icon.svg'],
+          includeAssets: ['favicon.ico', 'favicon.png', 'apple-touch-icon.png', 'icons/*.png'],
           manifest: {
             name: 'Hero Tower',
             short_name: 'Hero Tower',
@@ -27,18 +36,16 @@ export default defineConfig(() => {
             orientation: 'portrait-primary',
             start_url: '/',
             icons: [
-              {
-                src: 'pwa-icon.svg',
-                sizes: 'any',
-                type: 'image/svg+xml',
-                purpose: 'any',
-              },
-              {
-                src: 'pwa-icon-maskable.svg',
-                sizes: 'any',
-                type: 'image/svg+xml',
-                purpose: 'maskable',
-              },
+              { src: 'icons/icon-48x48.png',   sizes: '48x48',   type: 'image/png', purpose: 'any' },
+              { src: 'icons/icon-72x72.png',   sizes: '72x72',   type: 'image/png', purpose: 'any' },
+              { src: 'icons/icon-96x96.png',   sizes: '96x96',   type: 'image/png', purpose: 'any' },
+              { src: 'icons/icon-128x128.png', sizes: '128x128', type: 'image/png', purpose: 'any' },
+              { src: 'icons/icon-144x144.png', sizes: '144x144', type: 'image/png', purpose: 'any' },
+              { src: 'icons/icon-152x152.png', sizes: '152x152', type: 'image/png', purpose: 'any' },
+              { src: 'icons/icon-192x192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+              { src: 'icons/icon-256x256.png', sizes: '256x256', type: 'image/png', purpose: 'any' },
+              { src: 'icons/icon-384x384.png', sizes: '384x384', type: 'image/png', purpose: 'any' },
+              { src: 'icons/icon-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
             ],
           },
           workbox: {
@@ -86,11 +93,14 @@ export default defineConfig(() => {
               },
             ],
           },
-        }),
+        })]),  // end conditional PWA spread
       ],
       resolve: {
         alias: {
           '@': path.resolve(__dirname, '.'),
+          // In the Electron build, replace the SW virtual module with a no-op
+          // stub so index.tsx compiles without changes.
+          ...(isElectron ? { 'virtual:pwa-register': path.resolve(__dirname, 'electron/pwa-stub.ts') } : {}),
         }
       }
     };

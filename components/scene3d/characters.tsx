@@ -311,14 +311,6 @@ export const AnimatedClassHero = ({
       return;
     }
 
-    if (debugTargetId === 'barbarian') {
-      console.info('[AnimDebug][barbarian] acao selecionada', {
-        animationAction,
-        targetClipName,
-        automaticClipName,
-      });
-    }
-
     const nextAction = actions[targetClipName];
 
     if (!nextAction) {

@@ -1,5 +1,17 @@
 @import "tailwindcss";
 
+/* ── PromptFont — controller/keyboard/mouse button icons ── */
+@font-face {
+  font-family: "PromptFont";
+  font-weight: normal;
+  font-style: normal;
+  font-display: block;
+  src:
+    url("./game/fonts/game/promptfont.woff2") format("woff2"),
+    url("./game/fonts/game/promptfont.woff")  format("woff"),
+    url("./game/fonts/game/promptfont.ttf")   format("truetype");
+}
+
 :root {
   color-scheme: dark;
 }

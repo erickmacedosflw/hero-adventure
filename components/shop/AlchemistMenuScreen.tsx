@@ -3,6 +3,7 @@ import { AlertTriangle, ArrowLeft, Coins, Crosshair, FlaskConical, Heart, Sparkl
 import { AlchemistCardOffer, AlchemistItemOffer, Item, Player, ProgressionCard, Rarity } from '../../types';
 import { SKILLS } from '../../constants';
 import { GameAssetIcon } from '../ui/game-asset-icon';
+import { GamepadActionLegend } from '../ui/GamepadActionLegend';
 
 const ALCHEMIST_BG_URL = new URL('../../game/assets/Imagens/Background_Alquimista.png', import.meta.url).href;
 const ALCHEMIST_AVATAR_URL = new URL('../../game/assets/Avatares/Personagem_Alquimista.png', import.meta.url).href;
@@ -601,7 +602,7 @@ export const AlchemistScreen: React.FC<{
         </div>
 
         {/* Cards horizontal scroll */}
-        <div className="flex items-stretch gap-3 overflow-x-auto px-4 pb-5 no-scrollbar min-h-[220px]" data-scrollable>
+        <div className="flex items-stretch gap-3 overflow-x-auto px-4 pb-4 no-scrollbar min-h-[220px]" data-scrollable>
           {tab === 'card' ? (
             offers.length === 0 ? (
               <div className="flex w-full items-center justify-center rounded-[20px] border border-dashed border-white/10 bg-white/3 px-6 py-8 text-sm text-white/30">
@@ -636,6 +637,18 @@ export const AlchemistScreen: React.FC<{
             )
           )}
         </div>
+
+        {/* Gamepad legend — inline, base do painel */}
+        <GamepadActionLegend
+          inline
+          showConfirm
+          confirmText="Ver oferta"
+          showCancel
+          showDPad
+          dPadText="Navegar"
+          showLR
+          lrText="Trocar aba"
+        />
       </div>
 
       {/* OFFER DETAIL MODAL */}

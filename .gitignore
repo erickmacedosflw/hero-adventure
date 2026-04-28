@@ -10,7 +10,13 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+dist-electron-web
+dist-electron-installer
 *.local
+
+# Azurite local storage
+AzuriteConfig
+__azurite_db_table__.json
 
 # Editor directories and files
 .vscode/*
