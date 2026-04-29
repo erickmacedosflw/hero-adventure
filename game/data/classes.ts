@@ -1,4 +1,4 @@
-import { Player, PlayerClassAnimationMap, PlayerClassDefinition, PlayerClassId, Stats } from '../../types';
+import { Player, PlayerClassAnimationMap, PlayerClassAvatarSet, PlayerClassDefinition, PlayerClassId, Stats } from '../../types';
 
 const statKeys: Array<keyof Pick<Stats, 'atk' | 'def' | 'speed' | 'luck' | 'magic'>> = ['atk', 'def', 'speed', 'luck', 'magic'];
 const animationDirectory = 'game/assets/Characters/Animations/Rig_Medium';
@@ -44,6 +44,35 @@ const createAnimationUrls = () => [
   new URL('../assets/Characters/Animations/Rig_Medium/Rig_Medium_Tools.fbx', import.meta.url).href,
 ];
 
+const characterAvatarModules = import.meta.glob('../assets/Characters/*/*.png', { eager: true, import: 'default' }) as Record<string, string>;
+
+const createCharacterAvatarAsset = (classFolder: string, fileName: string) => {
+  const modulePath = `../assets/Characters/${classFolder}/${fileName}`;
+  const url = characterAvatarModules[modulePath];
+
+  if (!url) {
+    throw new Error(`Missing class avatar asset: ${modulePath}`);
+  }
+
+  return {
+    path: `game/assets/Characters/${classFolder}/${fileName}`,
+    url,
+  };
+};
+
+const createCharacterAvatarSet = (
+  classFolder: string,
+  fileNames: {
+    fullBody: string;
+    fullBodyCloseUp: string;
+    faceSquare: string;
+  },
+): PlayerClassAvatarSet => ({
+  fullBody: createCharacterAvatarAsset(classFolder, fileNames.fullBody),
+  fullBodyCloseUp: createCharacterAvatarAsset(classFolder, fileNames.fullBodyCloseUp),
+  faceSquare: createCharacterAvatarAsset(classFolder, fileNames.faceSquare),
+});
+
 const createPlayerClass = ({
   id,
   name,
@@ -58,6 +87,7 @@ const createPlayerClass = ({
   calibrationScale,
   weaponProficiencies,
   weaponProficiencyBonuses,
+  avatars,
 }: {
   id: PlayerClassId;
   name: string;
@@ -72,6 +102,7 @@ const createPlayerClass = ({
   calibrationScale: number;
   weaponProficiencies: PlayerClassDefinition['weaponProficiencies'];
   weaponProficiencyBonuses: PlayerClassDefinition['weaponProficiencyBonuses'];
+  avatars: PlayerClassDefinition['avatars'];
 }): PlayerClassDefinition => ({
   id,
   name,
@@ -81,6 +112,7 @@ const createPlayerClass = ({
   visualProfile,
   weaponProficiencies,
   weaponProficiencyBonuses,
+  avatars,
   assets: {
     modelPath,
     modelUrl,
@@ -127,6 +159,11 @@ export const PLAYER_CLASSES: PlayerClassDefinition[] = [
       detailColor: '#f8fafc',
       auraColor: '#60a5fa',
     },
+    avatars: createCharacterAvatarSet('Knight', {
+      fullBody: 'Cavaleiro_1.png',
+      fullBodyCloseUp: 'Cavaleiro_3.png',
+      faceSquare: 'Cavaleiro_2.png',
+    }),
     calibrationScale: 2.15,
     weaponProficiencies: ['sword', 'axe', 'spear'],
     weaponProficiencyBonuses: { atk: 0.2, def: 0.2 },
@@ -158,6 +195,11 @@ export const PLAYER_CLASSES: PlayerClassDefinition[] = [
       detailColor: '#fde68a',
       auraColor: '#fb923c',
     },
+    avatars: createCharacterAvatarSet('Barbarian', {
+      fullBody: 'Barbaro_1.png',
+      fullBodyCloseUp: 'Barbaro_3.png',
+      faceSquare: 'Barbaro_2.png',
+    }),
     calibrationScale: 2.18,
     weaponProficiencies: ['axe', 'hammer', 'halberd'],
     weaponProficiencyBonuses: { atk: 0.3 },
@@ -189,6 +231,11 @@ export const PLAYER_CLASSES: PlayerClassDefinition[] = [
       detailColor: '#e0e7ff',
       auraColor: '#c084fc',
     },
+    avatars: createCharacterAvatarSet('Mage', {
+      fullBody: 'Mago_1.png',
+      fullBodyCloseUp: 'Mago_3.png',
+      faceSquare: 'Mago_2.png',
+    }),
     calibrationScale: 2.1,
     weaponProficiencies: ['wand', 'staff'],
     weaponProficiencyBonuses: { magic: 0.25, maxMp: 0.25 },
@@ -220,6 +267,11 @@ export const PLAYER_CLASSES: PlayerClassDefinition[] = [
       detailColor: '#ecfccb',
       auraColor: '#22c55e',
     },
+    avatars: createCharacterAvatarSet('Ranger', {
+      fullBody: 'Arqueiro_1.png',
+      fullBodyCloseUp: 'Arqueiro_3.png',
+      faceSquare: 'Arqueiro_2.png',
+    }),
     calibrationScale: 2.12,
     weaponProficiencies: ['bow', 'sword'],
     weaponProficiencyBonuses: { luck: 0.15, speed: 0.2, magic: 0.15 },
@@ -251,6 +303,11 @@ export const PLAYER_CLASSES: PlayerClassDefinition[] = [
       detailColor: '#f8fafc',
       auraColor: '#f472b6',
     },
+    avatars: createCharacterAvatarSet('Rogue', {
+      fullBody: 'Paladino_1.png',
+      fullBodyCloseUp: 'Paladino_3.png',
+      faceSquare: 'Paladino_2.png',
+    }),
     calibrationScale: 2.12,
     weaponProficiencies: ['dagger', 'fist'],
     weaponProficiencyBonuses: { luck: 0.25, speed: 0.25 },

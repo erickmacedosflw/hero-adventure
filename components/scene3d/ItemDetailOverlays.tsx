@@ -66,9 +66,10 @@ const ItemDetailPortalModal: React.FC<ItemDetailPortalModalProps> = ({
       style={{
         position: 'fixed',
         inset: 0,
-        zIndex: 9200,
-        background: 'rgba(0,0,0,0.70)',
-        backdropFilter: 'blur(6px)',
+        zIndex: 99999,
+        background: 'rgba(0,0,0,0.60)',
+        backdropFilter: 'blur(8px)',
+        WebkitBackdropFilter: 'blur(8px)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',

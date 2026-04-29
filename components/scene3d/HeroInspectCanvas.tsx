@@ -26,7 +26,7 @@ import { getEquipmentBonuses } from '../../game/mechanics/equipmentBonuses';
 import { hasModalLayer, onAction, pushInputLayer } from '../../game/mechanics/inputManager';
 import { useInputMode } from '../../game/hooks/useInputMode';
 import type { Item, Player, PlayerClassId } from '../../types';
-import { BattleItemDetailOverlay } from './ItemDetailOverlays';
+import { BattleItemDetailOverlay, HeroItemDetailOverlay } from './ItemDetailOverlays';
 
 const HERO_CLASS_NAME_PT: Record<PlayerClassId, string> = {
   knight: 'Cavaleiro',
@@ -183,6 +183,322 @@ const SkillInfoModal: React.FC<{
       </div>
     </div>,
     document.body,
+  );
+};
+
+export const HeroProfileDetailModal: React.FC<{
+  player: Player;
+  uiProfile: string;
+  onClose: () => void;
+}> = ({ player, uiProfile, onClose }) => {
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+  const [selectedEquipItem, setSelectedEquipItem] = useState<Item | null>(null);
+  const [closeBtnHover, setCloseBtnHover] = useState(false);
+  const [hoveredEquip, setHoveredEquip] = useState<string | null>(null);
+
+  useEffect(() => pushInputLayer((action) => {
+    if (action === 'BACK') {
+      onCloseRef.current();
+    }
+  }), []);
+
+  const playerClass = getPlayerClassById(player.classId);
+  const accentColor = playerClass.visualProfile.secondaryColor;
+  const primaryColor = playerClass.visualProfile.primaryColor;
+  const auraColor = playerClass.visualProfile.auraColor;
+  const classNamePt = HERO_CLASS_NAME_PT[player.classId as PlayerClassId] ?? player.classId;
+  const ClassIcon = INSPECT_CLASS_ICON[player.classId as PlayerClassId] ?? User;
+  const font: React.CSSProperties = { fontFamily: "'Segoe UI',system-ui,sans-serif" };
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 600;
+
+  const equipmentCards: Array<{ key: EquipSlotKey; label: string; item: Item | null; Icon: React.ComponentType<{ size?: number; color?: string }> }> = [
+    { key: 'weapon', label: 'Arma', item: player.equippedWeapon ?? null, Icon: Sword },
+    { key: 'shield', label: 'Escudo', item: player.equippedShield ?? null, Icon: Shield },
+    { key: 'helmet', label: 'Capacete', item: player.equippedHelmet ?? null, Icon: Layers },
+    { key: 'armor', label: 'Armadura', item: player.equippedArmor ?? null, Icon: Shirt },
+    { key: 'legs', label: 'Pernas', item: player.equippedLegs ?? null, Icon: Footprints },
+  ];
+
+  const resourceBars = [
+    { label: 'HP', value: player.stats.hp, max: player.stats.maxHp, color: '#4ade80', gradient: 'linear-gradient(90deg,#166534,#4ade80)' },
+    { label: 'MP', value: player.stats.mp, max: player.stats.maxMp, color: '#38bdf8', gradient: 'linear-gradient(90deg,#1d4ed8,#38bdf8)' },
+    { label: 'XP', value: player.xp, max: player.xpToNext, color: '#fbbf24', gradient: 'linear-gradient(90deg,#b45309,#fbbf24)' },
+  ];
+
+  const attributeRows = [
+    { label: 'ATQ', value: player.stats.atk, color: '#ef4444', Icon: Swords },
+    { label: 'DEF', value: player.stats.def, color: '#3b82f6', Icon: Shield },
+    { label: 'MAG', value: player.stats.magic, color: '#a855f7', Icon: Sparkles },
+    { label: 'VEL', value: player.stats.speed, color: '#22c55e', Icon: Wind },
+    { label: 'SRT', value: player.stats.luck, color: '#fbbf24', Icon: Clover },
+  ];
+
+  const portal = createPortal(
+    <div
+      onClick={selectedEquipItem ? undefined : onClose}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 9250,
+        background: 'rgba(0,0,0,0.55)',
+        backdropFilter: 'blur(12px) saturate(140%)',
+        WebkitBackdropFilter: 'blur(12px) saturate(140%)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 16,
+        animation: 'rpg-modal-overlay-in 0.22s ease both',
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          ...font,
+          width: '100%',
+          maxWidth: isMobile ? 420 : 460,
+          background: 'rgba(7,4,20,0.52)',
+          backdropFilter: 'blur(48px) saturate(180%)',
+          WebkitBackdropFilter: 'blur(48px) saturate(180%)',
+          border: `1px solid ${accentColor}30`,
+          borderRadius: 22,
+          boxShadow: `0 32px 96px rgba(0,0,0,0.68), 0 0 0 1px ${accentColor}14, inset 0 1px 0 rgba(255,255,255,0.08)`,
+          overflow: 'hidden',
+          animation: 'rpg-modal-panel-in 0.26s cubic-bezier(0.34,1.56,0.64,1) both',
+        }}
+      >
+        {/* ── Header ── */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 10,
+            padding: '11px 13px 9px',
+            borderBottom: `1px solid ${accentColor}28`,
+            background: `linear-gradient(135deg, ${accentColor}28 0%, ${primaryColor}0c 55%, transparent 100%)`,
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+            <div
+              style={{
+                width: 34,
+                height: 34,
+                flexShrink: 0,
+                borderRadius: 10,
+                background: `${accentColor}1e`,
+                border: `1.5px solid ${accentColor}55`,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: accentColor,
+                boxShadow: `0 0 14px ${accentColor}38`,
+                transition: 'box-shadow 0.4s ease',
+              }}
+            >
+              <ClassIcon size={17} />
+            </div>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 14, fontWeight: 900, color: '#fff', lineHeight: 1.1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{player.name}</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                <span style={{ fontSize: 10, fontWeight: 800, color: accentColor, letterSpacing: '0.12em', textTransform: 'uppercase' as const }}>{classNamePt}</span>
+                <span style={{ fontSize: 9, fontWeight: 900, padding: '1px 7px', borderRadius: 999, background: `${primaryColor}1e`, border: `1px solid ${primaryColor}42`, color: '#fff' }}>Nv {player.level}</span>
+              </div>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            onMouseEnter={() => setCloseBtnHover(true)}
+            onMouseLeave={() => setCloseBtnHover(false)}
+            style={{
+              flexShrink: 0,
+              border: `1px solid ${closeBtnHover ? accentColor + '70' : 'rgba(255,255,255,0.14)'}`,
+              background: closeBtnHover ? `${accentColor}22` : 'rgba(255,255,255,0.06)',
+              color: closeBtnHover ? accentColor : 'rgba(255,255,255,0.65)',
+              borderRadius: 10,
+              width: 30,
+              height: 30,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 18,
+              lineHeight: 1,
+              cursor: 'pointer',
+              transform: closeBtnHover ? 'scale(1.1) rotate(10deg)' : 'scale(1) rotate(0deg)',
+              transition: 'transform 0.18s ease, background 0.18s ease, border-color 0.18s ease, color 0.18s ease',
+            }}
+          >
+            ×
+          </button>
+        </div>
+
+        {/* ── Body ── */}
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 10,
+            padding: '12px 13px 10px',
+            background: `radial-gradient(circle at 50% 0%, ${auraColor}10 0%, transparent 60%)`,
+          }}
+        >
+          {/* Resource bars — sempre no topo */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+            {resourceBars.map((res) => {
+              const pct = res.max > 0 ? Math.min(100, (res.value / res.max) * 100) : 0;
+              return (
+                <div key={res.label}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 3 }}>
+                    <span style={{ fontSize: 11, fontWeight: 900, letterSpacing: '0.14em', color: res.color }}>{res.label}</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.55)' }}>{res.value}<span style={{ fontSize: 10, opacity: 0.65 }}>/{res.max}</span></span>
+                  </div>
+                  <div style={{ height: 6, borderRadius: 999, background: 'rgba(255,255,255,0.09)', overflow: 'hidden' }}>
+                    <div style={{ width: `${pct}%`, height: '100%', borderRadius: 999, background: res.gradient, transition: 'width 0.5s ease' }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Flex row: avatar | attrs */}
+          <div style={{ display: 'flex', flexDirection: 'row', gap: 12, alignItems: 'center' }}>
+
+            {/* Avatar */}
+            <div
+              style={{
+                flex: 1,
+                minWidth: 0,
+                position: 'relative',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                minHeight: isMobile ? 220 : 280,
+              }}
+            >
+              <div style={{ position: 'absolute', inset: '5% 10%', borderRadius: '50%', background: `radial-gradient(circle, ${auraColor}28 0%, transparent 70%)`, filter: 'blur(20px)', pointerEvents: 'none' }} />
+              <img
+                src={playerClass.avatars.fullBodyCloseUp.url}
+                alt={`Avatar de ${player.name}`}
+                draggable={false}
+                style={{
+                  position: 'relative',
+                  zIndex: 1,
+                  width: '100%',
+                  maxWidth: isMobile ? 210 : 260,
+                  maxHeight: isMobile ? 250 : 300,
+                  objectFit: 'contain',
+                  filter: `drop-shadow(0 12px 28px ${auraColor}60)`,
+                }}
+              />
+            </div>
+
+            {/* Attributes */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? 5 : 7, width: isMobile ? 84 : 100, flexShrink: 0, justifyContent: 'center' }}>
+              {attributeRows.map(({ label, value, color, Icon }) => (
+                <div
+                  key={label}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    borderRadius: 10,
+                    border: `1px solid ${color}30`,
+                    background: `${color}0e`,
+                    padding: isMobile ? '5px 7px' : '7px 9px',
+                    transition: 'background 0.18s ease',
+                  }}
+                >
+                  <div style={{ color, flexShrink: 0, display: 'flex', alignItems: 'center' }}><Icon size={isMobile ? 11 : 13} /></div>
+                  <span style={{ fontSize: isMobile ? 9 : 11, fontWeight: 800, letterSpacing: '0.1em', color: 'rgba(255,255,255,0.50)', flex: 1 }}>{label}</span>
+                  <span style={{ fontSize: isMobile ? 13 : 16, fontWeight: 900, color: '#fff', lineHeight: 1 }}>{value}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* ── Equipment strip ── */}
+        <div
+          style={{
+            borderTop: `1px solid ${accentColor}1e`,
+            padding: '8px 13px 11px',
+            display: 'flex',
+            gap: 7,
+            justifyContent: 'center',
+          }}
+        >
+          {equipmentCards.map(({ key, label, item, Icon }) => {
+            const isHov = hoveredEquip === key;
+            const borderColor = item?.rarity === 'gold'
+              ? 'rgba(251,191,36,0.55)'
+              : item?.rarity === 'silver'
+                ? 'rgba(148,163,184,0.48)'
+                : item
+                  ? `${accentColor}48`
+                  : 'rgba(255,255,255,0.08)';
+            const bg = item?.rarity === 'gold'
+              ? 'rgba(120,68,12,0.26)'
+              : item?.rarity === 'silver'
+                ? 'rgba(44,62,89,0.26)'
+                : item
+                  ? `${accentColor}14`
+                  : 'rgba(255,255,255,0.04)';
+            return (
+              <div
+                key={key}
+                title={item?.name ?? `${label} vazio`}
+                onMouseEnter={() => setHoveredEquip(key)}
+                onMouseLeave={() => setHoveredEquip(null)}
+                onClick={() => item && setSelectedEquipItem(item)}
+                style={{
+                  width: 50,
+                  height: 50,
+                  borderRadius: 13,
+                  border: `1px solid ${isHov && item ? accentColor + '80' : borderColor}`,
+                  background: isHov && item ? `${accentColor}20` : bg,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                  transform: isHov && item ? 'translateY(-3px) scale(1.07)' : 'translateY(0) scale(1)',
+                  boxShadow: isHov && item ? `0 8px 20px ${accentColor}35` : 'none',
+                  transition: 'transform 0.15s ease, background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease',
+                  cursor: item ? 'pointer' : 'default',
+                }}
+              >
+                <div style={{ color: item ? '#fff' : 'rgba(255,255,255,0.28)' }}>
+                  {item
+                    ? item.iconImage
+                      ? <img src={item.iconImage} alt={item.name} draggable={false} style={{ width: 27, height: 27, objectFit: 'contain' }} />
+                      : <span style={{ fontSize: 21, lineHeight: 1 }}>{item.icon}</span>
+                    : <Icon size={15} color="currentColor" />}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* ── Footer hint ── */}
+        <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', padding: '6px 13px 8px', display: 'flex', justifyContent: 'flex-end' }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.28)' }}>
+            {uiProfile === 'gamepad' && <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 16, height: 16, borderRadius: '50%', background: '#c0392b', fontSize: 8, fontWeight: 900, color: '#fff', flexShrink: 0 }}>B</span>}
+            Fechar detalhes
+          </span>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+
+  return (
+    <>
+      {portal}
+      {selectedEquipItem && (
+        <HeroItemDetailOverlay item={selectedEquipItem} onClose={() => setSelectedEquipItem(null)} />
+      )}
+    </>
   );
 };
 
@@ -647,17 +963,27 @@ export const HeroInspectCanvas = ({
   const slotIconColor = (r?: string) => r === 'gold' ? '#fbbf24' : r === 'silver' ? '#94a3b8' : r ? '#d4a56a' : 'rgba(255,255,255,0.72)';
 
   const font: React.CSSProperties = { fontFamily: "'Segoe UI',system-ui,sans-serif" };
-  const equipX = isMobile ? -0.70 : -0.55;
-  const statsX = isMobile ? equipX : -2.0;
+  const desktopViewportShortfall = !isMobile ? Math.max(0, 6.8 - viewport.height) : 0;
+  const equipX = isMobile ? -0.58 : -0.34;
+  const statsX = isMobile ? -0.7 : -2.0;
   const statsY = 2.0;
-  const equipY = isMobile ? statsY - 2 : 0.1;
+  const equipY = isMobile ? statsY - 1.93 : -0.08 - (desktopViewportShortfall * 0.16);
   const df = isMobile ? 6.0 : 5.8;
   const dfStats = isMobile ? 5.4 : df;
 
   return (
     <>
-      <Html center sprite distanceFactor={dfStats} position={[statsX, statsY, 0]} zIndexRange={[200, 0]} style={{ pointerEvents: 'none' }}>
-        <div style={{ ...font, width: '220px' }}>
+      <Html center sprite distanceFactor={dfStats} position={[statsX, statsY, 0]} zIndexRange={[200, 0]} style={{ pointerEvents: 'auto' }}>
+        <div
+          style={{
+            width: '220px',
+            padding: 0,
+            border: 'none',
+            background: 'transparent',
+            textAlign: 'left',
+            cursor: inspectUiProfile === 'gamepad' ? 'default' : 'pointer',
+          }}
+        >
           <div style={{ background: 'rgba(8,5,22,0.38)', backdropFilter: 'blur(28px)', WebkitBackdropFilter: 'blur(28px)', borderRadius: '16px', border: `2px solid ${accentColor}70`, padding: '12px 14px', boxShadow: `0 10px 40px rgba(0,0,0,0.45), 0 0 0 1px ${accentColor}18, 0 0 28px ${accentColor}30` }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
               <div style={{ width: '38px', height: '38px', flexShrink: 0, background: `${accentColor}25`, border: `1.5px solid ${accentColor}55`, borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: accentColor }}>
@@ -912,6 +1238,8 @@ export const HeroInspectCanvas = ({
           if (!infoSkill) return null;
           return <SkillInfoModal skill={infoSkill} uiProfile={inspectUiProfile} onClose={() => setCampSkillInfoId(null)} />;
         })()}
+
+
       </Html>
     </>
   );

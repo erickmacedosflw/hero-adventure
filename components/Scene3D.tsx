@@ -1,4 +1,4 @@
-import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+﻿import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Sword, Shield, Zap, Sparkles, FlaskConical, Crosshair, Shirt, Footprints, Layers, RefreshCw, Swords, Wind, Clover, Heart, Info, X, LogOut, User } from 'lucide-react';
 import { Canvas, useFrame, useLoader, useThree } from '@react-three/fiber';
@@ -194,6 +194,8 @@ interface SceneProps {
   mainEnemySlotIndex?: number;
   /** Tamanho inicial do grupo (1, 2 ou 3). Layout ÃƒÂ© escolhido por este valor e nunca muda quando inimigos morrem. */
   initialGroupSize?: number;
+  /** Called when the player clicks the hero nameplate card above the 3D model in battle. */
+  onHeroNameplateClick?: () => void;
 }
 
 // --- MAIN COMPONENTS ---
@@ -3401,6 +3403,107 @@ const FpsCap = ({ fps }: { fps: number }) => {
   return null;
 };
 
+const HeroNameplateCard: React.FC<{
+  accentColor: string;
+  cardW: string;
+  isMobileDevice: boolean;
+  hpPct: number;
+  hpColor: string;
+  hasMana: boolean;
+  mpPct: number;
+  xpPct: number;
+  classId: PlayerClassId;
+  level: number;
+  barH: string;
+  nameFz: string;
+  lvlFz: string;
+  iconSz: number;
+  F: React.CSSProperties;
+  onClick?: () => void;
+}> = ({ accentColor, cardW, isMobileDevice, hpPct, hpColor, hasMana, mpPct, xpPct, classId, level, barH, nameFz, lvlFz, iconSz, F, onClick }) => {
+  const [hovered, setHovered] = React.useState(false);
+  const [pressed, setPressed] = React.useState(false);
+  const interactive = !!onClick;
+  const ClassIcon = INSPECT_CLASS_ICON[classId] ?? Shield;
+  const scale = pressed ? 0.968 : hovered ? 1.028 : 1;
+  const glow = hovered
+    ? `0 0 0 1.5px ${accentColor}88, 0 8px 32px rgba(0,0,0,0.6), 0 0 22px ${accentColor}44`
+    : `0 0 0 1px ${accentColor}22, 0 6px 24px rgba(0,0,0,0.45)`;
+  const border = hovered ? `1.5px solid ${accentColor}cc` : `1px solid ${accentColor}44`;
+  return (
+    <div
+      onClick={onClick}
+      onMouseEnter={interactive ? () => setHovered(true) : undefined}
+      onMouseLeave={interactive ? () => { setHovered(false); setPressed(false); } : undefined}
+      onMouseDown={interactive ? () => setPressed(true) : undefined}
+      onMouseUp={interactive ? () => setPressed(false) : undefined}
+      onTouchStart={interactive ? () => setHovered(true) : undefined}
+      onTouchEnd={interactive ? () => { setHovered(false); setPressed(false); } : undefined}
+      style={{
+        width: cardW,
+        background: hovered ? 'rgba(20,12,50,0.82)' : 'rgba(15,10,40,0.55)',
+        backdropFilter: 'blur(18px)',
+        WebkitBackdropFilter: 'blur(18px)',
+        border,
+        borderRadius: '12px',
+        padding: isMobileDevice ? '12px 16px' : '8px 12px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: isMobileDevice ? '10px' : '6px',
+        boxShadow: glow,
+        boxSizing: 'border-box',
+        pointerEvents: interactive ? 'auto' : 'none',
+        cursor: interactive ? 'pointer' : 'default',
+        transform: `scale(${scale})`,
+        transition: 'transform 0.14s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.18s ease, border 0.18s ease, background 0.18s ease',
+        userSelect: 'none',
+        ...F,
+      }}
+    >
+      {/* Name + level */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+        <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: accentColor, filter: `drop-shadow(0 0 5px ${accentColor}) drop-shadow(0 0 10px ${accentColor}88)` }}>
+          <ClassIcon size={iconSz} />
+        </span>
+        <span style={{ fontSize: nameFz, fontWeight: 900, color: '#fff', letterSpacing: '0.03em', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{HERO_CLASS_NAME_PT[classId] ?? classId}</span>
+        <span style={{ fontSize: lvlFz, fontWeight: 800, color: accentColor, letterSpacing: '0.10em', whiteSpace: 'nowrap', flexShrink: 0 }}>Nv {level}</span>
+      </div>
+      {/* HP bar */}
+      <div style={{ height: barH, borderRadius: '99px', background: 'rgba(0,0,0,0.55)', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)' }}>
+        <div style={{ height: '100%', borderRadius: '99px', background: `linear-gradient(90deg, ${hpColor}99, ${hpColor})`, width: `${hpPct}%`, transition: 'width 0.35s ease, background 0.5s ease' }} />
+      </div>
+      {/* Mana bar */}
+      {hasMana && (
+        <div style={{ height: barH, borderRadius: '99px', background: 'rgba(0,0,0,0.55)', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)' }}>
+          <div style={{ height: '100%', borderRadius: '99px', background: 'linear-gradient(90deg, #2b687899, #66b8d2)', width: `${mpPct}%`, transition: 'width 0.35s ease' }} />
+        </div>
+      )}
+      {/* XP bar */}
+      <div style={{ height: isMobileDevice ? '6px' : '4px', borderRadius: '99px', background: 'rgba(0,0,0,0.40)', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.06)' }}>
+        <div style={{ height: '100%', borderRadius: '99px', background: 'linear-gradient(90deg, #7d3d4d99, #c89a66)', width: `${xpPct}%`, transition: 'width 0.5s ease' }} />
+      </div>
+      {/* Hover hint */}
+      {interactive && (
+        <div style={{
+          textAlign: 'center',
+          fontSize: isMobileDevice ? '9px' : '7px',
+          fontWeight: 800,
+          letterSpacing: '0.18em',
+          textTransform: 'uppercase',
+          color: accentColor,
+          opacity: hovered ? 0.85 : 0,
+          transform: hovered ? 'translateY(0px)' : 'translateY(3px)',
+          transition: 'opacity 0.18s ease, transform 0.18s ease',
+          pointerEvents: 'none',
+          marginTop: isMobileDevice ? 2 : 1,
+        }}>
+          Ver perfil
+        </div>
+      )}
+    </div>
+  );
+};
+
 export const GameScene: React.FC<SceneProps> = (props) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const outlineHeroRef = useRef<THREE.Group>(null);
@@ -4158,6 +4261,7 @@ export const GameScene: React.FC<SceneProps> = (props) => {
             center
             distanceFactor={isMobileDevice ? 7 : 11}
             zIndexRange={[100, 0]}
+            pointerEvents={props.onHeroNameplateClick ? 'auto' : 'none'}
           >
             {(() => {
               const pl = props.playerState!;
@@ -4188,38 +4292,31 @@ export const GameScene: React.FC<SceneProps> = (props) => {
                   `}</style>
                   <div style={{
                     display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px',
-                    pointerEvents: 'none', ...F,
+                    pointerEvents: props.onHeroNameplateClick ? 'auto' : 'none', ...F,
                     opacity: isDying ? 0 : 1,
                     transform: isDying ? 'translateY(-10px) scale(0.9)' : 'translateY(0) scale(1)',
                     transition: isDying ? 'opacity 0.5s ease, transform 0.5s ease' : 'opacity 0.3s ease',
                     animation: isDying ? 'none' : 'np-hero-enter 0.35s ease-out forwards',
                   }}>
-                    {/* Main card */}
-                    <div style={{ width: cardW, background: 'rgba(15,10,40,0.55)', backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)', border: `1px solid ${accentColor}44`, borderRadius: '12px', padding: isMobileDevice ? '12px 16px' : '8px 12px', display: 'flex', flexDirection: 'column', gap: isMobileDevice ? '10px' : '6px', boxShadow: `0 0 0 1px ${accentColor}22, 0 6px 24px rgba(0,0,0,0.45)`, boxSizing: 'border-box' as const }}>
-                      {/* Name + level */}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
-                        {/* Class icon with glow effect */}
-                        <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: accentColor, filter: `drop-shadow(0 0 5px ${accentColor}) drop-shadow(0 0 10px ${accentColor}88)` }}>
-                          <ClassIcon size={iconSz} />
-                        </span>
-                        <span style={{ fontSize: nameFz, fontWeight: 900, color: '#fff', letterSpacing: '0.03em', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>{HERO_CLASS_NAME_PT[classId] ?? classId}</span>
-                        <span style={{ fontSize: lvlFz, fontWeight: 800, color: accentColor, letterSpacing: '0.10em', whiteSpace: 'nowrap' as const, flexShrink: 0 }}>Nv {pl.level}</span>
-                      </div>
-                      {/* HP bar */}
-                      <div style={{ height: barH, borderRadius: '99px', background: 'rgba(0,0,0,0.55)', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)' }}>
-                        <div style={{ height: '100%', borderRadius: '99px', background: `linear-gradient(90deg, ${hpColor}99, ${hpColor})`, width: `${hpPct}%`, transition: 'width 0.35s ease, background 0.5s ease' }} />
-                      </div>
-                      {/* Mana bar Ã¢â‚¬â€ only if hero currently has mana */}
-                      {hasMana && (
-                        <div style={{ height: barH, borderRadius: '99px', background: 'rgba(0,0,0,0.55)', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)' }}>
-                          <div style={{ height: '100%', borderRadius: '99px', background: 'linear-gradient(90deg, #2b687899, #66b8d2)', width: `${mpPct}%`, transition: 'width 0.35s ease' }} />
-                        </div>
-                      )}
-                      {/* XP bar */}
-                      <div style={{ height: isMobileDevice ? '6px' : '4px', borderRadius: '99px', background: 'rgba(0,0,0,0.40)', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.06)' }}>
-                        <div style={{ height: '100%', borderRadius: '99px', background: 'linear-gradient(90deg, #7d3d4d99, #c89a66)', width: `${Math.max(0, (pl.xp / pl.xpToNext) * 100)}%`, transition: 'width 0.5s ease' }} />
-                      </div>
-                    </div>
+                    {/* Main card — delegates hover/press state to HeroNameplateCard */}
+                    <HeroNameplateCard
+                      accentColor={accentColor}
+                      cardW={cardW}
+                      isMobileDevice={isMobileDevice}
+                      hpPct={hpPct}
+                      hpColor={hpColor}
+                      hasMana={hasMana}
+                      mpPct={mpPct}
+                      xpPct={Math.max(0, (pl.xp / pl.xpToNext) * 100)}
+                      classId={classId}
+                      level={pl.level}
+                      barH={barH}
+                      nameFz={nameFz}
+                      lvlFz={lvlFz}
+                      iconSz={iconSz}
+                      F={F}
+                      onClick={props.onHeroNameplateClick}
+                    />
                   </div>
                 </>
               );

@@ -129,6 +129,17 @@ export interface PlayerClassAssets {
   calibration?: PlayerClassModelCalibration;
 }
 
+export interface PlayerClassAvatarAsset {
+  path: string;
+  url: string;
+}
+
+export interface PlayerClassAvatarSet {
+  fullBody: PlayerClassAvatarAsset;
+  fullBodyCloseUp: PlayerClassAvatarAsset;
+  faceSquare: PlayerClassAvatarAsset;
+}
+
 export interface PlayerClassDefinition {
   id: PlayerClassId;
   name: string;
@@ -139,6 +150,7 @@ export interface PlayerClassDefinition {
   weaponProficiencies: WeaponGripType[];
   weaponProficiencyBonuses?: WeaponProficiencyBonusMap;
   assets: PlayerClassAssets;
+  avatars: PlayerClassAvatarSet;
 }
 
 export type WeaponGripType = 'dagger' | 'sword' | 'axe' | 'hammer' | 'wand' | 'staff' | 'spear' | 'halberd' | 'bow' | 'fist';

@@ -5,6 +5,8 @@ import { GameScene, type BattleActionsConfig } from './components/Scene3D';
 import { OpeningScreen } from './components/OpeningScreen';
 import { ClassSelectionScreen } from './components/ClassSelectionScreen';
 import { BattleHUD, MenuScreen, ShopScreen, TavernScreen, CardChoiceScreen, DungeonResultScreen, BossVictoryModal } from './components/GameUI';
+import { HeroProfileDetailModal } from './components/scene3d/HeroInspectCanvas';
+import { useInputMode } from './game/hooks/useInputMode';
 import { AdminPanel } from './components/AdminPanel';
 import { AlchemistScreen } from './components/shop/AlchemistMenuScreen';
 import { 
@@ -28,7 +30,6 @@ import { SavePayload, SaveSlotId, SaveSlotSummary, getActiveSaveSlotId, listSave
 import { useBattleController } from './game/hooks/useBattleController';
 import { useBattleResolution } from './game/hooks/useBattleResolution';
 import { initInputManager, onAction, getInputState } from './game/mechanics/inputManager';
-import { useInputMode } from './game/hooks/useInputMode';
 import { PF } from './game/data/promptFont';
 import { GamepadHint } from './components/ui/GamepadHint';
 import { GamepadIndicator } from './components/ui/GamepadIndicator';
@@ -849,6 +850,8 @@ export default function App() {
   const [additionalEnemies, setAdditionalEnemies] = useState<Enemy[]>([]);
   const [pendingTargetAction, setPendingTargetAction] = useState<PendingTargetAction>(null);
   const [targetCardLeaving, setTargetCardLeaving] = useState(false);
+  const [showHeroDetailModal, setShowHeroDetailModal] = useState(false);
+  const { uiProfile: appUiProfile } = useInputMode();
   const [accumulatedGroupRewards, setAccumulatedGroupRewards] = useState<{ gold: number; xp: number }>({ gold: 0, xp: 0 });
   const [roundActorQueue, setRoundActorQueue] = useState<string[]>([]); // 'player' | enemy.id, sorted by speed desc
   const [primaryEnemyId, setPrimaryEnemyId] = useState<string | null>(null); // player's chosen target
@@ -4455,6 +4458,8 @@ export default function App() {
                                         const slotSceneThumb = SAVE_SCENE_THUMBNAIL[slot.sceneRegion ?? 'forest'] ?? SAVE_THUMB_MOUNTAIN_URL;
                                         const accentColor = slotClassDef?.visualProfile.secondaryColor ?? '#b87a3a';
                                         const auraColor = slotClassDef?.visualProfile.auraColor ?? '#f8c77e';
+                                        const slotClassLabel = (slot.classId ? SAVE_CLASS_NAME_PT[slot.classId] : null) ?? slotClassDef?.name ?? slot.classId ?? 'Sem classe';
+                                        const slotHeroAvatarUrl = slotClassDef?.avatars.faceSquare.url ?? null;
                                         const isGpFocused = saveMenuFocusIdx === index;
                                         return (
                                             <button
@@ -4466,7 +4471,7 @@ export default function App() {
                                                     setShowSlotContinueModal(true);
                                                     requestAnimationFrame(() => setSlotContinueModalVisible(true));
                                                 }}
-                                                className="hero-save-card relative overflow-hidden text-left"
+                                                className="hero-save-card relative min-h-[148px] overflow-hidden text-left sm:min-h-[164px]"
                                                 style={{
                                                     animationDelay: `${index * 55}ms`,
                                                     boxShadow: isGpFocused
@@ -4478,28 +4483,106 @@ export default function App() {
                                             >
                                                 {/* Scenario thumbnail background */}
                                                 <div className="absolute inset-0 pointer-events-none" aria-hidden>
-                                                    <img src={slotSceneThumb} alt="" className="w-full h-full object-cover opacity-25" draggable={false} />
-                                                    <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, rgba(20,10,8,0.30) 0%, rgba(20,10,8,0.75) 100%)' }} />
+                                                    <img
+                                                        src={slotSceneThumb}
+                                                        alt=""
+                                                        className="w-full h-full scale-[1.05] object-cover opacity-55"
+                                                        style={{ filter: 'saturate(1.18) contrast(1.05)' }}
+                                                        draggable={false}
+                                                    />
+                                                    <div className="absolute inset-0" style={{ background: `linear-gradient(115deg, ${accentColor}55 0%, rgba(20,10,8,0.18) 28%, rgba(20,10,8,0.8) 68%, rgba(10,5,4,0.94) 100%)` }} />
+                                                    <div className="absolute inset-0" style={{ background: `radial-gradient(circle at 82% 22%, ${auraColor}40 0%, rgba(255,255,255,0.1) 14%, transparent 36%)` }} />
+                                                    <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(8,4,4,0.02) 0%, rgba(8,4,4,0.08) 34%, rgba(8,4,4,0.34) 58%, rgba(8,4,4,0.88) 100%)' }} />
+                                                    <div className="absolute -right-6 top-3 h-20 w-20 rounded-full blur-2xl" style={{ backgroundColor: `${auraColor}44` }} />
                                                 </div>
 
                                                 {/* Class color left stripe */}
                                                 <div className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-[1rem]" style={{ backgroundColor: accentColor }} />
 
-                                                <div className="relative flex items-start justify-between gap-2 pl-2">
-                                                    <div>
-                                                        <div className="text-[10px] font-black uppercase tracking-[0.22em] text-[#f8dcb7]">Slot {slot.slotId}</div>
-                                                        <div className="mt-1 text-xl font-black text-[#fff6e8]">Nivel {slot.level ?? 1}</div>
+                                                <div className="relative flex h-full flex-col justify-between gap-4 pl-2">
+                                                    <div className="flex items-start justify-between gap-3">
+                                                        <div className="min-w-0">
+                                                            <div className="text-[10px] font-black uppercase tracking-[0.24em] text-[#f8dcb7] drop-shadow-[0_2px_4px_rgba(0,0,0,0.45)]">Slot {slot.slotId}</div>
+                                                            <div className="mt-2 flex items-end gap-2">
+                                                                <div className="text-[1.55rem] font-black leading-none text-[#fff6e8] drop-shadow-[0_3px_8px_rgba(0,0,0,0.5)] sm:text-[1.75rem]">Nivel {slot.level ?? 1}</div>
+                                                                <div className="rounded-full border px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.24em] text-[#fff4df]"
+                                                                    style={{
+                                                                        borderColor: `${accentColor}66`,
+                                                                        background: 'rgba(22, 12, 10, 0.58)',
+                                                                        boxShadow: `inset 0 1px 0 rgba(255,255,255,0.08), 0 6px 14px ${accentColor}22`,
+                                                                    }}
+                                                                >
+                                                                    Save
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        {!slotHeroAvatarUrl && (
+                                                            <div className="flex items-center justify-center h-10 w-10 rounded-[0.95rem] border shrink-0"
+                                                                style={{
+                                                                    backgroundColor: 'rgba(18, 10, 9, 0.76)',
+                                                                    borderColor: `${accentColor}88`,
+                                                                    color: auraColor,
+                                                                    boxShadow: `0 10px 22px rgba(0,0,0,0.36), inset 0 0 0 1px ${auraColor}33`,
+                                                                }}
+                                                            >
+                                                                <SlotClassIcon size={16} />
+                                                            </div>
+                                                        )}
                                                     </div>
-                                                    <div className="flex items-center justify-center w-8 h-8 rounded-full border shrink-0" style={{ backgroundColor: `${accentColor}22`, borderColor: `${accentColor}60`, color: auraColor }}>
-                                                        <SlotClassIcon size={15} />
-                                                    </div>
-                                                </div>
 
-                                                <div className="relative mt-3 space-y-0.5 pl-2">
-                                                    <div className="text-[11px] font-black uppercase tracking-[0.14em]" style={{ color: auraColor }}>
-                                                        {(slot.classId ? SAVE_CLASS_NAME_PT[slot.classId] : null) ?? slotClassDef?.name ?? slot.classId ?? 'Sem classe'}
+                                                    <div className="flex items-end justify-between gap-3">
+                                                        <div className="min-w-0 flex-1">
+                                                            <div
+                                                                className="inline-flex max-w-full items-center rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-[#fff4df]"
+                                                                style={{
+                                                                    borderColor: `${accentColor}88`,
+                                                                    background: 'linear-gradient(180deg, rgba(23,12,10,0.84) 0%, rgba(12,6,6,0.82) 100%)',
+                                                                    boxShadow: `0 10px 20px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.08)`,
+                                                                }}
+                                                            >
+                                                                <span className="truncate">{slotClassLabel}</span>
+                                                            </div>
+                                                            <div className="mt-2 text-xs text-[#f8dbc0]/95 drop-shadow-[0_2px_4px_rgba(0,0,0,0.42)]">{formatSaveDate(slot.savedAt)}</div>
+                                                        </div>
+
+                                                        {slotHeroAvatarUrl && (
+                                                            <div className="relative shrink-0 overflow-visible">
+                                                                <div
+                                                                    className="pointer-events-none absolute left-1/2 top-1/2 h-20 w-20 -translate-x-1/2 -translate-y-1/2 rounded-full blur-xl sm:h-24 sm:w-24"
+                                                                    style={{
+                                                                        background: `radial-gradient(circle, ${auraColor}4a 0%, ${accentColor}30 42%, rgba(0,0,0,0) 74%)`,
+                                                                    }}
+                                                                />
+                                                                <div
+                                                                    className="relative h-16 w-16 overflow-hidden rounded-[1rem] border sm:h-20 sm:w-20"
+                                                                    style={{
+                                                                        borderColor: `${accentColor}aa`,
+                                                                        background: 'linear-gradient(180deg, rgba(20,11,10,0.96) 0%, rgba(10,5,5,0.9) 100%)',
+                                                                        boxShadow: `0 12px 24px rgba(0,0,0,0.45), inset 0 0 0 1px ${auraColor}33`,
+                                                                    }}
+                                                                >
+                                                                    <img
+                                                                        src={slotHeroAvatarUrl}
+                                                                        alt={`Avatar de ${slotClassLabel}`}
+                                                                        className="h-full w-full scale-[1.08] object-cover object-center"
+                                                                        draggable={false}
+                                                                    />
+                                                                    <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, rgba(255,255,255,0.08) 0%, transparent 35%, rgba(10,5,5,0.3) 70%, rgba(10,5,5,0.68) 100%)' }} />
+                                                                </div>
+                                                                <div
+                                                                    className="absolute -bottom-2 -right-1 flex h-8 w-8 items-center justify-center rounded-[0.95rem] border"
+                                                                    style={{
+                                                                        background: 'linear-gradient(180deg, rgba(22,11,10,0.98) 0%, rgba(11,5,5,0.96) 100%)',
+                                                                        borderColor: `${accentColor}aa`,
+                                                                        color: auraColor,
+                                                                        boxShadow: `0 8px 18px rgba(0,0,0,0.4), inset 0 0 0 1px ${auraColor}22`,
+                                                                    }}
+                                                                >
+                                                                    <SlotClassIcon size={14} />
+                                                                </div>
+                                                            </div>
+                                                        )}
                                                     </div>
-                                                    <div className="text-xs text-[#f8dbc0]/92">{formatSaveDate(slot.savedAt)}</div>
                                                 </div>
                                             </button>
                                         );
@@ -4555,6 +4638,8 @@ export default function App() {
                             const slotSceneThumb = SAVE_SCENE_THUMBNAIL[slot.sceneRegion ?? 'forest'] ?? SAVE_THUMB_MOUNTAIN_URL;
                             const accentColor = slotClassDef?.visualProfile.secondaryColor ?? '#b87a3a';
                             const auraColor = slotClassDef?.visualProfile.auraColor ?? '#f8c77e';
+                            const slotClassLabel = (slot.classId ? SAVE_CLASS_NAME_PT[slot.classId] : null) ?? slotClassDef?.name ?? slot.classId ?? 'Sem classe';
+                            const slotHeroAvatarUrl = slotClassDef?.avatars.faceSquare.url ?? null;
                             const closeModal = () => {
                                 setSlotContinueModalVisible(false);
                                 setTimeout(() => setShowSlotContinueModal(false), 260);
@@ -4598,6 +4683,17 @@ export default function App() {
                                         <div className="relative h-28 overflow-hidden">
                                             <img src={slotSceneThumb} alt="" className="w-full h-full object-cover" draggable={false} />
                                             <div className="absolute inset-0" style={{ background: `linear-gradient(to bottom, ${accentColor}22 0%, rgba(18,9,8,0.92) 100%)` }} />
+                                            {slotHeroAvatarUrl && (
+                                                <div className="absolute bottom-3 right-4">
+                                                    <div className="relative h-14 w-14 shrink-0 sm:h-16 sm:w-16">
+                                                        <div className="absolute inset-[-5px] rounded-[1.2rem] blur-lg" style={{ background: `${accentColor}44` }} />
+                                                        <div className="relative h-full w-full overflow-hidden rounded-[1rem] border" style={{ borderColor: `${accentColor}aa`, background: 'linear-gradient(180deg, rgba(18,9,8,0.98) 0%, rgba(10,5,5,0.94) 100%)', boxShadow: `0 14px 28px rgba(0,0,0,0.45), inset 0 0 0 1px ${auraColor}22` }}>
+                                                            <img src={slotHeroAvatarUrl} alt={`Avatar de ${slotClassLabel}`} className="h-full w-full scale-[1.08] object-cover object-center" draggable={false} />
+                                                            <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, rgba(255,255,255,0.08) 0%, transparent 35%, rgba(10,5,5,0.24) 68%, rgba(10,5,5,0.62) 100%)' }} />
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
                                             <div className="absolute bottom-3 left-4 flex items-center gap-2.5">
                                                 <div className="flex items-center justify-center w-9 h-9 rounded-full border-2" style={{ backgroundColor: `${accentColor}30`, borderColor: accentColor, color: auraColor }}>
                                                     <SlotClassIcon size={17} />
@@ -4613,7 +4709,7 @@ export default function App() {
 
                                         <div className="px-5 pt-4 pb-5">
                                             <div className="text-[11px] font-black uppercase tracking-[0.16em] mb-0.5" style={{ color: auraColor }}>
-                                                {(slot.classId ? SAVE_CLASS_NAME_PT[slot.classId] : null) ?? slotClassDef?.name ?? slot.classId ?? 'Sem classe'}
+                                                {slotClassLabel}
                                             </div>
                                             <div className="text-xs text-[#f8dbc0]/70">{formatSaveDate(slot.savedAt)}</div>
 
@@ -4680,6 +4776,8 @@ export default function App() {
                             const slotSceneThumb = SAVE_SCENE_THUMBNAIL[slot.sceneRegion ?? 'forest'] ?? SAVE_THUMB_MOUNTAIN_URL;
                             const accentColor = slotClassDef?.visualProfile.secondaryColor ?? '#b87a3a';
                             const auraColor = slotClassDef?.visualProfile.auraColor ?? '#f8c77e';
+                            const slotClassLabel = (slot.classId ? SAVE_CLASS_NAME_PT[slot.classId] : null) ?? slotClassDef?.name ?? slot.classId ?? 'Sem classe';
+                            const slotHeroAvatarUrl = slotClassDef?.avatars.faceSquare.url ?? null;
                             const closeClearModal = () => {
                                 setClearSaveModalVisible(false);
                                 setTimeout(() => setShowClearSaveConfirmModal(false), 260);
@@ -4719,6 +4817,17 @@ export default function App() {
                                         <div className="relative h-28 overflow-hidden">
                                             <img src={slotSceneThumb} alt="" className="w-full h-full object-cover opacity-60 grayscale" draggable={false} />
                                             <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, rgba(180,30,20,0.18) 0%, rgba(18,6,6,0.95) 100%)' }} />
+                                            {slotHeroAvatarUrl && (
+                                                <div className="absolute bottom-3 right-4">
+                                                    <div className="relative h-14 w-14 shrink-0 opacity-95 sm:h-16 sm:w-16">
+                                                        <div className="absolute inset-[-5px] rounded-[1.2rem] blur-lg" style={{ background: 'rgba(192, 57, 43, 0.34)' }} />
+                                                        <div className="relative h-full w-full overflow-hidden rounded-[1rem] border" style={{ borderColor: '#c0392baa', background: 'linear-gradient(180deg, rgba(20,7,7,0.98) 0%, rgba(10,4,4,0.94) 100%)', boxShadow: '0 14px 28px rgba(0,0,0,0.45), inset 0 0 0 1px rgba(255,255,255,0.06)' }}>
+                                                            <img src={slotHeroAvatarUrl} alt={`Avatar de ${slotClassLabel}`} className="h-full w-full scale-[1.08] object-cover object-center grayscale" draggable={false} />
+                                                            <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, rgba(255,255,255,0.06) 0%, transparent 35%, rgba(10,5,5,0.36) 68%, rgba(10,5,5,0.72) 100%)' }} />
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
                                             <div className="absolute bottom-3 left-4 flex items-center gap-2.5">
                                                 <div className="flex items-center justify-center w-9 h-9 rounded-full border-2 opacity-60" style={{ backgroundColor: `${accentColor}30`, borderColor: accentColor, color: auraColor }}>
                                                     <SlotClassIcon size={17} />
@@ -4738,7 +4847,7 @@ export default function App() {
                                             <div className="text-[10px] font-black uppercase tracking-[0.24em] text-red-400">Confirmar exclus\u00e3o</div>
                                             <h3 className="mt-1 font-gamer text-xl font-black text-[#fff3df]">Desfazer este save?</h3>
                                             <div className="mt-1 text-[11px] font-black uppercase tracking-[0.14em]" style={{ color: auraColor }}>
-                                                {(slot.classId ? SAVE_CLASS_NAME_PT[slot.classId] : null) ?? slotClassDef?.name ?? slot.classId ?? 'Sem classe'}
+                                                {slotClassLabel}
                                             </div>
                                             <p className="mt-2 text-xs text-[#f8dcc0]/70">
                                                 Todo o progresso do slot {slot.slotId} ser\u00e1 apagado permanentemente.
@@ -4954,6 +5063,7 @@ export default function App() {
                         onCancelTargetSelection={handleCancelTargetSelection}
                         mainEnemySlotIndex={mainEnemySlotIndex}
                         initialGroupSize={initialGroupSize}
+                        onHeroNameplateClick={() => setShowHeroDetailModal(true)}
                     />
             </SceneErrorBoundary>
 
@@ -5647,6 +5757,9 @@ export default function App() {
       <GamepadHint />
       {/* ── Gamepad indicator — badge bottom-left quando controle está ativo ── */}
       <GamepadIndicator />
+      {showHeroDetailModal && (
+        <HeroProfileDetailModal player={player} uiProfile={appUiProfile} onClose={() => setShowHeroDetailModal(false)} />
+      )}
     </div>
   );
 }

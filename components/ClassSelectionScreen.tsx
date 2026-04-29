@@ -99,13 +99,13 @@ const WEAPON_PROFICIENCY_META: Record<WeaponGripType, { label: string; icon: str
 };
 
 const STAT_ITEMS = [
-  { key: 'maxHp', label: 'HP', icon: Heart, color: '#b83a4b', bg: 'rgba(184,58,75,0.14)' },
-  { key: 'maxMp', label: 'MP', icon: WandSparkles, color: '#346c7f', bg: 'rgba(52,108,127,0.14)' },
-  { key: 'atk', label: 'ATK', icon: Swords, color: '#a35324', bg: 'rgba(163,83,36,0.14)' },
-  { key: 'magic', label: 'MAG', icon: WandSparkles, color: '#5f4ab3', bg: 'rgba(95,74,179,0.14)' },
-  { key: 'def', label: 'DEF', icon: Shield, color: '#4d6780', bg: 'rgba(77,103,128,0.14)' },
-  { key: 'speed', label: 'VEL', icon: Zap, color: '#7c4c76', bg: 'rgba(124,76,118,0.14)' },
-  { key: 'luck', label: 'SRT', icon: Star, color: '#b26a2e', bg: 'rgba(178,106,46,0.14)' },
+  { key: 'maxHp', label: 'HP', icon: Heart, color: '#22c55e', bg: 'rgba(34,197,94,0.16)' },
+  { key: 'maxMp', label: 'MP', icon: WandSparkles, color: '#38bdf8', bg: 'rgba(56,189,248,0.16)' },
+  { key: 'atk', label: 'ATK', icon: Swords, color: '#ef4444', bg: 'rgba(239,68,68,0.16)' },
+  { key: 'magic', label: 'MAG', icon: WandSparkles, color: '#a855f7', bg: 'rgba(168,85,247,0.16)' },
+  { key: 'def', label: 'DEF', icon: Shield, color: '#3b82f6', bg: 'rgba(59,130,246,0.16)' },
+  { key: 'speed', label: 'VEL', icon: Zap, color: '#22c55e', bg: 'rgba(34,197,94,0.16)' },
+  { key: 'luck', label: 'SRT', icon: Star, color: '#fbbf24', bg: 'rgba(251,191,36,0.16)' },
 ] as const;
 
 const CLASS_ROLE_ICONS: Record<PlayerClassId, React.ComponentType<{ size?: number; className?: string }>> = {
@@ -768,12 +768,14 @@ const ForestSelectionScene = ({
 
 const QuickHeroCard = ({
   playerClass,
+  allClasses,
   isVisible,
   onClose,
   onConfirm,
   onCanScroll,
 }: {
   playerClass: PlayerClassDefinition;
+  allClasses: PlayerClassDefinition[];
   isVisible: boolean;
   onClose: () => void;
   onConfirm: (classId: PlayerClassId) => void;
@@ -913,6 +915,164 @@ const QuickHeroCard = ({
     );
   };
 
+  const panelSurfaceStyle = {
+    borderColor: `${playerClass.visualProfile.auraColor}44`,
+    background: 'linear-gradient(180deg, rgba(14,16,24,0.7) 0%, rgba(10,12,18,0.82) 40%, rgba(7,9,14,0.9) 100%)',
+    boxShadow: '0 32px 72px rgba(0,0,0,0.42), inset 0 1px 0 rgba(255,255,255,0.08), inset 0 0 0 1px rgba(255,255,255,0.03)',
+    backdropFilter: 'blur(18px) saturate(1.22)',
+    WebkitBackdropFilter: 'blur(18px) saturate(1.22)',
+  };
+
+  const panelOverlayStyle = {
+    background: `radial-gradient(circle at top right, ${playerClass.visualProfile.auraColor}30 0%, transparent 34%), radial-gradient(circle at bottom left, ${playerClass.visualProfile.primaryColor}22 0%, transparent 30%), linear-gradient(180deg, rgba(255,255,255,0.07) 0%, transparent 24%, rgba(255,255,255,0.02) 100%)`,
+  };
+
+  const sectionSurfaceStyle = {
+    borderColor: 'rgba(255,255,255,0.1)',
+    background: 'linear-gradient(180deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.03) 100%)',
+    boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.06), 0 18px 34px rgba(0,0,0,0.16)',
+  };
+
+  const chipSurfaceStyle = {
+    borderColor: 'rgba(255,255,255,0.12)',
+    background: 'linear-gradient(180deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.04) 100%)',
+    boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.06), 0 12px 24px rgba(0,0,0,0.12)',
+  };
+
+  const statSurfaceStyle = {
+    borderColor: 'rgba(255,255,255,0.1)',
+    background: 'linear-gradient(180deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.04) 100%)',
+    boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.06), 0 14px 26px rgba(0,0,0,0.14)',
+  };
+
+  const descriptionSurfaceStyle = {
+    borderColor: 'rgba(255,255,255,0.1)',
+    background: 'linear-gradient(180deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.03) 100%)',
+    boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.05), 0 18px 32px rgba(0,0,0,0.14)',
+  };
+
+  const resourceStatItems = useMemo(
+    () => STAT_ITEMS.filter((item) => item.key === 'maxHp' || item.key === 'maxMp'),
+    [],
+  );
+
+  const secondaryStatItems = useMemo(
+    () => STAT_ITEMS.filter((item) => item.key !== 'maxHp' && item.key !== 'maxMp'),
+    [],
+  );
+
+  const statScaleMax = useMemo(() => ({
+    maxHp: Math.max(...allClasses.map((entry) => entry.baseStats.maxHp)),
+    maxMp: Math.max(...allClasses.map((entry) => entry.baseStats.maxMp)),
+  }), [allClasses]);
+
+  const renderDetailSections = () => (
+    <div className="mt-4">
+      <div className="text-[10px] font-black uppercase tracking-[0.2em] text-white/48">Atributos base</div>
+      <p className="mt-2 text-sm leading-relaxed text-white/72">{classCopy.summary}</p>
+
+      <div className="mt-3 grid gap-2.5 sm:grid-cols-2">
+        {resourceStatItems.map(({ key, label, icon: Icon, color, bg }) => {
+          const value = playerClass.baseStats[key];
+          const maxValue = statScaleMax[key];
+          const percent = maxValue > 0 ? Math.max(10, (value / maxValue) * 100) : 0;
+          return (
+            <div key={`${playerClass.id}-${key}`} className="rounded-[18px] border px-3 py-3 backdrop-blur-md" style={statSurfaceStyle}>
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-[9px] font-black uppercase tracking-[0.16em] text-white/48">{label}</div>
+                  <div className="mt-1 text-lg font-black text-white">{value}</div>
+                </div>
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[11px]" style={{ color, backgroundColor: bg }}>
+                  <Icon size={14} />
+                </span>
+              </div>
+              <div className="mt-2.5 h-2 overflow-hidden rounded-full bg-white/8">
+                <div
+                  className="h-full rounded-full"
+                  style={{
+                    width: `${percent}%`,
+                    background: `linear-gradient(90deg, ${color} 0%, ${color}cc 100%)`,
+                    boxShadow: `0 0 14px ${color}44`,
+                  }}
+                />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div
+        className="mt-2.5 grid gap-2"
+        style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(82px, 1fr))' }}
+      >
+        {secondaryStatItems.map(({ key, label, icon: Icon, color, bg }) => (
+          <div key={`${playerClass.id}-${key}`} className="min-h-[72px] rounded-[16px] border px-2.5 py-2.5 backdrop-blur-md" style={statSurfaceStyle}>
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <div className="text-[8px] font-black uppercase tracking-[0.16em] text-white/48">{label}</div>
+                <div className="mt-1.5 text-[1.1rem] font-black leading-none text-white">{playerClass.baseStats[key]}</div>
+              </div>
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px]" style={{ color, backgroundColor: bg }}>
+                <Icon size={13} />
+              </span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-3 rounded-[22px] border px-4 py-3 text-sm text-white/72 backdrop-blur-md" style={descriptionSurfaceStyle}>
+        {repairGameText(playerClass.description)}
+      </div>
+
+      <div className="mt-3 rounded-[22px] border px-4 py-3 backdrop-blur-md" style={sectionSurfaceStyle}>
+        <div className="text-[10px] font-black uppercase tracking-[0.2em] text-white/48">Proficiencias de arma</div>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {proficiencyBadges.map((badge) => (
+            <span key={`${playerClass.id}-${badge.label}`} className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.12em] text-white/78 backdrop-blur-md" style={chipSurfaceStyle}>
+              <span className="text-sm leading-none">{badge.icon}</span>
+              {badge.label}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      <div
+        className="mt-3 rounded-[24px] border px-4 py-4"
+        style={{
+          ...sectionSurfaceStyle,
+          borderColor: `${constellation.resource.color}44`,
+          background: `linear-gradient(135deg, ${constellation.resource.color}16 0%, rgba(255,255,255,0.05) 100%)`,
+        }}
+      >
+        <div className="text-[10px] font-black uppercase tracking-[0.2em] text-white/48">Trilhas da classe</div>
+        <div className="mt-3 grid gap-2 sm:grid-cols-3">
+          {constellation.trails.map((trail) => (
+            <div
+              key={trail.id}
+              className="rounded-[18px] border px-3 py-3 backdrop-blur-md"
+              style={{
+                borderColor: `${trail.color}44`,
+                background: `linear-gradient(180deg, ${trail.color}18 0%, rgba(255,255,255,0.04) 100%)`,
+                boxShadow: `inset 0 0 0 1px ${trail.color}18`,
+              }}
+            >
+              <div
+                className="text-[10px] font-black uppercase tracking-[0.18em]"
+                style={{ color: trail.color }}
+              >
+                Trilha
+              </div>
+              <div className="mt-1 font-gamer text-lg font-black text-white">
+                {repairGameText(trail.name)}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <>
       <div
@@ -920,15 +1080,16 @@ const QuickHeroCard = ({
         className={`absolute inset-0 z-[130] overflow-y-auto md:hidden transition-all duration-300 ease-out ${isVisible ? 'bg-black/20 opacity-100' : 'bg-black/0 opacity-0 pointer-events-none'}`}
       >
         <div className="min-h-[62dvh]" />
-        <div className={`origin-bottom rounded-t-[26px] border border-b-0 border-[#cfab91]/90 bg-[linear-gradient(180deg,rgba(255,249,242,0.98)_0%,rgba(247,236,221,0.98)_38%,rgba(242,223,203,0.98)_100%)] shadow-[0_-22px_56px_rgba(54,26,33,0.22)] backdrop-blur-sm transition-all duration-300 ease-out ${isVisible ? 'translate-y-0 scale-100 opacity-100' : 'translate-y-14 scale-[0.98] opacity-0'}`}>
-          <div className="px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
+        <div className={`origin-bottom relative overflow-hidden rounded-t-[26px] border border-b-0 shadow-[0_-22px_56px_rgba(0,0,0,0.32)] transition-all duration-300 ease-out ${isVisible ? 'translate-y-0 scale-100 opacity-100' : 'translate-y-14 scale-[0.98] opacity-0'}`} style={panelSurfaceStyle}>
+          <div className="pointer-events-none absolute inset-0" style={panelOverlayStyle} />
+          <div className="relative px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
           <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-[#b78f78]/45" />
           <div className="flex items-start justify-between gap-3">
             <div>
-              <div className="text-[10px] font-black uppercase tracking-[0.24em] text-[#9a7068]">Heroi escolhido</div>
+              <div className="text-[10px] font-black uppercase tracking-[0.24em] text-white/52">Heroi escolhido</div>
               <div className="mt-1 flex items-center gap-3">
                 <span
-                  className="flex h-11 w-11 items-center justify-center rounded-[14px] border text-white shadow-[0_10px_20px_rgba(107,49,65,0.12)]"
+                  className="flex h-11 w-11 items-center justify-center rounded-[14px] border text-white shadow-[0_16px_28px_rgba(0,0,0,0.18)]"
                   style={{
                     borderColor: `${playerClass.visualProfile.auraColor}55`,
                     background: `linear-gradient(180deg, ${playerClass.visualProfile.auraColor} 0%, ${playerClass.visualProfile.primaryColor} 100%)`,
@@ -936,123 +1097,27 @@ const QuickHeroCard = ({
                 >
                   <RoleIcon size={20} />
                 </span>
-                <div className="font-gamer text-2xl font-black text-[#6b3141]">{classNamePt}</div>
+                <div className="font-gamer text-2xl font-black text-white">{classNamePt}</div>
               </div>
-              <div className="mt-1 text-xs font-black uppercase tracking-[0.18em] text-[#8a5a57]">{repairGameText(playerClass.title)}</div>
+              <div className="mt-1 text-xs font-black uppercase tracking-[0.18em] text-white/62">{repairGameText(playerClass.title)}</div>
             </div>
 
             <button
               onClick={onClose}
-              className="flex h-10 w-10 items-center justify-center rounded-2xl border border-[#d6b9a3] bg-[#fff8f1] text-[#6b3141] transition-colors hover:bg-[#f7ecdd]"
+              className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/14 bg-white/6 text-white/74 shadow-[0_16px_28px_rgba(0,0,0,0.18)] backdrop-blur-md transition-colors hover:bg-white/12"
             >
               <X size={18} />
             </button>
           </div>
 
-          <div
-            className="mt-4 rounded-[24px] border px-4 py-3"
-            style={{
-              borderColor: `${playerClass.visualProfile.auraColor}33`,
-              background: `linear-gradient(135deg, ${playerClass.visualProfile.auraColor}12 0%, rgba(255,248,241,0.92) 58%, rgba(255,255,255,0.8) 100%)`,
-            }}
-          >
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-full border border-[#d6b9a3] bg-[#fff8f1] px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.14em] text-[#6b3141]">
-                {classCopy.role}
-              </span>
-              <span
-                className="rounded-full border px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.14em]"
-                style={{
-                  borderColor: `${constellation.resource.color}44`,
-                  color: constellation.resource.color,
-                  backgroundColor: `${constellation.resource.color}14`,
-                }}
-              >
-                {repairGameText(constellation.resource.name)}
-              </span>
-              {classCopy.highlights.map((highlight) => (
-                <span key={`${playerClass.id}-${highlight}`} className="rounded-full border border-[#d6b9a3] bg-[#f7ecdd] px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.14em] text-[#6b3141]">
-                  {highlight}
-                </span>
-              ))}
-            </div>
-          </div>
-
-          <div className="mt-4">
-            <p className="text-sm leading-relaxed text-[#7f5b56]">{classCopy.summary}</p>
-
-            <div className="mt-3 grid grid-cols-3 gap-2">
-              {STAT_ITEMS.map(({ key, label, icon: Icon, color, bg }) => (
-                <div key={`${playerClass.id}-${key}`} className="rounded-[18px] border border-[#dcc0aa] bg-[#fffdf9] px-3 py-2.5">
-                  <div className="flex items-center gap-2">
-                    <span className="flex h-8 w-8 items-center justify-center rounded-[10px]" style={{ color, backgroundColor: bg }}>
-                      <Icon size={14} />
-                    </span>
-                    <div>
-                      <div className="text-[9px] font-black uppercase tracking-[0.16em] text-[#9a7068]">{label}</div>
-                      <div className="text-sm font-black text-[#6b3141]">{playerClass.baseStats[key]}</div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="mt-3 rounded-[22px] border border-[#dcc0aa] bg-[#fff8f1] px-4 py-3 text-sm text-[#7f5b56]">
-              {repairGameText(playerClass.description)}
-            </div>
-
-            <div className="mt-3 rounded-[22px] border border-[#dcc0aa] bg-[#fffdf9] px-4 py-3">
-              <div className="text-[10px] font-black uppercase tracking-[0.2em] text-[#9a7068]">Proficiencias de arma</div>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {proficiencyBadges.map((badge) => (
-                  <span key={`${playerClass.id}-${badge.label}`} className="inline-flex items-center gap-1.5 rounded-full border border-[#d6b9a3] bg-[#fff8f1] px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.12em] text-[#6b3141]">
-                    <span className="text-sm leading-none">{badge.icon}</span>
-                    {badge.label}
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            <div
-              className="mt-3 rounded-[24px] border px-4 py-4"
-              style={{
-                borderColor: `${constellation.resource.color}44`,
-                background: `linear-gradient(135deg, ${constellation.resource.color}14 0%, rgba(255,250,244,0.98) 100%)`,
-              }}
-            >
-              <div className="text-[10px] font-black uppercase tracking-[0.2em] text-[#9a7068]">Trilhas da classe</div>
-              <div className="mt-3 grid gap-2">
-                {constellation.trails.map((trail) => (
-                  <div
-                    key={trail.id}
-                    className="rounded-[18px] border px-3 py-3"
-                    style={{
-                      borderColor: `${trail.color}44`,
-                      background: `linear-gradient(180deg, ${trail.color}18 0%, rgba(255,255,255,0.88) 100%)`,
-                      boxShadow: `inset 0 0 0 1px ${trail.color}18`,
-                    }}
-                  >
-                    <div
-                      className="text-[10px] font-black uppercase tracking-[0.18em]"
-                      style={{ color: trail.color }}
-                    >
-                      Trilha
-                    </div>
-                    <div className="mt-1 font-gamer text-lg font-black text-[#6b3141]">
-                      {repairGameText(trail.name)}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
+          {renderDetailSections()}
             <button
               onClick={uiProfile !== 'gamepad' ? () => onConfirm(playerClass.id) : undefined}
               className="mt-4 inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-[16px] border-b-4 px-5 py-3 text-sm font-black uppercase tracking-[0.16em] text-white transition-all hover:brightness-105 active:translate-y-0.5 active:border-b-0"
               style={{
-                backgroundColor: actionColor,
-                borderColor: actionBorderColor,
-                boxShadow: `0 10px 22px ${actionColor}30`,
+                  background: `linear-gradient(180deg, ${actionColor} 0%, ${playerClass.visualProfile.primaryColor} 100%)`,
+                  borderColor: actionBorderColor,
+                  boxShadow: `0 18px 30px ${actionColor}30, inset 0 1px 0 rgba(255,255,255,0.12)`,
                 cursor: uiProfile === 'gamepad' ? 'default' : undefined,
               }}
             >
@@ -1065,15 +1130,15 @@ const QuickHeroCard = ({
           </div>
         </div>
       </div>
-      </div>
 
-      <div className={`absolute bottom-6 right-4 top-8 z-[130] hidden w-[min(560px,42vw)] origin-right overflow-hidden rounded-[32px] border border-[#cfab91] bg-[linear-gradient(180deg,rgba(255,249,242,0.98)_0%,rgba(247,236,221,0.98)_38%,rgba(242,223,203,0.98)_100%)] p-6 shadow-[0_30px_64px_rgba(54,26,33,0.22)] backdrop-blur-sm transition-all duration-300 ease-out md:flex md:flex-col ${isVisible ? 'translate-x-0 scale-100 opacity-100' : 'translate-x-12 scale-[0.97] opacity-0 pointer-events-none'}`}>
-        <div className="flex items-start justify-between gap-3">
+      <div className={`absolute bottom-6 right-4 top-8 z-[130] hidden w-[min(560px,42vw)] origin-right overflow-hidden rounded-[32px] border p-6 shadow-[0_30px_64px_rgba(0,0,0,0.34)] transition-all duration-300 ease-out md:flex md:flex-col ${isVisible ? 'translate-x-0 scale-100 opacity-100' : 'translate-x-12 scale-[0.97] opacity-0 pointer-events-none'}`} style={panelSurfaceStyle}>
+        <div className="pointer-events-none absolute inset-0" style={panelOverlayStyle} />
+        <div className="relative flex items-start justify-between gap-3">
           <div>
-            <div className="text-[10px] font-black uppercase tracking-[0.24em] text-[#9a7068]">Heroi escolhido</div>
+            <div className="text-[10px] font-black uppercase tracking-[0.24em] text-white/52">Heroi escolhido</div>
             <div className="mt-1 flex items-center gap-3">
               <span
-                className="flex h-11 w-11 items-center justify-center rounded-[14px] border text-white shadow-[0_10px_20px_rgba(107,49,65,0.12)]"
+                className="flex h-11 w-11 items-center justify-center rounded-[14px] border text-white shadow-[0_16px_28px_rgba(0,0,0,0.18)]"
                 style={{
                   borderColor: `${playerClass.visualProfile.auraColor}55`,
                   background: `linear-gradient(180deg, ${playerClass.visualProfile.auraColor} 0%, ${playerClass.visualProfile.primaryColor} 100%)`,
@@ -1081,126 +1146,30 @@ const QuickHeroCard = ({
               >
                 <RoleIcon size={20} />
               </span>
-              <div className="font-gamer text-2xl font-black text-[#6b3141]">{classNamePt}</div>
+              <div className="font-gamer text-2xl font-black text-white">{classNamePt}</div>
             </div>
-            <div className="mt-1 text-xs font-black uppercase tracking-[0.18em] text-[#8a5a57]">{repairGameText(playerClass.title)}</div>
+            <div className="mt-1 text-xs font-black uppercase tracking-[0.18em] text-white/62">{repairGameText(playerClass.title)}</div>
           </div>
 
           <button
             onClick={onClose}
-            className="flex h-10 w-10 items-center justify-center rounded-2xl border border-[#d6b9a3] bg-[#fff8f1] text-[#6b3141] transition-colors hover:bg-[#f7ecdd]"
+            className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/14 bg-white/6 text-white/74 shadow-[0_16px_28px_rgba(0,0,0,0.18)] backdrop-blur-md transition-colors hover:bg-white/12"
           >
             <X size={18} />
           </button>
         </div>
 
-        <div ref={desktopScrollRef} className="mt-4 flex-1 overflow-y-auto pr-1">
-          <div
-            className="rounded-[24px] border px-4 py-3"
-            style={{
-              borderColor: `${playerClass.visualProfile.auraColor}33`,
-              background: `linear-gradient(135deg, ${playerClass.visualProfile.auraColor}12 0%, rgba(255,248,241,0.92) 58%, rgba(255,255,255,0.8) 100%)`,
-            }}
-          >
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-full border border-[#d6b9a3] bg-[#fff8f1] px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.14em] text-[#6b3141]">
-                {classCopy.role}
-              </span>
-              <span
-                className="rounded-full border px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.14em]"
-                style={{
-                  borderColor: `${constellation.resource.color}44`,
-                  color: constellation.resource.color,
-                  backgroundColor: `${constellation.resource.color}14`,
-                }}
-              >
-                {repairGameText(constellation.resource.name)}
-              </span>
-              {classCopy.highlights.map((highlight) => (
-                <span key={`${playerClass.id}-${highlight}`} className="rounded-full border border-[#d6b9a3] bg-[#f7ecdd] px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.14em] text-[#6b3141]">
-                  {highlight}
-                </span>
-              ))}
-            </div>
-          </div>
-
-          <div className="mt-4">
-            <p className="text-sm leading-relaxed text-[#7f5b56]">{classCopy.summary}</p>
-
-            <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-6">
-              {STAT_ITEMS.map(({ key, label, icon: Icon, color, bg }) => (
-                <div key={`${playerClass.id}-${key}`} className="rounded-[18px] border border-[#dcc0aa] bg-[#fffdf9] px-3 py-2.5">
-                  <div className="flex items-center gap-2">
-                    <span className="flex h-8 w-8 items-center justify-center rounded-[10px]" style={{ color, backgroundColor: bg }}>
-                      <Icon size={14} />
-                    </span>
-                    <div>
-                      <div className="text-[9px] font-black uppercase tracking-[0.16em] text-[#9a7068]">{label}</div>
-                      <div className="text-sm font-black text-[#6b3141]">{playerClass.baseStats[key]}</div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="mt-3 rounded-[22px] border border-[#dcc0aa] bg-[#fff8f1] px-4 py-3 text-sm text-[#7f5b56]">
-              {repairGameText(playerClass.description)}
-            </div>
-
-            <div className="mt-3 rounded-[22px] border border-[#dcc0aa] bg-[#fffdf9] px-4 py-3">
-              <div className="text-[10px] font-black uppercase tracking-[0.2em] text-[#9a7068]">Proficiencias de arma</div>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {proficiencyBadges.map((badge) => (
-                  <span key={`${playerClass.id}-${badge.label}`} className="inline-flex items-center gap-1.5 rounded-full border border-[#d6b9a3] bg-[#fff8f1] px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.12em] text-[#6b3141]">
-                    <span className="text-sm leading-none">{badge.icon}</span>
-                    {badge.label}
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            <div
-              className="mt-3 rounded-[24px] border px-4 py-4"
-              style={{
-                borderColor: `${constellation.resource.color}44`,
-                background: `linear-gradient(135deg, ${constellation.resource.color}14 0%, rgba(255,250,244,0.98) 100%)`,
-              }}
-            >
-              <div className="text-[10px] font-black uppercase tracking-[0.2em] text-[#9a7068]">Trilhas da classe</div>
-              <div className="mt-3 grid gap-2 sm:grid-cols-3">
-                {constellation.trails.map((trail) => (
-                  <div
-                    key={trail.id}
-                    className="rounded-[18px] border px-3 py-3"
-                    style={{
-                      borderColor: `${trail.color}44`,
-                      background: `linear-gradient(180deg, ${trail.color}18 0%, rgba(255,255,255,0.88) 100%)`,
-                      boxShadow: `inset 0 0 0 1px ${trail.color}18`,
-                    }}
-                  >
-                    <div
-                      className="text-[10px] font-black uppercase tracking-[0.18em]"
-                      style={{ color: trail.color }}
-                    >
-                      Trilha
-                    </div>
-                    <div className="mt-1 font-gamer text-lg font-black text-[#6b3141]">
-                      {repairGameText(trail.name)}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
+        <div ref={desktopScrollRef} className="relative mt-4 flex-1 overflow-y-auto pr-1">
+          {renderDetailSections()}
         </div>
 
         <button
           onClick={uiProfile !== 'gamepad' ? () => onConfirm(playerClass.id) : undefined}
           className="mt-4 inline-flex min-h-14 items-center justify-center gap-2 rounded-[16px] border-b-4 px-5 py-3 text-sm font-black uppercase tracking-[0.16em] text-white transition-all hover:brightness-105 active:translate-y-0.5 active:border-b-0"
           style={{
-            backgroundColor: actionColor,
+            background: `linear-gradient(180deg, ${actionColor} 0%, ${playerClass.visualProfile.primaryColor} 100%)`,
             borderColor: actionBorderColor,
-            boxShadow: `0 10px 22px ${actionColor}30`,
+            boxShadow: `0 18px 30px ${actionColor}30, inset 0 1px 0 rgba(255,255,255,0.12)`,
             cursor: uiProfile === 'gamepad' ? 'default' : undefined,
           }}
         >
@@ -1511,6 +1480,7 @@ export const ClassSelectionScreen: React.FC<ClassSelectionScreenProps> = ({
       {!transitionState && selectedClass && (
         <QuickHeroCard
           playerClass={selectedClass}
+          allClasses={classes}
           isVisible={isDetailsPanelVisible}
           onClose={() => setOpenClassId(null)}
           onConfirm={(classId) => {

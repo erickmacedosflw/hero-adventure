@@ -211,7 +211,7 @@ export const SkillsScreen: React.FC<SkillsScreenProps> = ({ player, onClose, isC
   const font: React.CSSProperties = { fontFamily: "'Segoe UI',system-ui,sans-serif" };
 
   return (
-    <div className={`absolute inset-0 z-[80] flex flex-col overflow-hidden pointer-events-auto ${overlayFade}`}>
+    <div className={`absolute inset-0 z-[80] flex flex-col overflow-hidden pointer-events-auto backdrop-blur-md ${overlayFade}`}>
 
       {/* TOP AREA � click to close, book image */}
       <div
