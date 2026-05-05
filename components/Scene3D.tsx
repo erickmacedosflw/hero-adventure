@@ -3424,6 +3424,8 @@ const SpeedAttributeBar: React.FC<{
   const iconSize = isMobileDevice ? 16 : 11;
   const iconBox = isMobileDevice ? 20 : 14;
   const shouldSnapReset = clampedPct < previousPctRef.current;
+  const minVisiblePct = clampedPct > 0 ? Math.max(clampedPct, isMobileDevice ? 3.2 : 2.4) : 0;
+  const fillScale = minVisiblePct / 100;
   const fillShadow = isReady
     ? `0 0 10px ${SPEED_ATTRIBUTE_COLOR}cc, 0 0 18px ${SPEED_ATTRIBUTE_COLOR}66`
     : `0 0 7px ${SPEED_ATTRIBUTE_COLOR}55`;
@@ -3466,20 +3468,40 @@ const SpeedAttributeBar: React.FC<{
           overflow: 'hidden',
           border: `1px solid ${SPEED_ATTRIBUTE_COLOR}33`,
           boxShadow: isReady ? `0 0 0 1px ${SPEED_ATTRIBUTE_COLOR}22` : 'none',
+          position: 'relative',
         }}
       >
         <div
           style={{
             height: '100%',
-            width: `${clampedPct}%`,
+            width: '100%',
             borderRadius: '99px',
             background: `linear-gradient(90deg, ${SPEED_ATTRIBUTE_COLOR}99, ${SPEED_ATTRIBUTE_COLOR})`,
             boxShadow: fillShadow,
+            opacity: clampedPct > 0 ? 1 : 0,
+            transform: `scaleX(${fillScale})`,
+            transformOrigin: 'left center',
+            willChange: 'transform, opacity',
             transition: shouldSnapReset
-              ? 'box-shadow 0.18s ease'
-              : 'width 0.12s linear, box-shadow 0.18s ease',
+              ? 'box-shadow 0.18s ease, opacity 0.18s ease'
+              : 'transform 0.12s linear, box-shadow 0.18s ease, opacity 0.18s ease',
           }}
         />
+        {clampedPct > 0 && (
+          <div
+            style={{
+              position: 'absolute',
+              top: 0,
+              bottom: 0,
+              left: 0,
+              width: '100%',
+              pointerEvents: 'none',
+              opacity: Math.min(1, 0.45 + (clampedPct / 100) * 0.4),
+              background: `linear-gradient(90deg, transparent 0%, transparent ${Math.max(0, minVisiblePct - 8)}%, rgba(255,255,255,0.18) ${Math.max(0, minVisiblePct - 1.5)}%, transparent ${Math.min(100, minVisiblePct + 8)}%)`,
+              transition: shouldSnapReset ? 'opacity 0.18s ease' : 'background 0.12s linear, opacity 0.18s ease',
+            }}
+          />
+        )}
       </div>
     </div>
   );
