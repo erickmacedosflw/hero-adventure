@@ -47,9 +47,9 @@ export const getBattleItemBadges = (item: Item, variant: BattleBadgeVariant = 'c
     return [
       {
         label: variant === 'detailed' ? `+${Math.round((item.value as number) * 100)}% DEF` : 'DEF↑',
-        color: '#93c5fd',
-        bg: 'rgba(30,58,95,0.30)',
-        border: 'rgba(147,197,253,0.30)',
+        color: '#fb923c',
+        bg: 'rgba(154,52,18,0.30)',
+        border: 'rgba(251,146,60,0.30)',
       },
       { label: `${item.duration ?? 3}t`, color: '#fcd34d', bg: 'rgba(120,53,15,0.30)', border: 'rgba(252,211,77,0.28)' },
     ];

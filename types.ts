@@ -34,6 +34,25 @@ export enum TurnState {
   PROCESSING
 }
 
+export type BattleTimelineState = 'RUNNING' | 'WAITING_INPUT' | 'EXECUTING';
+
+export type BattleActorKind = 'player' | 'enemy';
+
+export type TipoDefesa = 'FISICA' | 'MAGICA';
+
+export type BattleActorChargeState = 'carregando' | 'pronto' | 'executando';
+
+export interface BattleActorGauge {
+  id: string;
+  kind: BattleActorKind;
+  label: string;
+  speed: number;
+  tempoDeAtaque: number;
+  state: BattleActorChargeState;
+}
+
+export type BattleActorGaugeMap = Record<string, BattleActorGauge>;
+
 /** Ação pendente que requer seleção de alvo em grupo de inimigos. */
 export type PendingTargetAction =
   | { type: 'attack' }
@@ -47,6 +66,7 @@ export interface Stats {
   maxMp: number;
   atk: number;
   def: number;
+  magicDef?: number;
   speed: number;
   luck: number; // New stat for crit chance
   magic: number;
@@ -70,7 +90,7 @@ export interface GltfMonsterTemplate {
   baseStats: {
     hp: number; maxHp: number;
     mp: number; maxMp: number;
-    atk: number; def: number;
+    atk: number; def: number; magicDef?: number;
     speed: number; luck: number; magic: number;
   };
   xpReward: number;
@@ -215,7 +235,7 @@ export interface EnemyTemplate {
   name: string;
   type: 'beast' | 'humanoid' | 'undead';
   enemyClassId?: PlayerClassId;
-  baseStats?: Partial<Pick<Stats, 'hp' | 'maxHp' | 'mp' | 'maxMp' | 'atk' | 'def' | 'speed' | 'luck' | 'magic'>>;
+  baseStats?: Partial<Pick<Stats, 'hp' | 'maxHp' | 'mp' | 'maxMp' | 'atk' | 'def' | 'magicDef' | 'speed' | 'luck' | 'magic'>>;
   color?: string;
   scale?: number;
   assets?: PlayerClassAssets;
@@ -343,7 +363,7 @@ export interface Skill {
 }
 
 export interface TalentNodeEffect {
-  stats?: Partial<Pick<Stats, 'hp' | 'maxHp' | 'mp' | 'maxMp' | 'atk' | 'def' | 'speed' | 'luck' | 'magic'>>;
+  stats?: Partial<Pick<Stats, 'hp' | 'maxHp' | 'mp' | 'maxMp' | 'atk' | 'def' | 'magicDef' | 'speed' | 'luck' | 'magic'>>;
   bonuses?: Partial<Record<TalentTrailNodeEffectBonusKey, number>>;
   unlockSkillId?: string;
 }
@@ -517,6 +537,8 @@ export interface Player {
   chosenCards: string[];
   cardBonuses: PlayerCardBonuses;
   isDefending: boolean;
+  isDefendendo?: boolean;
+  tipoDefesaAtiva?: TipoDefesa | null;
   impulso: number; // 0-3 reserve charge
   impulsoAtivo: number; // 0-3 consumed by next attack/defend/skill
   limitMeter: number; // 0 to 100
@@ -560,6 +582,8 @@ export interface Enemy {
   isBoss: boolean;
   isSubBoss?: boolean;
   isDefending: boolean;
+  isDefendendo?: boolean;
+  tipoDefesaAtiva?: TipoDefesa | null;
   impulso: number;
   impulseGuardLevel?: number;
   statusEffects?: StatusEffect[];

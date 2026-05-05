@@ -44,6 +44,8 @@ export const INITIAL_PLAYER: Player = {
     mpRegenPerTurn: 0,
   },
   isDefending: false,
+  isDefendendo: false,
+  tipoDefesaAtiva: null,
   impulso: 0,
   impulsoAtivo: 0,
   limitMeter: 0,

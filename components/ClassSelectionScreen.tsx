@@ -103,7 +103,8 @@ const STAT_ITEMS = [
   { key: 'maxMp', label: 'MP', icon: WandSparkles, color: '#38bdf8', bg: 'rgba(56,189,248,0.16)' },
   { key: 'atk', label: 'ATK', icon: Swords, color: '#ef4444', bg: 'rgba(239,68,68,0.16)' },
   { key: 'magic', label: 'MAG', icon: WandSparkles, color: '#a855f7', bg: 'rgba(168,85,247,0.16)' },
-  { key: 'def', label: 'DEF', icon: Shield, color: '#3b82f6', bg: 'rgba(59,130,246,0.16)' },
+  { key: 'def', label: 'DEF', icon: Shield, color: '#f97316', bg: 'rgba(249,115,22,0.16)' },
+  { key: 'magicDef', label: 'D.MAG', icon: Shield, color: '#3b82f6', bg: 'rgba(59,130,246,0.16)' },
   { key: 'speed', label: 'VEL', icon: Zap, color: '#22c55e', bg: 'rgba(34,197,94,0.16)' },
   { key: 'luck', label: 'SRT', icon: Star, color: '#fbbf24', bg: 'rgba(251,191,36,0.16)' },
 ] as const;

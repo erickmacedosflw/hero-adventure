@@ -28,6 +28,7 @@ import {
   Player,
   PlayerAnimationAction,
   Skill,
+  TipoDefesa,
   TurnState,
 } from '../../types';
 
@@ -122,8 +123,8 @@ interface UseBattleControllerParams {
   enemyIntentPreview?: EnemyIntentPreview | null;
   onPlayerDefeat?: () => void;
   onTowerDefeat?: () => void;
-  /** Chamado quando o ator atual (jogador ou inimigo) termina seu turno. Avança a fila de iniciativa. */
-  onActorTurnDone: () => void;
+  /** Chamado quando o ator atual termina sua ação e a timeline ATB pode retomar. */
+  onActorTurnDone: (actorIdOverride?: string) => void;
 }
 
 const getMarkedBonus = (statuses: Enemy['statusEffects'] | undefined, value: number) => (
@@ -339,6 +340,21 @@ const playMovementSfx = (attackerStyle: 'weapon' | 'unarmed') => {
 const getImpulseColorByLevel = (level: number) => (
   level >= 3 ? '#3b82f6' : level === 2 ? '#a855f7' : '#ef4444'
 );
+
+const defenseTypeMatchesAttackKind = (defenseType: TipoDefesa | null | undefined, attackKind: 'physical' | 'magic') => (
+  (defenseType === 'FISICA' && attackKind === 'physical')
+  || (defenseType === 'MAGICA' && attackKind === 'magic')
+);
+
+const getDefenseTypeLabel = (defenseType: TipoDefesa | null | undefined) => (
+  defenseType === 'FISICA' ? 'fisica' : defenseType === 'MAGICA' ? 'magica' : 'indefinida'
+);
+
+const getDefenseTypeColor = (defenseType: TipoDefesa | null | undefined) => (
+  defenseType === 'FISICA' ? '#f97316' : '#3b82f6'
+);
+
+const getMagicDefenseStat = (stats: Player['stats']) => stats.magicDef ?? stats.def;
 
 export const useBattleController = ({
   player,
@@ -838,16 +854,19 @@ export const useBattleController = ({
     setPlayer,
   ]);
 
-  const handlePlayerDefense = useCallback(() => {
+  const handlePlayerDefense = useCallback((tipoDefesa: TipoDefesa | null = null) => {
     if (!enemy || turnState !== TurnState.PLAYER_INPUT) return;
     lastPlayerActionRef.current = 'defend';
 
+    const activeDefenseType: TipoDefesa = tipoDefesa ?? 'FISICA';
     const talentBonuses = getTalentBonuses(player);
     const activeImpulse = consumeActiveImpulse();
     const perfectGuardTurns = activeImpulse >= 2 ? 1 : 0;
     const guaranteedCounterTurns = activeImpulse >= 3 ? 1 : 0;
     const impulseDefenseBoostTurns = activeImpulse >= 1 ? 1 : 0;
-    const manaRecovered = Math.max(1, Math.floor(player.stats.maxMp * (0.05 + player.cardBonuses.defendManaRestore)) + Math.floor(talentBonuses.manaOnDefend));
+    const manaRecovered = activeDefenseType === 'MAGICA'
+      ? Math.max(1, Math.floor(player.stats.maxMp * (0.05 + player.cardBonuses.defendManaRestore)) + Math.floor(talentBonuses.manaOnDefend))
+      : 0;
 
     setTurnState(TurnState.PLAYER_ANIMATION);
     battleSfx.play('defense_use', { source: 'hero' });
@@ -856,6 +875,8 @@ export const useBattleController = ({
     setPlayer((prev) => ({
       ...prev,
       isDefending: true,
+      isDefendendo: true,
+      tipoDefesaAtiva: activeDefenseType,
       buffs: {
         ...prev.buffs,
         riposteTurns: 1,
@@ -866,14 +887,17 @@ export const useBattleController = ({
       },
       stats: {
         ...prev.stats,
-        mp: Math.min(prev.stats.maxMp, prev.stats.mp + manaRecovered),
+        mp: manaRecovered > 0 ? Math.min(prev.stats.maxMp, prev.stats.mp + manaRecovered) : prev.stats.mp,
       },
       classResource: {
         ...prev.classResource,
         value: Math.min(prev.classResource.max, prev.classResource.value + 1),
       },
     }));
-    addLog(`+${manaRecovered} Mana`, 'heal');
+    addLog(`Defesa ${getDefenseTypeLabel(activeDefenseType)} preparada.`, 'buff');
+    if (manaRecovered > 0) {
+      addLog(`+${manaRecovered} Mana`, 'heal');
+    }
     if (activeImpulse > 0) {
       addLog(`Defesa reforcada por impulso nivel ${activeImpulse}.`, 'buff');
       spawnFloatingText(
@@ -883,8 +907,10 @@ export const useBattleController = ({
         activeImpulse >= 3 ? '#3b82f6' : activeImpulse >= 2 ? '#a855f7' : '#ef4444',
       );
     }
-    spawnFloatingText(`+${manaRecovered} Mana`, 'player', 'heal');
-    spawnParticles([-2, -1, 0], 10, '#3b82f6', 'spark');
+    if (manaRecovered > 0) {
+      spawnFloatingText(`+${manaRecovered} Mana`, 'player', 'heal');
+    }
+    spawnParticles([-2, -1, 0], 10, getDefenseTypeColor(activeDefenseType), 'spark');
 
     window.setTimeout(() => {
       window.setTimeout(() => onActorTurnDone(), 1000);
@@ -1351,12 +1377,12 @@ export const useBattleController = ({
       spawnFloatingText('ATAQUE UP!', 'player', 'buff');
       addLog(`Usou ${item.name}! Dano aumentado por ${item.duration} turnos.`, 'buff');
     } else if (item.id === 'pot_def') {
-      spawnParticles([-2, -1, 0], 15, '#10b981', 'spark');
+      spawnParticles([-2, -1, 0], 15, '#f97316', 'spark');
       spawnFloatingText('DEFESA UP!', 'player', 'buff');
       addLog(`Usou ${item.name}! Defesa aumentada por ${item.duration} turnos.`, 'buff');
     } else if (item.id === 'pot_war_sigil' || item.id === 'pot_overclock') {
       spawnParticles([-2, -1, 0], 16, '#f97316', 'spark');
-      spawnParticles([-2, -1, 0], 16, '#10b981', 'spark');
+      spawnParticles([-2, -1, 0], 16, '#f97316', 'spark');
       spawnFloatingText('ATK/DEF UP!', 'player', 'buff');
       addLog(`Usou ${item.name}! Ataque e defesa aumentados por ${item.duration || 2} turnos.`, 'buff');
     } else if (item.id === 'pot_alc_phantom_veil') {
@@ -1456,6 +1482,8 @@ export const useBattleController = ({
 
   const handleEnemyTurn = useCallback(() => {
     if (!enemy || gameState !== GameState.BATTLE) return;
+
+    const actingEnemyId = enemy.id;
 
     setEnemyIntentPreview(null);
     setEnemyImpactAnimationId(null);
@@ -1611,8 +1639,7 @@ export const useBattleController = ({
       return activeImpulse;
     };
     const defendingActive = player.isDefending || player.buffs.autoGuardTurns > 0;
-    const perfectGuardActive = defendingActive && player.buffs.perfectGuardTurns > 0;
-    const extraImpulseMitigationActive = defendingActive && player.buffs.impulseDefenseBoostTurns > 0;
+    const activePlayerDefenseType = player.tipoDefesaAtiva ?? null;
 
     if (defendingActive) {
       // Auto-guard mirrors defend posture while the enemy resolves actions.
@@ -1634,13 +1661,13 @@ export const useBattleController = ({
         nextBuffs.perfectGuardTurns = 0;
         nextBuffs.impulseDefenseBoostTurns = 0;
         nextBuffs.guaranteedCounterTurns = 0;
-        return { ...prev, buffs: nextBuffs, isDefending: false };
+        return { ...prev, buffs: nextBuffs, isDefending: false, isDefendendo: false, tipoDefesaAtiva: null };
       });
       const nextIntent = chooseEnemyIntent(enemyAfterBuffTick);
       pendingEnemyIntentRef.current = nextIntent;
       setEnemyIntentPreview(createEnemyIntentPreview(nextIntent));
       setPlayerAnimationAction('idle');
-      window.setTimeout(() => onActorTurnDone(), 350);
+      window.setTimeout(() => onActorTurnDone(actingEnemyId), 350);
     };
 
     const rollDefensiveCounter = (targetEnemy: Enemy) => {
@@ -1978,8 +2005,9 @@ export const useBattleController = ({
         const resolveEnemySkillStrike = (remainingHp: number, strikeNumber: number) => {
           const isFirstStrike = strikeNumber === 1;
           const strikeDefendingActive = isFirstStrike ? defendingActive : false;
-          const strikePerfectGuardActive = strikeDefendingActive && player.buffs.perfectGuardTurns > 0;
-          const strikeExtraImpulseMitigationActive = strikeDefendingActive && player.buffs.impulseDefenseBoostTurns > 0;
+          const strikeDefenseMatchesAttack = strikeDefendingActive && defenseTypeMatchesAttackKind(activePlayerDefenseType, chosenSkill.attackKind);
+          const strikePerfectGuardActive = strikeDefenseMatchesAttack && player.buffs.perfectGuardTurns > 0;
+          const strikeExtraImpulseMitigationActive = strikeDefenseMatchesAttack && player.buffs.impulseDefenseBoostTurns > 0;
           const magicSkillPressure = chosenSkill.attackKind === 'magic'
             ? getEnemyMagicSkillPressure(simulatedEnemy)
             : 1;
@@ -1992,7 +2020,7 @@ export const useBattleController = ({
             attackerAtk: chosenSkill.attackKind === 'magic'
               ? simulatedEnemy.stats.magic
               : getEnemyAtkWithBuff(simulatedEnemy),
-            defenderDef: player.stats.def,
+            defenderDef: chosenSkill.attackKind === 'magic' ? getMagicDefenseStat(player.stats) : player.stats.def,
             attackerSpeed: simulatedEnemy.stats.speed,
             defenderSpeed: player.stats.speed,
             defenderHasPerfectEvade: player.buffs.perfectEvadeTurns > 0,
@@ -2000,6 +2028,8 @@ export const useBattleController = ({
             luck: simulatedEnemy.stats.luck,
             attackKind: chosenSkill.attackKind,
             defenderIsDefending: strikeDefendingActive,
+            defenderDefenseType: activePlayerDefenseType,
+            requireDefenseTypeMatch: true,
             defenderBuffs: player.buffs,
             applyDefenseBuff: true,
             critChanceBonus: simulatedEnemy.aiProfile.critChanceBonus,
@@ -2042,7 +2072,7 @@ export const useBattleController = ({
             return;
           }
 
-          const defendedDamage = strikeDefendingActive ? Math.floor(skillAttackResult.damage * 0.5) : skillAttackResult.damage;
+          const defendedDamage = strikeDefenseMatchesAttack ? Math.floor(skillAttackResult.damage * 0.5) : skillAttackResult.damage;
           const afterImpulseMitigation = strikeExtraImpulseMitigationActive ? Math.floor(defendedDamage * (1 - IMPULSE_DEFENSE_EXTRA_MITIGATION)) : defendedDamage;
           const finalDamage = strikePerfectGuardActive ? 0 : afterImpulseMitigation;
           const mitigatedDamage = strikeDefendingActive ? Math.max(0, skillAttackResult.damage - finalDamage) : 0;
@@ -2056,7 +2086,7 @@ export const useBattleController = ({
             playAttackImpactSfx({
               attackKind: chosenSkill.attackKind,
               attackerStyle: chosenSkill.attackKind === 'magic' ? 'unarmed' : (simulatedEnemy.attackStyle === 'armed' ? 'weapon' : 'unarmed'),
-              defended: strikeDefendingActive,
+              defended: strikeDefenseMatchesAttack,
               source: 'enemy',
             });
             if (remainingHpAfterHit <= 0) {
@@ -2064,7 +2094,7 @@ export const useBattleController = ({
             }
             const hitAnimationAction: PlayerAnimationAction = remainingHpAfterHit <= 0
               ? 'death'
-              : strikeDefendingActive
+              : strikeDefenseMatchesAttack
                 ? 'defend-hit'
                 : skillAttackResult.isCrit
                   ? 'critical-hit'
@@ -2073,7 +2103,7 @@ export const useBattleController = ({
             spawnParticles([-2, -1, 0], 14, castColor, 'explode');
             spawnParticles([-2, -1, 0], 10, chosenSkill.attackKind === 'magic' ? '#7dd3fc' : '#fb7185', 'spark');
             spawnFloatingText(skillAttackResult.isCrit ? `CRIT ${finalDamage}` : finalDamage, 'player', skillAttackResult.isCrit ? 'crit' : 'damage');
-            if (strikeDefendingActive) {
+            if (strikeDefenseMatchesAttack) {
               setEnemyImpactAnimationId(SPRITE_ANIMATION_IDS.hitBlock);
               setEnemyImpactAnimationTintColor(null);
             } else {
@@ -2091,6 +2121,8 @@ export const useBattleController = ({
 
             if (mitigatedDamage > 0) {
               addLog(`Defesa mitigou ${mitigatedDamage} dano.`, 'buff');
+            } else if (strikeDefendingActive && !strikeDefenseMatchesAttack) {
+              addLog(`Defesa ${getDefenseTypeLabel(activePlayerDefenseType)} nao bloqueou ataque ${chosenSkill.attackKind === 'magic' ? 'magico' : 'fisico'}.`, 'damage');
             }
 
             let pendingCounter: { damage: number; enemyStateBeforeCounter: Enemy } | null = null;
@@ -2098,13 +2130,15 @@ export const useBattleController = ({
               ...prev,
               buffs: {
                 ...prev.buffs,
-                riposteTurns: strikeDefendingActive ? 1 : prev.buffs.riposteTurns,
-                riposteArmed: strikeDefendingActive ? true : prev.buffs.riposteArmed,
+                riposteTurns: strikeDefenseMatchesAttack ? 1 : prev.buffs.riposteTurns,
+                riposteArmed: strikeDefenseMatchesAttack ? true : prev.buffs.riposteArmed,
               },
               isDefending: false,
+              isDefendendo: false,
+              tipoDefesaAtiva: null,
               stats: { ...prev.stats, hp: Math.max(0, prev.stats.hp - finalDamage) },
             }));
-            if (strikeDefendingActive && remainingHpAfterHit > 0) {
+            if (strikeDefenseMatchesAttack && remainingHpAfterHit > 0) {
               const counterResult = rollDefensiveCounter(simulatedEnemy);
               if (counterResult.triggered) {
                 pendingCounter = {
@@ -2241,11 +2275,12 @@ export const useBattleController = ({
       const resolveEnemyBasicStrike = (remainingHp: number, strikeNumber: number) => {
         const isFirstStrike = strikeNumber === 1;
         const strikeDefendingActive = isFirstStrike ? defendingActive : false;
-        const strikePerfectGuardActive = strikeDefendingActive && player.buffs.perfectGuardTurns > 0;
-        const strikeExtraImpulseMitigationActive = strikeDefendingActive && player.buffs.impulseDefenseBoostTurns > 0;
+        const strikeDefenseMatchesAttack = strikeDefendingActive && defenseTypeMatchesAttackKind(activePlayerDefenseType, enemyBasicAttackKind);
+        const strikePerfectGuardActive = strikeDefenseMatchesAttack && player.buffs.perfectGuardTurns > 0;
+        const strikeExtraImpulseMitigationActive = strikeDefenseMatchesAttack && player.buffs.impulseDefenseBoostTurns > 0;
         const attackResult = calculateDamage({
           attackerAtk: enemyUsesMagicBasicAttack ? simulatedEnemy.stats.magic : getEnemyAtkWithBuff(simulatedEnemy),
-          defenderDef: player.stats.def,
+          defenderDef: enemyBasicAttackKind === 'magic' ? getMagicDefenseStat(player.stats) : player.stats.def,
           attackerSpeed: simulatedEnemy.stats.speed,
           defenderSpeed: player.stats.speed,
           defenderHasPerfectEvade: player.buffs.perfectEvadeTurns > 0,
@@ -2253,6 +2288,8 @@ export const useBattleController = ({
           luck: simulatedEnemy.stats.luck,
           attackKind: enemyBasicAttackKind,
           defenderIsDefending: strikeDefendingActive,
+          defenderDefenseType: activePlayerDefenseType,
+          requireDefenseTypeMatch: true,
           defenderBuffs: player.buffs,
           applyDefenseBuff: true,
           critChanceBonus: simulatedEnemy.aiProfile.critChanceBonus,
@@ -2273,7 +2310,7 @@ export const useBattleController = ({
             battleSfx.play('evade');
             spawnFloatingText('DESVIO!', 'player', 'buff');
             addLog(`Voce desviou do ataque de ${simulatedEnemy.name}!`, 'evade');
-            setPlayer((prev) => ({ ...prev, isDefending: false }));
+            setPlayer((prev) => ({ ...prev, isDefending: false, isDefendendo: false, tipoDefesaAtiva: null }));
             setPlayerAnimationAction('evade');
 
             if (strikeNumber >= enemyBasicTotalStrikes) {
@@ -2298,7 +2335,7 @@ export const useBattleController = ({
           return;
         }
 
-        const defendedDamage = strikeDefendingActive ? Math.floor(attackResult.damage * 0.5) : attackResult.damage;
+        const defendedDamage = strikeDefenseMatchesAttack ? Math.floor(attackResult.damage * 0.5) : attackResult.damage;
         const afterImpulseMitigation = strikeExtraImpulseMitigationActive ? Math.floor(defendedDamage * (1 - IMPULSE_DEFENSE_EXTRA_MITIGATION)) : defendedDamage;
         const finalDamage = strikePerfectGuardActive ? 0 : afterImpulseMitigation;
         const mitigatedDamage = strikeDefendingActive ? Math.max(0, attackResult.damage - finalDamage) : 0;
@@ -2312,7 +2349,7 @@ export const useBattleController = ({
           playAttackImpactSfx({
             attackKind: enemyBasicAttackKind,
             attackerStyle: enemyBasicAttackerStyle,
-            defended: strikeDefendingActive,
+            defended: strikeDefenseMatchesAttack,
             source: 'enemy',
           });
           if (remainingHpAfterHit <= 0) {
@@ -2320,7 +2357,7 @@ export const useBattleController = ({
           }
           const hitAnimationAction: PlayerAnimationAction = remainingHpAfterHit <= 0
             ? 'death'
-            : strikeDefendingActive
+            : strikeDefenseMatchesAttack
               ? 'defend-hit'
               : attackResult.isCrit
                 ? 'critical-hit'
@@ -2334,7 +2371,7 @@ export const useBattleController = ({
           } else if (enemyUsesBowBasicAttack) {
             setEnemyImpactAnimationId(null);
             setEnemyImpactAnimationTintColor(null);
-          } else if (strikeDefendingActive) {
+          } else if (strikeDefenseMatchesAttack) {
             setEnemyImpactAnimationId(SPRITE_ANIMATION_IDS.hitBlock);
             setEnemyImpactAnimationTintColor(null);
           } else {
@@ -2352,12 +2389,14 @@ export const useBattleController = ({
 
           if (mitigatedDamage > 0) {
             addLog(`Defesa mitigou ${mitigatedDamage} dano.`, 'buff');
+          } else if (strikeDefendingActive && !strikeDefenseMatchesAttack) {
+            addLog(`Defesa ${getDefenseTypeLabel(activePlayerDefenseType)} nao bloqueou ataque ${enemyBasicAttackKind === 'magic' ? 'magico' : 'fisico'}.`, 'damage');
           }
 
           let pendingCounter: { damage: number; enemyStateBeforeCounter: Enemy } | null = null;
           setPlayer((prev) => {
             const nextBuffs = { ...prev.buffs };
-            if (strikeDefendingActive) {
+            if (strikeDefenseMatchesAttack) {
               nextBuffs.riposteTurns = 1;
               nextBuffs.riposteArmed = true;
             }
@@ -2365,10 +2404,12 @@ export const useBattleController = ({
               ...prev,
               buffs: nextBuffs,
               isDefending: false,
+              isDefendendo: false,
+              tipoDefesaAtiva: null,
               stats: { ...prev.stats, hp: Math.max(0, prev.stats.hp - finalDamage) },
             };
           });
-          if (strikeDefendingActive && remainingHpAfterHit > 0) {
+          if (strikeDefenseMatchesAttack && remainingHpAfterHit > 0) {
             const counterResult = rollDefensiveCounter(simulatedEnemy);
             if (counterResult.triggered) {
               pendingCounter = {

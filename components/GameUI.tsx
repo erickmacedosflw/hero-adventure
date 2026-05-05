@@ -1,7 +1,7 @@
 ﻿
 import React, { useState, useEffect, useRef } from 'react';
-import { Player, Enemy, EnemyIntentPreview, BattleLog, TurnState, Item, Skill, GameState, FloatingText, Rarity, ProgressionCard, CardRewardOffer, AlchemistCardOffer, AlchemistItemOffer, DungeonResult, DungeonRewards, BossVictoryContext, PendingTargetAction } from '../types';
-import { Sword, Shield, Zap, Heart, Coins, ShoppingBag, Skull, Play, Plus, FlaskConical, User, X, Home, LogOut, DollarSign, AlertTriangle, MousePointerClick, Shirt, Footprints, Crown, LayoutGrid, Sparkles, Crosshair, ArrowLeft, Star, Clock, Orbit, Info } from 'lucide-react';
+import { Player, Enemy, EnemyIntentPreview, BattleLog, TurnState, Item, Skill, GameState, FloatingText, Rarity, ProgressionCard, CardRewardOffer, AlchemistCardOffer, AlchemistItemOffer, DungeonResult, DungeonRewards, BossVictoryContext, PendingTargetAction, TipoDefesa } from '../types';
+import { Sword, Shield, Zap, Heart, Coins, ShoppingBag, Skull, Play, Plus, FlaskConical, User, X, Home, LogOut, DollarSign, AlertTriangle, MousePointerClick, Shirt, Footprints, Crown, LayoutGrid, Sparkles, Crosshair, ArrowLeft, Star, Clock, Orbit, Info, RefreshCw } from 'lucide-react';
 import { ItemPreviewThree } from './items/ItemPreviewThree';
 import { GameAssetIcon } from './ui/game-asset-icon';
 import { ItemIcon } from './ui/game-display';
@@ -17,6 +17,9 @@ import { shouldUseBowBasicAttack, shouldUseMagicBasicAttack } from '../game/mech
 import { getNewlyUnlockedShopRarityByStage } from '../game/mechanics/shopProgression';
 import { uiSfx } from '../game/audio/uiSfx';
 import type { RenderQualityPreset } from './scene3d/environment';
+import { useInputMode } from '../game/hooks/useInputMode';
+import { onAction } from '../game/mechanics/inputManager';
+import { GamepadActionLegend } from './ui/GamepadActionLegend';
 
 interface GameUIProps {
   player: Player;
@@ -25,7 +28,7 @@ interface GameUIProps {
   turnState: TurnState;
   logs: BattleLog[];
   onAttack: () => void;
-  onDefend: () => void;
+    onDefend: (tipoDefesa: TipoDefesa) => void;
   onChargeImpulse: () => void;
   onAbsorbImpulse: () => void;
   onSkill: (skill: Skill) => void;
@@ -88,6 +91,7 @@ interface GameUIProps {
         sfxEnabled: boolean;
         renderQualityPreset: RenderQualityPreset;
     }>) => void;
+    onBattleSettingsOpenChange?: (open: boolean) => void;
     onEquipSkillToSlot?: (slotIndex: number, skillId: string | null) => void;
     onEquipItemToSlot?: (slotIndex: number, itemId: string | null) => void;
     towerEssence?: number;
@@ -335,7 +339,7 @@ const ActionTile = ({
 }) => {
     const variantClass = {
         attack: 'bg-[#c44b54] border-[#a83a42] text-white hover:bg-[#b5424a] shadow-lg shadow-[#c44b54]/20',
-        defense: 'bg-[#4d7a96] border-[#3b6580] text-white hover:bg-[#5a8aa6] shadow-lg shadow-[#4d7a96]/20',
+        defense: 'bg-[#f97316] border-[#c2410c] text-white hover:bg-[#fb923c] shadow-lg shadow-[#f97316]/20',
         item: 'bg-[#b87a3a] border-[#9a6530] text-white hover:bg-[#c88a4a]',
         neutral: 'bg-[#f4e5d4] border-[#cfab91] text-[#6b3141] hover:bg-[#e9d7c2]',
         danger: 'bg-rose-500 border-rose-600 text-white hover:brightness-110',
@@ -871,7 +875,8 @@ const CharacterSheet = ({ player, shopItems, onClose, onOpenInventory }: { playe
               <h3 className="font-bold text-amber-400 mb-3 border-b border-slate-700 pb-1 flex items-center gap-2"><Zap size={16}/> Atributos</h3>
               <div className="space-y-2 text-sm bg-slate-800/30 p-3 rounded-lg">
                  <div className="flex justify-between border-b border-slate-700/50 pb-1"><span>For�a (ATK)</span> <span className="font-mono text-white text-amber-200">{player.stats.atk}</span></div>
-                 <div className="flex justify-between border-b border-slate-700/50 pb-1"><span>Defesa (DEF)</span> <span className="font-mono text-white text-blue-200">{player.stats.def}</span></div>
+                 <div className="flex justify-between border-b border-slate-700/50 pb-1"><span>Defesa (DEF)</span> <span className="font-mono text-white text-orange-200">{player.stats.def}</span></div>
+                 <div className="flex justify-between border-b border-slate-700/50 pb-1"><span>Defesa Magica (D.MAG)</span> <span className="font-mono text-white text-blue-200">{player.stats.magicDef ?? player.stats.def}</span></div>
                  <div className="flex justify-between border-b border-slate-700/50 pb-1"><span>Velocidade (SPD)</span> <span className="font-mono text-white text-green-200">{player.stats.speed}</span></div>
                  <div className="flex justify-between border-b border-slate-700/50 pb-1"><span>Sorte (LUCK)</span> <span className="font-mono text-white text-purple-200">{player.stats.luck}</span></div>
                  <div className="flex justify-between border-b border-slate-700/50 pb-1"><span>Vida M�x.</span> <span className="font-mono text-white text-red-200">{player.stats.maxHp}</span></div>
@@ -1134,7 +1139,10 @@ export const TavernScreen: React.FC<{
   autoOpenSkillsSlotIndex?: number,
   portalInspectMode?: boolean,
   portalTransitioning?: boolean,
-}> = ({ player, killCount, onHunt, onBoss, onDungeon, sceneRegion = 'forest', onNavigateSceneRegion, onShop, onShopFromInventory, onAlchemist, onTower, shopItems, autoOpenConstellationToken = 0, onEquipItem, onUnequipItem, onUseItem, onSellItem, onUnlockTalent, onResetTalents, campIntroOnly = false, restrictProfileToStatusOnly = false, inventoryUnlocked = false, inventoryUnlockPromptActive = false, onAcknowledgeInventoryUnlock, cardsUnlockPromptActive = false, onAcknowledgeCardsUnlock, skillsUnlockPromptActive = false, onAcknowledgeSkillsUnlock, constellationUnlockPromptActive = false, onAcknowledgeConstellationUnlock, constellationRespecUnlockPromptActive = false, onAcknowledgeConstellationRespecUnlock, allowCardsInProfile = false, fleeUnlocked = false, merchantUnlockPromptActive = false, onAcknowledgeMerchantUnlock, dungeonUnlockPromptActive = false, onAcknowledgeDungeonUnlock, alchemistUnlockPromptActive = false, onAcknowledgeAlchemistUnlock, merchantUnlocked = false, dungeonUnlocked = false, alchemistUnlocked = false, showSkillsAction = false, onEquipSkillToSlot, onEquipItemToSlot, autoOpenItemSlotToken = 0, autoOpenItemSlotIndex = 0, autoOpenInventoryToken = 0, autoOpenInventoryFilter = 'all', autoOpenPortalTravelToken = 0, autoOpenProfileToken = 0, showDiamondHud = false, towerEssence = 0, gameTime = '12:00', autoOpenHeroInspectToken = 0, onHeroInspectOpen, onHeroInspectClose, closeHeroInspectToken = 0, autoOpenHeroEquipToken = 0, autoOpenHeroEquipFilter = 'weapon', autoOpenSkillsToken = 0, autoOpenSkillsSlotIndex = 0, portalInspectMode = false, portalTransitioning = false }) => {
+  onPortalInspectOpen?: () => void,
+  onPortalInspectClose?: () => void,
+  onGamepadFocusChange?: (focus: 'hero' | 'portal' | null) => void,
+}> = ({ player, killCount, onHunt, onBoss, onDungeon, sceneRegion = 'forest', onNavigateSceneRegion, onShop, onShopFromInventory, onAlchemist, onTower, shopItems, autoOpenConstellationToken = 0, onEquipItem, onUnequipItem, onUseItem, onSellItem, onUnlockTalent, onResetTalents, campIntroOnly = false, restrictProfileToStatusOnly = false, inventoryUnlocked = false, inventoryUnlockPromptActive = false, onAcknowledgeInventoryUnlock, cardsUnlockPromptActive = false, onAcknowledgeCardsUnlock, skillsUnlockPromptActive = false, onAcknowledgeSkillsUnlock, constellationUnlockPromptActive = false, onAcknowledgeConstellationUnlock, constellationRespecUnlockPromptActive = false, onAcknowledgeConstellationRespecUnlock, allowCardsInProfile = false, fleeUnlocked = false, merchantUnlockPromptActive = false, onAcknowledgeMerchantUnlock, dungeonUnlockPromptActive = false, onAcknowledgeDungeonUnlock, alchemistUnlockPromptActive = false, onAcknowledgeAlchemistUnlock, merchantUnlocked = false, dungeonUnlocked = false, alchemistUnlocked = false, showSkillsAction = false, onEquipSkillToSlot, onEquipItemToSlot, autoOpenItemSlotToken = 0, autoOpenItemSlotIndex = 0, autoOpenInventoryToken = 0, autoOpenInventoryFilter = 'all', autoOpenPortalTravelToken = 0, autoOpenProfileToken = 0, showDiamondHud = false, towerEssence = 0, gameTime = '12:00', autoOpenHeroInspectToken = 0, onHeroInspectOpen, onHeroInspectClose, closeHeroInspectToken = 0, autoOpenHeroEquipToken = 0, autoOpenHeroEquipFilter = 'weapon', autoOpenSkillsToken = 0, autoOpenSkillsSlotIndex = 0, portalInspectMode = false, portalTransitioning = false, onPortalInspectOpen, onPortalInspectClose, onGamepadFocusChange }) => {
   const [showProfile, setShowProfile] = useState(false);
   const [showInventory, setShowInventory] = useState(false);
   const [showSkillsScreen, setShowSkillsScreen] = useState(false);
@@ -1159,6 +1167,45 @@ export const TavernScreen: React.FC<{
     const portalTravelModalCloseTimerRef = useRef<number | null>(null);
     const [portalTapFeedbackId, setPortalTapFeedbackId] = useState<string | null>(null);
     const portalTapFeedbackTimerRef = useRef<number | null>(null);
+    // ── Gamepad camp UX ────────────────────────────────────────────────────────
+    const { uiProfile: campUiProfile, gamepadBrand: campGamepadBrand } = useInputMode();
+    const [campGamepadFocus, setCampGamepadFocus] = useState<'hero' | 'portal'>('hero');
+    const [actionHoldProgress,  setActionHoldProgress]  = useState(0);
+    const [confirmHoldProgress, setConfirmHoldProgress] = useState(0);
+    const actionHoldProgressRef  = useRef(0);
+    const confirmHoldProgressRef = useRef(0);
+    const campGamepadFocusRef    = useRef<'hero' | 'portal'>('hero');
+    campGamepadFocusRef.current  = campGamepadFocus;
+    const [heroMenuIdx, setHeroMenuIdx] = useState(0);
+    const heroMenuIdxRef = useRef(0);
+    heroMenuIdxRef.current = heroMenuIdx;
+    const [inEquipSlotMode, setInEquipSlotMode] = useState(false);
+    const inEquipSlotModeRef = useRef(false);
+    inEquipSlotModeRef.current = inEquipSlotMode;
+    const heroInspectOptionsRef = useRef<{ label: string; action: () => void }[]>([]);
+    // ── Gamepad: menu lateral direito focado (Y) ────────────────────────────
+    const [sideMenuFocused, setSideMenuFocused] = useState(false);
+    const [sideMenuIdx, setSideMenuIdx] = useState(0);
+    const sideMenuFocusedRef = useRef(false);
+    const sideMenuIdxRef = useRef(0);
+    sideMenuFocusedRef.current = sideMenuFocused;
+    sideMenuIdxRef.current = sideMenuIdx;
+    const showHuntConfirmRef       = useRef(false);
+    const showDungeonConfirmRef    = useRef(false);
+    const showTowerConfirmRef      = useRef(false);
+    const showPortalTravelModalRef = useRef(false);
+    const heroInspectOpenRef       = useRef(false);
+    const portalInspectModeRef     = useRef(false);
+    showHuntConfirmRef.current       = showHuntIntroConfirm;
+    showDungeonConfirmRef.current    = showDungeonConfirm;
+    showTowerConfirmRef.current      = showTowerConfirm;
+    showPortalTravelModalRef.current = showPortalTravelModal;
+    heroInspectOpenRef.current       = heroInspectOpen;
+    portalInspectModeRef.current     = portalInspectMode;
+    useEffect(() => {
+        onGamepadFocusChange?.(campUiProfile === 'gamepad' ? campGamepadFocus : null);
+    }, [campGamepadFocus, campUiProfile, onGamepadFocusChange]);
+
     const showDiamondOnTopHud = showDiamondHud;
     const bossUnlocked = killCount >= 10;
     const canAccessDungeon = dungeonUnlocked;
@@ -1495,6 +1542,196 @@ export const TavernScreen: React.FC<{
         setTimeout(() => { action(); }, 240);
     };
 
+    // ── Gamepad: controles no modo zoom do herói ──────────────────────────
+    const heroInspectOptions: { label: string; action: () => void }[] = [
+        { label: 'Atributos',    action: () => openProfileModal('overview') },
+        { label: 'Equipamentos', action: () => openInventoryModal('equipment', false) },
+        { label: 'Itens',        action: () => openInventoryModal('potion', false) },
+        { label: 'Habilidades',  action: () => openSkillsScreenModal() },
+    ];
+    heroInspectOptionsRef.current = heroInspectOptions;
+
+    // ── Gamepad: itens do menu lateral direito (Y) ───────────────────────
+    const sideMenuItems: { id: string; label: string; action: () => void }[] = [
+        ...(inventoryUnlocked  ? [{ id: 'inventory', label: 'Mochila',      action: () => openInventoryModal('all') }] : []),
+        ...(showSkillsAction    ? [{ id: 'skills',    label: 'Habilidades',  action: () => openSkillsScreenModal() }] : []),
+        ...(merchantUnlocked && sceneRegion === 'forest' ? [{ id: 'merchant', label: 'Mercador', action: () => handleServiceTransition(onShop) }] : []),
+        ...(alchemistUnlocked && sceneRegion === 'dungeon' ? [{ id: 'alchemist', label: 'Alquimista', action: () => handleServiceTransition(onAlchemist) }] : []),
+    ];
+    const sideMenuItemsRef = useRef(sideMenuItems);
+    sideMenuItemsRef.current = sideMenuItems;
+
+    // Fecha foco side menu quando não há itens (ex: regiões mudam)
+    useEffect(() => {
+        if (sideMenuItems.length === 0) setSideMenuFocused(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [sideMenuItems.length]);
+    // Reseta índice quando o menu é aberto
+    useEffect(() => {
+        if (sideMenuFocused) setSideMenuIdx(0);
+    }, [sideMenuFocused]);
+
+    useEffect(() => {
+        if (campUiProfile !== 'gamepad' || !heroInspectOpen) return;
+        setHeroMenuIdx(0);
+        setInEquipSlotMode(false);
+    }, [campUiProfile, heroInspectOpen]);
+
+    useEffect(() => {
+        if (campUiProfile !== 'gamepad' || !heroInspectOpen) return;
+        return onAction((action) => {
+            if (action === 'BACK') {
+                if (inEquipSlotModeRef.current) { setInEquipSlotMode(false); return; }
+                setHeroInspectOpen(false);
+                onHeroInspectClose?.();
+                setCampGamepadFocus('hero');
+                return;
+            }
+            if (!inEquipSlotModeRef.current) {
+                if (action === 'NAV_UP') { setHeroMenuIdx(i => Math.max(0, i - 1)); return; }
+                if (action === 'NAV_DOWN') { setHeroMenuIdx(i => Math.min(heroInspectOptionsRef.current.length - 1, i + 1)); return; }
+                if (action === 'CONFIRM') {
+                    if (heroMenuIdxRef.current === 0) return;
+                    setInEquipSlotMode(true);
+                    return;
+                }
+            }
+        });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [campUiProfile, heroInspectOpen]);
+
+    // ── Gamepad: foco herói/portal + BACK fecha modais ────────────────────────
+    useEffect(() => {
+        if (campUiProfile !== 'gamepad') return;
+        return onAction((action) => {
+            if (action === 'BACK') {
+                if (showHuntConfirmRef.current)    { setShowHuntIntroConfirm(false); return; }
+                if (showDungeonConfirmRef.current) { setShowDungeonConfirm(false);   return; }
+                if (showTowerConfirmRef.current)   { setShowTowerConfirm(false);     return; }
+                if (portalInspectModeRef.current)  { onPortalInspectClose?.(); setCampGamepadFocus('portal'); return; }
+                if (!showPortalTravelModalRef.current && !heroInspectOpenRef.current) {
+                    setCampGamepadFocus('hero');
+                }
+                return;
+            }
+            if (showHuntConfirmRef.current || showDungeonConfirmRef.current || showTowerConfirmRef.current) return;
+            if (showPortalTravelModalRef.current || heroInspectOpenRef.current || portalInspectModeRef.current) return;
+            if (action === 'NAV_LEFT' || action === 'NAV_RIGHT') {
+                setCampGamepadFocus(action === 'NAV_LEFT' ? 'portal' : 'hero');
+                return;
+            }
+            if (action === 'CONFIRM' && !portalInspectModeRef.current) {
+                if (campGamepadFocusRef.current === 'hero') {
+                    setHeroInspectOpen(true);
+                    onHeroInspectOpen?.();
+                } else {
+                    onPortalInspectOpen?.();
+                }
+            }
+        });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [campUiProfile]);
+
+    // ── Gamepad: SKILL_2 (Y/△) — foca o menu lateral direito ────────────────
+    useEffect(() => {
+        if (campUiProfile !== 'gamepad') return;
+        return onAction((action) => {
+            if (action !== 'SKILL_2') return;
+            if (showHuntConfirmRef.current || showDungeonConfirmRef.current || showTowerConfirmRef.current) return;
+            if (showPortalTravelModalRef.current || heroInspectOpenRef.current || portalInspectModeRef.current) return;
+            if (sideMenuItemsRef.current.length === 0) return;
+            setSideMenuFocused(prev => !prev);
+        });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [campUiProfile]);
+
+    // ── Gamepad: navegação no menu lateral direito (quando focado) ────────────
+    useEffect(() => {
+        if (campUiProfile !== 'gamepad' || !sideMenuFocused) return;
+        return onAction((action) => {
+            if (action === 'BACK') {
+                setSideMenuFocused(false);
+                return;
+            }
+            if (action === 'NAV_UP') {
+                setSideMenuIdx(i => Math.max(0, i - 1));
+                return;
+            }
+            if (action === 'NAV_DOWN') {
+                setSideMenuIdx(i => Math.min(sideMenuItemsRef.current.length - 1, i + 1));
+                return;
+            }
+            if (action === 'CONFIRM') {
+                const item = sideMenuItemsRef.current[sideMenuIdxRef.current];
+                if (item) {
+                    setSideMenuFocused(false);
+                    item.action();
+                }
+                return;
+            }
+        });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [campUiProfile, sideMenuFocused]);
+
+    // ── Gamepad: SKILL_1 (X/□) — pressão simples para ação principal ──────────
+    const activeMainAction: 'hunt' | 'dungeon' | 'tower' | null =
+        canStartHuntFromCurrentRegion   ? 'hunt'    :
+        canStartDungeonFromCurrentRegion ? 'dungeon' :
+        (canStartTowerFromCurrentRegion && !!onTower) ? 'tower' : null;
+    useEffect(() => {
+        const anyModalOpen = showHuntIntroConfirm || showDungeonConfirm || showTowerConfirm || showPortalTravelModal || heroInspectOpen;
+        if (campUiProfile !== 'gamepad' || !activeMainAction || isClosing || anyModalOpen) return;
+        const unsub = onAction((action) => {
+            if (action !== 'SKILL_1') return;
+            if (activeMainAction === 'hunt')         handleMenuTransition('hunt');
+            else if (activeMainAction === 'dungeon') handleMenuTransition('dungeon');
+            else if (activeMainAction === 'tower')   setShowTowerConfirm(true);
+        });
+        return unsub;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [campUiProfile, activeMainAction, isClosing, showHuntIntroConfirm, showDungeonConfirm, showTowerConfirm, showPortalTravelModal, heroInspectOpen]);
+
+    // ── Gamepad: hold A (botão 0) — confirmar modal de batalha ───────────────
+    const confirmModalOpen = showHuntIntroConfirm || showDungeonConfirm || showTowerConfirm;
+    useEffect(() => {
+        if (campUiProfile !== 'gamepad' || !confirmModalOpen) {
+            confirmHoldProgressRef.current = 0;
+            setConfirmHoldProgress(0);
+            return;
+        }
+        let rafId: number;
+        let lastTime: number | null = null;
+        const HOLD_MS = 1500;
+        function frame(now: number) {
+            const gp = Array.from(navigator.getGamepads()).find(g => g !== null);
+            const btnDown = !!(gp && (gp.buttons[0]?.pressed || (gp.buttons[0]?.value ?? 0) > 0.5));
+            if (lastTime === null) lastTime = now;
+            const dt = Math.min(now - lastTime, 100);
+            lastTime = now;
+            if (btnDown) {
+                const next = Math.min(100, confirmHoldProgressRef.current + (dt / HOLD_MS) * 100);
+                confirmHoldProgressRef.current = next;
+                setConfirmHoldProgress(next);
+                if (next >= 100) {
+                    confirmHoldProgressRef.current = 0;
+                    setConfirmHoldProgress(0);
+                    if (showHuntConfirmRef.current)         confirmEnterHunt();
+                    else if (showDungeonConfirmRef.current) confirmEnterDungeon();
+                    else if (showTowerConfirmRef.current)   confirmEnterTower();
+                    return;
+                }
+            } else if (confirmHoldProgressRef.current > 0) {
+                confirmHoldProgressRef.current = 0;
+                setConfirmHoldProgress(0);
+                lastTime = null;
+            }
+            rafId = requestAnimationFrame(frame);
+        }
+        rafId = requestAnimationFrame(frame);
+        return () => cancelAnimationFrame(rafId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [campUiProfile, confirmModalOpen]);
+
     const handlePortalRegionTravel = (targetRegion: 'forest' | 'dungeon' | 'tower') => {
         if (targetRegion === sceneRegion) {
             return;
@@ -1602,6 +1839,32 @@ export const TavernScreen: React.FC<{
         ? { label: 'NOITE', color: 'text-indigo-300' }
         : { label: 'MADRUGADA', color: 'text-blue-400' };
   
+    // ── Gamepad arc helpers (defined inline, no hooks) ────────────────────────
+    const _isSony = campGamepadBrand === 'sony';
+    const CampXArc = () => {
+        const label = _isSony ? '□' : 'X';
+        const btnColor = _isSony ? '#B54DC0' : '#0055A5';
+        return (
+            <span style={{ width: 20, height: 20, borderRadius: '50%', background: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: btnColor, fontWeight: 900, fontSize: 10, fontFamily: 'system-ui,sans-serif', lineHeight: 1 }}>{label}</span>
+        );
+    };
+    const ConfirmArc = ({ progress }: { progress: number }) => {
+        const label = _isSony ? '✕' : 'A';
+        const btnColor = _isSony ? '#0070D1' : '#107C10';
+        const arcColor = _isSony ? '#00d4ff' : '#39ff6e';
+        const R = 13; const circ = 2 * Math.PI * R;
+        const offset = circ * (1 - progress / 100);
+        return (
+            <span style={{ position: 'relative', width: 32, height: 32, flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                <svg width="32" height="32" style={{ position: 'absolute', top: 0, left: 0, transform: 'rotate(-90deg)', filter: progress > 0 ? `drop-shadow(0 0 4px ${arcColor})` : 'none' }}>
+                    <circle cx="16" cy="16" r={R} fill="none" stroke="rgba(255,255,255,0.18)" strokeWidth="3" />
+                    <circle cx="16" cy="16" r={R} fill="none" stroke={arcColor} strokeWidth="3" strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round" style={{ transition: progress === 0 ? 'none' : 'stroke-dashoffset 80ms linear' }} />
+                </svg>
+                <span style={{ width: 20, height: 20, borderRadius: '50%', background: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: btnColor, fontWeight: 900, fontSize: 11, fontFamily: 'system-ui,sans-serif', lineHeight: 1, zIndex: 1 }}>{label}</span>
+            </span>
+        );
+    };
+
   return (
     <>
     <div className={`absolute inset-0 z-40 pointer-events-none text-white ${isClosing ? 'animate-[tavernBackdropOut_240ms_ease-in_forwards]' : 'animate-[tavernBackdropIn_280ms_ease-out_both]'}`}>
@@ -1651,58 +1914,106 @@ export const TavernScreen: React.FC<{
                 {/* CAMP SIDE-RAIL ─ mochila/skill/merchant/alchemist icons, right side below currency */}
                 {!heroInspectOpen && !portalInspectMode && !portalTransitioning && (inventoryUnlocked || showSkillsAction || (merchantUnlocked && sceneRegion === 'forest') || (alchemistUnlocked && sceneRegion === 'dungeon')) && (
                     <div className="absolute right-3 sm:right-5 top-[4.5rem] sm:top-24 z-10 pointer-events-auto flex flex-col gap-4">
-                        {inventoryUnlocked && !showInventory && (
-                            <button
-                                onClick={() => openInventoryModal('all')}
-                                className="group flex items-center justify-end gap-2 p-0 bg-transparent border-0 transition-all duration-200 hover:-translate-y-0.5 hover:scale-105 active:scale-95"
-                                title="Mochila"
-                                aria-label="Mochila"
-                            >
-                                <span className="text-white text-[11px] font-black uppercase tracking-[0.1em] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-150" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}>
-                                    Mochila
-                                </span>
-                                <img src={ICONE_MOCHILA_URL} alt="" className="h-14 w-14 object-contain" style={{ filter: 'drop-shadow(0.5px 0 0 #fff) drop-shadow(-0.5px 0 0 #fff) drop-shadow(0 0.5px 0 #fff) drop-shadow(0 -0.5px 0 #fff)' }} />
-                            </button>
-                        )}
-                        {showSkillsAction && !showSkillsScreen && (
-                            <button
-                                onClick={() => openSkillsScreenModal()}
-                                className="group flex items-center justify-end gap-2 p-0 bg-transparent border-0 transition-all duration-200 hover:-translate-y-0.5 hover:scale-105 active:scale-95"
-                                title="Habilidades"
-                                aria-label="Habilidades"
-                            >
-                                <span className="text-white text-[11px] font-black uppercase tracking-[0.1em] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-150" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}>
-                                    Habilidades
-                                </span>
-                                <img src={BOOK_HABILIDADES_URL} alt="" className="h-14 w-14 object-contain" style={{ filter: 'drop-shadow(0.5px 0 0 #fff) drop-shadow(-0.5px 0 0 #fff) drop-shadow(0 0.5px 0 #fff) drop-shadow(0 -0.5px 0 #fff)' }} />
-                            </button>
-                        )}
-                        {merchantUnlocked && sceneRegion === 'forest' && (
-                            <button
-                                onClick={onShop}
-                                className="group flex items-center justify-end gap-2 p-0 bg-transparent border-0 transition-all duration-200 hover:-translate-y-0.5 hover:scale-105 active:scale-95"
-                                title="Mercador"
-                                aria-label="Mercador"
-                            >
-                                <span className="text-white text-[11px] font-black uppercase tracking-[0.1em] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-150" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}>
-                                    Mercador
-                                </span>
-                                <img src={ICONE_MERCADOR_URL} alt="" className="h-16 w-16 object-contain" style={{ filter: 'drop-shadow(0.5px 0 0 #fff) drop-shadow(-0.5px 0 0 #fff) drop-shadow(0 0.5px 0 #fff) drop-shadow(0 -0.5px 0 #fff)' }} />
-                            </button>
-                        )}
-                        {alchemistUnlocked && sceneRegion === 'dungeon' && (
-                            <button
-                                onClick={onAlchemist}
-                                className="group flex items-center justify-end gap-2 p-0 bg-transparent border-0 transition-all duration-200 hover:-translate-y-0.5 hover:scale-105 active:scale-95"
-                                title="Alquimista"
-                                aria-label="Alquimista"
-                            >
-                                <span className="text-white text-[11px] font-black uppercase tracking-[0.1em] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-150" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}>
-                                    Alquimista
-                                </span>
-                                <img src={ICONE_ALQUIMISTA_URL} alt="" className="h-14 w-14 object-contain" style={{ filter: 'drop-shadow(0.5px 0 0 #fff) drop-shadow(-0.5px 0 0 #fff) drop-shadow(0 0.5px 0 #fff) drop-shadow(0 -0.5px 0 #fff)' }} />
-                            </button>
-                        )}
+                        {(() => {
+                            // constrói lista na mesma ordem que sideMenuItems para alinhar índices
+                            const railItems: { id: string; visible: boolean; jsx: React.ReactNode }[] = [
+                                {
+                                    id: 'inventory',
+                                    visible: inventoryUnlocked && !showInventory,
+                                    jsx: (
+                                        <button
+                                            key="inventory"
+                                            onClick={() => openInventoryModal('all')}
+                                            className="group flex items-center justify-end gap-2 p-0 bg-transparent border-0 transition-all duration-200 hover:-translate-y-0.5 hover:scale-105 active:scale-95"
+                                            title="Mochila"
+                                            aria-label="Mochila"
+                                        >
+                                            <span className="text-white text-[11px] font-black uppercase tracking-[0.1em] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-150" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}>
+                                                Mochila
+                                            </span>
+                                            <img src={ICONE_MOCHILA_URL} alt="" className="h-14 w-14 object-contain" style={{ filter: 'drop-shadow(0.5px 0 0 #fff) drop-shadow(-0.5px 0 0 #fff) drop-shadow(0 0.5px 0 #fff) drop-shadow(0 -0.5px 0 #fff)' }} />
+                                        </button>
+                                    ),
+                                },
+                                {
+                                    id: 'skills',
+                                    visible: showSkillsAction && !showSkillsScreen,
+                                    jsx: (
+                                        <button
+                                            key="skills"
+                                            onClick={() => openSkillsScreenModal()}
+                                            className="group flex items-center justify-end gap-2 p-0 bg-transparent border-0 transition-all duration-200 hover:-translate-y-0.5 hover:scale-105 active:scale-95"
+                                            title="Habilidades"
+                                            aria-label="Habilidades"
+                                        >
+                                            <span className="text-white text-[11px] font-black uppercase tracking-[0.1em] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-150" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}>
+                                                Habilidades
+                                            </span>
+                                            <img src={BOOK_HABILIDADES_URL} alt="" className="h-14 w-14 object-contain" style={{ filter: 'drop-shadow(0.5px 0 0 #fff) drop-shadow(-0.5px 0 0 #fff) drop-shadow(0 0.5px 0 #fff) drop-shadow(0 -0.5px 0 #fff)' }} />
+                                        </button>
+                                    ),
+                                },
+                                {
+                                    id: 'merchant',
+                                    visible: merchantUnlocked && sceneRegion === 'forest',
+                                    jsx: (
+                                        <button
+                                            key="merchant"
+                                            onClick={onShop}
+                                            className="group flex items-center justify-end gap-2 p-0 bg-transparent border-0 transition-all duration-200 hover:-translate-y-0.5 hover:scale-105 active:scale-95"
+                                            title="Mercador"
+                                            aria-label="Mercador"
+                                        >
+                                            <span className="text-white text-[11px] font-black uppercase tracking-[0.1em] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-150" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}>
+                                                Mercador
+                                            </span>
+                                            <img src={ICONE_MERCADOR_URL} alt="" className="h-16 w-16 object-contain" style={{ filter: 'drop-shadow(0.5px 0 0 #fff) drop-shadow(-0.5px 0 0 #fff) drop-shadow(0 0.5px 0 #fff) drop-shadow(0 -0.5px 0 #fff)' }} />
+                                        </button>
+                                    ),
+                                },
+                                {
+                                    id: 'alchemist',
+                                    visible: alchemistUnlocked && sceneRegion === 'dungeon',
+                                    jsx: (
+                                        <button
+                                            key="alchemist"
+                                            onClick={onAlchemist}
+                                            className="group flex items-center justify-end gap-2 p-0 bg-transparent border-0 transition-all duration-200 hover:-translate-y-0.5 hover:scale-105 active:scale-95"
+                                            title="Alquimista"
+                                            aria-label="Alquimista"
+                                        >
+                                            <span className="text-white text-[11px] font-black uppercase tracking-[0.1em] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-150" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}>
+                                                Alquimista
+                                            </span>
+                                            <img src={ICONE_ALQUIMISTA_URL} alt="" className="h-14 w-14 object-contain" style={{ filter: 'drop-shadow(0.5px 0 0 #fff) drop-shadow(-0.5px 0 0 #fff) drop-shadow(0 0.5px 0 #fff) drop-shadow(0 -0.5px 0 #fff)' }} />
+                                        </button>
+                                    ),
+                                },
+                            ];
+                            // índice focado dentro dos itens visíveis (sincronizado com sideMenuItems)
+                            const visibleRail = railItems.filter(r => r.visible);
+                            let sideVisibleIdx = 0; // contador de itens visíveis
+                            return railItems.map((rail) => {
+                                if (!rail.visible) return null;
+                                const myVisibleIdx = sideVisibleIdx++;
+                                const isFocused = campUiProfile === 'gamepad' && sideMenuFocused && sideMenuIdx === myVisibleIdx;
+                                return (
+                                    <div
+                                        key={rail.id}
+                                        style={{
+                                            borderRadius: 14,
+                                            outline: isFocused ? '2px solid rgba(255,255,255,0.85)' : '2px solid transparent',
+                                            outlineOffset: 4,
+                                            boxShadow: isFocused ? '0 0 16px rgba(255,255,255,0.35)' : 'none',
+                                            transition: 'outline-color 150ms, box-shadow 150ms',
+                                            transform: isFocused ? 'scale(1.12)' : 'scale(1)',
+                                        }}
+                                    >
+                                        {rail.jsx}
+                                    </div>
+                                );
+                            });
+                        })()}
                     </div>
                 )}
 
@@ -1728,15 +2039,21 @@ export const TavernScreen: React.FC<{
                             {canStartHuntFromCurrentRegion && (
                                 <button onClick={() => handleMenuTransition('hunt')} className="rounded-xl border border-[#b26a2e] bg-[#b87a3a]/95 px-1.5 py-2.5 text-center transition-all hover:-translate-y-0.5 hover:bg-[#c88a4a]">
                                     <div className="flex flex-col items-center gap-0.5">
-                                        <Sword size={16} className="text-white" />
-                                        <span className="text-[10px] font-black text-white leading-none">Ca�ar</span>
+                                        <div className="flex items-center gap-1">
+                                            {campUiProfile === 'gamepad' && <CampXArc />}
+                                            <Sword size={16} className="text-white" />
+                                        </div>
+                                        <span className="text-[10px] font-black text-white leading-none">Caçar</span>
                                     </div>
                                 </button>
                             )}
                             {canStartDungeonFromCurrentRegion && (
                                 <button onClick={() => handleMenuTransition('dungeon')} className="rounded-xl border border-[#3b6580] bg-[#4d7a96]/95 px-1.5 py-2.5 text-center transition-all hover:-translate-y-0.5 hover:bg-[#5a8aa6]">
                                     <div className="flex flex-col items-center gap-0.5">
-                                        <Crosshair size={16} className="text-white" />
+                                        <div className="flex items-center gap-1">
+                                            {campUiProfile === 'gamepad' && <CampXArc />}
+                                            <Crosshair size={16} className="text-white" />
+                                        </div>
                                         <span className="text-[10px] font-black text-white leading-none">Dungeon</span>
                                     </div>
                                 </button>
@@ -1744,7 +2061,10 @@ export const TavernScreen: React.FC<{
                             {canStartTowerFromCurrentRegion && onTower && (
                                 <button onClick={() => setShowTowerConfirm(true)} className="rounded-xl border border-violet-700 bg-[#6d28d9]/95 px-1.5 py-2.5 text-center transition-all hover:-translate-y-0.5 hover:bg-[#7c3aed]">
                                     <div className="flex flex-col items-center gap-0.5">
-                                        <Crown size={16} className="text-white" />
+                                        <div className="flex items-center gap-1">
+                                            {campUiProfile === 'gamepad' && <CampXArc />}
+                                            <Crown size={16} className="text-white" />
+                                        </div>
                                         <span className="text-[10px] font-black text-white leading-none">Torre</span>
                                     </div>
                                 </button>
@@ -1762,21 +2082,21 @@ export const TavernScreen: React.FC<{
                     <div className={`hidden sm:grid gap-2.5 pointer-events-auto ${availableAdventureActionsCount >= 3 ? 'sm:grid-cols-3' : availableAdventureActionsCount === 2 ? 'sm:grid-cols-2' : 'sm:grid-cols-1'}`}>
                         {canStartHuntFromCurrentRegion && (
                             <button onClick={() => handleMenuTransition('hunt')} className="rounded-2xl border border-[#b26a2e] bg-[#b87a3a]/95 px-4 py-4 text-center transition-all hover:-translate-y-0.5 hover:bg-[#c88a4a]">
-                                <div className="flex items-center justify-center gap-2 text-base sm:text-lg font-black text-white"><Sword size={20} /> Cacar</div>
+                                <div className="flex items-center justify-center gap-2 text-base sm:text-lg font-black text-white">{campUiProfile === 'gamepad' && <CampXArc />}<Sword size={20} /> Cacar</div>
                                 <div className="mt-1 text-[10px] uppercase tracking-[0.2em] text-[#f8eddf]">Batalha rapida</div>
                             </button>
                         )}
 
                         {canStartDungeonFromCurrentRegion && (
                             <button onClick={() => handleMenuTransition('dungeon')} className="rounded-2xl border border-[#3b6580] bg-[#4d7a96]/95 px-4 py-4 text-center transition-all hover:-translate-y-0.5 hover:bg-[#5a8aa6]">
-                                <div className="flex items-center justify-center gap-2 text-base sm:text-lg font-black text-white"><Crosshair size={20} /> Dungeon</div>
+                                <div className="flex items-center justify-center gap-2 text-base sm:text-lg font-black text-white">{campUiProfile === 'gamepad' && <CampXArc />}<Crosshair size={20} /> Dungeon</div>
                                 <div className="mt-1 text-[10px] uppercase tracking-[0.2em] text-sky-100">Modo progressivo</div>
                             </button>
                         )}
 
                         {canStartTowerFromCurrentRegion && onTower && (
                             <button onClick={() => setShowTowerConfirm(true)} className="rounded-2xl border border-violet-700 bg-[#6d28d9]/95 px-4 py-4 text-center transition-all hover:-translate-y-0.5 hover:bg-[#7c3aed]">
-                                <div className="flex items-center justify-center gap-2 text-base sm:text-lg font-black text-white"><Crown size={20} /> Torre</div>
+                                <div className="flex items-center justify-center gap-2 text-base sm:text-lg font-black text-white">{campUiProfile === 'gamepad' && <CampXArc />}<Crown size={20} /> Torre</div>
                                 <div className="mt-1 text-[10px] uppercase tracking-[0.2em] text-violet-200">Roguelike</div>
                             </button>
                         )}
@@ -1790,7 +2110,106 @@ export const TavernScreen: React.FC<{
                     </div>
                 </section>
                 )}
+
+                {/* ── Seletor de foco herói/portal (só gamepad) ── */}
+                {campUiProfile === 'gamepad' && !heroInspectOpen && !showPortalTravelModal && !portalInspectMode && !portalTransitioning && !showHuntIntroConfirm && !showDungeonConfirm && !showTowerConfirm && (
+                    <div style={{
+                        position: 'absolute',
+                        bottom: 'max(5.5rem, calc(env(safe-area-inset-bottom) + 5.5rem))',
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                        zIndex: 45,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '10px',
+                        background: 'rgba(0,0,0,0.52)',
+                        border: '1px solid rgba(255,255,255,0.12)',
+                        borderRadius: '40px',
+                        padding: '6px 16px',
+                        backdropFilter: 'blur(8px)',
+                        pointerEvents: 'none',
+                        userSelect: 'none',
+                    }}>
+                        <span style={{
+                            fontSize: '11px', fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase',
+                            color: campGamepadFocus === 'portal' ? '#fff' : 'rgba(255,255,255,0.38)',
+                            textShadow: campGamepadFocus === 'portal' ? '0 0 8px rgba(255,255,255,0.6)' : 'none',
+                            transition: 'all 180ms',
+                        }}>Portal</span>
+                        <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.30)', fontWeight: 600, margin: '0 8px' }}>←→</span>
+                        <span style={{
+                            fontSize: '11px', fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase',
+                            color: campGamepadFocus === 'hero' ? '#fff' : 'rgba(255,255,255,0.38)',
+                            textShadow: campGamepadFocus === 'hero' ? '0 0 8px rgba(255,255,255,0.6)' : 'none',
+                            transition: 'all 180ms',
+                        }}>Herói</span>
+                    </div>
+                )}
             </div>
+
+    {/* ── GamepadActionLegend do acampamento ── */}
+    {(() => {
+        if (campUiProfile !== 'gamepad') return null;
+        if (portalTransitioning) return null;
+        if (showInventory || showProfile || showSkillsScreen) return null;
+        if (portalInspectMode) {
+            return <GamepadActionLegend showConfirm confirmText="Viajar" showCancel showDPad dPadText="Escolher destino" />;
+        }
+        if (heroInspectOpen) {
+            const isAttrsTab = heroMenuIdx === 0;
+            const isEquipTab = heroMenuIdx === 1;
+            const isItemsTab = heroMenuIdx === 2;
+            if (inEquipSlotMode) {
+                const slotConfirmText = isEquipTab ? 'Equipar slot' : isItemsTab ? 'Selecionar item' : 'Selecionar hab.';
+                return (
+                    <GamepadActionLegend showConfirm confirmText={slotConfirmText} showCancel showDPad dPadText="Navegar slots" dPadAxis="vertical" />
+                );
+            }
+            if (isAttrsTab) {
+                return (
+                    <GamepadActionLegend showConfirm={false} showCancel showDPad dPadText="Navegar menu" dPadAxis="vertical" />
+                );
+            }
+            const enterLabel = isEquipTab ? 'Ver equipamentos' : isItemsTab ? 'Ver itens' : 'Ver habilidades';
+            return (
+                <GamepadActionLegend showConfirm confirmText={enterLabel} showCancel showDPad dPadText="Navegar menu" dPadAxis="vertical" />
+            );
+        }
+        if (sideMenuFocused) {
+            const focusedItem = sideMenuItems[sideMenuIdx];
+            return (
+                <GamepadActionLegend
+                    showConfirm
+                    confirmText={focusedItem ? focusedItem.label : 'Selecionar'}
+                    showCancel
+                    showDPad
+                    dPadText="Navegar menu"
+                    dPadAxis="vertical"
+                />
+            );
+        }
+        if (confirmModalOpen) {
+            return <GamepadActionLegend showConfirm showCancel confirmText="Entrar" />;
+        }
+        const isFocusPortal = campGamepadFocus === 'portal';
+        const confirmLabel  = isFocusPortal ? 'Ver Portal' : 'Ver Herói';
+        const actionLabel   = activeMainAction === 'hunt' ? 'Caçar' : activeMainAction === 'dungeon' ? 'Dungeon' : activeMainAction === 'tower' ? 'Torre' : null;
+        const extraRows: import('./ui/GamepadActionLegend').LegendExtra[] = [
+            ...(actionLabel ? [{ button: 'skill1' as const, text: actionLabel }] : []),
+        ];
+        return (
+            <GamepadActionLegend
+                showConfirm
+                confirmText={confirmLabel}
+                showCancel={false}
+                showDPad
+                dPadText="Escolher seleção"
+                showSkill2
+                skill2Text="Menu"
+                extras={extraRows.length ? extraRows : undefined}
+            />
+        );
+    })()}
     <AnimatedModal open={showProfile}>
         {(isClosing) => (
             <CharacterSheetModal player={player} shopItems={shopItems} onClose={closeProfileModal} onOpenInventory={(initialFilter) => { openInventoryModal(initialFilter ?? 'all', false); }} onUnlockTalent={onUnlockTalent} onResetTalents={onResetTalents} respecUnlockPromptActive={constellationRespecUnlockPromptActive} onAcknowledgeRespecUnlock={onAcknowledgeConstellationRespecUnlock} isClosing={isClosing} restrictToStatusOnly={restrictProfileToStatusOnly} allowInventory={inventoryUnlocked} allowCardsTab={allowCardsInProfile} allowSkillsTab={showSkillsAction} allowConstellationTab={hasConstellationUnlocked} initialTab={profileInitialTab} />
@@ -2650,7 +3069,7 @@ function getPotionBattleBadges(item: Item): BattleBadge[] {
     { label: `${item.duration ?? 3}t`, color: '#fcd34d', bg: 'rgba(120,53,15,0.30)', border: 'rgba(252,211,77,0.28)' },
   ];
   if (item.id === 'pot_def') return [
-    { label: `+${Math.round((item.value as number)*100)}% DEF`, color: '#93c5fd', bg: 'rgba(30,58,95,0.30)', border: 'rgba(147,197,253,0.30)' },
+    { label: `+${Math.round((item.value as number)*100)}% DEF`, color: '#fb923c', bg: 'rgba(154,52,18,0.30)', border: 'rgba(251,146,60,0.30)' },
     { label: `${item.duration ?? 3}t`, color: '#fcd34d', bg: 'rgba(120,53,15,0.30)', border: 'rgba(252,211,77,0.28)' },
   ];
   if (lower.includes('hp') || lower.includes('vida') || lower.includes('cura') || lower.includes('restaura'))
@@ -2665,8 +3084,9 @@ function getPotionBattleBadges(item: Item): BattleBadge[] {
 }
 
 export const BattleHUD: React.FC<GameUIProps> = (props) => {
-    const { player, enemy, turnState, logs, onAttack, onDefend, onChargeImpulse, onAbsorbImpulse, onSkill, onUseItem, enemyIntentPreview = null, onUnlockTalent, onResetTalents, currentNarration, gameState, shopItems, floatingTexts, onFlee, onStartBattle, stage, dungeonPhase = 1, killCount, onEquipItem, onUnequipItem, isDungeonRun, dungeonRewards, dungeonCleared = 0, dungeonTotal = 30, gameTime, restrictProfileToStatusOnly = false, limitBattleActionsToBasics = false, inventoryUnlocked = false, inventoryUnlockPromptActive = false, onAcknowledgeInventoryUnlock, cardsUnlockPromptActive = false, onAcknowledgeCardsUnlock, skillsUnlockPromptActive = false, onAcknowledgeSkillsUnlock, impulseUnlockPromptActive = null, onAcknowledgeImpulseUnlock, constellationUnlockPromptActive = false, onAcknowledgeConstellationUnlock, constellationRespecUnlockPromptActive = false, onAcknowledgeConstellationRespecUnlock, allowCardsInProfile = false, fleeUnlocked = false, showItemsAction = false, showSkillsAction = false, itemsUnlockPromptActive = false, onAcknowledgeItemsUnlock, fleeUnlockPromptActive = false, onAcknowledgeFleeUnlock, autoOpenProfileToken = 0, showDiamondHud = false, diamondUnlockPromptActive = false, onAcknowledgeDiamondUnlock, musicEnabled = true, sfxEnabled = true, renderQualityPreset = 'balanced', recommendedRenderQualityPreset = 'balanced', onUpdateBattleSettings, onEquipSkillToSlot, towerEssence = 0, sceneRegion = 'forest', additionalEnemies = [], pendingTargetAction = null, onSelectTarget, onCancelTargetSelection } = props;
+    const { player, enemy, turnState, logs, onAttack, onDefend, onChargeImpulse, onAbsorbImpulse, onSkill, onUseItem, enemyIntentPreview = null, onUnlockTalent, onResetTalents, currentNarration, gameState, shopItems, floatingTexts, onFlee, onStartBattle, stage, dungeonPhase = 1, killCount, onEquipItem, onUnequipItem, isDungeonRun, dungeonRewards, dungeonCleared = 0, dungeonTotal = 30, gameTime, restrictProfileToStatusOnly = false, limitBattleActionsToBasics = false, inventoryUnlocked = false, inventoryUnlockPromptActive = false, onAcknowledgeInventoryUnlock, cardsUnlockPromptActive = false, onAcknowledgeCardsUnlock, skillsUnlockPromptActive = false, onAcknowledgeSkillsUnlock, impulseUnlockPromptActive = null, onAcknowledgeImpulseUnlock, constellationUnlockPromptActive = false, onAcknowledgeConstellationUnlock, constellationRespecUnlockPromptActive = false, onAcknowledgeConstellationRespecUnlock, allowCardsInProfile = false, fleeUnlocked = false, showItemsAction = false, showSkillsAction = false, itemsUnlockPromptActive = false, onAcknowledgeItemsUnlock, fleeUnlockPromptActive = false, onAcknowledgeFleeUnlock, autoOpenProfileToken = 0, showDiamondHud = false, diamondUnlockPromptActive = false, onAcknowledgeDiamondUnlock, musicEnabled = true, sfxEnabled = true, renderQualityPreset = 'balanced', recommendedRenderQualityPreset = 'balanced', onUpdateBattleSettings, onBattleSettingsOpenChange, onEquipSkillToSlot, towerEssence = 0, sceneRegion = 'forest', additionalEnemies = [], pendingTargetAction = null, onSelectTarget, onCancelTargetSelection } = props;
   const [activeBattleMenu, setActiveBattleMenu] = useState<'skills' | 'items' | null>(null);
+    const [selectedDefenseType, setSelectedDefenseType] = useState<TipoDefesa>('FISICA');
   const [battleInfoPopup, setBattleInfoPopup] = useState<{ type: 'skill' | 'item'; id: string } | null>(null);
   const [showProfile, setShowProfile] = useState(false);
     const [showBattleSettings, setShowBattleSettings] = useState(false);
@@ -2707,6 +3127,14 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
         : battleClockHours >= 18 && battleClockHours < 22
         ? { label: 'NOITE', color: 'text-indigo-300' }
         : { label: 'MADRUGADA', color: 'text-blue-400' };
+    useEffect(() => {
+        onBattleSettingsOpenChange?.(showBattleSettings);
+        return () => {
+            if (showBattleSettings) {
+                onBattleSettingsOpenChange?.(false);
+            }
+        };
+    }, [onBattleSettingsOpenChange, showBattleSettings]);
     // === Stage Map computations ===
     const stageMapIsBoss = Boolean(enemy?.isBoss);
     const stageMapIsSubBoss = Boolean(enemy?.isSubBoss);
@@ -2889,6 +3317,9 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                 : classImpulseBaseColor;
     const impulseReserveColors = [classImpulseBaseColor, classImpulseBaseColor, classImpulseBaseColor];
     const buttonsEnergized = player.impulsoAtivo > 0;
+    const selectedDefenseMeta = selectedDefenseType === 'FISICA'
+        ? { label: 'DEF FISICA', color: '#f97316', border: '#c2410c', shadow: '#f97316' }
+        : { label: 'DEF MAGICA', color: '#3b82f6', border: '#1d4ed8', shadow: '#3b82f6' };
     const enemyCardToneClass = enemy?.isBoss
         ? 'border-[3px] border-rose-400/70 bg-rose-950/50 backdrop-blur-md shadow-[0_12px_30px_rgba(190,24,93,0.35)] ring-1 ring-rose-400/30'
         : enemy?.isSubBoss
@@ -2921,15 +3352,15 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
       } : null,
       player.buffs.defTurns > 0 ? {
           key: 'def',
-          icon: <Shield size={12} className="text-[#4d6780]" />,
+          icon: <Shield size={12} className="text-[#c2410c]" />,
           label: `DEF +${(player.buffs.defMod * 100).toFixed(0)}% � ${player.buffs.defTurns}t`,
-          chipClass: 'border-[#9ec2cf] bg-[#e6f3f8] text-[#2f6274]',
+          chipClass: 'border-[#fdba74] bg-[#ffedd5] text-[#c2410c]',
       } : null,
       player.buffs.autoGuardTurns > 0 ? {
           key: 'auto-guard',
-          icon: <Shield size={12} className="text-[#2f6274]" />,
+          icon: <Shield size={12} className="text-[#c2410c]" />,
           label: `Defesa automatica � ${player.buffs.autoGuardTurns}t`,
-          chipClass: 'border-[#9ec2cf] bg-[#e6f3f8] text-[#2f6274]',
+          chipClass: 'border-[#fdba74] bg-[#ffedd5] text-[#c2410c]',
       } : null,
       player.buffs.perfectEvadeTurns > 0 ? {
           key: 'evd',
@@ -4211,7 +4642,43 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                           />
                       )}
                       <ActionTile icon={usesMagicBasicAttack ? <Sparkles size={18} /> : (usesBowBasicAttack ? <Crosshair size={18} /> : <Sword size={18} />)} label={usesMagicBasicAttack ? 'MAGIA' : 'ATACAR'} onClick={() => { setActiveBattleMenu(null); onAttack(); }} disabled={!isPlayerTurn} variant="attack" glowColor={impulseButtonGlowColor} glowStrength={24} energized={buttonsEnergized} sparkleColor={currentImpulseFxColor} />
-                      <ActionTile icon={<Shield size={18} />} label="DEFENDER" onClick={() => { setActiveBattleMenu(null); onDefend(); }} disabled={!isPlayerTurn} variant="defense" glowColor={impulseButtonGlowColor} glowStrength={24} energized={buttonsEnergized} sparkleColor={currentImpulseFxColor} />
+                      <div className="relative col-span-1">
+                          <button
+                              type="button"
+                              onClick={(event) => {
+                                  event.stopPropagation();
+                                  setSelectedDefenseType((current) => current === 'FISICA' ? 'MAGICA' : 'FISICA');
+                              }}
+                              disabled={!isPlayerTurn}
+                              className="absolute right-1 top-1 z-10 flex h-6 w-6 items-center justify-center rounded-[8px] border text-white transition-transform active:scale-90 disabled:opacity-40 sm:h-7 sm:w-7 sm:rounded-[10px]"
+                              style={{
+                                  background: 'rgba(8,5,22,0.55)',
+                                  backdropFilter: 'blur(24px)',
+                                  WebkitBackdropFilter: 'blur(24px)',
+                                  borderColor: isPlayerTurn ? `${selectedDefenseMeta.color}70` : 'rgba(255,255,255,0.10)',
+                                  boxShadow: isPlayerTurn
+                                      ? `0 0 18px ${selectedDefenseMeta.color}22, 0 4px 16px rgba(0,0,0,0.35)`
+                                      : '0 4px 12px rgba(0,0,0,0.25)',
+                                  color: isPlayerTurn ? selectedDefenseMeta.color : 'rgba(255,255,255,0.25)',
+                              }}
+                              aria-label="Alternar tipo de defesa"
+                              title="Alternar defesa fisica/magica"
+                          >
+                              <RefreshCw size={12} />
+                          </button>
+                          <ActionTile
+                              icon={<Shield size={18} />}
+                              label={selectedDefenseMeta.label}
+                              onClick={() => { setActiveBattleMenu(null); onDefend(selectedDefenseType); }}
+                              disabled={!isPlayerTurn}
+                              variant="defense"
+                              forceStyle={{ backgroundColor: selectedDefenseMeta.color, borderColor: selectedDefenseMeta.border, color: '#ffffff' }}
+                              glowColor={buttonsEnergized ? impulseButtonGlowColor : selectedDefenseMeta.shadow}
+                              glowStrength={24}
+                              energized={buttonsEnergized}
+                              sparkleColor={currentImpulseFxColor}
+                          />
+                      </div>
                                             {showSkillsAction && (
                                                 <div className="relative col-span-1">
                                                     {activeBattleMenu === 'skills' && (

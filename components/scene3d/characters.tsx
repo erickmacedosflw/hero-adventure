@@ -491,6 +491,8 @@ export const EnemyCharacter = ({
   const runtimeEnemyAssets = hasRuntimeFbxAssets(assets) ? assets : null;
   const holdGroundForAction = animationActionOverride === 'item';
   const shouldLungeAttack = isAttacking && !holdGroundForAction;
+  // Track last applied impulse level to avoid re-parsing the hex color string every frame.
+  const lastAppliedImpulseLevelRef = useRef<number>(-1);
 
   const refreshFlashMaterials = React.useCallback(() => {
     if (!group.current) {
@@ -534,16 +536,20 @@ export const EnemyCharacter = ({
 
     if (enemyDefendImpulseAuraRef.current) {
       const auraVisible = Boolean(isDefending) && defendImpulseLevel > 0;
-      const defendImpulseColor = defendImpulseLevel >= 3 ? '#7dd3fc' : defendImpulseLevel === 2 ? '#a855f7' : '#ef4444';
       enemyDefendImpulseAuraRef.current.visible = auraVisible;
       enemyDefendImpulseAuraRef.current.rotation.y -= 0.07 + (defendImpulseLevel * 0.01);
       enemyDefendImpulseAuraRef.current.position.y = 0.9 + Math.sin(state.clock.elapsedTime * 5.5) * 0.04;
-      enemyDefendImpulseAuraRef.current.children.forEach((child) => {
-        if (child instanceof THREE.Mesh && child.material instanceof THREE.MeshStandardMaterial) {
-          child.material.color.set(defendImpulseColor);
-          child.material.emissive.set(defendImpulseColor);
-        }
-      });
+      // Only re-parse and apply the hex color string when the level actually changes.
+      if (lastAppliedImpulseLevelRef.current !== defendImpulseLevel) {
+        lastAppliedImpulseLevelRef.current = defendImpulseLevel;
+        const defendImpulseColor = defendImpulseLevel >= 3 ? '#7dd3fc' : defendImpulseLevel === 2 ? '#a855f7' : '#ef4444';
+        enemyDefendImpulseAuraRef.current.children.forEach((child) => {
+          if (child instanceof THREE.Mesh && child.material instanceof THREE.MeshStandardMaterial) {
+            child.material.color.set(defendImpulseColor);
+            child.material.emissive.set(defendImpulseColor);
+          }
+        });
+      }
     }
 
     if (group.current) {
@@ -596,7 +602,7 @@ export const EnemyCharacter = ({
       <group ref={group} position={originPosition} rotation={[0, baseRotationY, 0]}>
         <MissingEnemyAssetPlaceholder scale={Math.max(0.92, scale * 0.85)} />
         {statusOverlay}
-        <ContactShadows opacity={0.24} scale={2.6} blur={4} far={1.8} resolution={contactShadowResolution} />
+        <ContactShadows frames={1} opacity={0.24} scale={2.6} blur={4} far={1.8} resolution={contactShadowResolution} />
       </group>
     );
   }
@@ -607,7 +613,7 @@ export const EnemyCharacter = ({
         <AnimatedEnemyCharacter assets={runtimeEnemyAssets} animationAction={enemyAnimationAction} attackStyle={attackStyle} />
       </Suspense>
       {statusOverlay}
-      <ContactShadows opacity={0.32} scale={2.6} blur={4} far={1.8} resolution={contactShadowResolution} />
+      <ContactShadows frames={1} opacity={0.32} scale={2.6} blur={4} far={1.8} resolution={contactShadowResolution} />
       {/* Damage flash light */}
       <pointLight ref={enemyDamageLightRef} color="#ef4444" intensity={0} distance={8} decay={2.5} position={[0, 0.8, -0.3]} />
       {/* Rim light — behind the model (Z negative = away from camera), separates silhouette */}
@@ -768,6 +774,8 @@ export const GltfEnemyCharacter = ({
   const flashRef = useRef(0);
   const wasHitRef = useRef(false);
   const flashMaterialsRef = useRef<THREE.Material[]>([]);
+  // Track last applied impulse level to avoid re-parsing the hex color string every frame.
+  const lastAppliedImpulseLevelRef = useRef<number>(-1);
 
   const refreshFlashMaterials = React.useCallback(() => {
     if (!group.current) { flashMaterialsRef.current = []; return; }
@@ -820,16 +828,20 @@ export const GltfEnemyCharacter = ({
     // Impulse aura
     if (impulseAuraRef.current) {
       const auraVisible = Boolean(isDefending) && defendImpulseLevel > 0;
-      const impulseColor = defendImpulseLevel >= 3 ? '#7dd3fc' : defendImpulseLevel === 2 ? '#a855f7' : '#ef4444';
       impulseAuraRef.current.visible = auraVisible;
       impulseAuraRef.current.rotation.y -= 0.07 + (defendImpulseLevel * 0.01);
       impulseAuraRef.current.position.y = 0.9 + Math.sin(t * 5.5) * 0.04;
-      impulseAuraRef.current.children.forEach((child) => {
-        if (child instanceof THREE.Mesh && child.material instanceof THREE.MeshStandardMaterial) {
-          child.material.color.set(impulseColor);
-          child.material.emissive.set(impulseColor);
-        }
-      });
+      // Only re-parse and apply the hex color string when the level actually changes.
+      if (lastAppliedImpulseLevelRef.current !== defendImpulseLevel) {
+        lastAppliedImpulseLevelRef.current = defendImpulseLevel;
+        const impulseColor = defendImpulseLevel >= 3 ? '#7dd3fc' : defendImpulseLevel === 2 ? '#a855f7' : '#ef4444';
+        impulseAuraRef.current.children.forEach((child) => {
+          if (child instanceof THREE.Mesh && child.material instanceof THREE.MeshStandardMaterial) {
+            child.material.color.set(impulseColor);
+            child.material.emissive.set(impulseColor);
+          }
+        });
+      }
     }
 
     if (isHit && !wasHitRef.current) flashRef.current = 1;
@@ -854,6 +866,7 @@ export const GltfEnemyCharacter = ({
       </Suspense>
       {/* Flying monsters cast a faded shadow far below them */}
       <ContactShadows
+        frames={1}
         opacity={isFlying ? 0.14 : 0.32}
         scale={3}
         blur={isFlying ? 3.5 : 2}

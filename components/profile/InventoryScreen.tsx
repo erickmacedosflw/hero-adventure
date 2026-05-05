@@ -122,7 +122,7 @@ const getItemEffectCards = (item: Item): EffectCard[] => {
   if (item.type === 'armor' || item.type === 'helmet' || item.type === 'legs' || item.type === 'shield') {
     const bonuses = getEquipmentBonuses(item);
     const cards: EffectCard[] = [];
-    if (bonuses.def > 0) cards.push(createEffectCard('def', 'DEF', `+${bonuses.def}`, <Shield size={15} />, 'text-[#93c5fd]', 'border-[#1e3a5f]/40 bg-[#0c1a2e]/60'));
+    if (bonuses.def > 0) cards.push(createEffectCard('def', 'DEF', `+${bonuses.def}`, <Shield size={15} />, 'text-[#fb923c]', 'border-[#9a3412]/40 bg-[#431407]/60'));
     if (bonuses.maxHp > 0) cards.push(createEffectCard('hp', 'VIDA', `+${bonuses.maxHp}`, <Heart size={15} />, 'text-[#86efac]', 'border-[#14532d]/40 bg-[#052e16]/60'));
     if (bonuses.maxMp > 0) cards.push(createEffectCard('mp', 'MANA', `+${bonuses.maxMp}`, <Zap size={15} />, 'text-[#7dd3fc]', 'border-[#075985]/40 bg-[#082f49]/60'));
     if (bonuses.speed > 0) cards.push(createEffectCard('spd', 'VEL', `+${bonuses.speed}`, <Zap size={15} />, 'text-[#d8b4fe]', 'border-[#581c87]/40 bg-[#2e1065]/60'));
@@ -135,7 +135,7 @@ const getItemEffectCards = (item: Item): EffectCard[] => {
       createEffectCard('duration', 'TURNOS', `${item.duration ?? 3}t`, <Sparkles size={15} />, 'text-[#fcd34d]', 'border-[#78350f]/40 bg-[#451a03]/60'),
     ];
     if (item.id === 'pot_def') return [
-      createEffectCard('def_boost', 'DEF', `+${formatPercent(item.value)}`, <Shield size={15} />, 'text-[#93c5fd]', 'border-[#1e3a5f]/40 bg-[#0c1a2e]/60'),
+      createEffectCard('def_boost', 'DEF', `+${formatPercent(item.value)}`, <Shield size={15} />, 'text-[#fb923c]', 'border-[#9a3412]/40 bg-[#431407]/60'),
       createEffectCard('duration', 'TURNOS', `${item.duration ?? 3}t`, <Sparkles size={15} />, 'text-[#fcd34d]', 'border-[#78350f]/40 bg-[#451a03]/60'),
     ];
     const lower = item.description.toLowerCase();

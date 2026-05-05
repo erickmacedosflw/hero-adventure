@@ -183,20 +183,12 @@ function handleGamepadDisconnected(e: GamepadEvent): void {
 }
 
 function pollGamepadFrame(): void {
-  // Auto-detect if no gamepad registered yet via events.
-  // This catches controllers connected BEFORE the page loaded (no gamepadconnected event).
-  if (activeGamepadIndex === null) {
-    const all = navigator.getGamepads();
-    for (let i = 0; i < all.length; i++) {
-      if (all[i]) {
-        activeGamepadIndex = i;
-        setHasGamepad(true);
-        setBrand(detectBrand(all[i]!.id));
-        break;
-      }
-    }
-    if (activeGamepadIndex === null) return;
-  }
+  // When no gamepad is registered, detection is handled by the `gamepadconnected` event
+  // and by scheduleStartupScans() (fires at 100–4000ms after init).
+  // Calling navigator.getGamepads() here every RAF frame is unnecessary and on Windows
+  // with Bluetooth/HID enumeration it can block the main thread for >100ms, causing
+  // the "requestAnimationFrame handler took Nms" violation in DevTools.
+  if (activeGamepadIndex === null) return;
 
   const gp = navigator.getGamepads()[activeGamepadIndex];
   if (!gp) return;

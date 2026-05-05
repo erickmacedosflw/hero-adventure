@@ -188,7 +188,7 @@ const getBattleItemDetailChips = (item: Item): DetailChip[] => {
 
   if (item.id === 'pot_def') {
     return [
-      { label: 'DEF', value: `+${Math.round((item.value as number) * 100)}%`, color: '#93c5fd', bg: 'rgba(30,58,95,0.35)' },
+      { label: 'DEF', value: `+${Math.round((item.value as number) * 100)}%`, color: '#fb923c', bg: 'rgba(154,52,18,0.35)' },
       { label: 'TURNOS', value: `${item.duration ?? 3}t`, color: '#fcd34d', bg: 'rgba(120,53,15,0.35)' },
     ];
   }
@@ -232,7 +232,7 @@ const getHeroItemDetailChips = (item: Item): DetailChip[] => {
 
   if (['armor', 'helmet', 'legs', 'shield'].includes(item.type)) {
     const bonuses = getEquipmentBonuses(item);
-    if (bonuses.def > 0) chips.push({ label: 'DEF', value: `+${bonuses.def}`, color: '#93c5fd', bg: 'rgba(30,58,95,0.35)' });
+    if (bonuses.def > 0) chips.push({ label: 'DEF', value: `+${bonuses.def}`, color: '#fb923c', bg: 'rgba(154,52,18,0.35)' });
     if (bonuses.maxHp > 0) chips.push({ label: 'VIDA', value: `+${bonuses.maxHp}`, color: '#86efac', bg: 'rgba(20,83,45,0.35)' });
     if (bonuses.maxMp > 0) chips.push({ label: 'MANA', value: `+${bonuses.maxMp}`, color: '#7dd3fc', bg: 'rgba(7,89,133,0.35)' });
     if (bonuses.speed > 0) chips.push({ label: 'VEL', value: `+${bonuses.speed}`, color: '#d8b4fe', bg: 'rgba(88,28,135,0.35)' });

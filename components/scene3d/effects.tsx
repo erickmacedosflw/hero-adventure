@@ -20,12 +20,15 @@ export const WorldLootDisplay = ({ loot, xpIcon, enemyAnchor }: { loot: LootResu
   const groupRef = useRef<THREE.Group>(null);
   const htmlRef = useRef<HTMLDivElement>(null);
   const startTimeRef = useRef<number | null>(null);
+  // Cache last-written opacity to avoid a DOM style write every RAF tick when unchanged.
+  const lastOpacityRef = useRef<number>(-1);
   const DURATION = 3.0;
 
   // Reset animation whenever a new loot result appears
   useEffect(() => {
     if (loot) {
       startTimeRef.current = null;
+      lastOpacityRef.current = -1;
     }
   }, [loot]);
 
@@ -47,7 +50,15 @@ export const WorldLootDisplay = ({ loot, xpIcon, enemyAnchor }: { loot: LootResu
       const s = t * t * (3 - 2 * t);
       opacity = 1 - s;
     }
-    if (htmlRef.current) htmlRef.current.style.opacity = String(Math.max(0, opacity));
+    if (htmlRef.current) {
+      const clampedOpacity = Math.max(0, opacity);
+      // Round to 3 decimals to avoid spurious DOM writes on floating-point noise.
+      const rounded = Math.round(clampedOpacity * 1000) / 1000;
+      if (rounded !== lastOpacityRef.current) {
+        lastOpacityRef.current = rounded;
+        htmlRef.current.style.opacity = String(rounded);
+      }
+    }
   });
 
   if (!loot) return null;

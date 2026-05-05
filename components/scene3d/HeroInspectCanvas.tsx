@@ -69,7 +69,7 @@ function getPotionSlotBadges(item: Item): SlotBadge[] {
   }
   if (item.id === 'pot_def') {
     return [
-      { label: `+${Math.round((item.value as number) * 100)}% DEF`, color: '#93c5fd', bg: 'rgba(30,58,95,0.35)', border: 'rgba(147,197,253,0.30)' },
+      { label: `+${Math.round((item.value as number) * 100)}% DEF`, color: '#fb923c', bg: 'rgba(154,52,18,0.35)', border: 'rgba(251,146,60,0.30)' },
       { label: `${item.duration ?? 3} turnos`, color: '#fcd34d', bg: 'rgba(120,53,15,0.35)', border: 'rgba(252,211,77,0.30)' },
     ];
   }
@@ -225,10 +225,12 @@ export const HeroProfileDetailModal: React.FC<{
     { label: 'MP', value: player.stats.mp, max: player.stats.maxMp, color: '#38bdf8', gradient: 'linear-gradient(90deg,#1d4ed8,#38bdf8)' },
     { label: 'XP', value: player.xp, max: player.xpToNext, color: '#fbbf24', gradient: 'linear-gradient(90deg,#b45309,#fbbf24)' },
   ];
+  const magicDefense = player.stats.magicDef ?? player.stats.def;
 
   const attributeRows = [
     { label: 'ATQ', value: player.stats.atk, color: '#ef4444', Icon: Swords },
-    { label: 'DEF', value: player.stats.def, color: '#3b82f6', Icon: Shield },
+    { label: 'DEF', value: player.stats.def, color: '#f97316', Icon: Shield },
+    { label: 'D.MAG', value: magicDefense, color: '#3b82f6', Icon: Shield },
     { label: 'MAG', value: player.stats.magic, color: '#a855f7', Icon: Sparkles },
     { label: 'VEL', value: player.stats.speed, color: '#22c55e', Icon: Wind },
     { label: 'SRT', value: player.stats.luck, color: '#fbbf24', Icon: Clover },
@@ -794,6 +796,7 @@ export const HeroInspectCanvas = ({
   const hpPct = player.stats.maxHp > 0 ? Math.min(100, (player.stats.hp / player.stats.maxHp) * 100) : 0;
   const mpPct = player.stats.maxMp > 0 ? Math.min(100, (player.stats.mp / player.stats.maxMp) * 100) : 0;
   const xpPct = player.xpToNext > 0 ? Math.min(100, (player.xp / player.xpToNext) * 100) : 0;
+  const magicDefense = player.stats.magicDef ?? player.stats.def;
 
   const slots: { key: EquipSlotKey; label: string; item: any }[] = [
     { key: 'weapon', label: 'Arma', item: player.equippedWeapon },
@@ -967,7 +970,7 @@ export const HeroInspectCanvas = ({
   const equipX = isMobile ? -0.58 : -0.34;
   const statsX = isMobile ? -0.7 : -2.0;
   const statsY = 2.0;
-  const equipY = isMobile ? statsY - 1.93 : -0.08 - (desktopViewportShortfall * 0.16);
+  const equipY = isMobile ? statsY - 1.93 : 0.52 - (desktopViewportShortfall * 0.16);
   const df = isMobile ? 6.0 : 5.8;
   const dfStats = isMobile ? 5.4 : df;
 
@@ -1071,7 +1074,8 @@ export const HeroInspectCanvas = ({
               {(() => {
                 const miniStats = [
                   { abbr: 'ATQ', value: player.stats.atk, color: '#f43f5e', Icon: Swords as React.FC<{ size?: number }> },
-                  { abbr: 'DEF', value: player.stats.def, color: '#3b82f6', Icon: Shield as React.FC<{ size?: number }> },
+                  { abbr: 'DEF', value: player.stats.def, color: '#f97316', Icon: Shield as React.FC<{ size?: number }> },
+                  { abbr: 'D.MAG', value: magicDefense, color: '#3b82f6', Icon: Shield as React.FC<{ size?: number }> },
                   { abbr: 'MAG', value: player.stats.magic, color: '#a855f7', Icon: Sparkles as React.FC<{ size?: number }> },
                   { abbr: 'VEL', value: player.stats.speed, color: '#10b981', Icon: Wind as React.FC<{ size?: number }> },
                   { abbr: 'SRT', value: player.stats.luck, color: '#f59e0b', Icon: Clover as React.FC<{ size?: number }> },
@@ -1104,9 +1108,10 @@ export const HeroInspectCanvas = ({
                 const radarAxes = [
                   { value: player.stats.atk, base: player.stats.atk - eqBonus.atk, bonus: eqBonus.atk, color: '#f43f5e', Icon: Swords as React.FC<{ size?: number }> },
                   { value: player.stats.magic, base: player.stats.magic - eqBonus.magic, bonus: eqBonus.magic, color: '#a855f7', Icon: Sparkles as React.FC<{ size?: number }> },
+                  { value: magicDefense, base: magicDefense, bonus: 0, color: '#3b82f6', Icon: Shield as React.FC<{ size?: number }> },
                   { value: player.stats.luck, base: player.stats.luck, bonus: 0, color: '#f59e0b', Icon: Clover as React.FC<{ size?: number }> },
                   { value: player.stats.speed, base: player.stats.speed - eqBonus.speed, bonus: eqBonus.speed, color: '#10b981', Icon: Wind as React.FC<{ size?: number }> },
-                  { value: player.stats.def, base: player.stats.def - eqBonus.def, bonus: eqBonus.def, color: '#3b82f6', Icon: Shield as React.FC<{ size?: number }> },
+                  { value: player.stats.def, base: player.stats.def - eqBonus.def, bonus: eqBonus.def, color: '#f97316', Icon: Shield as React.FC<{ size?: number }> },
                 ] as { value: number; base: number; bonus: number; color: string; Icon: React.FC<{ size?: number }> }[];
                 const maxVal = Math.max(...radarAxes.map((axis) => axis.value)) + 10;
                 const cx = 88;

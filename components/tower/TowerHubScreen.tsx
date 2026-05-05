@@ -253,7 +253,8 @@ export const TowerHubScreen: React.FC<TowerHubScreenProps> = ({
               { label: 'HP',  value: player.stats.maxHp, color: 'text-green-400'  },
               { label: 'MP',  value: player.stats.maxMp, color: 'text-blue-400'   },
               { label: 'ATK', value: player.stats.atk,   color: 'text-red-400'    },
-              { label: 'DEF', value: player.stats.def,   color: 'text-slate-300'  },
+              { label: 'DEF', value: player.stats.def,   color: 'text-orange-400' },
+              { label: 'D.MAG', value: player.stats.magicDef ?? player.stats.def, color: 'text-blue-400' },
               { label: 'VEL', value: player.stats.speed, color: 'text-yellow-400' },
               { label: 'MAG', value: player.stats.magic, color: 'text-purple-400' },
             ] as Array<{ label: string; value: number; color: string }>).map(({ label, value, color }) => (

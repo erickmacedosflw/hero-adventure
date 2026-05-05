@@ -1,7 +1,8 @@
 
 import React, { Suspense, useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { ShoppingBag, Play, Sword, Swords, Home, Orbit, Shield, Sparkles, Crosshair, Zap, Heart } from 'lucide-react';
-import { GameScene, type BattleActionsConfig } from './components/Scene3D';
+import { GameScene } from './components/Scene3D';
+import type { BattleActionsConfig } from './components/scene3d/BattleActionsHtml';
 import { OpeningScreen } from './components/OpeningScreen';
 import { ClassSelectionScreen } from './components/ClassSelectionScreen';
 import { BattleHUD, MenuScreen, ShopScreen, TavernScreen, CardChoiceScreen, DungeonResultScreen, BossVictoryModal } from './components/GameUI';
@@ -10,7 +11,7 @@ import { useInputMode } from './game/hooks/useInputMode';
 import { AdminPanel } from './components/AdminPanel';
 import { AlchemistScreen } from './components/shop/AlchemistMenuScreen';
 import { 
-    Player, Enemy, EnemyIntentPreview, GameState, TurnState, BattleLog, Item, Skill, Stats, Particle, FloatingText, ProgressionCard, CardRewardOffer, AlchemistCardOffer, AlchemistItemOffer, DungeonRunState, DungeonResult, DungeonRewards, EnemyTemplate, DungeonEnemyTemplate, DungeonBossTemplate, PlayerAnimationAction, BossVictoryContext, CardCategory, GltfMonsterBodyType, PlayerClassId, PendingTargetAction
+    Player, Enemy, EnemyIntentPreview, GameState, TurnState, BattleLog, Item, Skill, Stats, Particle, FloatingText, ProgressionCard, CardRewardOffer, AlchemistCardOffer, AlchemistItemOffer, DungeonRunState, DungeonResult, DungeonRewards, EnemyTemplate, DungeonEnemyTemplate, DungeonBossTemplate, PlayerAnimationAction, BossVictoryContext, CardCategory, GltfMonsterBodyType, PlayerClassId, PendingTargetAction, BattleTimelineState, TipoDefesa
 } from './types';
 import { 
     INITIAL_PLAYER, SHOP_ITEMS, ALL_ITEMS, MATERIALS, SKILLS, ENEMY_DATA, ENEMY_COLORS, DUNGEON_ENEMY_DATA, DUNGEON_BOSS, ALCHEMIST_ITEM_OFFERS 
@@ -29,6 +30,7 @@ import { WeaponProficiencyAppliedBonuses, applyWeaponProficiencyBonusesToStats, 
 import { SavePayload, SaveSlotId, SaveSlotSummary, getActiveSaveSlotId, listSaveSlots, loadSaveFromSlot, saveToActiveSlot, setActiveSaveSlotId, clearSlot } from './game/mechanics/saveSystem';
 import { useBattleController } from './game/hooks/useBattleController';
 import { useBattleResolution } from './game/hooks/useBattleResolution';
+import { useBattleTimeline, type BattleTimelineActor } from './game/hooks/useBattleTimeline';
 import { initInputManager, onAction, getInputState } from './game/mechanics/inputManager';
 import { PF } from './game/data/promptFont';
 import { GamepadHint } from './components/ui/GamepadHint';
@@ -230,6 +232,7 @@ const normalizeSavedPlayerForCurrentBuild = (source: Player): Player => {
     let normalizedStats: Stats = {
         ...source.stats,
         magic: Number.isFinite(source.stats.magic) ? source.stats.magic : playerClass.baseStats.magic,
+        magicDef: Number.isFinite(source.stats.magicDef) ? source.stats.magicDef : (playerClass.baseStats.magicDef ?? source.stats.def),
     };
 
     if (shouldBackfillMagic && equippedWeapon) {
@@ -352,6 +355,8 @@ export default function App() {
         statusEffects: [...source.statusEffects],
         chosenCards: [...source.chosenCards],
         cardBonuses: { ...source.cardBonuses },
+        isDefendendo: source.isDefendendo ?? source.isDefending ?? false,
+        tipoDefesaAtiva: source.tipoDefesaAtiva ?? null,
         impulso: Math.max(0, Math.min(getImpulseCapacityByLevel(source.level), source.impulso ?? 0)),
         impulsoAtivo: Math.max(0, Math.min(getImpulseCapacityByLevel(source.level), source.impulsoAtivo ?? 0)),
         buffs: {
@@ -493,6 +498,16 @@ export default function App() {
         const weightedPool: Array<Player['classId']> = ['knight', 'mage', 'rogue', 'ranger', 'barbarian', 'knight', 'rogue'];
         return pickRandom(weightedPool);
     };
+
+    const ENEMY_CLASS_BASE_SPEED_FLOOR: Record<Player['classId'], number> = {
+        knight: 10,
+        barbarian: 11,
+        mage: 12,
+        ranger: 14,
+        rogue: 16,
+    };
+
+    const getEnemyClassBaseSpeedFloor = (enemyClassId: Player['classId']) => ENEMY_CLASS_BASE_SPEED_FLOOR[enemyClassId];
 
     const createEnemySkillSet = (enemyClassId: Player['classId'], tier: number, cycleStrength: number): Enemy['skillSet'] => {
         const skills: Enemy['skillSet'] = [];
@@ -851,9 +866,11 @@ export default function App() {
   const [pendingTargetAction, setPendingTargetAction] = useState<PendingTargetAction>(null);
   const [targetCardLeaving, setTargetCardLeaving] = useState(false);
   const [showHeroDetailModal, setShowHeroDetailModal] = useState(false);
+    const [isBattleSettingsModalOpen, setIsBattleSettingsModalOpen] = useState(false);
   const { uiProfile: appUiProfile } = useInputMode();
   const [accumulatedGroupRewards, setAccumulatedGroupRewards] = useState<{ gold: number; xp: number }>({ gold: 0, xp: 0 });
-  const [roundActorQueue, setRoundActorQueue] = useState<string[]>([]); // 'player' | enemy.id, sorted by speed desc
+    const [battleTimelineState, setBattleTimelineState] = useState<BattleTimelineState>('RUNNING');
+    const [activeBattleActorId, setActiveBattleActorId] = useState<string | null>(null);
   const [primaryEnemyId, setPrimaryEnemyId] = useState<string | null>(null); // player's chosen target
   /** Slot de layout ocupado pelo inimigo principal (0=centro, 1=direita, 2=mais direita). Evita teleporte visual ao selecionar alvo. */
   const [mainEnemySlotIndex, setMainEnemySlotIndex] = useState<number>(0);
@@ -893,12 +910,13 @@ export default function App() {
     const towerRunRef = useRef<TowerRunState | null>(null);
     const postCardFlowRef = useRef<'tavern' | 'boss-victory' | 'resume-hunt' | null>(null);
     const bossVictoryContextRef = useRef<BossVictoryContext | null>(null);
-    // Refs for queue useEffect (always current)
+    // Refs for battle timeline effects (always current)
     const enemyRef = useRef<Enemy | null>(null);
     const additionalEnemiesRef = useRef<Enemy[]>([]);
     const playerRef = useRef<Player | null>(null);
     const primaryEnemyIdRef = useRef<string | null>(null);
     const enemySlotAssignmentsRef = useRef<Record<string, number>>({});
+    const activeBattleActorIdRef = useRef<string | null>(null);
     enemyRef.current = enemy;
     additionalEnemiesRef.current = additionalEnemies;
     playerRef.current = player;
@@ -2060,19 +2078,116 @@ export default function App() {
 
   // --- LOGIC ---
 
-  /** Constrói a fila de iniciativa de um round ordenada por speed descendente. */
-  const buildRoundQueue = (p: Player, enemies: Enemy[]): string[] => {
-    const actors: Array<{ id: string; speed: number }> = [
-      { id: 'player', speed: p.stats.speed },
-      ...enemies.map(e => ({ id: e.id, speed: e.stats.speed })),
-    ];
-    return actors.sort((a, b) => b.speed - a.speed).map(a => a.id);
-  };
+    const battleTimelineActors = useMemo<BattleTimelineActor[]>(() => {
+        const enemiesInBattle = [enemy, ...additionalEnemies].filter((entry): entry is Enemy => Boolean(entry));
+        return [
+            {
+                id: 'player',
+                kind: 'player',
+                label: player.name,
+                classId: player.classId,
+                speed: player.stats.speed,
+                hp: player.stats.hp,
+                priority: 0,
+            },
+            ...enemiesInBattle.map((entry, index) => ({
+                id: entry.id,
+                kind: 'enemy' as const,
+                label: entry.name,
+                classId: entry.enemyClassId ?? 'knight',
+                speed: entry.stats.speed,
+                hp: entry.stats.hp,
+                priority: 1 + (enemySlotAssignments[entry.id] ?? index),
+            })),
+        ];
+    }, [additionalEnemies, enemy, enemySlotAssignments, player.classId, player.name, player.stats.hp, player.stats.speed]);
 
-  /** Avança a fila de iniciativa: remove o ator que acabou de agir. */
-  const onActorTurnDone = useCallback(() => {
-    setRoundActorQueue(prev => prev.slice(1));
-  }, []);
+    const isBattleTimelineOverlayPaused = gameState === GameState.BATTLE
+        && (showHeroDetailModal || isBattleSettingsModalOpen);
+    const effectiveBattleTimelineState: BattleTimelineState = isBattleTimelineOverlayPaused
+        ? 'EXECUTING'
+        : battleTimelineState;
+
+    const handleBattleActorReady = useCallback((actorId: string) => {
+        if (gameState !== GameState.BATTLE) return;
+
+        const currentEnemy = enemyRef.current;
+        const currentAdditionals = additionalEnemiesRef.current;
+        const currentPlayer = playerRef.current;
+        if (!currentEnemy || !currentPlayer || currentPlayer.stats.hp <= 0) return;
+
+        activeBattleActorIdRef.current = actorId;
+        setActiveBattleActorId(actorId);
+
+        if (actorId === 'player') {
+            setPlayer((prev) => ({
+                ...prev,
+                isDefending: false,
+                isDefendendo: false,
+                tipoDefesaAtiva: null,
+                buffs: consumeTurnBuffs(prev.buffs),
+            }));
+            const primaryId = primaryEnemyIdRef.current;
+            if (primaryId && currentEnemy.id !== primaryId) {
+                const allEnemies = [currentEnemy, ...currentAdditionals].filter(Boolean) as Enemy[];
+                const primary = allEnemies.find((entry) => entry.id === primaryId);
+                if (primary) {
+                    setEnemy(primary);
+                    setAdditionalEnemies(allEnemies.filter((entry) => entry.id !== primaryId));
+                    setMainEnemySlotIndex(enemySlotAssignmentsRef.current[primaryId] ?? 0);
+                }
+            }
+            setBattleTimelineState('WAITING_INPUT');
+            setTurnState(TurnState.PLAYER_INPUT);
+            return;
+        }
+
+        const allEnemies = [currentEnemy, ...currentAdditionals].filter(Boolean) as Enemy[];
+        const nextEnemy = allEnemies.find((entry) => entry.id === actorId);
+        if (!nextEnemy || nextEnemy.stats.hp <= 0) {
+            activeBattleActorIdRef.current = null;
+            setActiveBattleActorId(null);
+            setBattleTimelineState('RUNNING');
+            setTurnState(TurnState.PROCESSING);
+            return;
+        }
+
+        if (nextEnemy.id !== currentEnemy.id) {
+            setAdditionalEnemies([
+                currentEnemy,
+                ...currentAdditionals.filter((entry) => entry.id !== actorId),
+            ]);
+            setEnemy(nextEnemy);
+        }
+        setMainEnemySlotIndex(enemySlotAssignmentsRef.current[actorId] ?? 0);
+        setBattleTimelineState('EXECUTING');
+        setTurnState(TurnState.ENEMY_TURN);
+    }, [gameState, setEnemy]);
+
+    const {
+        gauges: battleActorGauges,
+        resetActorGauge,
+        removeActorGauge,
+        clearGauges,
+    } = useBattleTimeline({
+        isActive: gameState === GameState.BATTLE && Boolean(enemy) && player.stats.hp > 0,
+        actors: battleTimelineActors,
+        timelineState: effectiveBattleTimelineState,
+        activeActorId: activeBattleActorId,
+        onActorReady: handleBattleActorReady,
+    });
+
+    /** Chamado quando o ator atual termina a ação; reseta sua barra ATB e retoma o tempo global. */
+    const onActorTurnDone = useCallback((actorIdOverride?: string) => {
+        const actorId = actorIdOverride ?? activeBattleActorIdRef.current;
+        if (actorId) {
+            resetActorGauge(actorId);
+        }
+        activeBattleActorIdRef.current = null;
+        setActiveBattleActorId(null);
+        setBattleTimelineState('RUNNING');
+        setTurnState(TurnState.PROCESSING);
+    }, [resetActorGauge]);
 
   /** Chamado quando um inimigo do grupo morre mas outros ainda estão vivos. */
   const onPartialGroupKill = useCallback((deadEnemyId: string, xpGain: number, goldGain: number) => {
@@ -2080,8 +2195,7 @@ export default function App() {
     // Animação visual: XP e ouro flutuando sobre o inimigo morto
     spawnFloatingText(`+${xpGain} XP`, 'enemy', 'buff', '#d97706');
     spawnFloatingText(`+${goldGain}`, 'enemy', 'buff', '#fbbf24');
-    // Remove o morto da fila
-    setRoundActorQueue(prev => prev.filter(id => id !== deadEnemyId));
+    removeActorGauge(deadEnemyId);
 
     const currentPrimary = enemyRef.current;
     const currentAdds = additionalEnemiesRef.current;
@@ -2106,71 +2220,19 @@ export default function App() {
       // Um extra morreu → remove apenas da lista, inimigo principal permanece no lugar
       setAdditionalEnemies(currentAdds.filter(e => e.id !== deadEnemyId));
     }
-  }, [setEnemy, spawnFloatingText]);
+    }, [removeActorGauge, setEnemy, spawnFloatingText]);
 
-  // Fila de iniciativa: dirige quem age quando
-  useEffect(() => {
-    if (gameState !== GameState.BATTLE) return;
-    const currentEnemy = enemyRef.current;
-    const currentAdditionals = additionalEnemiesRef.current;
-    const currentPlayer = playerRef.current;
+    useEffect(() => {
+        if (gameState === GameState.BATTLE) return;
+        clearGauges();
+        activeBattleActorIdRef.current = null;
+        setActiveBattleActorId(null);
+        setBattleTimelineState('RUNNING');
+    }, [clearGauges, gameState]);
 
-    if (roundActorQueue.length === 0) {
-      if (!currentEnemy || !currentPlayer) return;
-      // Fim de rodada: expira buffs do jogador e limpa flag de defesa
-      setPlayer((prev) => ({
-        ...prev,
-        isDefending: false,
-        buffs: consumeTurnBuffs(prev.buffs),
-      }));
-      const allEnemies = [currentEnemy, ...currentAdditionals];
-      const newQueue = buildRoundQueue(currentPlayer, allEnemies);
-      setRoundActorQueue(newQueue);
-      return;
-    }
-
-    const nextId = roundActorQueue[0];
-
-    if (nextId === 'player') {
-      // Restaurar inimigo primário antes do input do jogador
-      const primId = primaryEnemyIdRef.current;
-      if (primId && currentEnemy?.id !== primId) {
-        const allEnemies = [currentEnemy, ...currentAdditionals].filter(Boolean) as Enemy[];
-        const primary = allEnemies.find(e => e.id === primId);
-        if (primary) {
-          setEnemy(primary);
-          setAdditionalEnemies(allEnemies.filter(e => e.id !== primId));
-          // Restaura o slot visual correto usando os assignments estáveis
-          setMainEnemySlotIndex(enemySlotAssignmentsRef.current[primId] ?? 0);
-        }
-      }
-      setTurnState(TurnState.PLAYER_INPUT);
-    } else {
-      // Turno de um inimigo — swap para que o battle controller o veja em `enemy`
-      const allEnemies = [currentEnemy, ...currentAdditionals].filter(Boolean) as Enemy[];
-      const nextEnemy = allEnemies.find(e => e.id === nextId);
-      if (!nextEnemy || nextEnemy.stats.hp <= 0) {
-        // Inimigo morto — pular
-        setRoundActorQueue(prev => prev.slice(1));
-        return;
-      }
-      if (nextEnemy.id !== currentEnemy?.id) {
-        setAdditionalEnemies([
-          ...(currentEnemy ? [currentEnemy] : []),
-          ...currentAdditionals.filter(e => e.id !== nextId),
-        ]);
-        setEnemy(nextEnemy);
-      }
-      // Mantém o inimigo no seu slot visual estável (sem teleporte)
-      setMainEnemySlotIndex(enemySlotAssignmentsRef.current[nextId] ?? 0);
-      setTurnState(TurnState.ENEMY_TURN);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [roundActorQueue, gameState]);
-
-  const addLog = (message: string, type: BattleLog['type'] = 'info') => {
+  const addLog = useCallback((message: string, type: BattleLog['type'] = 'info') => {
     setLogs(prev => [{ message, type }, ...prev]);
-  };
+  }, []);
 
     const spawnEnemy = async (currentStage: number, isBoss: boolean, mode: 'hunt' | 'dungeon' = dungeonRun ? 'dungeon' : 'hunt', dungeonEvolutionOverride?: number) => {
     // Scale stats based on stage
@@ -2218,7 +2280,8 @@ export default function App() {
     const baseAtk = templateBaseStats?.atk ?? 9;
     const baseMagic = (templateBaseStats as any)?.magic ?? 8;
     const baseDef = templateBaseStats?.def ?? 3;
-    const baseSpeed = templateBaseStats?.speed ?? 10;
+    const templateSpeed = templateBaseStats?.speed ?? 0;
+    const baseSpeed = Math.max(getEnemyClassBaseSpeedFloor(enemyClassId), templateSpeed);
     const baseLuck = templateBaseStats?.luck;
     const templateCombatProfile = enemyTemplate as Partial<DungeonEnemyTemplate & DungeonBossTemplate>;
     const hpMultiplier = templateCombatProfile.hpMultiplier ?? 1;
@@ -2344,7 +2407,9 @@ export default function App() {
     // Slot assignment inicial: só o inimigo principal no slot 0
     setEnemySlotAssignments({ [newEnemy.id]: 0 });
     setInitialGroupSize(1);
-    setRoundActorQueue([]); // Será reconstruída pelo useEffect de iniciativa
+    activeBattleActorIdRef.current = null;
+    setActiveBattleActorId(null);
+    setBattleTimelineState('RUNNING');
 
     // Spawn de inimigos extras: apenas caça, fase >= 4, inimigo regular (não boss/subboss)
     if (mode === 'hunt' && currentStage >= 4 && !isBoss && !isSubBossEncounter) {
@@ -2387,7 +2452,7 @@ export default function App() {
               atk: Math.floor(newEnemy.stats.atk * 0.80),
               def: Math.floor(newEnemy.stats.def * 0.80),
               magic: Math.floor(newEnemy.stats.magic * 0.80),
-              speed: Math.max(1, Math.floor(newEnemy.stats.speed * (0.90 + Math.random() * 0.20))),
+                            speed: Math.max(getEnemyClassBaseSpeedFloor(newEnemy.enemyClassId ?? 'knight'), Math.floor(newEnemy.stats.speed * (0.90 + Math.random() * 0.20))),
             },
             xpReward: Math.floor(newEnemy.xpReward * 0.60),
             goldReward: Math.floor(newEnemy.goldReward * 0.60),
@@ -2677,6 +2742,8 @@ export default function App() {
                     ...prev,
                     buffs: nextBuffs,
                     isDefending: false,
+                    isDefendendo: false,
+                    tipoDefesaAtiva: null,
                     statusEffects: [],
                     classResource: {
                         ...prev.classResource,
@@ -2687,11 +2754,14 @@ export default function App() {
             });
     setGameState(GameState.BATTLE);
             setPlayerAnimationAction('battle-idle');
-      setTurnState(TurnState.PLAYER_INPUT);
+            setTurnState(TurnState.PROCESSING);
     setEnemyAnimationAction('battle-idle');
       setEnemy(null);
       setAdditionalEnemies([]);
-      setRoundActorQueue([]);
+            clearGauges();
+            activeBattleActorIdRef.current = null;
+            setActiveBattleActorId(null);
+            setBattleTimelineState('RUNNING');
       setLogs([]);
       spawnEnemy(encounterStage, isBoss, mode, isDungeonBattle ? activeDungeonEvolution : undefined);
   };
@@ -2785,7 +2855,7 @@ export default function App() {
                         void handleVictory(900);
                         return;
                 }
-                setTurnState(TurnState.ENEMY_TURN);
+                                onActorTurnDone();
       }, 1000);
     }, 800);
   };
@@ -3010,6 +3080,8 @@ export default function App() {
               hp: prev.stats.maxHp,
           },
           isDefending: false,
+          isDefendendo: false,
+          tipoDefesaAtiva: null,
           buffs: createEmptyBuffState() // Reset buffs on flee
       }));
       setKillCount(0);
@@ -3043,6 +3115,8 @@ export default function App() {
               mp: prev.stats.maxMp,
           },
           isDefending: false,
+          isDefendendo: false,
+          tipoDefesaAtiva: null,
           buffs: createEmptyBuffState(),
           statusEffects: [],
       }));
@@ -3228,6 +3302,8 @@ export default function App() {
             cardBonuses: { ...player.cardBonuses },
             buffs: createEmptyBuffState(),
             isDefending: false,
+            isDefendendo: false,
+            tipoDefesaAtiva: null,
         };
 
         setPlayer(updatedPlayer);
@@ -3374,10 +3450,10 @@ export default function App() {
                 addLog('A IA do inimigo falhou neste turno. Fluxo recuperado automaticamente.', 'info');
                 setIsEnemyAttacking(false);
                 setEnemyAnimationAction('battle-idle');
-                setTurnState(TurnState.PLAYER_INPUT);
+                onActorTurnDone();
             }
     }
-    }, [addLog, enemy, gameState, handleEnemyTurn, setEnemyAnimationAction, setIsEnemyAttacking, turnState]);
+    }, [addLog, enemy, gameState, handleEnemyTurn, onActorTurnDone, setEnemyAnimationAction, setIsEnemyAttacking, turnState]);
 
   // Refs para wrappers de seleção de alvo (sempre frescos)
   const handlePlayerAttackRef = useRef(handlePlayerAttack);
@@ -3388,16 +3464,43 @@ export default function App() {
   const allEnemiesAlive = [enemy, ...additionalEnemies].filter((e): e is Enemy => Boolean(e) && e!.stats.hp > 0);
   const hasMultipleEnemies = allEnemiesAlive.length > 1;
 
+    const beginPlayerActionExecution = useCallback(() => {
+        if (activeBattleActorIdRef.current === 'player') {
+            setBattleTimelineState('EXECUTING');
+        }
+    }, []);
+
   const handleAttackWithTargetCheck = useCallback(() => {
     if (hasMultipleEnemies) setPendingTargetAction({ type: 'attack' });
-    else handlePlayerAttackRef.current();
-  }, [hasMultipleEnemies]);
+        else {
+            beginPlayerActionExecution();
+            handlePlayerAttackRef.current();
+        }
+    }, [beginPlayerActionExecution, hasMultipleEnemies]);
 
   const handleSkillWithTargetCheck = useCallback((skill: Skill) => {
     const isOffensive = skill.type === 'physical' || skill.type === 'magic';
     if (hasMultipleEnemies && isOffensive) setPendingTargetAction({ type: 'skill', skill });
-    else handleSkillRef.current(skill);
-  }, [hasMultipleEnemies]);
+        else {
+            beginPlayerActionExecution();
+            handleSkillRef.current(skill);
+        }
+    }, [beginPlayerActionExecution, hasMultipleEnemies]);
+
+    const handlePlayerDefenseWithTimeline = useCallback((tipoDefesa: TipoDefesa) => {
+        beginPlayerActionExecution();
+        handlePlayerDefense(tipoDefesa);
+    }, [beginPlayerActionExecution, handlePlayerDefense]);
+
+    const handleChargeImpulseWithTimeline = useCallback(() => {
+        beginPlayerActionExecution();
+        handleChargeImpulse();
+    }, [beginPlayerActionExecution, handleChargeImpulse]);
+
+    const handleUseItemWithTimeline = useCallback((itemId: string) => {
+        beginPlayerActionExecution();
+        handleUseItem(itemId);
+    }, [beginPlayerActionExecution, handleUseItem]);
 
   const handleSelectTarget = useCallback((targetId: string) => {
     const all = [enemy, ...additionalEnemies].filter(Boolean) as Enemy[];
@@ -3411,11 +3514,12 @@ export default function App() {
     setMainEnemySlotIndex(enemySlotAssignmentsRef.current[targetId] ?? 0);
     const action = pendingTargetAction;
     setPendingTargetAction(null);
+        beginPlayerActionExecution();
     window.setTimeout(() => {
       if (action?.type === 'attack') handlePlayerAttackRef.current();
       else if (action?.type === 'skill') handleSkillRef.current(action.skill);
     }, 0);
-  }, [enemy, additionalEnemies, pendingTargetAction]);
+    }, [additionalEnemies, beginPlayerActionExecution, enemy, pendingTargetAction]);
 
   const handleCancelTargetSelection = useCallback(() => {
     setTargetCardLeaving(true);
@@ -3425,10 +3529,12 @@ export default function App() {
   // ── Gamepad → ações de batalha ──────────────────────────────────────────────
   // Refs sempre frescos para que o useEffect não precise re-assinar
   const handleAttackRef2    = useRef(handleAttackWithTargetCheck);
-  const handleDefenseRef    = useRef(handlePlayerDefense);
+    const handleDefenseRef    = useRef(handlePlayerDefenseWithTimeline);
+    const handleSkillWithTargetCheckRef = useRef(handleSkillWithTargetCheck);
   const handleFleeRef       = useRef(handleFlee);
   handleAttackRef2.current  = handleAttackWithTargetCheck;
-  handleDefenseRef.current  = handlePlayerDefense;
+    handleDefenseRef.current  = handlePlayerDefenseWithTimeline;
+    handleSkillWithTargetCheckRef.current = handleSkillWithTargetCheck;
   handleFleeRef.current     = handleFlee;
 
   const gameStateRef = useRef(gameState);
@@ -3447,18 +3553,18 @@ export default function App() {
       if (action === 'CONFIRM') {
         handleAttackRef2.current();
       } else if (action === 'BACK') {
-        handleDefenseRef.current();
+                handleDefenseRef.current('FISICA');
       } else if (action === 'SKILL_1') {
         // Usa o primeiro skill equipado, se disponível
         const skillId = equippedSkillsRef.current?.[0];
         if (!skillId) return;
         const skill = SKILLS.find(s => s.id === skillId);
-        if (skill) handleSkillRef.current(skill);
+        if (skill) handleSkillWithTargetCheckRef.current(skill);
       } else if (action === 'SKILL_2') {
         const skillId = equippedSkillsRef.current?.[1];
         if (!skillId) return;
         const skill = SKILLS.find(s => s.id === skillId);
-        if (skill) handleSkillRef.current(skill);
+        if (skill) handleSkillWithTargetCheckRef.current(skill);
       }
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -3539,6 +3645,8 @@ export default function App() {
               mp: prev.stats.maxMp,
           },
           isDefending: false,
+          isDefendendo: false,
+          tipoDefesaAtiva: null,
           buffs: createEmptyBuffState(),
           statusEffects: [],
       }));
@@ -3943,17 +4051,25 @@ export default function App() {
       limitBattleActionsToBasics: isFirstBattleActionRestricted,
       shopItems: ALL_ITEMS,
       onAttack: handleAttackWithTargetCheck,
-      onDefend: handlePlayerDefense,
-      onChargeImpulse: handleChargeImpulse,
+    onDefend: handlePlayerDefenseWithTimeline,
+    onChargeImpulse: handleChargeImpulseWithTimeline,
       onAbsorbImpulse: handleAbsorbImpulse,
       onSkill: handleSkillWithTargetCheck,
-      onUseItem: handleUseItem,
+    onUseItem: handleUseItemWithTimeline,
       showFleeAction: isFleeUnlocked && !dungeonRun && !(enemy?.isBoss) && killCount < 10,
       onFlee: handleFlee,
     };
     const isMerchantUnlocked = onboardingPhase === 'merchant_unlocked' || onboardingPhase === 'items_prompt' || onboardingPhase === 'flee_prompt' || onboardingPhase === 'flee_unlocked' || onboardingPhase === 'dungeon_prompt' || onboardingPhase === 'dungeon_unlocked' || onboardingPhase === 'alchemist_prompt' || onboardingPhase === 'alchemist_unlocked';
     const isDungeonUnlocked = onboardingPhase === 'dungeon_prompt' || onboardingPhase === 'dungeon_unlocked' || onboardingPhase === 'alchemist_prompt' || onboardingPhase === 'alchemist_unlocked';
     const isAlchemistUnlocked = onboardingPhase === 'alchemist_unlocked';
+
+    // Memoize the XP icon component — avoids a full IconMap lookup + JSX element allocation
+    // on every render of App (which is very frequent during battle).
+    const xpIconComponent = useMemo(() => {
+        const IconMap: Record<string, React.ComponentType<{ size?: number; color?: string; strokeWidth?: number }>> = { knight: Shield, barbarian: Sword, mage: Sparkles, ranger: Crosshair, rogue: Zap };
+        const ClassIcon = IconMap[player.classId] ?? Zap;
+        return <ClassIcon size={20} color="#d97706" strokeWidth={2.5} />;
+    }, [player.classId]);
     const [cameraSceneAnchor, setCameraSceneAnchor] = useState<'camp' | 'battle'>(() => (
         resolvedGameState === GameState.BATTLE ? 'battle' : 'camp'
     ));
@@ -4988,6 +5104,7 @@ export default function App() {
                         enemyType={enemy?.type || 'beast'}
                         isEnemyBoss={enemy?.isBoss}
                         isPlayerDefending={isDefenseAnimationActive}
+                        playerDefenseType={player.tipoDefesaAtiva ?? null}
                         isEnemyDefending={enemy?.isDefending}
                         isPlayerHit={isPlayerHit}
                         isPlayerCritHit={isPlayerCritHit}
@@ -5005,6 +5122,9 @@ export default function App() {
                         playerState={player}
                         enemyState={enemy}
                         enemyIntentPreview={enemyIntentPreview}
+                        battleTimelineState={battleTimelineState}
+                        activeBattleActorId={activeBattleActorId}
+                        battleActorGauges={battleActorGauges}
                         battleActionsConfig={resolvedGameState === GameState.BATTLE ? battleActionsConfig : undefined}
                         isMenuView={resolvedGameState === GameState.TAVERN}
                         menuCameraFocus={shouldMenuCameraFocus}
@@ -5052,11 +5172,7 @@ export default function App() {
                         renderQualityPreset={battleSettings.renderQualityPreset}
                         onMenuHeroClick={resolvedGameState === GameState.TAVERN || resolvedGameState === GameState.BATTLE ? handleMenuHeroClick : undefined}
                         lootResult={lootResult}
-                        xpIconComponent={(() => {
-                            const IconMap: Record<string, React.ComponentType<{ size?: number; color?: string; strokeWidth?: number }>> = { knight: Shield, barbarian: Sword, mage: Sparkles, ranger: Crosshair, rogue: Zap };
-                            const ClassIcon = IconMap[player.classId] ?? Zap;
-                            return <ClassIcon size={20} color="#d97706" strokeWidth={2.5} />;
-                        })()}
+                        xpIconComponent={xpIconComponent}
                         additionalEnemies={additionalEnemies}
                         pendingTargetAction={pendingTargetAction}
                         onSelectTarget={handleSelectTarget}
@@ -5448,11 +5564,11 @@ export default function App() {
             turnState={turnState}
             logs={logs}
             onAttack={handleAttackWithTargetCheck}
-            onDefend={handlePlayerDefense}
-            onChargeImpulse={handleChargeImpulse}
+            onDefend={handlePlayerDefenseWithTimeline}
+            onChargeImpulse={handleChargeImpulseWithTimeline}
             onAbsorbImpulse={handleAbsorbImpulse}
             onSkill={handleSkillWithTargetCheck}
-            onUseItem={handleUseItem}
+            onUseItem={handleUseItemWithTimeline}
             enemyIntentPreview={enemyIntentPreview}
             additionalEnemies={additionalEnemies}
             pendingTargetAction={pendingTargetAction}
@@ -5519,6 +5635,7 @@ export default function App() {
                                                                                                 renderQualityPreset={battleSettings.renderQualityPreset}
                                                                                                 recommendedRenderQualityPreset={recommendedRenderQualityPreset}
                                                                                                 onUpdateBattleSettings={updateBattleSettings}
+                                                                                                onBattleSettingsOpenChange={setIsBattleSettingsModalOpen}
                                                                                                 onEquipSkillToSlot={equipSkillToSlot}
                                                                                                 towerEssence={towerMeta.essence}
                                                                                                 sceneRegion={sceneRegion}
@@ -5547,6 +5664,8 @@ export default function App() {
                         mp: prev.stats.maxMp,
                     },
                     isDefending: false,
+                    isDefendendo: false,
+                    tipoDefesaAtiva: null,
                     buffs: createEmptyBuffState(),
                     statusEffects: [],
                 }));

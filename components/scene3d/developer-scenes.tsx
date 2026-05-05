@@ -1977,3 +1977,129 @@ export const DeveloperGltfMonsterSceneRenderer: React.FC<
     </div>
   );
 };
+
+// ─── Biped Character Viewer ───────────────────────────────────────────────────
+
+export interface DeveloperBipedCharacterSceneProps {
+  /** URL to the _Character_output.glb mesh file */
+  characterUrl: string;
+  /** URL to the animations GLB (can be own or cross-character for retargeting test) */
+  animationUrl: string;
+  /** Selected clip name to play (undefined = auto-play first) */
+  clipName?: string;
+  /** Called once animation clip names are resolved after remapping */
+  onAnimationsLoaded?: (names: string[]) => void;
+}
+
+// Inner component — must be inside Canvas/Suspense so hooks work
+const BipedCharacterModel: React.FC<{
+  characterUrl: string;
+  animationUrl: string;
+  clipName?: string;
+  onAnimationsLoaded?: (names: string[]) => void;
+}> = ({ characterUrl, animationUrl, clipName, onAnimationsLoaded }) => {
+  const characterGltf = useLoader(GLTFLoader, characterUrl) as any;
+  const animGltf = useLoader(GLTFLoader, animationUrl) as any;
+  const groupRef = useRef<THREE.Group>(null!);
+
+  // Clone the character scene — each clone has its own bone instances.
+  // SkeletonUtils.clone preserves bone names, so Three.js AnimationMixer
+  // can resolve track bindings by name against this character's own skeleton.
+  const { clonedScene, floorOffsetY } = useMemo(() => {
+    const scene = SkeletonUtils.clone(characterGltf.scene) as THREE.Group;
+    scene.traverse((node: any) => {
+      if (node.isMesh) {
+        node.castShadow = true;
+        node.receiveShadow = true;
+        node.frustumCulled = false;
+      }
+    });
+    const box = new THREE.Box3().setFromObject(scene);
+    const offsetY = !box.isEmpty() && isFinite(box.min.y) ? -box.min.y : 0;
+    return { clonedScene: scene, floorOffsetY: offsetY };
+  }, [characterGltf.scene]);
+
+  // Root the mixer directly on this character's cloned scene.
+  // Three.js resolves each track binding by searching for a node with
+  // matching name starting from groupRef.current — this drives the
+  // character's OWN bones, no remapping needed when all models share
+  // the same Meshy AI biped skeleton template.
+  const { names, actions } = useAnimations(animGltf.animations ?? [], groupRef);
+
+  const reportedRef = useRef('');
+  useEffect(() => {
+    const joined = names.join('|');
+    if (joined !== reportedRef.current) {
+      reportedRef.current = joined;
+      onAnimationsLoaded?.(names);
+    }
+  }, [names, onAnimationsLoaded]);
+
+  useEffect(() => {
+    if (!names.length || !Object.keys(actions).length) return;
+    Object.values(actions).forEach((a) => { try { a?.stop(); } catch (_) {} });
+    const name = clipName ?? names[0];
+    if (name && actions[name]) {
+      actions[name]!.reset().setLoop(THREE.LoopRepeat, Infinity).play();
+    }
+  }, [actions, clipName, names]);
+
+  return <primitive ref={groupRef} object={clonedScene} position={[0, floorOffsetY, 0]} />;
+};
+
+export const DeveloperBipedCharacterSceneRenderer: React.FC<DeveloperBipedCharacterSceneProps> = ({
+  characterUrl,
+  animationUrl,
+  clipName,
+  onAnimationsLoaded,
+}) => {
+  const quality = useMemo(() => getRenderQualityProfile(), []);
+  const powerPreference = useMemo(() => getRenderPowerPreference(), []);
+
+  return (
+    <div className="relative h-full w-full overflow-hidden rounded-[inherit] bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.12),_transparent_40%),linear-gradient(180deg,rgba(15,23,42,0.98),rgba(2,6,23,0.99))]">
+      <Canvas
+        shadows={{ type: THREE.PCFSoftShadowMap }}
+        dpr={quality.dpr}
+        gl={{ antialias: quality.antialias, powerPreference }}
+        performance={{ min: 0.5 }}
+      >
+        <color attach="background" args={['#020617']} />
+        <fog attach="fog" args={['#020617', 14, 32]} />
+        <PerspectiveCamera makeDefault position={[0, 1.45, 6.5]} fov={42} onUpdate={(c) => c.lookAt(0, 0.5, 0)} />
+        <ambientLight intensity={1.1} color="#f8fafc" />
+        <hemisphereLight intensity={0.72} color="#e2e8f0" groundColor="#0f172a" />
+        <directionalLight position={[-3, 6, 5]} intensity={1.0} color="#f8fafc" castShadow shadow-mapSize={[quality.shadowMapSize, quality.shadowMapSize]} />
+        <pointLight position={[3, 2.4, 2.2]} intensity={1.0} color="#818cf8" distance={14} />
+        <pointLight position={[-2.4, 2.1, 1.4]} intensity={0.85} color="#c084fc" distance={12} />
+
+        {/* Floor */}
+        <group position={[0, -1.1, 0]}>
+          <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+            <circleGeometry args={[4.5, 64]} />
+            <meshStandardMaterial color="#0f172a" roughness={0.84} metalness={0.06} />
+          </mesh>
+          <mesh position={[0, 0.01, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <ringGeometry args={[3.2, 3.9, 64]} />
+            <meshStandardMaterial color="#818cf8" emissive="#6366f1" emissiveIntensity={0.28} transparent opacity={0.14} side={THREE.DoubleSide} />
+          </mesh>
+        </group>
+
+        <group position={[0, -1.1, 0]}>
+          <Suspense fallback={null}>
+            <BipedCharacterModel
+              key={characterUrl + '|' + animationUrl}
+              characterUrl={characterUrl}
+              animationUrl={animationUrl}
+              clipName={clipName}
+              onAnimationsLoaded={onAnimationsLoaded}
+            />
+          </Suspense>
+        </group>
+
+        <ContactShadows position={[0, -1.09, 0]} opacity={0.45} scale={6} blur={1.8} far={0.5} resolution={quality.contactShadowResolution} />
+        <OrbitControls enablePan={false} minDistance={2} maxDistance={14} target={[0, 0.5, 0]} />
+      </Canvas>
+    </div>
+  );
+};

@@ -238,8 +238,8 @@ const getEquipmentBonusMeta = (item: Item | null): Array<{ icon: React.ReactNode
       icon: <Shield size={12} />,
       label: 'DEF',
       value: `+${bonuses.def}`,
-      chip: 'border-[#b9c8d7] bg-[#c4ddef]',
-      valueTone: 'text-[#4d6780]',
+      chip: 'border-[#fdba74] bg-[#ffedd5]',
+      valueTone: 'text-[#c2410c]',
     });
   }
   if (bonuses.speed > 0) {
@@ -542,6 +542,7 @@ export const CharacterSheetModal = ({ player, shopItems: _shopItems, onClose, on
   const classAccentColor = currentClass.visualProfile.secondaryColor;
   const ClassStatusIcon = CLASS_STATUS_ICON[player.classId];
   const classNamePt = CLASS_NAME_PT[player.classId] ?? currentClass.name;
+  const magicDefense = player.stats.magicDef ?? player.stats.def;
   const equippedWeaponGrip = getWeaponGripForItem(player.equippedWeapon);
   const isProficiencyActive = Boolean(equippedWeaponGrip && currentClass.weaponProficiencies.includes(equippedWeaponGrip));
   const getProficiencyPercent = (stat: WeaponProficiencyBonusStat): number | undefined => {
@@ -849,10 +850,13 @@ export const CharacterSheetModal = ({ player, shopItems: _shopItems, onClose, on
 
               <div className="grid grid-cols-2 gap-1.5">
                 <SummaryCard compact label="Ataque" value={player.stats.atk} tone="text-[#b83a4b]" icon={<Sword size={13} className="text-[#b83a4b]" />} panel="border-[#e4adb6] bg-[#f5cdd6]" bonusPercent={getProficiencyPercent('atk')} bonusChipClass="border-[#d98a98] bg-[#f0bec8] text-[#b83a4b]" />
-                <SummaryCard compact label="Defesa" value={player.stats.def} tone="text-[#4d6780]" icon={<Shield size={13} className="text-[#4d6780]" />} panel="border-[#b9c8d7] bg-[#d4e7f5]" bonusPercent={getProficiencyPercent('def')} bonusChipClass="border-[#99b4cc] bg-[#c4ddef] text-[#4d6780]" />
+                <SummaryCard compact label="Defesa" value={player.stats.def} tone="text-[#c2410c]" icon={<Shield size={13} className="text-[#c2410c]" />} panel="border-[#fdba74] bg-[#ffedd5]" bonusPercent={getProficiencyPercent('def')} bonusChipClass="border-[#fb923c] bg-[#fed7aa] text-[#c2410c]" />
+                <SummaryCard compact label="D.MAG" value={magicDefense} tone="text-[#1d4ed8]" icon={<Shield size={13} className="text-[#1d4ed8]" />} panel="border-[#93c5fd] bg-[#eff6ff]" />
                 <SummaryCard compact label="Magia" value={player.stats.magic} tone="text-[#5f4ab3]" icon={<WandSparkles size={13} className="text-[#5f4ab3]" />} panel="border-[#c7bee6] bg-[#ddd7f5]" bonusPercent={getProficiencyPercent('magic')} bonusChipClass="border-[#ac9de0] bg-[#cfc7ef] text-[#5f4ab3]" />
                 <SummaryCard compact label="Velocidade" value={player.stats.speed} tone="text-[#7c4c76]" icon={<Zap size={13} className="text-[#7c4c76]" />} panel="border-[#d3bfd8] bg-[#e8d8ef]" bonusPercent={getProficiencyPercent('speed')} bonusChipClass="border-[#b993c2] bg-[#d9c4e3] text-[#7c4c76]" />
                 <SummaryCard compact label="Sorte" value={player.stats.luck} tone="text-[#b26a2e]" icon={<Star size={13} className="text-[#b26a2e]" />} panel="border-[#dfc89e] bg-[#f4e4c5]" bonusPercent={getProficiencyPercent('luck')} bonusChipClass="border-[#d7b16f] bg-[#edcf9a] text-[#b26a2e]" />
+                <SummaryCard compact label="Guarda Fisica" value="FIS" tone="text-[#c2410c]" icon={<Shield size={13} className="text-[#c2410c]" />} panel="border-[#fdba74] bg-[#fff7ed]" />
+                <SummaryCard compact label="Guarda Magica" value="MAG" tone="text-[#1d4ed8]" icon={<Shield size={13} className="text-[#1d4ed8]" />} panel="border-[#93c5fd] bg-[#eff6ff]" />
               </div>
             </div>
 

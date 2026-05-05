@@ -9,7 +9,7 @@ import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { COMBAT_SPRITE_ANIMATION_DEFAULTS, SPRITE_ANIMATION_IDS, SPRITE_ANIMATION_REGISTRY } from '../game/data/sprite-animations/registry';
 import { resolveTrackPlaybackSnapshot } from '../game/mechanics/spriteOverlayPlayback';
-import { CardCategory, Enemy, EnemyIntentPreview, FloatingText, GltfMonsterBodyType, Particle, Player, PlayerAnimationAction, PlayerClassAnimationMap, PlayerClassAssets, PlayerClassId, SpriteOverlayAnimationDefinition, SpriteTrackDefinition, StatusEffect, TurnState } from '../types';
+import { BattleActorChargeState, BattleActorGaugeMap, BattleTimelineState, CardCategory, Enemy, EnemyIntentPreview, FloatingText, GltfMonsterBodyType, Particle, Player, PlayerAnimationAction, PlayerClassAnimationMap, PlayerClassAssets, PlayerClassId, SpriteOverlayAnimationDefinition, SpriteTrackDefinition, StatusEffect, TipoDefesa, TurnState } from '../types';
 import {
   RIGHT_HAND_BONE_CANDIDATES,
   RuntimeHeroAssets,
@@ -131,6 +131,7 @@ interface SceneProps {
   enemyType?: 'beast' | 'humanoid' | 'undead';
   isEnemyBoss?: boolean;
   isPlayerDefending?: boolean;
+  playerDefenseType?: TipoDefesa | null;
   isEnemyDefending?: boolean;
   isPlayerHit?: boolean;
   isPlayerCritHit?: boolean;
@@ -157,6 +158,9 @@ interface SceneProps {
   playerState?: Player;
   enemyState?: Enemy | null;
   enemyIntentPreview?: EnemyIntentPreview | null;
+  battleTimelineState?: BattleTimelineState;
+  activeBattleActorId?: string | null;
+  battleActorGauges?: BattleActorGaugeMap;
   renderQualityPreset?: RenderQualityPreset;
   heroInspectMode?: boolean;
   onHeroInspectClose?: () => void;
@@ -2395,7 +2399,7 @@ const INSPECT_CLASS_ICON: Record<PlayerClassId, React.ComponentType<{ size?: num
 
 // Ã¢â€â‚¬Ã¢â€â‚¬ Potion slot stat badges Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
-export const HeroVoxel = ({ classId = 'knight', playerAnimationAction = 'idle', animationClipName, preferredAnimationBundle, onAvailableAnimationClipsChange, loadAllAnimationBundles = false, loadSecondaryAnimationBundles = true, previewLoopAllActions = false, isAttacking, isDefending, weaponId, armorId, helmetId, legsId, shieldId, isLevelingUp, levelUpCardCategory = 'especial', isMenuView = false, isHit, isPlayerCritHit, hasPerfectEvadeAura, hasDoubleAttackAura, impulseLevel = 0, activeImpulseLevel = 0, contactShadowResolution = 256, idlePositionX = -2, attackPositionX = 0.5, defendPositionX = -1.5, idlePositionY = -1, attackPositionY = -1, defendPositionY = -1, originPosition = [-2, -1, 0], baseRotationY = 0.5, hiddenPartSlots, visiblePartSlots, runtimeAssetsOverride, calibrationOverride, debugRuntimeId, debugRuntimeLabel, onRuntimeDiagnosticChange, statusOverlay, onHeroClick, playerState, isPlayerTurn = false, forceHighlight = false }: any) => {
+export const HeroVoxel = ({ classId = 'knight', playerAnimationAction = 'idle', animationClipName, preferredAnimationBundle, onAvailableAnimationClipsChange, loadAllAnimationBundles = false, loadSecondaryAnimationBundles = true, previewLoopAllActions = false, isAttacking, isDefending, defenseType = 'MAGICA', weaponId, armorId, helmetId, legsId, shieldId, isLevelingUp, levelUpCardCategory = 'especial', isMenuView = false, isHit, isPlayerCritHit, hasPerfectEvadeAura, hasDoubleAttackAura, impulseLevel = 0, activeImpulseLevel = 0, contactShadowResolution = 256, idlePositionX = -2, attackPositionX = 0.5, defendPositionX = -1.5, idlePositionY = -1, attackPositionY = -1, defendPositionY = -1, originPosition = [-2, -1, 0], baseRotationY = 0.5, hiddenPartSlots, visiblePartSlots, runtimeAssetsOverride, calibrationOverride, debugRuntimeId, debugRuntimeLabel, onRuntimeDiagnosticChange, statusOverlay, onHeroClick, playerState, isPlayerTurn = false, forceHighlight = false }: any) => {
   const playerClass = getPlayerClassById(classId);
   const runtimeHeroAssets = runtimeAssetsOverride ?? (hasRuntimeFbxAssets(playerClass.assets) ? playerClass.assets : null);
   const group = useRef<THREE.Group>(null);
@@ -2422,6 +2426,7 @@ export const HeroVoxel = ({ classId = 'knight', playerAnimationAction = 'idle', 
     return 0;
   }, [playerState?.buffs]);
   const defendImpulseColor = defendImpulseLevel >= 3 ? '#7dd3fc' : defendImpulseLevel === 2 ? '#a855f7' : '#ef4444';
+  const showMagicDefenseOrb = Boolean(isDefending) && defenseType === 'MAGICA';
 
   const refreshFlashMaterials = useCallback(() => {
     if (!group.current) {
@@ -2516,7 +2521,7 @@ export const HeroVoxel = ({ classId = 'knight', playerAnimationAction = 'idle', 
     }
 
     if (shieldRef.current) {
-      shieldRef.current.visible = isDefending;
+      shieldRef.current.visible = showMagicDefenseOrb;
       shieldRef.current.rotation.y += 0.05;
       shieldRef.current.scale.setScalar(1 + Math.sin(state.clock.elapsedTime * 8) * 0.05);
     }
@@ -2759,11 +2764,11 @@ export const HeroVoxel = ({ classId = 'knight', playerAnimationAction = 'idle', 
             </Html>
           </>
         ) : null}
-        <ContactShadows opacity={0.34} scale={3.2} blur={4.5} far={2.5} resolution={contactShadowResolution} />
+        <ContactShadows frames={1} opacity={0.34} scale={3.2} blur={4.5} far={2.5} resolution={contactShadowResolution} />
       </group>
       
       {/* Energy Shield Effect */}
-      <group ref={shieldRef} position={[idlePositionX + 0.5, -0.2, 0]}>
+      <group ref={shieldRef} position={[idlePositionX + 0.5, -0.2, 0]} visible={showMagicDefenseOrb}>
         <mesh>
           <sphereGeometry args={[1.4, 12, 12]} />
           <meshStandardMaterial color="#3b82f6" transparent opacity={0.18} wireframe />
@@ -3403,6 +3408,83 @@ const FpsCap = ({ fps }: { fps: number }) => {
   return null;
 };
 
+const SPEED_ATTRIBUTE_COLOR = '#10b981';
+const SPEED_ATTRIBUTE_TRACK = 'rgba(16,185,129,0.14)';
+
+const SpeedAttributeBar: React.FC<{
+  pct?: number;
+  state?: BattleActorChargeState;
+  active?: boolean;
+  isMobileDevice: boolean;
+  barH: string;
+}> = ({ pct = 0, state = 'carregando', active = false, isMobileDevice, barH }) => {
+  const clampedPct = Math.max(0, Math.min(100, pct));
+  const previousPctRef = React.useRef(clampedPct);
+  const isReady = active || state === 'pronto' || state === 'executando';
+  const iconSize = isMobileDevice ? 16 : 11;
+  const iconBox = isMobileDevice ? 20 : 14;
+  const shouldSnapReset = clampedPct < previousPctRef.current;
+  const fillShadow = isReady
+    ? `0 0 10px ${SPEED_ATTRIBUTE_COLOR}cc, 0 0 18px ${SPEED_ATTRIBUTE_COLOR}66`
+    : `0 0 7px ${SPEED_ATTRIBUTE_COLOR}55`;
+
+  React.useEffect(() => {
+    previousPctRef.current = clampedPct;
+  }, [clampedPct]);
+
+  return (
+    <div
+      title="Velocidade"
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: isMobileDevice ? '7px' : '5px',
+        height: isMobileDevice ? '16px' : '11px',
+        opacity: active ? 1 : 0.94,
+      }}
+    >
+      <span
+        style={{
+          width: iconBox,
+          height: iconBox,
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: SPEED_ATTRIBUTE_COLOR,
+          flexShrink: 0,
+          filter: `drop-shadow(0 0 5px ${SPEED_ATTRIBUTE_COLOR}99)`,
+        }}
+      >
+        <Wind size={iconSize} strokeWidth={3} />
+      </span>
+      <div
+        style={{
+          flex: 1,
+          height: `max(${isMobileDevice ? '7px' : '5px'}, calc(${barH} * 0.58))`,
+          borderRadius: '99px',
+          background: SPEED_ATTRIBUTE_TRACK,
+          overflow: 'hidden',
+          border: `1px solid ${SPEED_ATTRIBUTE_COLOR}33`,
+          boxShadow: isReady ? `0 0 0 1px ${SPEED_ATTRIBUTE_COLOR}22` : 'none',
+        }}
+      >
+        <div
+          style={{
+            height: '100%',
+            width: `${clampedPct}%`,
+            borderRadius: '99px',
+            background: `linear-gradient(90deg, ${SPEED_ATTRIBUTE_COLOR}99, ${SPEED_ATTRIBUTE_COLOR})`,
+            boxShadow: fillShadow,
+            transition: shouldSnapReset
+              ? 'box-shadow 0.18s ease'
+              : 'width 0.12s linear, box-shadow 0.18s ease',
+          }}
+        />
+      </div>
+    </div>
+  );
+};
+
 const HeroNameplateCard: React.FC<{
   accentColor: string;
   cardW: string;
@@ -3419,8 +3501,11 @@ const HeroNameplateCard: React.FC<{
   lvlFz: string;
   iconSz: number;
   F: React.CSSProperties;
+  speedGaugePct?: number;
+  speedGaugeState?: BattleActorChargeState;
+  speedGaugeActive?: boolean;
   onClick?: () => void;
-}> = ({ accentColor, cardW, isMobileDevice, hpPct, hpColor, hasMana, mpPct, xpPct, classId, level, barH, nameFz, lvlFz, iconSz, F, onClick }) => {
+}> = ({ accentColor, cardW, isMobileDevice, hpPct, hpColor, hasMana, mpPct, xpPct, classId, level, barH, nameFz, lvlFz, iconSz, F, speedGaugePct = 0, speedGaugeState = 'carregando', speedGaugeActive = false, onClick }) => {
   const [hovered, setHovered] = React.useState(false);
   const [pressed, setPressed] = React.useState(false);
   const interactive = !!onClick;
@@ -3482,6 +3567,13 @@ const HeroNameplateCard: React.FC<{
       <div style={{ height: isMobileDevice ? '6px' : '4px', borderRadius: '99px', background: 'rgba(0,0,0,0.40)', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.06)' }}>
         <div style={{ height: '100%', borderRadius: '99px', background: 'linear-gradient(90deg, #7d3d4d99, #c89a66)', width: `${xpPct}%`, transition: 'width 0.5s ease' }} />
       </div>
+      <SpeedAttributeBar
+        pct={speedGaugePct}
+        state={speedGaugeState}
+        active={speedGaugeActive}
+        isMobileDevice={isMobileDevice}
+        barH={barH}
+      />
       {/* Hover hint */}
       {interactive && (
         <div style={{
@@ -3826,6 +3918,7 @@ export const GameScene: React.FC<SceneProps> = (props) => {
                 playerAnimationAction={props.playerAnimationAction}
                 isAttacking={props.isPlayerAttacking}
                 isDefending={props.isPlayerDefending}
+                defenseType={props.playerDefenseType}
                 weaponId={props.equippedWeaponId}
                 armorId={props.equippedArmorId}
                 helmetId={props.equippedHelmetId}
@@ -4097,6 +4190,7 @@ export const GameScene: React.FC<SceneProps> = (props) => {
                         const hpPct = Math.max(0, (extraEnemy.stats.hp / extraEnemy.stats.maxHp) * 100);
                         const hpColor = hpPct > 55 ? '#4ade80' : hpPct > 25 ? '#facc15' : '#f87171';
                         const cardW = isMobileDevice ? '230px' : '150px';
+                        const speedGauge = props.battleActorGauges?.[extraEnemy.id];
                         return (
                           <div
                             style={{
@@ -4116,6 +4210,13 @@ export const GameScene: React.FC<SceneProps> = (props) => {
                             <div style={{ height: isMobileDevice ? '10px' : '6px', borderRadius: '99px', background: 'rgba(0,0,0,0.5)', overflow: 'hidden' }}>
                               <div style={{ height: '100%', borderRadius: '99px', background: hpColor, width: `${hpPct}%`, transition: 'width 0.35s ease' }} />
                             </div>
+                            <SpeedAttributeBar
+                              pct={speedGauge?.tempoDeAtaque ?? 0}
+                              state={speedGauge?.state}
+                              active={props.activeBattleActorId === extraEnemy.id}
+                              isMobileDevice={isMobileDevice}
+                              barH={isMobileDevice ? '10px' : '6px'}
+                            />
                           </div>
                         );
                       })()}
@@ -4180,6 +4281,7 @@ export const GameScene: React.FC<SceneProps> = (props) => {
             : props.enemyScale * 2 - 0.1;
           return (
           <Html
+            key={props.enemyState.id}
             position={[npX, npY, npZ + 0.5]}
             center
             distanceFactor={isMobileDevice ? 7 : 11}
@@ -4196,6 +4298,7 @@ export const GameScene: React.FC<SceneProps> = (props) => {
               const isSubBoss = en.isSubBoss;
               const accentColor = isBoss ? '#ef4444' : isSubBoss ? '#f59e0b' : (props.enemyColor ?? '#94a3b8');
               const badgeLabel = isBoss ? 'CHEFÃƒÆ’O' : isSubBoss ? 'SUBCHEFE' : null;
+              const speedGauge = props.battleActorGauges?.[en.id];
               const F: React.CSSProperties = { fontFamily: "'Segoe UI',system-ui,sans-serif" };
               const cardW = isMobileDevice ? '280px' : '190px';
               const nameFz = isMobileDevice ? '18px' : '13px';
@@ -4243,6 +4346,13 @@ export const GameScene: React.FC<SceneProps> = (props) => {
                           <div style={{ height: '100%', borderRadius: '99px', background: 'linear-gradient(90deg, #2b687899, #66b8d2)', width: `${mpPct}%`, transition: 'width 0.35s ease' }} />
                         </div>
                       )}
+                      <SpeedAttributeBar
+                        pct={speedGauge?.tempoDeAtaque ?? 0}
+                        state={speedGauge?.state}
+                        active={props.activeBattleActorId === en.id}
+                        isMobileDevice={isMobileDevice}
+                        barH={barH}
+                      />
                     </div>
                   </div>
                 </>
@@ -4275,6 +4385,7 @@ export const GameScene: React.FC<SceneProps> = (props) => {
               const accentColor = pClass?.visualProfile?.secondaryColor ?? '#60a5fa';
               const ClassIcon = INSPECT_CLASS_ICON[classId] ?? Shield;
               const classNamePtHero = HERO_CLASS_NAME_PT[classId] ?? classId;
+              const speedGauge = props.battleActorGauges?.player;
               const F: React.CSSProperties = { fontFamily: "'Segoe UI',system-ui,sans-serif" };
               const cardW = isMobileDevice ? '280px' : '190px';
               const nameFz = isMobileDevice ? '18px' : '13px';
@@ -4315,6 +4426,9 @@ export const GameScene: React.FC<SceneProps> = (props) => {
                       lvlFz={lvlFz}
                       iconSz={iconSz}
                       F={F}
+                      speedGaugePct={speedGauge?.tempoDeAtaque ?? 0}
+                      speedGaugeState={speedGauge?.state}
+                      speedGaugeActive={props.activeBattleActorId === 'player'}
                       onClick={props.onHeroNameplateClick}
                     />
                   </div>

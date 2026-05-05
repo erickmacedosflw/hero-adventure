@@ -1,6 +1,6 @@
 import { Player, PlayerClassAnimationMap, PlayerClassAvatarSet, PlayerClassDefinition, PlayerClassId, Stats } from '../../types';
 
-const statKeys: Array<keyof Pick<Stats, 'atk' | 'def' | 'speed' | 'luck' | 'magic'>> = ['atk', 'def', 'speed', 'luck', 'magic'];
+const statKeys: Array<keyof Pick<Stats, 'atk' | 'def' | 'magicDef' | 'speed' | 'luck' | 'magic'>> = ['atk', 'def', 'magicDef', 'speed', 'luck', 'magic'];
 const animationDirectory = 'game/assets/Characters/Animations/Rig_Medium';
 const animationFiles = [
   'Rig_Medium_CombatMelee.fbx',
@@ -148,6 +148,7 @@ export const PLAYER_CLASSES: PlayerClassDefinition[] = [
       maxMp: 40,
       atk: 16,
       def: 16,
+      magicDef: 11,
       speed: 8,
       luck: 4,
       magic: 6,
@@ -184,6 +185,7 @@ export const PLAYER_CLASSES: PlayerClassDefinition[] = [
       maxMp: 26,
       atk: 20,
       def: 12,
+      magicDef: 8,
       speed: 9,
       luck: 4,
       magic: 4,
@@ -220,6 +222,7 @@ export const PLAYER_CLASSES: PlayerClassDefinition[] = [
       maxMp: 110,
       atk: 6,
       def: 6,
+      magicDef: 13,
       speed: 10,
       luck: 6,
       magic: 20,
@@ -256,6 +259,7 @@ export const PLAYER_CLASSES: PlayerClassDefinition[] = [
       maxMp: 58,
       atk: 10,
       def: 12,
+      magicDef: 11,
       speed: 14,
       luck: 8,
       magic: 10,
@@ -292,6 +296,7 @@ export const PLAYER_CLASSES: PlayerClassDefinition[] = [
       maxMp: 52,
       atk: 14,
       def: 8,
+      magicDef: 8,
       speed: 16,
       luck: 12,
       magic: 8,
@@ -349,8 +354,11 @@ export const applyPlayerClass = (player: Player, targetClassId: PlayerClassId): 
   nextStats.mp = Math.max(0, Math.min(nextStats.maxMp, nextStats.maxMp - mpMissing));
 
   statKeys.forEach((key) => {
-    const bonus = player.stats[key] - currentClass.baseStats[key];
-    nextStats[key] = Math.max(1, targetClass.baseStats[key] + bonus);
+    const currentBaseValue = currentClass.baseStats[key] ?? currentClass.baseStats.def;
+    const targetBaseValue = targetClass.baseStats[key] ?? targetClass.baseStats.def;
+    const currentPlayerValue = player.stats[key] ?? currentBaseValue;
+    const bonus = currentPlayerValue - currentBaseValue;
+    nextStats[key] = Math.max(1, targetBaseValue + bonus);
   });
 
   return {

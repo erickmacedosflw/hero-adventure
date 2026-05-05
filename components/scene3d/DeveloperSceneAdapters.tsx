@@ -7,6 +7,7 @@ import { HeroVoxel, CombinedHeroVoxel } from '../Scene3D';
 import { RuntimeHeroAssets, findBestClipName, remapClipBindingsToSkeleton, resolveAutomaticClipName, selectPrimaryAnimationBundle, selectSecondaryAnimationBundles } from './animation';
 import { AnimatedClassHero, EnemyCharacter, applyHitFlashToMaterial } from './characters';
 import {
+  DeveloperBipedCharacterSceneRenderer,
   DeveloperClassBuilderSceneRenderer,
   DeveloperGltfMonsterSceneRenderer,
   DeveloperHeroSceneRenderer,
@@ -16,6 +17,7 @@ import {
   DeveloperWeaponCalibrationSceneRenderer,
 } from './developer-scenes';
 import type {
+  DeveloperBipedCharacterSceneProps,
   DeveloperClassBuilderSceneProps,
   DeveloperGltfMonsterSceneProps,
   DeveloperHeroSceneProps,
@@ -47,6 +49,10 @@ export const DeveloperMonsterScene: React.FC<DeveloperMonsterSceneProps> = (prop
 
 export const DeveloperGltfMonsterScene: React.FC<DeveloperGltfMonsterSceneProps> = (props) => (
   <DeveloperGltfMonsterSceneRenderer {...props} HeroVoxelComponent={HeroVoxel} />
+);
+
+export const DeveloperBipedCharacterScene: React.FC<DeveloperBipedCharacterSceneProps> = (props) => (
+  <DeveloperBipedCharacterSceneRenderer {...props} />
 );
 
 const ModularClassHeroVoxel = ({

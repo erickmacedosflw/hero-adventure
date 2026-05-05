@@ -1,10 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, Boxes, Bug, Layers3, Swords, WandSparkles } from 'lucide-react';
+import { ArrowLeft, Boxes, Bug, Layers3, Swords, Users, WandSparkles } from 'lucide-react';
 import { ALL_ITEMS, DUNGEON_BOSS, DUNGEON_ENEMY_DATA, ENEMY_DATA } from '../constants';
 import { getRegisteredWeapon3DByItemId, REGISTERED_WEAPON_ITEMS } from '../game/data/weaponCatalog';
 import { getPlayerClassById, PLAYER_CLASSES } from '../game/data/classes';
 import { DungeonBossTemplate, DungeonEnemyTemplate, EnemyTemplate, PlayerAnimationAction, PlayerClassId, Rarity } from '../types';
-import { DeveloperClassBuilderScene, DeveloperGltfMonsterScene, DeveloperKitbashScene, DeveloperMonsterScene, DeveloperScenarioComposerScene, DeveloperWeaponCalibrationScene } from './scene3d/DeveloperSceneAdapters';
+import { DeveloperBipedCharacterScene, DeveloperClassBuilderScene, DeveloperGltfMonsterScene, DeveloperKitbashScene, DeveloperMonsterScene, DeveloperScenarioComposerScene, DeveloperWeaponCalibrationScene } from './scene3d/DeveloperSceneAdapters';
 import { SpriteAnimationLab } from './SpriteAnimationLab';
 import type {
   DeveloperAnimationRuntimeDiagnostic,
@@ -25,7 +25,7 @@ import type {
 import { ItemPreviewThree } from './items/ItemPreviewThree';
 import { getRuntimeMenuPortalPreset, MENU_NAVIGATION_PORTAL_MODEL_URL, type RuntimeMenuPortalTransform } from '../game/data/runtimeMenuPortal';
 
-type DeveloperTab = 'overview' | 'animation-lab' | 'monster-lab' | 'item-lab' | 'kitbash-lab' | 'sprite-lab' | 'scenario-lab' | 'gltf-monster-viewer';
+type DeveloperTab = 'overview' | 'animation-lab' | 'monster-lab' | 'item-lab' | 'kitbash-lab' | 'sprite-lab' | 'scenario-lab' | 'gltf-monster-viewer' | 'biped-character-viewer';
 type WeaponCalibrationViewMode = 'sandbox' | 'attached';
 
 const animationActions: PlayerAnimationAction[] = ['idle', 'battle-idle', 'attack', 'defend', 'defend-hit', 'hit', 'critical-hit', 'item', 'heal', 'skill', 'evade', 'death'];
@@ -154,6 +154,17 @@ const DEVELOPER_SCENE_OBJECT_TEMPLATE_CATALOG: Record<DeveloperScenarioObjectTem
 };
 
 type GltfMonsterCategory = 'Big' | 'Blob' | 'Flying';
+
+const BIPED_ANIMATION_URL = new URL('../game/assets/Characters/Modelos/Exemplo/Meshy_AI_Animacoes.glb', import.meta.url).href;
+const BIPED_CHARACTER_CATALOG = [
+  { id: 'orc-normal',       label: 'Orc Normal',       characterUrl: new URL('../game/assets/Characters/Modelos/Exemplo/Orc_Normal.glb',       import.meta.url).href },
+  { id: 'orc-pesado',       label: 'Orc Pesado',       characterUrl: new URL('../game/assets/Characters/Modelos/Exemplo/Orc_Pesado.glb',       import.meta.url).href },
+  { id: 'orc-ladrao',       label: 'Orc Ladrão',       characterUrl: new URL('../game/assets/Characters/Modelos/Exemplo/Orc_Ladrao.glb',       import.meta.url).href },
+  { id: 'orc-shaman',       label: 'Orc Xamã',         characterUrl: new URL('../game/assets/Characters/Modelos/Exemplo/Orc_Shaman.glb',       import.meta.url).href },
+  { id: 'orc-arqueiro',     label: 'Orc Arqueiro',     characterUrl: new URL('../game/assets/Characters/Modelos/Exemplo/Orc_Arqueiro.glb',     import.meta.url).href },
+  { id: 'orc-guerreiro',    label: 'Orc Guerreiro',    characterUrl: new URL('../game/assets/Characters/Modelos/Exemplo/Orc_Guerreiro.glb',    import.meta.url).href },
+  { id: 'orc-lord-guereiro',label: 'Orc Lord Guereiro',characterUrl: new URL('../game/assets/Characters/Modelos/Exemplo/Orc_Lord_Guereiro.glb',import.meta.url).href },
+] as const;
 
 const ATLAS_MONSTERS_TEXTURE_URL = new URL('../game/assets/Characters/Monsters/Monsters/Big/Atlas_Monsters.png', import.meta.url).href;
 
@@ -687,6 +698,11 @@ export const DeveloperConsole: React.FC = () => {
   const [gltfMonsterAnimationIndex, setGltfMonsterAnimationIndex] = useState(0);
   const [gltfMonsterAvailableAnimations, setGltfMonsterAvailableAnimations] = useState<string[]>([]);
   const [gltfMonsterSelectedAction, setGltfMonsterSelectedAction] = useState<PlayerAnimationAction | null>('battle-idle');
+  // ─── Biped Character Viewer ───────────────────────────────────────────────────
+  const [bipedCharacterIndex, setBipedCharacterIndex] = useState(0);
+  const [bipedClipName, setBipedClipName] = useState<string | undefined>(undefined);
+  const [bipedAvailableAnimations, setBipedAvailableAnimations] = useState<string[]>([]);
+  const selectedBipedCharacter = BIPED_CHARACTER_CATALOG[bipedCharacterIndex];
   const gltfCategoryList = GLTF_MONSTER_CATALOG[gltfMonsterCategory];
   const selectedGltfMonster = gltfCategoryList[gltfMonsterIndex] ?? gltfCategoryList[0];
   const gltfCurrentAnimMap = GLTF_MONSTER_ANIMATION_MAP[gltfMonsterCategory];
@@ -1256,6 +1272,7 @@ export const DeveloperConsole: React.FC = () => {
     { id: 'sprite-lab', label: 'Sprite Lab', icon: <WandSparkles size={16} /> },
     { id: 'monster-lab', label: 'Monstros 3D', icon: <Swords size={16} /> },
     { id: 'gltf-monster-viewer', label: 'Novos Monstros', icon: <Swords size={16} /> },
+    { id: 'biped-character-viewer', label: 'Personagens GLB', icon: <Users size={16} /> },
     { id: 'item-lab', label: 'Itens 3D', icon: <Boxes size={16} /> },
     { id: 'kitbash-lab', label: 'Kitbash', icon: <Layers3 size={16} /> },
   ];
@@ -1318,6 +1335,12 @@ export const DeveloperConsole: React.FC = () => {
               <div className="game-icon-badge h-12 w-12 text-emerald-300"><Swords size={22} /></div>
               <h2 className="mt-4 font-gamer text-2xl font-black text-white">Novos Monstros GLTF</h2>
               <p className="mt-3 text-sm text-slate-400">Visualize os {GLTF_MONSTER_TOTAL} novos modelos GLTF com animações em loop, textura Atlas e controles de câmera livres.</p>
+            </button>
+
+            <button onClick={() => setTab('biped-character-viewer')} className="game-surface rounded-[1.75rem] border border-indigo-400/15 p-6 text-left transition-transform hover:-translate-y-1">
+              <div className="game-icon-badge h-12 w-12 text-indigo-300"><Users size={22} /></div>
+              <h2 className="mt-4 font-gamer text-2xl font-black text-white">Personagens GLB</h2>
+              <p className="mt-3 text-sm text-slate-400">Visualize os modelos biped Meshy AI com animações separadas. Teste retargeting cruzado de animações entre personagens.</p>
             </button>
 
             <button onClick={() => setTab('kitbash-lab')} className="game-surface rounded-[1.75rem] border border-fuchsia-400/15 p-6 text-left transition-transform hover:-translate-y-1">
@@ -2809,6 +2832,103 @@ export const DeveloperConsole: React.FC = () => {
                 </div>
                 <div className="mt-3 text-center text-2xl font-black text-white">
                   {GLTF_MONSTER_TOTAL} <span className="text-sm font-normal text-slate-400">total</span>
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* ─── Biped Character Viewer ────────────────────────────────────────── */}
+        {tab === 'biped-character-viewer' && (
+          <section className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px] xl:items-start">
+            {/* 3D viewport */}
+            <div className="game-surface rounded-[1.75rem] border border-slate-700 p-4 sm:p-5">
+              <div className="mb-4 flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.2em] text-slate-500">
+                <span className="rounded-full border border-indigo-400/20 bg-indigo-500/10 px-3 py-1 text-indigo-100">
+                  {selectedBipedCharacter.label}
+                </span>
+                {bipedClipName && (
+                  <span className="rounded-full border border-cyan-400/20 bg-cyan-500/10 px-3 py-1 text-cyan-100">
+                    {bipedClipName}
+                  </span>
+                )}
+                <span className="rounded-full border border-slate-600 bg-slate-800/60 px-3 py-1 text-slate-300">
+                  {bipedAvailableAnimations.length} clips
+                </span>
+              </div>
+              <div className="h-[400px] sm:h-[480px] lg:h-[580px] min-[1600px]:h-[680px] rounded-[1.5rem] border border-slate-800 bg-slate-950/60">
+                <DeveloperBipedCharacterScene
+                  key={selectedBipedCharacter.id}
+                  characterUrl={selectedBipedCharacter.characterUrl}
+                  animationUrl={BIPED_ANIMATION_URL}
+                  clipName={bipedClipName}
+                  onAnimationsLoaded={(names) => {
+                    setBipedAvailableAnimations(names);
+                    setBipedClipName(names[0]);
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Controls sidebar */}
+            <div className="game-surface rounded-[1.75rem] border border-slate-700 p-5 sm:p-6 xl:sticky xl:top-6 space-y-5">
+              <div>
+                <h2 className="font-gamer text-2xl font-black text-white">Personagens GLB</h2>
+                <p className="mt-2 text-sm text-slate-400">Modelos biped Meshy AI com malha e animações em arquivos GLB separados. Teste retargeting cruzado de animações entre personagens.</p>
+              </div>
+
+              {/* Character selector */}
+              <div>
+                <div className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-500 mb-2">Personagem</div>
+                <div className="grid grid-cols-2 gap-2">
+                  {BIPED_CHARACTER_CATALOG.map((char, idx) => (
+                    <button
+                      key={char.id}
+                      onClick={() => {
+                        setBipedCharacterIndex(idx);
+                        setBipedClipName(undefined);
+                        setBipedAvailableAnimations([]);
+                      }}
+                      className={`rounded-xl border px-3 py-2.5 text-xs font-black uppercase tracking-[0.14em] transition-colors ${bipedCharacterIndex === idx ? 'border-indigo-400/40 bg-indigo-500/15 text-indigo-100' : 'border-slate-700 bg-slate-950/70 text-slate-400 hover:border-slate-500 hover:text-slate-200'}`}
+                    >
+                      {char.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Clip list */}
+              {bipedAvailableAnimations.length > 0 && (
+                <div>
+                  <div className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-500 mb-2">
+                    Clips ({bipedAvailableAnimations.length})
+                  </div>
+                  <div className="max-h-64 overflow-y-auto space-y-1 pr-1">
+                    {bipedAvailableAnimations.map((clip) => (
+                      <button
+                        key={clip}
+                        onClick={() => setBipedClipName(clip)}
+                        className={`w-full rounded-xl border px-3 py-2 text-left text-[11px] font-semibold transition-colors ${bipedClipName === clip ? 'border-cyan-400/40 bg-cyan-500/15 text-cyan-100' : 'border-slate-700 bg-slate-950/60 text-slate-400 hover:border-slate-500 hover:text-slate-200'}`}
+                      >
+                        {clip}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Model info */}
+              <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4 text-sm text-slate-300">
+                <div className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-500">Arquivos GLB</div>
+                <div className="mt-3 space-y-2">
+                  <div>
+                    <div className="text-[10px] uppercase tracking-widest text-slate-500">Malha</div>
+                    <div className="mt-0.5 truncate text-[11px] text-indigo-200">{selectedBipedCharacter.label}</div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] uppercase tracking-widest text-slate-500">Animações (compartilhado)</div>
+                    <div className="mt-0.5 truncate text-[11px] text-indigo-200">Meshy_AI_Animacoes.glb</div>
+                  </div>
                 </div>
               </div>
             </div>

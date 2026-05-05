@@ -1,4 +1,4 @@
-import { Player, StatusEffect, StatusEffectKind } from '../../types';
+import { Player, StatusEffect, StatusEffectKind, TipoDefesa } from '../../types';
 
 export type AttackKind = 'physical' | 'magic';
 
@@ -12,6 +12,8 @@ interface CalculateDamageInput {
   luck?: number;
   attackKind?: AttackKind;
   defenderIsDefending?: boolean;
+  defenderDefenseType?: TipoDefesa | null;
+  requireDefenseTypeMatch?: boolean;
   attackerBuffs?: Player['buffs'];
   defenderBuffs?: Player['buffs'];
   applyAttackBuff?: boolean;
@@ -36,6 +38,11 @@ export interface StatusTickResult {
   damage: number;
   logs: string[];
 }
+
+const defenseTypeMatchesAttackKind = (defenseType: TipoDefesa | null | undefined, attackKind: AttackKind) => (
+  (defenseType === 'FISICA' && attackKind === 'physical')
+  || (defenseType === 'MAGICA' && attackKind === 'magic')
+);
 
 export const createEmptyBuffState = (): Player['buffs'] => ({
   atkMod: 0,
@@ -113,6 +120,8 @@ export const calculateDamage = ({
   luck = 0,
   attackKind = 'physical',
   defenderIsDefending = false,
+  defenderDefenseType = null,
+  requireDefenseTypeMatch = false,
   attackerBuffs,
   defenderBuffs,
   applyAttackBuff = false,
@@ -127,6 +136,9 @@ export const calculateDamage = ({
 }: CalculateDamageInput): DamageResult => {
   let finalAtk = attackerAtk;
   let finalDef = defenderDef;
+  const activeDefenseApplies = defenderIsDefending && (
+    !requireDefenseTypeMatch || defenseTypeMatchesAttackKind(defenderDefenseType, attackKind)
+  );
 
   if (applyAttackBuff && attackerBuffs && attackerBuffs.atkTurns > 0) {
     finalAtk *= (1 + attackerBuffs.atkMod);
@@ -146,7 +158,7 @@ export const calculateDamage = ({
     defenderSpeed,
     defenderHasPerfectEvade,
     attackKind,
-    defenderIsDefending,
+    activeDefenseApplies,
   );
   const evaded = Math.random() < evadeChance;
 
@@ -163,7 +175,7 @@ export const calculateDamage = ({
   const critChance = Math.max(0.02, Math.min(0.45, 0.04 + (luck * 0.012) + critChanceBonus));
   const isCrit = !disableCrit && (forceCrit || Math.random() < critChance);
   const critMult = isCrit ? Math.min(2.6, 1.5 + critDamageBonus) : 1;
-  const defenseMitigation = defenderIsDefending ? defendMitigationBonus : 0;
+  const defenseMitigation = activeDefenseApplies ? defendMitigationBonus : 0;
   const totalDamageReduction = Math.max(0, Math.min(0.8, damageReduction + defenseMitigation));
 
   return {
