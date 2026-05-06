@@ -2011,9 +2011,12 @@ export const TavernScreen: React.FC<{
                                             <span className="text-white text-[11px] font-black uppercase tracking-[0.1em] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-150" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}>
                                                 Mochila
                                             </span>
-                                            <SideIconFrame>
-                                                <img src={ICONE_MOCHILA_URL} alt="" style={{ width: 44, height: 44, objectFit: 'contain', position: 'relative', zIndex: 1, filter: 'drop-shadow(1.5px 0 0 rgba(255,255,255,0.85)) drop-shadow(-1.5px 0 0 rgba(255,255,255,0.85)) drop-shadow(0 1.5px 0 rgba(255,255,255,0.85)) drop-shadow(0 -1.5px 0 rgba(255,255,255,0.85))' }} />
-                                            </SideIconFrame>
+                                            <div style={{ position: 'relative', width: 48, height: 48, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                                <div data-diamond="1" style={{ position: 'absolute', inset: 5, borderRadius: 7, backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', transform: 'rotate(45deg) scale(1)', background: 'rgba(0,0,0,0.42)', transition: 'transform 0.15s cubic-bezier(0.34,1.56,0.64,1), background 0.15s' }} />
+                                                <div data-iconwrap="1" style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'transform 0.18s cubic-bezier(0.22,1,0.36,1)' }}>
+                                                    <img src={ICONE_MOCHILA_URL} alt="" style={{ width: 44, height: 44, objectFit: 'contain', filter: 'drop-shadow(1.5px 0 0 rgba(255,255,255,0.85)) drop-shadow(-1.5px 0 0 rgba(255,255,255,0.85)) drop-shadow(0 1.5px 0 rgba(255,255,255,0.85)) drop-shadow(0 -1.5px 0 rgba(255,255,255,0.85))' }} />
+                                                </div>
+                                            </div>
                                         </button>
                                     ),
                                 },
@@ -2037,14 +2040,17 @@ export const TavernScreen: React.FC<{
                                             <span className="text-white text-[11px] font-black uppercase tracking-[0.1em] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-150" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}>
                                                 Missões
                                             </span>
-                                            <SideIconFrame>
-                                                <img src={BOOK_MISSOES_URL} alt="" style={{ width: 44, height: 44, objectFit: 'contain', position: 'relative', zIndex: 1, filter: 'drop-shadow(1.5px 0 0 rgba(255,255,255,0.85)) drop-shadow(-1.5px 0 0 rgba(255,255,255,0.85)) drop-shadow(0 1.5px 0 rgba(255,255,255,0.85)) drop-shadow(0 -1.5px 0 rgba(255,255,255,0.85))' }} />
+                                            <div style={{ position: 'relative', width: 48, height: 48, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                                <div data-diamond="1" style={{ position: 'absolute', inset: 5, borderRadius: 7, backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', transform: 'rotate(45deg) scale(1)', background: 'rgba(0,0,0,0.42)', transition: 'transform 0.15s cubic-bezier(0.34,1.56,0.64,1), background 0.15s' }} />
+                                                <div data-iconwrap="1" style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'transform 0.18s cubic-bezier(0.22,1,0.36,1)' }}>
+                                                    <img src={BOOK_MISSOES_URL} alt="" style={{ width: 44, height: 44, objectFit: 'contain', filter: 'drop-shadow(1.5px 0 0 rgba(255,255,255,0.85)) drop-shadow(-1.5px 0 0 rgba(255,255,255,0.85)) drop-shadow(0 1.5px 0 rgba(255,255,255,0.85)) drop-shadow(0 -1.5px 0 rgba(255,255,255,0.85))' }} />
+                                                </div>
                                                 {_mDone > 0 && (
                                                     <span style={{ position: 'absolute', top: -2, right: -2, minWidth: 16, height: 16, borderRadius: 99, background: 'linear-gradient(135deg,#b45309,#fbbf24)', border: '2px solid #fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, fontWeight: 900, color: '#fff', padding: '0 3px', pointerEvents: 'none', zIndex: 2 }}>
                                                         {_mDone}
                                                     </span>
                                                 )}
-                                            </SideIconFrame>
+                                            </div>
                                         </button>
                                         );
                                     })(),
@@ -2067,9 +2073,12 @@ export const TavernScreen: React.FC<{
                                             <span className="text-white text-[11px] font-black uppercase tracking-[0.1em] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-150" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}>
                                                 Habilidades
                                             </span>
-                                            <SideIconFrame>
-                                                <img src={BOOK_HABILIDADES_URL} alt="" style={{ width: 44, height: 44, objectFit: 'contain', position: 'relative', zIndex: 1, filter: 'drop-shadow(1.5px 0 0 rgba(255,255,255,0.85)) drop-shadow(-1.5px 0 0 rgba(255,255,255,0.85)) drop-shadow(0 1.5px 0 rgba(255,255,255,0.85)) drop-shadow(0 -1.5px 0 rgba(255,255,255,0.85))' }} />
-                                            </SideIconFrame>
+                                            <div style={{ position: 'relative', width: 48, height: 48, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                                <div data-diamond="1" style={{ position: 'absolute', inset: 5, borderRadius: 7, backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', transform: 'rotate(45deg) scale(1)', background: 'rgba(0,0,0,0.42)', transition: 'transform 0.15s cubic-bezier(0.34,1.56,0.64,1), background 0.15s' }} />
+                                                <div data-iconwrap="1" style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'transform 0.18s cubic-bezier(0.22,1,0.36,1)' }}>
+                                                    <img src={BOOK_HABILIDADES_URL} alt="" style={{ width: 44, height: 44, objectFit: 'contain', filter: 'drop-shadow(1.5px 0 0 rgba(255,255,255,0.85)) drop-shadow(-1.5px 0 0 rgba(255,255,255,0.85)) drop-shadow(0 1.5px 0 rgba(255,255,255,0.85)) drop-shadow(0 -1.5px 0 rgba(255,255,255,0.85))' }} />
+                                                </div>
+                                            </div>
                                         </button>
                                     ),
                                 },
@@ -2091,9 +2100,12 @@ export const TavernScreen: React.FC<{
                                             <span className="text-white text-[11px] font-black uppercase tracking-[0.1em] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-150" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}>
                                                 Mercador
                                             </span>
-                                            <SideIconFrame>
-                                                <img src={ICONE_MERCADOR_URL} alt="" style={{ width: 44, height: 44, objectFit: 'contain', position: 'relative', zIndex: 1, filter: 'drop-shadow(1.5px 0 0 rgba(255,255,255,0.85)) drop-shadow(-1.5px 0 0 rgba(255,255,255,0.85)) drop-shadow(0 1.5px 0 rgba(255,255,255,0.85)) drop-shadow(0 -1.5px 0 rgba(255,255,255,0.85))' }} />
-                                            </SideIconFrame>
+                                            <div style={{ position: 'relative', width: 48, height: 48, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                                <div data-diamond="1" style={{ position: 'absolute', inset: 5, borderRadius: 7, backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', transform: 'rotate(45deg) scale(1)', background: 'rgba(0,0,0,0.42)', transition: 'transform 0.15s cubic-bezier(0.34,1.56,0.64,1), background 0.15s' }} />
+                                                <div data-iconwrap="1" style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'transform 0.18s cubic-bezier(0.22,1,0.36,1)' }}>
+                                                    <img src={ICONE_MERCADOR_URL} alt="" style={{ width: 44, height: 44, objectFit: 'contain', filter: 'drop-shadow(1.5px 0 0 rgba(255,255,255,0.85)) drop-shadow(-1.5px 0 0 rgba(255,255,255,0.85)) drop-shadow(0 1.5px 0 rgba(255,255,255,0.85)) drop-shadow(0 -1.5px 0 rgba(255,255,255,0.85))' }} />
+                                                </div>
+                                            </div>
                                         </button>
                                     ),
                                 },
@@ -2115,9 +2127,12 @@ export const TavernScreen: React.FC<{
                                             <span className="text-white text-[11px] font-black uppercase tracking-[0.1em] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-150" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}>
                                                 Alquimista
                                             </span>
-                                            <SideIconFrame>
-                                                <img src={ICONE_ALQUIMISTA_URL} alt="" style={{ width: 44, height: 44, objectFit: 'contain', position: 'relative', zIndex: 1, filter: 'drop-shadow(1.5px 0 0 rgba(255,255,255,0.85)) drop-shadow(-1.5px 0 0 rgba(255,255,255,0.85)) drop-shadow(0 1.5px 0 rgba(255,255,255,0.85)) drop-shadow(0 -1.5px 0 rgba(255,255,255,0.85))' }} />
-                                            </SideIconFrame>
+                                            <div style={{ position: 'relative', width: 48, height: 48, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                                <div data-diamond="1" style={{ position: 'absolute', inset: 5, borderRadius: 7, backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', transform: 'rotate(45deg) scale(1)', background: 'rgba(0,0,0,0.42)', transition: 'transform 0.15s cubic-bezier(0.34,1.56,0.64,1), background 0.15s' }} />
+                                                <div data-iconwrap="1" style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'transform 0.18s cubic-bezier(0.22,1,0.36,1)' }}>
+                                                    <img src={ICONE_ALQUIMISTA_URL} alt="" style={{ width: 44, height: 44, objectFit: 'contain', filter: 'drop-shadow(1.5px 0 0 rgba(255,255,255,0.85)) drop-shadow(-1.5px 0 0 rgba(255,255,255,0.85)) drop-shadow(0 1.5px 0 rgba(255,255,255,0.85)) drop-shadow(0 -1.5px 0 rgba(255,255,255,0.85))' }} />
+                                                </div>
+                                            </div>
                                         </button>
                                     ),
                                 },
