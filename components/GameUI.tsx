@@ -2009,7 +2009,7 @@ export const TavernScreen: React.FC<{
                                                 Mochila
                                             </span>
                                             <SideIconFrame>
-                                                <img src={ICONE_MOCHILA_URL} alt="" className="h-8 w-8 object-contain" />
+                                                <img src={ICONE_MOCHILA_URL} alt="" style={{ width: 44, height: 44, objectFit: 'contain', position: 'relative', zIndex: 1 }} />
                                             </SideIconFrame>
                                         </button>
                                     ),
@@ -2036,7 +2036,7 @@ export const TavernScreen: React.FC<{
                                                 Missões
                                             </span>
                                             <SideIconFrame>
-                                                <img src={BOOK_MISSOES_URL} alt="" className="h-8 w-8 object-contain" />
+                                                <img src={BOOK_MISSOES_URL} alt="" style={{ width: 44, height: 44, objectFit: 'contain', position: 'relative', zIndex: 1 }} />
                                                 {_mDone > 0 && (
                                                     <span style={{ position: 'absolute', top: -2, right: -2, minWidth: 16, height: 16, borderRadius: 99, background: 'linear-gradient(135deg,#b45309,#fbbf24)', border: '2px solid #fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, fontWeight: 900, color: '#fff', padding: '0 3px', pointerEvents: 'none', zIndex: 2 }}>
                                                         {_mDone}
@@ -2067,7 +2067,7 @@ export const TavernScreen: React.FC<{
                                                 Habilidades
                                             </span>
                                             <SideIconFrame>
-                                                <img src={BOOK_HABILIDADES_URL} alt="" className="h-8 w-8 object-contain" />
+                                                <img src={BOOK_HABILIDADES_URL} alt="" style={{ width: 44, height: 44, objectFit: 'contain', position: 'relative', zIndex: 1 }} />
                                             </SideIconFrame>
                                         </button>
                                     ),
@@ -2092,7 +2092,7 @@ export const TavernScreen: React.FC<{
                                                 Mercador
                                             </span>
                                             <SideIconFrame>
-                                                <img src={ICONE_MERCADOR_URL} alt="" className="h-8 w-8 object-contain" />
+                                                <img src={ICONE_MERCADOR_URL} alt="" style={{ width: 44, height: 44, objectFit: 'contain', position: 'relative', zIndex: 1 }} />
                                             </SideIconFrame>
                                         </button>
                                     ),
@@ -2117,7 +2117,7 @@ export const TavernScreen: React.FC<{
                                                 Alquimista
                                             </span>
                                             <SideIconFrame>
-                                                <img src={ICONE_ALQUIMISTA_URL} alt="" className="h-8 w-8 object-contain" />
+                                                <img src={ICONE_ALQUIMISTA_URL} alt="" style={{ width: 44, height: 44, objectFit: 'contain', position: 'relative', zIndex: 1 }} />
                                             </SideIconFrame>
                                         </button>
                                     ),
@@ -4181,20 +4181,36 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
       {missionsUnlocked && !isDungeonRun && sceneRegion === 'forest' && (() => {
           const _bDone = missions.filter(m => m.progressoAtual >= m.metaAtual).length;
           return (
-          <div className="absolute right-3 sm:right-5 top-44 sm:top-24 z-30 pointer-events-auto flex flex-col gap-4">
+          <div className="absolute right-3 sm:right-5 top-44 sm:top-24 z-30 pointer-events-auto flex flex-col items-end gap-3">
               <button
                   onClick={() => { uiSfx.play('modal_open'); setShowMissionsScreen(true); }}
-                  className="group relative flex items-center justify-end gap-2 p-0 bg-transparent border-0 transition-all duration-200 hover:-translate-y-0.5 hover:scale-105 active:scale-95"
+                  className="group relative flex items-center justify-end gap-2 p-0 bg-transparent border-0"
+                  style={{ transition: 'transform 0.15s cubic-bezier(0.34,1.56,0.64,1)' }}
+                  onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.12)')}
+                  onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
+                  onMouseDown={e => (e.currentTarget.style.transform = 'scale(0.92)')}
+                  onMouseUp={e => (e.currentTarget.style.transform = 'scale(1.12)')}
                   title="Diário de Missões"
                   aria-label="Diário de Missões"
               >
                   <span className="text-white text-[11px] font-black uppercase tracking-[0.1em] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-150" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}>
                       Missões
                   </span>
-                  <div className="relative">
-                      <img src={BOOK_MISSOES_URL} alt="" className="h-14 w-14 object-contain" style={{ filter: 'drop-shadow(0.5px 0 0 #fff) drop-shadow(-0.5px 0 0 #fff) drop-shadow(0 0.5px 0 #fff) drop-shadow(0 -0.5px 0 #fff)' }} />
+                  {/* Frame: losango pequeno, ícone maior sobressai */}
+                  <div style={{ position: 'relative', width: 48, height: 48, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <div style={{
+                          position: 'absolute',
+                          inset: 4,
+                          borderRadius: 7,
+                          transform: 'rotate(45deg)',
+                          background: 'rgba(0,0,0,0.78)',
+                          backdropFilter: 'blur(10px)',
+                          WebkitBackdropFilter: 'blur(10px)',
+                          border: '1.5px solid rgba(255,255,255,0.55)',
+                      }} />
+                      <img src={BOOK_MISSOES_URL} alt="" style={{ position: 'relative', zIndex: 1, width: 44, height: 44, objectFit: 'contain' }} />
                       {_bDone > 0 && (
-                          <span style={{ position: 'absolute', top: -4, right: -4, minWidth: 20, height: 20, borderRadius: 99, background: 'linear-gradient(135deg,#b45309,#fbbf24)', border: '2px solid #fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 900, color: '#fff', padding: '0 4px', boxShadow: '0 2px 8px rgba(180,83,9,0.60)', pointerEvents: 'none' }}>
+                          <span style={{ position: 'absolute', top: -2, right: -2, minWidth: 16, height: 16, borderRadius: 99, background: 'linear-gradient(135deg,#b45309,#fbbf24)', border: '2px solid #fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, fontWeight: 900, color: '#fff', padding: '0 3px', pointerEvents: 'none', zIndex: 2 }}>
                               {_bDone}
                           </span>
                       )}
