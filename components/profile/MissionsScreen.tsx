@@ -43,8 +43,17 @@ if (typeof document !== 'undefined') {
 }
 
 // -- Helpers -----------------------------------------------------------------
-const formatDesc = (template: string, meta: number) =>
-  template.replace('{meta}', String(meta));
+const formatDesc = (template: string, meta: number): React.ReactNode => {
+  const parts = template.split('{meta}');
+  if (parts.length === 1) return template;
+  return (
+    <>
+      {parts[0]}
+      <span style={{ color: '#fbbf24', fontWeight: 900, fontSize: '1.08em', letterSpacing: '-0.01em' }}>{meta}</span>
+      {parts[1]}
+    </>
+  );
+};
 
 // -- Coin burst overlay ------------------------------------------------------
 const CoinBurst: React.FC<{ reward: number }> = ({ reward }) => {
