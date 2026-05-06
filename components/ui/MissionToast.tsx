@@ -88,6 +88,9 @@ export const MissionToast: React.FC<Props> = ({ toast, onOpen }) => {
         zIndex: 9999,
         width: 'min(92vw, 360px)',
         willChange: 'transform, opacity',
+        borderRadius: 20,
+        backdropFilter: 'blur(24px)',
+        WebkitBackdropFilter: 'blur(24px)',
         animation: leaving
           ? 'mission-toast-out 0.35s cubic-bezier(0.4,0,1,1) forwards'
           : 'mission-toast-in 0.42s cubic-bezier(0.22,1,0.36,1) forwards',

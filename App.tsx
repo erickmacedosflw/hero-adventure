@@ -1590,6 +1590,7 @@ export default function App() {
         logs,
         narration,
         onboardingPhase,
+        missions,
         pendingDungeonQueue,
         persistSaveNow,
         player,
@@ -2892,7 +2893,9 @@ export default function App() {
       updated[idx] = { ...m, progressoAtual: 0, nivelAtual: nextNivel, metaAtual: nextMeta, recompensaAtual: nextRecompensa };
       return updated;
     });
-  }, []);
+    // Flush save immediately so the new desafio persists
+    setTimeout(() => persistSaveNow(), 50);
+  }, [persistSaveNow]);
 
   useEffect(() => {
     if (sceneRegion === 'forest') checkStageMissions(stage);
