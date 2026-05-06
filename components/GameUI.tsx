@@ -2184,35 +2184,56 @@ export const TavernScreen: React.FC<{
                         return (
                         <div className={`grid ${mobileCols} gap-1.5 pointer-events-auto mb-2 sm:hidden`}>
                             {canStartHuntFromCurrentRegion && (
-                                <button onClick={() => handleMenuTransition('hunt')} className="rounded-xl border border-[#b26a2e] bg-[#b87a3a]/95 px-1.5 py-2.5 text-center transition-all hover:-translate-y-0.5 hover:bg-[#c88a4a]">
-                                    <div className="flex flex-col items-center gap-0.5">
-                                        <div className="flex items-center gap-1">
+                                <button
+                                    onClick={() => handleMenuTransition('hunt')}
+                                    onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px) scale(1.04)'; e.currentTarget.style.boxShadow = '0 8px 28px rgba(251,146,60,0.45), inset 0 1px 0 rgba(255,255,255,0.18)'; }}
+                                    onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0) scale(1)'; e.currentTarget.style.boxShadow = '0 2px 12px rgba(251,146,60,0.20), inset 0 1px 0 rgba(255,255,255,0.10)'; }}
+                                    onMouseDown={e => { e.currentTarget.style.transform = 'translateY(1px) scale(0.96)'; e.currentTarget.style.boxShadow = '0 1px 6px rgba(251,146,60,0.30)'; }}
+                                    onMouseUp={e => { e.currentTarget.style.transform = 'translateY(-3px) scale(1.04)'; e.currentTarget.style.boxShadow = '0 8px 28px rgba(251,146,60,0.45), inset 0 1px 0 rgba(255,255,255,0.18)'; }}
+                                    style={{ borderRadius: 14, border: '1.5px solid rgba(251,146,60,0.55)', background: 'rgba(180,80,20,0.22)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', padding: '10px 6px', textAlign: 'center', transition: 'transform 0.18s cubic-bezier(0.22,1,0.36,1), box-shadow 0.18s', boxShadow: '0 2px 12px rgba(251,146,60,0.20), inset 0 1px 0 rgba(255,255,255,0.10)', cursor: 'pointer' }}
+                                >
+                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                                             {campUiProfile === 'gamepad' && <CampXArc />}
-                                            <Sword size={16} className="text-white" />
+                                            <Sword size={17} style={{ color: '#fb923c', filter: 'drop-shadow(0 0 6px rgba(251,146,60,0.8))' }} />
                                         </div>
-                                        <span className="text-[10px] font-black text-white leading-none">Caçar</span>
+                                        <span style={{ fontSize: 10, fontWeight: 900, color: '#fff', letterSpacing: '0.06em', textTransform: 'uppercase', lineHeight: 1 }}>Caçar</span>
                                     </div>
                                 </button>
                             )}
                             {canStartDungeonFromCurrentRegion && (
-                                <button onClick={() => handleMenuTransition('dungeon')} className="rounded-xl border border-[#3b6580] bg-[#4d7a96]/95 px-1.5 py-2.5 text-center transition-all hover:-translate-y-0.5 hover:bg-[#5a8aa6]">
-                                    <div className="flex flex-col items-center gap-0.5">
-                                        <div className="flex items-center gap-1">
+                                <button
+                                    onClick={() => handleMenuTransition('dungeon')}
+                                    onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px) scale(1.04)'; e.currentTarget.style.boxShadow = '0 8px 28px rgba(56,189,248,0.40), inset 0 1px 0 rgba(255,255,255,0.18)'; }}
+                                    onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0) scale(1)'; e.currentTarget.style.boxShadow = '0 2px 12px rgba(56,189,248,0.18), inset 0 1px 0 rgba(255,255,255,0.10)'; }}
+                                    onMouseDown={e => { e.currentTarget.style.transform = 'translateY(1px) scale(0.96)'; e.currentTarget.style.boxShadow = '0 1px 6px rgba(56,189,248,0.25)'; }}
+                                    onMouseUp={e => { e.currentTarget.style.transform = 'translateY(-3px) scale(1.04)'; e.currentTarget.style.boxShadow = '0 8px 28px rgba(56,189,248,0.40), inset 0 1px 0 rgba(255,255,255,0.18)'; }}
+                                    style={{ borderRadius: 14, border: '1.5px solid rgba(56,189,248,0.50)', background: 'rgba(20,80,130,0.22)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', padding: '10px 6px', textAlign: 'center', transition: 'transform 0.18s cubic-bezier(0.22,1,0.36,1), box-shadow 0.18s', boxShadow: '0 2px 12px rgba(56,189,248,0.18), inset 0 1px 0 rgba(255,255,255,0.10)', cursor: 'pointer' }}
+                                >
+                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                                             {campUiProfile === 'gamepad' && <CampXArc />}
-                                            <Crosshair size={16} className="text-white" />
+                                            <Crosshair size={17} style={{ color: '#38bdf8', filter: 'drop-shadow(0 0 6px rgba(56,189,248,0.8))' }} />
                                         </div>
-                                        <span className="text-[10px] font-black text-white leading-none">Dungeon</span>
+                                        <span style={{ fontSize: 10, fontWeight: 900, color: '#fff', letterSpacing: '0.06em', textTransform: 'uppercase', lineHeight: 1 }}>Dungeon</span>
                                     </div>
                                 </button>
                             )}
                             {canStartTowerFromCurrentRegion && onTower && (
-                                <button onClick={() => setShowTowerConfirm(true)} className="rounded-xl border border-violet-700 bg-[#6d28d9]/95 px-1.5 py-2.5 text-center transition-all hover:-translate-y-0.5 hover:bg-[#7c3aed]">
-                                    <div className="flex flex-col items-center gap-0.5">
-                                        <div className="flex items-center gap-1">
+                                <button
+                                    onClick={() => setShowTowerConfirm(true)}
+                                    onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px) scale(1.04)'; e.currentTarget.style.boxShadow = '0 8px 28px rgba(167,139,250,0.45), inset 0 1px 0 rgba(255,255,255,0.18)'; }}
+                                    onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0) scale(1)'; e.currentTarget.style.boxShadow = '0 2px 12px rgba(167,139,250,0.22), inset 0 1px 0 rgba(255,255,255,0.10)'; }}
+                                    onMouseDown={e => { e.currentTarget.style.transform = 'translateY(1px) scale(0.96)'; e.currentTarget.style.boxShadow = '0 1px 6px rgba(167,139,250,0.30)'; }}
+                                    onMouseUp={e => { e.currentTarget.style.transform = 'translateY(-3px) scale(1.04)'; e.currentTarget.style.boxShadow = '0 8px 28px rgba(167,139,250,0.45), inset 0 1px 0 rgba(255,255,255,0.18)'; }}
+                                    style={{ borderRadius: 14, border: '1.5px solid rgba(167,139,250,0.55)', background: 'rgba(80,30,180,0.22)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', padding: '10px 6px', textAlign: 'center', transition: 'transform 0.18s cubic-bezier(0.22,1,0.36,1), box-shadow 0.18s', boxShadow: '0 2px 12px rgba(167,139,250,0.22), inset 0 1px 0 rgba(255,255,255,0.10)', cursor: 'pointer' }}
+                                >
+                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                                             {campUiProfile === 'gamepad' && <CampXArc />}
-                                            <Crown size={16} className="text-white" />
+                                            <Crown size={17} style={{ color: '#a78bfa', filter: 'drop-shadow(0 0 6px rgba(167,139,250,0.8))' }} />
                                         </div>
-                                        <span className="text-[10px] font-black text-white leading-none">Torre</span>
+                                        <span style={{ fontSize: 10, fontWeight: 900, color: '#fff', letterSpacing: '0.06em', textTransform: 'uppercase', lineHeight: 1 }}>Torre</span>
                                     </div>
                                 </button>
                             )}
@@ -2222,26 +2243,44 @@ export const TavernScreen: React.FC<{
 
                     <div className={`hidden sm:grid gap-2.5 pointer-events-auto ${availableAdventureActionsCount >= 3 ? 'sm:grid-cols-3' : availableAdventureActionsCount === 2 ? 'sm:grid-cols-2' : 'sm:grid-cols-1'}`}>
                         {canStartHuntFromCurrentRegion && (
-                            <button onClick={() => handleMenuTransition('hunt')} className="rounded-2xl border border-[#b26a2e] bg-[#b87a3a]/95 px-4 py-4 text-center transition-all hover:-translate-y-0.5 hover:bg-[#c88a4a]">
-                                <div className="flex items-center justify-center gap-2 text-base sm:text-lg font-black text-white">{campUiProfile === 'gamepad' && <CampXArc />}<Sword size={20} /> Cacar</div>
-                                <div className="mt-1 text-[10px] uppercase tracking-[0.2em] text-[#f8eddf]">Batalha rapida</div>
+                            <button
+                                onClick={() => handleMenuTransition('hunt')}
+                                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-4px) scale(1.03)'; e.currentTarget.style.boxShadow = '0 12px 40px rgba(251,146,60,0.50), inset 0 1px 0 rgba(255,255,255,0.20)'; }}
+                                onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0) scale(1)'; e.currentTarget.style.boxShadow = '0 4px 18px rgba(251,146,60,0.22), inset 0 1px 0 rgba(255,255,255,0.10)'; }}
+                                onMouseDown={e => { e.currentTarget.style.transform = 'translateY(1px) scale(0.97)'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(251,146,60,0.30)'; }}
+                                onMouseUp={e => { e.currentTarget.style.transform = 'translateY(-4px) scale(1.03)'; e.currentTarget.style.boxShadow = '0 12px 40px rgba(251,146,60,0.50), inset 0 1px 0 rgba(255,255,255,0.20)'; }}
+                                style={{ borderRadius: 20, border: '1.5px solid rgba(251,146,60,0.55)', background: 'rgba(180,80,20,0.20)', backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)', padding: '16px 16px', textAlign: 'center', transition: 'transform 0.20s cubic-bezier(0.22,1,0.36,1), box-shadow 0.20s', boxShadow: '0 4px 18px rgba(251,146,60,0.22), inset 0 1px 0 rgba(255,255,255,0.10)', cursor: 'pointer' }}
+                            >
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontSize: 18, fontWeight: 900, color: '#fff' }}>{campUiProfile === 'gamepad' && <CampXArc />}<Sword size={20} style={{ color: '#fb923c', filter: 'drop-shadow(0 0 8px rgba(251,146,60,0.9))' }} /> Caçar</div>
+                                <div style={{ marginTop: 4, fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.22em', color: 'rgba(251,186,120,0.75)' }}>Batalha rápida</div>
                             </button>
                         )}
-
                         {canStartDungeonFromCurrentRegion && (
-                            <button onClick={() => handleMenuTransition('dungeon')} className="rounded-2xl border border-[#3b6580] bg-[#4d7a96]/95 px-4 py-4 text-center transition-all hover:-translate-y-0.5 hover:bg-[#5a8aa6]">
-                                <div className="flex items-center justify-center gap-2 text-base sm:text-lg font-black text-white">{campUiProfile === 'gamepad' && <CampXArc />}<Crosshair size={20} /> Dungeon</div>
-                                <div className="mt-1 text-[10px] uppercase tracking-[0.2em] text-sky-100">Modo progressivo</div>
+                            <button
+                                onClick={() => handleMenuTransition('dungeon')}
+                                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-4px) scale(1.03)'; e.currentTarget.style.boxShadow = '0 12px 40px rgba(56,189,248,0.45), inset 0 1px 0 rgba(255,255,255,0.20)'; }}
+                                onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0) scale(1)'; e.currentTarget.style.boxShadow = '0 4px 18px rgba(56,189,248,0.20), inset 0 1px 0 rgba(255,255,255,0.10)'; }}
+                                onMouseDown={e => { e.currentTarget.style.transform = 'translateY(1px) scale(0.97)'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(56,189,248,0.25)'; }}
+                                onMouseUp={e => { e.currentTarget.style.transform = 'translateY(-4px) scale(1.03)'; e.currentTarget.style.boxShadow = '0 12px 40px rgba(56,189,248,0.45), inset 0 1px 0 rgba(255,255,255,0.20)'; }}
+                                style={{ borderRadius: 20, border: '1.5px solid rgba(56,189,248,0.50)', background: 'rgba(20,80,130,0.20)', backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)', padding: '16px 16px', textAlign: 'center', transition: 'transform 0.20s cubic-bezier(0.22,1,0.36,1), box-shadow 0.20s', boxShadow: '0 4px 18px rgba(56,189,248,0.20), inset 0 1px 0 rgba(255,255,255,0.10)', cursor: 'pointer' }}
+                            >
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontSize: 18, fontWeight: 900, color: '#fff' }}>{campUiProfile === 'gamepad' && <CampXArc />}<Crosshair size={20} style={{ color: '#38bdf8', filter: 'drop-shadow(0 0 8px rgba(56,189,248,0.9))' }} /> Dungeon</div>
+                                <div style={{ marginTop: 4, fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.22em', color: 'rgba(120,200,248,0.75)' }}>Modo progressivo</div>
                             </button>
                         )}
-
                         {canStartTowerFromCurrentRegion && onTower && (
-                            <button onClick={() => setShowTowerConfirm(true)} className="rounded-2xl border border-violet-700 bg-[#6d28d9]/95 px-4 py-4 text-center transition-all hover:-translate-y-0.5 hover:bg-[#7c3aed]">
-                                <div className="flex items-center justify-center gap-2 text-base sm:text-lg font-black text-white">{campUiProfile === 'gamepad' && <CampXArc />}<Crown size={20} /> Torre</div>
-                                <div className="mt-1 text-[10px] uppercase tracking-[0.2em] text-violet-200">Roguelike</div>
+                            <button
+                                onClick={() => setShowTowerConfirm(true)}
+                                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-4px) scale(1.03)'; e.currentTarget.style.boxShadow = '0 12px 40px rgba(167,139,250,0.50), inset 0 1px 0 rgba(255,255,255,0.20)'; }}
+                                onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0) scale(1)'; e.currentTarget.style.boxShadow = '0 4px 18px rgba(167,139,250,0.22), inset 0 1px 0 rgba(255,255,255,0.10)'; }}
+                                onMouseDown={e => { e.currentTarget.style.transform = 'translateY(1px) scale(0.97)'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(167,139,250,0.30)'; }}
+                                onMouseUp={e => { e.currentTarget.style.transform = 'translateY(-4px) scale(1.03)'; e.currentTarget.style.boxShadow = '0 12px 40px rgba(167,139,250,0.50), inset 0 1px 0 rgba(255,255,255,0.20)'; }}
+                                style={{ borderRadius: 20, border: '1.5px solid rgba(167,139,250,0.55)', background: 'rgba(80,30,180,0.20)', backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)', padding: '16px 16px', textAlign: 'center', transition: 'transform 0.20s cubic-bezier(0.22,1,0.36,1), box-shadow 0.20s', boxShadow: '0 4px 18px rgba(167,139,250,0.22), inset 0 1px 0 rgba(255,255,255,0.10)', cursor: 'pointer' }}
+                            >
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontSize: 18, fontWeight: 900, color: '#fff' }}>{campUiProfile === 'gamepad' && <CampXArc />}<Crown size={20} style={{ color: '#a78bfa', filter: 'drop-shadow(0 0 8px rgba(167,139,250,0.9))' }} /> Torre</div>
+                                <div style={{ marginTop: 4, fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.22em', color: 'rgba(190,170,255,0.75)' }}>Roguelike</div>
                             </button>
                         )}
-
                     </div>
                 </section>
                 )}
