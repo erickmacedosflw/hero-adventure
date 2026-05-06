@@ -42,7 +42,6 @@ interface UseBattleResolutionParams {
   setGameState: Dispatch<SetStateAction<GameState>>;
   setStage: Dispatch<SetStateAction<number>>;
   setKillCount: Dispatch<SetStateAction<number>>;
-  setSubBossDefeatedInStage: Dispatch<SetStateAction<boolean>>;
   setEnemyAnimationAction: Dispatch<SetStateAction<any>>;
   setPlayerAnimationAction: Dispatch<SetStateAction<any>>;
   generateVictorySpeech: (enemyName: string) => Promise<string>;
@@ -64,6 +63,8 @@ interface UseBattleResolutionParams {
   onActorTurnDone?: () => void;
   /** Rewards acumulados dos inimigos já derrotados no grupo. */
   accumulatedGroupRewards?: { gold: number; xp: number };
+  /** Chamado quando um inimigo é eliminado na caça (não dungeon) para atualizar missões. */
+  onEnemyKilledForMissions?: (meta: { isBoss: boolean; element?: string; bodyType?: string; archetipo?: string }) => void;
 }
 
 export const useBattleResolution = ({
@@ -93,7 +94,6 @@ export const useBattleResolution = ({
   setGameState,
   setStage,
   setKillCount,
-  setSubBossDefeatedInStage,
   setEnemyAnimationAction,
   setPlayerAnimationAction,
   generateVictorySpeech,
@@ -111,6 +111,7 @@ export const useBattleResolution = ({
   onPartialGroupKill,
   onActorTurnDone,
   accumulatedGroupRewards,
+  onEnemyKilledForMissions,
 }: UseBattleResolutionParams) => {
   const handleVictory = useCallback(async (delayMs = 0) => {
     if (!enemy) return;
@@ -327,9 +328,11 @@ export const useBattleResolution = ({
 
     let levelsGained = 0;
     if (wasBoss) {
+      if (!dungeonRun && !isTowerBattle && onEnemyKilledForMissions) {
+        onEnemyKilledForMissions({ isBoss: true, element: enemy.element, bodyType: enemy.gltfBodyType, archetipo: enemy.archetipo });
+      }
       setStage(prev => prev + 1);
       setKillCount(0);
-      setSubBossDefeatedInStage(false);
       setBossVictoryContext({
         mode: 'hunt',
         bossName: enemy.name,
@@ -337,10 +340,10 @@ export const useBattleResolution = ({
         newlyUnlockedShopRarity: getNewlyUnlockedShopRarityByStage(stage + 1),
       });
     } else {
-      setKillCount(prev => prev + 1);
-      if (wasSubBoss) {
-        setSubBossDefeatedInStage(true);
+      if (!dungeonRun && !isTowerBattle && onEnemyKilledForMissions) {
+        onEnemyKilledForMissions({ isBoss: false, element: enemy.element, bodyType: enemy.gltfBodyType, archetipo: enemy.archetipo });
       }
+      setKillCount(prev => prev + 1);
     }
 
     ({ nextPlayer: updatedPlayer, levelsGained } = applyLevelProgression(updatedPlayer, 0.3));
@@ -376,13 +379,7 @@ export const useBattleResolution = ({
         reason: 'Recompensa do chefao da fase',
         phaseLevel: stage,
       }]
-      : (wasSubBoss
-          ? [{
-            source: 'level-up',
-            reason: 'Recompensa de evolucao por derrotar um subchefe',
-            phaseLevel: stage,
-          }]
-          : []);
+      : [];
 
     const shouldOpenInventoryTutorial = !wasBoss && effectiveDrops.length > 0 && shouldTriggerInventoryUnlockTutorial;
 
@@ -392,8 +389,6 @@ export const useBattleResolution = ({
         generateVictorySpeech(enemy.name)
           .then(victoryText => setNarration(victoryText))
           .catch(() => undefined);
-      } else if (wasSubBoss) {
-        setNarration('Subchefe derrotado! Escolha sua carta de evolucao.');
       }
       if (shouldOpenInventoryTutorial) {
         onTriggerInventoryUnlockTutorial();
@@ -438,7 +433,6 @@ export const useBattleResolution = ({
     setEnemyAnimationAction,
     setGameState,
     setKillCount,
-    setSubBossDefeatedInStage,
     setLootResult,
     setNarration,
     setPendingDungeonQueue,

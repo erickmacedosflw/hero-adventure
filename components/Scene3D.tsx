@@ -35,6 +35,7 @@ import {
   getRenderQualityProfile,
   type RenderQualityPreset,
 } from './scene3d/environment';
+import { configureGltfLoader } from './scene3d/gltfLoader';
 import { ScenarioParticleField } from './scene3d/developer-scenes';
 import {
   AnimatedClassHero,
@@ -3111,7 +3112,7 @@ const RuntimeScenarioGlb = ({
   };
   editorParity?: boolean;
 }) => {
-  const gltf = useLoader(GLTFLoader, modelUrl) as { scene: THREE.Group };
+  const gltf = useLoader(GLTFLoader, modelUrl, configureGltfLoader) as { scene: THREE.Group };
 
   const model = useMemo(() => {
     const clone = gltf.scene.clone(true);
@@ -3650,11 +3651,10 @@ export const GameScene: React.FC<SceneProps> = (props) => {
   const dungeonDepthOfFieldHeight = 440;
   const isDungeonRun = Boolean(props.isDungeonScene ?? props.isDungeonRun);
   const runtimeCameraMenuFocus = props.menuCameraFocus ?? Boolean(props.isMenuView);
-  // Post-processing: quality always; desktop balanced also gets lightweight bloom
-  // (affordable at 30fps budget Ã¢â‚¬â€ 33ms/frame leaves room for mipmapBlur passes).
-  // Mobile balanced keeps it off to stay within 45fps heat budget.
-  const shouldUsePostProcessing = isQualityMode || (isBalancedMode && !isMobileDevice);
-  const shouldUseBloomAndVignette = isQualityMode || (isBalancedMode && !isMobileDevice);
+  // Keep Bloom/Vignette exclusive to quality mode. Desktop web balanced is the default
+  // browser preset and should stay cool during long sessions.
+  const shouldUsePostProcessing = isQualityMode;
+  const shouldUseBloomAndVignette = isQualityMode;
   const shouldUseVignette = shouldUseBloomAndVignette && !runtimeCameraMenuFocus;
   // MSAA inside EffectComposer doubles GPU cost for all post-processing passes.
   // Only enable it for quality mode; balanced/performance use 0 (no MSAA) to
@@ -3665,9 +3665,7 @@ export const GameScene: React.FC<SceneProps> = (props) => {
     : (isMobileDevice ? 0.055 : 0.07);
   const outlineTargets = useMemo(() => [outlineHeroRef, outlineEnemyRef], []);
   const glPowerPreference = useMemo(() => getRenderPowerPreference(renderQualityPreset), [renderQualityPreset]);
-  // Ambient drift particles: quality always; desktop balanced can afford it at 30fps.
-  // Mobile balanced keeps it off (45fps thermal budget).
-  const shouldRenderAmbientDrift = isQualityMode || (isBalancedMode && !isMobileDevice);
+  const shouldRenderAmbientDrift = isQualityMode;
   const particleRenderCap = isPerformanceMode
     ? (isMobileDevice ? 34 : 84)
     : isQualityMode
@@ -3703,16 +3701,16 @@ export const GameScene: React.FC<SceneProps> = (props) => {
   // noMainShadow=true means no light uses castShadow, so the renderer overhead is wasted.
   // ContactShadows uses its own WebGLRenderTarget and does NOT depend on this flag.
   const shadowsEnabled = isQualityMode;
-  // Electron desktop: 60 FPS Ã¢â‚¬â€ GPU dedicada suporta confortavelmente.
-  // Mobile: 45 FPS (equilÃƒÂ­brio suavidade/calor).
+  // Electron desktop: capped below 60 to avoid sustained heat/stutter on long sessions.
+  // Mobile quality: 30 FPS to keep iPhone thermals stable under heavier visual passes.
+  // Mobile non-quality: 45 FPS (equilÃƒÂ­brio suavidade/calor).
   // Desktop web: 30 FPS via demand+invalidate (evita render a 120/144Hz desnecessÃƒÂ¡rio).
   const isElectron = typeof window !== 'undefined' && (window as Window & { electronBridge?: { isElectron: boolean } }).electronBridge?.isElectron === true;
-  const mobileFpsCap = isElectron ? 60 : (isMobileDevice ? 45 : 30);
+  const mobileFpsCap = isElectron ? (isQualityMode ? 30 : 45) : (isMobileDevice ? (isQualityMode ? 30 : 45) : 30);
   const battleContactShadowResolution = useMemo(
-    // Quality+Balanced: use profile resolution (72Ã¢â‚¬â€œ84 px, good shadow softness).
-    // Performance: cap at 48 to save GPU fill rate.
-    () => isPerformanceMode ? 48 : quality.contactShadowResolution,
-    [isPerformanceMode, quality.contactShadowResolution],
+    // Mobile non-quality stays capped to avoid texture memory pressure on Safari/iOS.
+    () => (isMobileDevice && !isQualityMode) ? Math.min(quality.contactShadowResolution, 48) : (isPerformanceMode ? 48 : quality.contactShadowResolution),
+    [isMobileDevice, isPerformanceMode, isQualityMode, quality.contactShadowResolution],
   );
 
   const bgColor = useMemo(() => {
@@ -4318,6 +4316,8 @@ export const GameScene: React.FC<SceneProps> = (props) => {
               const isDying = hpPct <= 0;
               const isBoss = props.isEnemyBoss;
               const isSubBoss = en.isSubBoss;
+              const enemyClassId = (en.enemyClassId ?? 'knight') as PlayerClassId;
+              const EnemyClassIcon = INSPECT_CLASS_ICON[enemyClassId] ?? Shield;
               const accentColor = isBoss ? '#ef4444' : isSubBoss ? '#f59e0b' : (props.enemyColor ?? '#94a3b8');
               const badgeLabel = isBoss ? 'CHEFÃƒÆ’O' : isSubBoss ? 'SUBCHEFE' : null;
               const speedGauge = props.battleActorGauges?.[en.id];
@@ -4327,7 +4327,8 @@ export const GameScene: React.FC<SceneProps> = (props) => {
               const lvlFz  = isMobileDevice ? '20px' : '10px';
               const badgeFz = isMobileDevice ? '11px' : '8px';
               const barH = isMobileDevice ? '12px' : '8px';
-              const dotSz = isMobileDevice ? '11px' : '8px';
+              const iconBoxSz = isMobileDevice ? 22 : 16;
+              const iconSz = isMobileDevice ? 14 : 10;
               return (
                 <>
                   <style>{`
@@ -4354,7 +4355,9 @@ export const GameScene: React.FC<SceneProps> = (props) => {
                     <div style={{ width: cardW, background: 'rgba(15,10,40,0.55)', backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)', border: `1px solid ${accentColor}44`, borderRadius: '12px', padding: isMobileDevice ? '12px 16px' : '8px 12px', display: 'flex', flexDirection: 'column', gap: isMobileDevice ? '10px' : '6px', boxShadow: `0 0 0 1px ${accentColor}22, 0 6px 24px rgba(0,0,0,0.45)`, boxSizing: 'border-box' as const }}>
                       {/* Name + level */}
                       <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
-                        <span style={{ width: dotSz, height: dotSz, borderRadius: '50%', background: accentColor, flexShrink: 0, boxShadow: `0 0 6px ${accentColor}` }} />
+                        <span style={{ width: iconBoxSz, height: iconBoxSz, borderRadius: '999px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#fff', background: `${accentColor}cc`, border: `1px solid ${accentColor}`, flexShrink: 0, boxShadow: `0 0 8px ${accentColor}` }}>
+                          <EnemyClassIcon size={iconSz} />
+                        </span>
                         <span style={{ fontSize: nameFz, fontWeight: 900, color: '#fff', letterSpacing: '0.03em', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>{en.name}</span>
                         <span style={{ fontSize: lvlFz, fontWeight: 800, color: accentColor, letterSpacing: '0.10em', whiteSpace: 'nowrap' as const, flexShrink: 0 }}>Nv {en.level}</span>
                       </div>

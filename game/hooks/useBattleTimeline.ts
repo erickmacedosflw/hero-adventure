@@ -5,35 +5,44 @@ export const ATB_GAUGE_MAX = 100;
 export const ATB_MAX_FRAME_DELTA_SECONDS = 0.1;
 
 const ATB_KNIGHT_SPEED_TIME_ANCHORS = [
-  { speed: 0, seconds: 9 },
-  { speed: 5, seconds: 7 },
-  { speed: 10, seconds: 6 },
-  { speed: 20, seconds: 5 },
-  { speed: 30, seconds: 4 },
-] as const;
-
-const ATB_MAGE_SPEED_TIME_ANCHORS = [
-  { speed: 0, seconds: 8 },
-  { speed: 5, seconds: 6 },
-  { speed: 10, seconds: 5 },
-  { speed: 20, seconds: 4 },
+  { speed: 5, seconds: 5 },
   { speed: 30, seconds: 3 },
 ] as const;
 
-const ATB_ROGUE_SPEED_TIME_ANCHORS = [
-  { speed: 0, seconds: 7 },
+const ATB_BARBARIAN_SPEED_TIME_ANCHORS = [
   { speed: 5, seconds: 5 },
-  { speed: 10, seconds: 4 },
-  { speed: 20, seconds: 3 },
+  { speed: 30, seconds: 3 },
+] as const;
+
+const ATB_MAGE_SPEED_TIME_ANCHORS = [
+  { speed: 5, seconds: 4 },
   { speed: 30, seconds: 2 },
+] as const;
+
+const ATB_RANGER_SPEED_TIME_ANCHORS = [
+  { speed: 6, seconds: 4 },
+  { speed: 30, seconds: 2 },
+] as const;
+
+const ATB_ROGUE_SPEED_TIME_ANCHORS = [
+  { speed: 6, seconds: 3 },
+  { speed: 30, seconds: 1.5 },
 ] as const;
 
 const ATB_SPEED_TIME_ANCHORS_BY_CLASS: Record<PlayerClassId, readonly { speed: number; seconds: number }[]> = {
   knight: ATB_KNIGHT_SPEED_TIME_ANCHORS,
-  barbarian: ATB_KNIGHT_SPEED_TIME_ANCHORS,
+  barbarian: ATB_BARBARIAN_SPEED_TIME_ANCHORS,
   mage: ATB_MAGE_SPEED_TIME_ANCHORS,
-  ranger: ATB_MAGE_SPEED_TIME_ANCHORS,
+  ranger: ATB_RANGER_SPEED_TIME_ANCHORS,
   rogue: ATB_ROGUE_SPEED_TIME_ANCHORS,
+};
+
+const ATB_MAX_TIME_ABOVE_30_BY_CLASS: Record<PlayerClassId, number> = {
+  knight: 2,
+  barbarian: 3,
+  mage: 2,
+  ranger: 2,
+  rogue: 2,
 };
 
 const DEFAULT_ATB_CLASS_ID: PlayerClassId = 'knight';
@@ -62,7 +71,9 @@ const lerp = (start: number, end: number, factor: number) => start + ((end - sta
 
 const getAtbTimeToReadySeconds = (speed: number, classId?: PlayerClassId) => {
   const normalizedSpeed = Math.max(0, speed);
-  const anchors = ATB_SPEED_TIME_ANCHORS_BY_CLASS[classId ?? DEFAULT_ATB_CLASS_ID] ?? ATB_SPEED_TIME_ANCHORS_BY_CLASS[DEFAULT_ATB_CLASS_ID];
+  const resolvedClassId = classId ?? DEFAULT_ATB_CLASS_ID;
+  const anchors = ATB_SPEED_TIME_ANCHORS_BY_CLASS[resolvedClassId] ?? ATB_SPEED_TIME_ANCHORS_BY_CLASS[DEFAULT_ATB_CLASS_ID];
+  const overflowSeconds = ATB_MAX_TIME_ABOVE_30_BY_CLASS[resolvedClassId] ?? anchors[anchors.length - 1].seconds;
 
   for (let index = 1; index < anchors.length; index += 1) {
     const previous = anchors[index - 1];
@@ -78,7 +89,7 @@ const getAtbTimeToReadySeconds = (speed: number, classId?: PlayerClassId) => {
     }
   }
 
-  return anchors[anchors.length - 1].seconds;
+  return overflowSeconds;
 };
 
 const getAtbChargePerSecond = (speed: number, classId?: PlayerClassId) => ATB_GAUGE_MAX / getAtbTimeToReadySeconds(speed, classId);

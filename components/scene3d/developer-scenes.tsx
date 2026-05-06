@@ -28,6 +28,7 @@ import {
   DeveloperKitbashProbe,
   upsertRuntimeDiagnostic,
 } from './developer';
+import { configureGltfLoader } from './gltfLoader';
 import type {
   DeveloperAnimationRuntimeDiagnostic,
   DeveloperKitbashAnalysis,
@@ -539,7 +540,7 @@ export const DeveloperWeaponCalibrationSceneRenderer: React.FC<DeveloperWeaponCa
 };
 
 const ScenarioGlbModel = ({ modelUrl }: { modelUrl: string }) => {
-  const gltf = useLoader(GLTFLoader, modelUrl) as { scene: THREE.Group };
+  const gltf = useLoader(GLTFLoader, modelUrl, configureGltfLoader) as { scene: THREE.Group };
 
   const model = useMemo(() => {
     const clone = gltf.scene.clone(true);
@@ -1832,7 +1833,7 @@ const GltfMonsterModel: React.FC<{
   clipName?: string;
   onAnimationsLoaded?: (names: string[]) => void;
 }> = ({ modelUrl, animationIndex, clipName, onAnimationsLoaded }) => {
-  const gltf = useLoader(GLTFLoader, modelUrl) as any;
+  const gltf = useLoader(GLTFLoader, modelUrl, configureGltfLoader) as any;
   const groupRef = useRef<THREE.Group>(null!);
 
   // SkeletonUtils.clone (imported module) keeps SkinnedMesh bone references intact
@@ -1998,8 +1999,8 @@ const BipedCharacterModel: React.FC<{
   clipName?: string;
   onAnimationsLoaded?: (names: string[]) => void;
 }> = ({ characterUrl, animationUrl, clipName, onAnimationsLoaded }) => {
-  const characterGltf = useLoader(GLTFLoader, characterUrl) as any;
-  const animGltf = useLoader(GLTFLoader, animationUrl) as any;
+  const characterGltf = useLoader(GLTFLoader, characterUrl, configureGltfLoader) as any;
+  const animGltf = useLoader(GLTFLoader, animationUrl, configureGltfLoader) as any;
   const groupRef = useRef<THREE.Group>(null!);
 
   // Clone the character scene — each clone has its own bone instances.

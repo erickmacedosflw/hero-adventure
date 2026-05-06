@@ -109,7 +109,7 @@ export const getRenderPlatform = (): RenderPlatform => {
 export const getDefaultRenderQualityPreset = (platform = getRenderPlatform()): RenderQualityPreset => {
   // Electron desktop: always start in quality mode — no thermal/battery limits.
   if (isElectronRuntime()) return 'quality';
-  return platform === 'mobile' ? 'quality' : 'quality';
+  return platform === 'mobile' ? 'performance' : 'balanced';
 };
 
 export const getRenderPowerPreference = (preset?: RenderQualityPreset): WebGLPowerPreference => {

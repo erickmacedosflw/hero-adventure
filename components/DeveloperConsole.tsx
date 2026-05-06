@@ -90,27 +90,27 @@ const DEVELOPER_SCENARIO_CATALOG: Record<DeveloperScenarioComposerId, {
   tower: {
     id: 'tower',
     label: 'Tower',
-    modelUrl: new URL('../game/assets/Scenario/Tower/cenario_3d_torre.glb', import.meta.url).href,
+    modelUrl: new URL('../game/assets/ScenarioOptimized/Tower/cenario_3d_torre.draco.glb', import.meta.url).href,
   },
   forest: {
     id: 'forest',
     label: 'Florest',
-    modelUrl: new URL('../game/assets/Scenario/Florest/cenario_3d_floresta.glb', import.meta.url).href,
+    modelUrl: new URL('../game/assets/ScenarioOptimized/Florest/cenario_3d_floresta.draco.glb', import.meta.url).href,
   },
   dungeon: {
     id: 'dungeon',
     label: 'Dungeon',
-    modelUrl: new URL('../game/assets/Scenario/Dungeon/cenario_3d_dungeon.glb', import.meta.url).href,
+    modelUrl: new URL('../game/assets/ScenarioOptimized/Dungeon/cenario_3d_dungeon.draco.glb', import.meta.url).href,
   },
   moutain: {
     id: 'moutain',
     label: 'Mountain',
-    modelUrl: new URL('../game/assets/Scenario/Moutain/cenario_3d_montanha.glb', import.meta.url).href,
+    modelUrl: new URL('../game/assets/ScenarioOptimized/Moutain/cenario_3d_montanha.draco.glb', import.meta.url).href,
   },
   'hero-selection': {
     id: 'hero-selection',
     label: 'Hero Selection',
-    modelUrl: new URL('../game/assets/Scenario/Tower/cenario_3d_torre.glb', import.meta.url).href,
+    modelUrl: new URL('../game/assets/ScenarioOptimized/Tower/cenario_3d_torre.draco.glb', import.meta.url).href,
   },
 };
 
@@ -149,7 +149,7 @@ const DEVELOPER_SCENE_OBJECT_TEMPLATE_CATALOG: Record<DeveloperScenarioObjectTem
   'tower-object': {
     id: 'tower-object',
     label: 'Tower Object',
-    modelUrl: new URL('../game/assets/Scenario/Tower/cenario_3d_torre_objeto.glb', import.meta.url).href,
+    modelUrl: new URL('../game/assets/ScenarioOptimized/Tower/cenario_3d_torre_objeto.draco.glb', import.meta.url).href,
   },
 };
 
@@ -399,7 +399,7 @@ const createDefaultScenarioComposerConfig = (scenarioId: DeveloperScenarioCompos
         {
           id: 'scene-object-mo0vplfk-m95cre',
           label: 'Tower Object 1',
-          modelUrl: new URL('../game/assets/Scenario/Tower/cenario_3d_torre_objeto.glb', import.meta.url).href,
+          modelUrl: new URL('../game/assets/ScenarioOptimized/Tower/cenario_3d_torre_objeto.draco.glb', import.meta.url).href,
           transform: {
             position: [-2.2268665940147696, 3.059670283458114, -22.43335412594464],
             rotation: [-3.141592653589793, -1.5094643673210264, -3.141592653589793],

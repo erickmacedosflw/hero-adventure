@@ -5,6 +5,8 @@ import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import type { Item } from '../../types';
 import { getRegisteredWeapon3DByItemId } from '../../game/data/weaponCatalog';
 
+const ITEM_PREVIEW_MAX_FPS = 30;
+
 const createBox = (
   width: number,
   height: number,
@@ -1002,13 +1004,24 @@ export function ItemPreviewThree({ item, variant = 'default' }: { item: Item; va
 
     void initialize();
 
-    const animate = () => {
+    const frameIntervalMs = 1000 / ITEM_PREVIEW_MAX_FPS;
+    let lastRenderTime = 0;
+
+    const animate = (now: number) => {
       frameId = window.requestAnimationFrame(animate);
+      if (lastRenderTime !== 0) {
+        const elapsed = now - lastRenderTime;
+        if (elapsed < frameIntervalMs) return;
+        lastRenderTime = now - (elapsed % frameIntervalMs);
+      } else {
+        lastRenderTime = now;
+      }
+
       controls.update();
       renderer.render(scene, camera);
     };
 
-    animate();
+    animate(performance.now());
 
     return () => {
       disposed = true;

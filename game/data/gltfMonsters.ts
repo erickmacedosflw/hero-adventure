@@ -86,6 +86,7 @@ export const GLTF_MONSTER_BESTIARY: GltfMonsterTemplate[] = [
     element: 'agua', bodyType: 'Big', gltfFile: 'Yeti.gltf',
     baseStats: { hp: 65, maxHp: 65, mp: 0,  maxMp: 0,  atk: 7, def: 4, speed: 2, luck: 1, magic: 3 },
     xpReward: 30, goldReward: 15, color: '#bae6fd', scale: 1.1, attackStyle: 'unarmed',
+    archetipo: 'barbaro',
     rareDrops: [{ itemId: 'mat_cloth', chance: 0.15 }],
   },
   {
@@ -135,6 +136,7 @@ export const GLTF_MONSTER_BESTIARY: GltfMonsterTemplate[] = [
     element: 'terra', bodyType: 'Big', gltfFile: 'Bunny.gltf',
     baseStats: { hp: 48, maxHp: 48, mp: 0,  maxMp: 0,  atk: 5, def: 3, speed: 4, luck: 2, magic: 1 },
     xpReward: 20, goldReward: 9, color: '#a16207', scale: 0.95, attackStyle: 'unarmed',
+    archetipo: 'guerreiro',
     rareDrops: [{ itemId: 'mat_bone', chance: 0.15 }],
   },
   {
@@ -144,6 +146,7 @@ export const GLTF_MONSTER_BESTIARY: GltfMonsterTemplate[] = [
     element: 'terra', bodyType: 'Big', gltfFile: 'MushroomKing.gltf',
     baseStats: { hp: 60, maxHp: 60, mp: 18, maxMp: 18, atk: 4, def: 4, speed: 2, luck: 2, magic: 6 },
     xpReward: 28, goldReward: 13, color: '#65a30d', scale: 1.05, attackStyle: 'unarmed',
+    archetipo: 'mago',
     rareDrops: [{ itemId: 'mat_wood', chance: 0.20 }, { itemId: 'pot_1', chance: 0.08 }],
   },
   {
@@ -153,6 +156,7 @@ export const GLTF_MONSTER_BESTIARY: GltfMonsterTemplate[] = [
     element: 'terra', bodyType: 'Big', gltfFile: 'Monkroose.gltf',
     baseStats: { hp: 52, maxHp: 52, mp: 6,  maxMp: 6,  atk: 6, def: 3, speed: 4, luck: 3, magic: 2 },
     xpReward: 24, goldReward: 11, color: '#78716c', scale: 1.0, attackStyle: 'unarmed',
+    archetipo: 'guerreiro',
     rareDrops: [{ itemId: 'mat_bone', chance: 0.12 }],
   },
   {
@@ -162,6 +166,7 @@ export const GLTF_MONSTER_BESTIARY: GltfMonsterTemplate[] = [
     element: 'terra', bodyType: 'Big', gltfFile: 'Dino.gltf',
     baseStats: { hp: 62, maxHp: 62, mp: 0,  maxMp: 0,  atk: 7, def: 3, speed: 3, luck: 1, magic: 2 },
     xpReward: 27, goldReward: 13, color: '#84cc16', scale: 1.1, attackStyle: 'unarmed',
+    archetipo: 'barbaro',
     rareDrops: [{ itemId: 'mat_bone', chance: 0.18 }],
   },
   {
@@ -171,6 +176,7 @@ export const GLTF_MONSTER_BESTIARY: GltfMonsterTemplate[] = [
     element: 'terra', bodyType: 'Big', gltfFile: 'Orc.gltf',
     baseStats: { hp: 58, maxHp: 58, mp: 4,  maxMp: 4,  atk: 7, def: 4, speed: 2, luck: 1, magic: 2 },
     xpReward: 25, goldReward: 12, color: '#78716c', scale: 1.05, attackStyle: 'unarmed',
+    archetipo: 'orc',
     rareDrops: [{ itemId: 'mat_iron', chance: 0.10 }],
   },
   {
@@ -180,6 +186,7 @@ export const GLTF_MONSTER_BESTIARY: GltfMonsterTemplate[] = [
     element: 'terra', bodyType: 'Flying', gltfFile: 'Goleling.gltf',
     baseStats: { hp: 45, maxHp: 45, mp: 8,  maxMp: 8,  atk: 5, def: 5, speed: 2, luck: 1, magic: 3 },
     xpReward: 22, goldReward: 11, color: '#a16207', scale: 0.85, attackStyle: 'unarmed',
+    archetipo: 'guerreiro',
     rareDrops: [{ itemId: 'mat_iron', chance: 0.12 }],
   },
   {
@@ -189,6 +196,7 @@ export const GLTF_MONSTER_BESTIARY: GltfMonsterTemplate[] = [
     element: 'terra', bodyType: 'Flying', gltfFile: 'Goleling_Evolved.gltf',
     baseStats: { hp: 62, maxHp: 62, mp: 12, maxMp: 12, atk: 6, def: 6, speed: 2, luck: 1, magic: 4 },
     xpReward: 30, goldReward: 15, color: '#78716c', scale: 0.95, attackStyle: 'unarmed',
+    archetipo: 'guerreiro',
     rareDrops: [{ itemId: 'mat_iron', chance: 0.15 }, { itemId: 'mat_dg_dark_clay', chance: 0.18 }],
   },
 
@@ -202,6 +210,7 @@ export const GLTF_MONSTER_BESTIARY: GltfMonsterTemplate[] = [
     element: 'fogo', bodyType: 'Big', gltfFile: 'Demon.gltf',
     baseStats: { hp: 55, maxHp: 55, mp: 16, maxMp: 16, atk: 8, def: 3, speed: 3, luck: 2, magic: 7 },
     xpReward: 28, goldReward: 14, color: '#ef4444', scale: 1.05, attackStyle: 'unarmed',
+    archetipo: 'demonio',
     rareDrops: [{ itemId: 'mat_dg_sulfur_powder', chance: 0.20 }],
   },
   {
@@ -211,6 +220,7 @@ export const GLTF_MONSTER_BESTIARY: GltfMonsterTemplate[] = [
     element: 'fogo', bodyType: 'Big', gltfFile: 'BlueDemon.gltf',
     baseStats: { hp: 48, maxHp: 48, mp: 22, maxMp: 22, atk: 6, def: 2, speed: 3, luck: 3, magic: 9 },
     xpReward: 26, goldReward: 13, color: '#a855f7', scale: 1.0, attackStyle: 'unarmed',
+    archetipo: 'demonio',
     rareDrops: [{ itemId: 'pot_2', chance: 0.10 }, { itemId: 'mat_dg_sulfur_powder', chance: 0.15 }],
   },
   {
@@ -229,6 +239,7 @@ export const GLTF_MONSTER_BESTIARY: GltfMonsterTemplate[] = [
     element: 'fogo', bodyType: 'Flying', gltfFile: 'Demon.gltf',
     baseStats: { hp: 52, maxHp: 52, mp: 20, maxMp: 20, atk: 7, def: 2, speed: 4, luck: 2, magic: 8 },
     xpReward: 27, goldReward: 14, color: '#dc2626', scale: 0.95, attackStyle: 'unarmed',
+    archetipo: 'demonio',
     rareDrops: [{ itemId: 'mat_dg_sulfur_powder', chance: 0.18 }],
   },
   {
@@ -238,6 +249,7 @@ export const GLTF_MONSTER_BESTIARY: GltfMonsterTemplate[] = [
     element: 'fogo', bodyType: 'Flying', gltfFile: 'Dragon.gltf',
     baseStats: { hp: 70, maxHp: 70, mp: 18, maxMp: 18, atk: 8, def: 4, speed: 3, luck: 2, magic: 8 },
     xpReward: 35, goldReward: 18, color: '#f97316', scale: 1.0, attackStyle: 'unarmed',
+    archetipo: 'dragao',
     rareDrops: [{ itemId: 'mat_iron', chance: 0.15 }, { itemId: 'mat_dg_sulfur_powder', chance: 0.22 }],
   },
   {
@@ -247,6 +259,7 @@ export const GLTF_MONSTER_BESTIARY: GltfMonsterTemplate[] = [
     element: 'fogo', bodyType: 'Flying', gltfFile: 'Dragon_Evolved.gltf',
     baseStats: { hp: 80, maxHp: 80, mp: 24, maxMp: 24, atk: 10, def: 5, speed: 3, luck: 2, magic: 10 },
     xpReward: 42, goldReward: 22, color: '#dc2626', scale: 1.05, attackStyle: 'unarmed',
+    archetipo: 'dragao',
     rareDrops: [{ itemId: 'mat_dg_amber_resin', chance: 0.16 }, { itemId: 'mat_gold', chance: 0.06 }],
   },
 
@@ -260,6 +273,7 @@ export const GLTF_MONSTER_BESTIARY: GltfMonsterTemplate[] = [
     element: 'vento', bodyType: 'Big', gltfFile: 'Birb.gltf',
     baseStats: { hp: 40, maxHp: 40, mp: 6,  maxMp: 6,  atk: 5, def: 2, speed: 6, luck: 4, magic: 3 },
     xpReward: 18, goldReward: 8, color: '#a3e635', scale: 0.95, attackStyle: 'unarmed',
+    archetipo: 'atirador',
     rareDrops: [{ itemId: 'mat_cloth', chance: 0.18 }],
   },
   {
@@ -287,6 +301,7 @@ export const GLTF_MONSTER_BESTIARY: GltfMonsterTemplate[] = [
     element: 'vento', bodyType: 'Flying', gltfFile: 'Armabee.gltf',
     baseStats: { hp: 38, maxHp: 38, mp: 0,  maxMp: 0,  atk: 6, def: 3, speed: 6, luck: 3, magic: 2 },
     xpReward: 18, goldReward: 8, color: '#fcd34d', scale: 0.85, attackStyle: 'unarmed',
+    archetipo: 'atirador',
     rareDrops: [{ itemId: 'mat_dg_cracked_shell', chance: 0.20 }],
   },
   {
@@ -296,6 +311,7 @@ export const GLTF_MONSTER_BESTIARY: GltfMonsterTemplate[] = [
     element: 'vento', bodyType: 'Flying', gltfFile: 'Armabee_Evolved.gltf',
     baseStats: { hp: 55, maxHp: 55, mp: 10, maxMp: 10, atk: 7, def: 4, speed: 5, luck: 3, magic: 4 },
     xpReward: 27, goldReward: 14, color: '#fbbf24', scale: 0.95, attackStyle: 'unarmed',
+    archetipo: 'atirador',
     rareDrops: [{ itemId: 'mat_dg_cracked_shell', chance: 0.22 }, { itemId: 'mat_iron', chance: 0.08 }],
   },
   {
@@ -305,6 +321,7 @@ export const GLTF_MONSTER_BESTIARY: GltfMonsterTemplate[] = [
     element: 'vento', bodyType: 'Flying', gltfFile: 'Hywirl.gltf',
     baseStats: { hp: 35, maxHp: 35, mp: 12, maxMp: 12, atk: 4, def: 1, speed: 7, luck: 5, magic: 5 },
     xpReward: 16, goldReward: 7, color: '#93c5fd', scale: 0.85, attackStyle: 'unarmed',
+    archetipo: 'atirador',
     rareDrops: [{ itemId: 'mat_cloth', chance: 0.14 }],
   },
   {
@@ -327,6 +344,7 @@ export const GLTF_MONSTER_BESTIARY: GltfMonsterTemplate[] = [
     element: 'sombrio', bodyType: 'Big', gltfFile: 'Alien.gltf',
     baseStats: { hp: 50, maxHp: 50, mp: 18, maxMp: 18, atk: 6, def: 3, speed: 4, luck: 2, magic: 8 },
     xpReward: 26, goldReward: 13, color: '#7c3aed', scale: 1.0, attackStyle: 'unarmed',
+    archetipo: 'mago',
     rareDrops: [{ itemId: 'mat_dg_salt_crystal', chance: 0.18 }],
   },
   {
@@ -336,6 +354,7 @@ export const GLTF_MONSTER_BESTIARY: GltfMonsterTemplate[] = [
     element: 'sombrio', bodyType: 'Big', gltfFile: 'Ninja.gltf',
     baseStats: { hp: 44, maxHp: 44, mp: 12, maxMp: 12, atk: 7, def: 2, speed: 6, luck: 5, magic: 4 },
     xpReward: 24, goldReward: 12, color: '#1e293b', scale: 0.95, attackStyle: 'unarmed',
+    archetipo: 'ladino',
     rareDrops: [{ itemId: 'mat_dg_rusty_chain', chance: 0.15 }],
   },
   {
@@ -345,6 +364,7 @@ export const GLTF_MONSTER_BESTIARY: GltfMonsterTemplate[] = [
     element: 'sombrio', bodyType: 'Big', gltfFile: 'Orc_Skull.gltf',
     baseStats: { hp: 55, maxHp: 55, mp: 8,  maxMp: 8,  atk: 7, def: 3, speed: 3, luck: 2, magic: 5 },
     xpReward: 24, goldReward: 12, color: '#581c87', scale: 1.0, attackStyle: 'unarmed',
+    archetipo: 'orc',
     rareDrops: [{ itemId: 'mat_bone', chance: 0.18 }, { itemId: 'mat_dg_salt_crystal', chance: 0.12 }],
   },
   {
@@ -354,6 +374,7 @@ export const GLTF_MONSTER_BESTIARY: GltfMonsterTemplate[] = [
     element: 'sombrio', bodyType: 'Big', gltfFile: 'Tribal.gltf',
     baseStats: { hp: 48, maxHp: 48, mp: 22, maxMp: 22, atk: 5, def: 2, speed: 3, luck: 3, magic: 8 },
     xpReward: 24, goldReward: 12, color: '#3b0764', scale: 0.95, attackStyle: 'unarmed',
+    archetipo: 'mago',
     rareDrops: [{ itemId: 'mat_dg_salt_crystal', chance: 0.20 }, { itemId: 'pot_2', chance: 0.08 }],
   },
   {
@@ -363,6 +384,7 @@ export const GLTF_MONSTER_BESTIARY: GltfMonsterTemplate[] = [
     element: 'sombrio', bodyType: 'Flying', gltfFile: 'Ghost.gltf',
     baseStats: { hp: 35, maxHp: 35, mp: 20, maxMp: 20, atk: 4, def: 1, speed: 5, luck: 4, magic: 8 },
     xpReward: 20, goldReward: 10, color: '#6d28d9', scale: 0.9, attackStyle: 'unarmed',
+    archetipo: 'ladino',
     rareDrops: [{ itemId: 'mat_dg_fossil_bone', chance: 0.16 }],
   },
   {
@@ -372,6 +394,7 @@ export const GLTF_MONSTER_BESTIARY: GltfMonsterTemplate[] = [
     element: 'sombrio', bodyType: 'Flying', gltfFile: 'Ghost_Skull.gltf',
     baseStats: { hp: 40, maxHp: 40, mp: 24, maxMp: 24, atk: 5, def: 1, speed: 4, luck: 3, magic: 9 },
     xpReward: 24, goldReward: 12, color: '#4c1d95', scale: 0.9, attackStyle: 'unarmed',
+    archetipo: 'ladino',
     rareDrops: [{ itemId: 'mat_dg_fossil_bone', chance: 0.18 }, { itemId: 'mat_dg_salt_crystal', chance: 0.14 }],
   },
 ];

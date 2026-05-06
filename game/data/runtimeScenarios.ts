@@ -78,7 +78,7 @@ const RUNTIME_SCENARIO_PRESETS: Record<string, RuntimeScenarioPreset> = {
     exportedAt: '2026-04-16T02:37:59.168Z',
     scenarioId: 'hero-selection',
     scenarioName: 'Hero Selection',
-    scenarioModelUrl: new URL('../assets/Scenario/Tower/cenario_3d_torre.glb', import.meta.url).href,
+    scenarioModelUrl: new URL('../assets/ScenarioOptimized/Tower/cenario_3d_torre.draco.glb', import.meta.url).href,
     config: {
       scenarioId: 'hero-selection',
       scenarioTransform: {
@@ -129,7 +129,7 @@ const RUNTIME_SCENARIO_PRESETS: Record<string, RuntimeScenarioPreset> = {
     exportedAt: '2026-04-21T05:34:03.223Z',
     scenarioId: 'tower',
     scenarioName: 'Tower',
-    scenarioModelUrl: new URL('../assets/Scenario/Tower/cenario_3d_torre.glb', import.meta.url).href,
+    scenarioModelUrl: new URL('../assets/ScenarioOptimized/Tower/cenario_3d_torre.draco.glb', import.meta.url).href,
     config: {
       scenarioId: 'tower',
       scenarioTransform: {
@@ -178,7 +178,7 @@ const RUNTIME_SCENARIO_PRESETS: Record<string, RuntimeScenarioPreset> = {
     exportedAt: '2026-04-16T01:48:45.639Z',
     scenarioId: 'dungeon',
     scenarioName: 'Dungeon',
-    scenarioModelUrl: new URL('../assets/Scenario/Dungeon/cenario_3d_dungeon.glb', import.meta.url).href,
+    scenarioModelUrl: new URL('../assets/ScenarioOptimized/Dungeon/cenario_3d_dungeon.draco.glb', import.meta.url).href,
     config: {
       scenarioId: 'dungeon',
       scenarioTransform: {
@@ -222,7 +222,7 @@ const RUNTIME_SCENARIO_PRESETS: Record<string, RuntimeScenarioPreset> = {
     exportedAt: '2026-04-16T02:49:59.879Z',
     scenarioId: 'moutain',
     scenarioName: 'Mountain',
-    scenarioModelUrl: new URL('../assets/Scenario/Moutain/cenario_3d_montanha.glb', import.meta.url).href,
+    scenarioModelUrl: new URL('../assets/ScenarioOptimized/Moutain/cenario_3d_montanha.draco.glb', import.meta.url).href,
     config: {
       scenarioId: 'moutain',
       scenarioTransform: {
@@ -234,7 +234,7 @@ const RUNTIME_SCENARIO_PRESETS: Record<string, RuntimeScenarioPreset> = {
         {
           id: 'scene-object-mo0vplfk-m95cre',
           label: 'Tower Object 1',
-          modelUrl: new URL('../assets/Scenario/Tower/cenario_3d_torre_objeto.glb', import.meta.url).href,
+          modelUrl: new URL('../assets/ScenarioOptimized/Tower/cenario_3d_torre_objeto.draco.glb', import.meta.url).href,
           transform: {
             position: [-2.2268665940147696, 3.059670283458114, -22.43335412594464],
             rotation: [-3.141592653589793, -1.5094643673210264, -3.141592653589793],

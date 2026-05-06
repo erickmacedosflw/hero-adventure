@@ -1,6 +1,6 @@
 ﻿
 import React, { useState, useEffect, useRef } from 'react';
-import { Player, Enemy, EnemyIntentPreview, BattleLog, TurnState, Item, Skill, GameState, FloatingText, Rarity, ProgressionCard, CardRewardOffer, AlchemistCardOffer, AlchemistItemOffer, DungeonResult, DungeonRewards, BossVictoryContext, PendingTargetAction, TipoDefesa } from '../types';
+import { Player, Enemy, EnemyIntentPreview, BattleLog, TurnState, Item, Skill, GameState, FloatingText, Rarity, ProgressionCard, CardRewardOffer, AlchemistCardOffer, AlchemistItemOffer, DungeonResult, DungeonRewards, BossVictoryContext, PendingTargetAction, TipoDefesa, Mission } from '../types';
 import { Sword, Shield, Zap, Heart, Coins, ShoppingBag, Skull, Play, Plus, FlaskConical, User, X, Home, LogOut, DollarSign, AlertTriangle, MousePointerClick, Shirt, Footprints, Crown, LayoutGrid, Sparkles, Crosshair, ArrowLeft, Star, Clock, Orbit, Info, RefreshCw } from 'lucide-react';
 import { ItemPreviewThree } from './items/ItemPreviewThree';
 import { GameAssetIcon } from './ui/game-asset-icon';
@@ -8,6 +8,7 @@ import { ItemIcon, getItemPowerLabel } from './ui/game-display';
 import { CharacterSheetModal } from './profile/CharacterSheetModal';
 import { InventoryScreen as InventoryModal } from './profile/InventoryScreen';
 import { SkillsScreen as SkillsModal } from './profile/SkillsScreen';
+import { MissionsScreen as MissionsModal } from './profile/MissionsScreen';
 import { ShopMenuScreen } from './shop/ShopMenuScreen';
 import { ALL_ITEMS, SKILLS, getClassSlots } from '../constants';
 import { ALL_CARDS } from '../game/data/cards';
@@ -104,6 +105,18 @@ interface GameUIProps {
     onSelectTarget?: (id: string) => void;
     /** Cancelar seleção de alvo. */
     onCancelTargetSelection?: () => void;
+    /** Missões do Diário de Missões. */
+    missions?: Mission[];
+    /** Se o Diário de Missões está desbloqueado. */
+    missionsUnlocked?: boolean;
+    /** Abrir o Diário de Missões. */
+    onOpenMissions?: () => void;
+    /** Resgatar recompensa de uma missão. */
+    onClaimMissionReward?: (missionId: string) => void;
+    /** Prompt de desbloqueio do Diário de Missões. */
+    missionsUnlockPromptActive?: boolean;
+    /** Confirmar que o jogador viu o desbloqueio do Diário. */
+    onAcknowledgeMissionsUnlock?: () => void;
 }
 
 // --- HELPERS ---
@@ -119,6 +132,11 @@ const getRarityColor = (rarity: Rarity) => {
 const getImpulseCapacityByLevel = (level: number) => (
     level >= 12 ? 3 : level >= 8 ? 2 : level >= 4 ? 1 : 0
 );
+
+const getHuntPhaseLength = (stage: number) => {
+    const safeStage = Math.max(1, stage);
+    return 6 + Math.floor((safeStage - 1) / 4);
+};
 
 const ItemTypeIcon = ({ type, size = 14 }: { type: Item['type'], size?: number }) => {
     if (type === 'weapon') return <Sword size={size} />;
@@ -1036,6 +1054,7 @@ const CharacterSheet = ({ player, shopItems, onClose, onOpenInventory }: { playe
 const MENU_BACKGROUND_IMAGE_URL = new URL('../game/assets/Imagens/Menu_Screen.png', import.meta.url).href;
 const MENU_LOGO_IMAGE_URL = new URL('../game/assets/Imagens/Logo_Hero_Tower.png', import.meta.url).href;
 const BOOK_HABILIDADES_URL = new URL('../game/assets/Icons/Habilidades/Book_habilidades.png', import.meta.url).href;
+const BOOK_MISSOES_URL = new URL('../game/assets/Icons/Missoes/Book_missoes.png', import.meta.url).href;
 const ICONE_ALQUIMISTA_URL = new URL('../game/assets/Icons/Menu/Icone_Alquimista.png', import.meta.url).href;
 const ICONE_MERCADOR_URL = new URL('../game/assets/Icons/Menu/Icone_Mercador.png', import.meta.url).href;
 const ICONE_MOCHILA_URL = new URL('../game/assets/Icons/Menu/Icone_Mochila.png', import.meta.url).href;
@@ -1140,7 +1159,13 @@ export const TavernScreen: React.FC<{
   onPortalInspectOpen?: () => void,
   onPortalInspectClose?: () => void,
   onGamepadFocusChange?: (focus: 'hero' | 'portal' | null) => void,
-}> = ({ player, killCount, onHunt, onBoss, onDungeon, sceneRegion = 'forest', onNavigateSceneRegion, onShop, onShopFromInventory, onAlchemist, onTower, shopItems, autoOpenConstellationToken = 0, onEquipItem, onUnequipItem, onUseItem, onSellItem, onUnlockTalent, onResetTalents, campIntroOnly = false, restrictProfileToStatusOnly = false, inventoryUnlocked = false, inventoryUnlockPromptActive = false, onAcknowledgeInventoryUnlock, cardsUnlockPromptActive = false, onAcknowledgeCardsUnlock, skillsUnlockPromptActive = false, onAcknowledgeSkillsUnlock, constellationUnlockPromptActive = false, onAcknowledgeConstellationUnlock, constellationRespecUnlockPromptActive = false, onAcknowledgeConstellationRespecUnlock, allowCardsInProfile = false, fleeUnlocked = false, merchantUnlockPromptActive = false, onAcknowledgeMerchantUnlock, dungeonUnlockPromptActive = false, onAcknowledgeDungeonUnlock, alchemistUnlockPromptActive = false, onAcknowledgeAlchemistUnlock, merchantUnlocked = false, dungeonUnlocked = false, alchemistUnlocked = false, showSkillsAction = false, onEquipSkillToSlot, onEquipItemToSlot, autoOpenItemSlotToken = 0, autoOpenItemSlotIndex = 0, autoOpenInventoryToken = 0, autoOpenInventoryFilter = 'all', autoOpenPortalTravelToken = 0, autoOpenProfileToken = 0, showDiamondHud = false, towerEssence = 0, gameTime = '12:00', autoOpenHeroInspectToken = 0, onHeroInspectOpen, onHeroInspectClose, closeHeroInspectToken = 0, autoOpenHeroEquipToken = 0, autoOpenHeroEquipFilter = 'weapon', autoOpenSkillsToken = 0, autoOpenSkillsSlotIndex = 0, portalInspectMode = false, portalTransitioning = false, onPortalInspectOpen, onPortalInspectClose, onGamepadFocusChange }) => {
+  missions?: Mission[],
+  missionsUnlocked?: boolean,
+  onOpenMissions?: () => void,
+  onClaimMissionReward?: (missionId: string) => void,
+  missionsUnlockPromptActive?: boolean,
+  onAcknowledgeMissionsUnlock?: () => void,
+}> = ({ player, killCount, onHunt, onBoss, onDungeon, sceneRegion = 'forest', onNavigateSceneRegion, onShop, onShopFromInventory, onAlchemist, onTower, shopItems, autoOpenConstellationToken = 0, onEquipItem, onUnequipItem, onUseItem, onSellItem, onUnlockTalent, onResetTalents, campIntroOnly = false, restrictProfileToStatusOnly = false, inventoryUnlocked = false, inventoryUnlockPromptActive = false, onAcknowledgeInventoryUnlock, cardsUnlockPromptActive = false, onAcknowledgeCardsUnlock, skillsUnlockPromptActive = false, onAcknowledgeSkillsUnlock, constellationUnlockPromptActive = false, onAcknowledgeConstellationUnlock, constellationRespecUnlockPromptActive = false, onAcknowledgeConstellationRespecUnlock, allowCardsInProfile = false, fleeUnlocked = false, merchantUnlockPromptActive = false, onAcknowledgeMerchantUnlock, dungeonUnlockPromptActive = false, onAcknowledgeDungeonUnlock, alchemistUnlockPromptActive = false, onAcknowledgeAlchemistUnlock, merchantUnlocked = false, dungeonUnlocked = false, alchemistUnlocked = false, showSkillsAction = false, onEquipSkillToSlot, onEquipItemToSlot, autoOpenItemSlotToken = 0, autoOpenItemSlotIndex = 0, autoOpenInventoryToken = 0, autoOpenInventoryFilter = 'all', autoOpenPortalTravelToken = 0, autoOpenProfileToken = 0, showDiamondHud = false, towerEssence = 0, gameTime = '12:00', autoOpenHeroInspectToken = 0, onHeroInspectOpen, onHeroInspectClose, closeHeroInspectToken = 0, autoOpenHeroEquipToken = 0, autoOpenHeroEquipFilter = 'weapon', autoOpenSkillsToken = 0, autoOpenSkillsSlotIndex = 0, portalInspectMode = false, portalTransitioning = false, onPortalInspectOpen, onPortalInspectClose, onGamepadFocusChange, missions = [], missionsUnlocked = false, onOpenMissions, onClaimMissionReward, missionsUnlockPromptActive = false, onAcknowledgeMissionsUnlock }) => {
   const [showProfile, setShowProfile] = useState(false);
   const [showInventory, setShowInventory] = useState(false);
   const [showSkillsScreen, setShowSkillsScreen] = useState(false);
@@ -1155,6 +1180,8 @@ export const TavernScreen: React.FC<{
         const [showHuntIntroConfirm, setShowHuntIntroConfirm] = useState(false);
     const [showInventoryUnlockPrompt, setShowInventoryUnlockPrompt] = useState(false);
     const [showCardsUnlockPrompt, setShowCardsUnlockPrompt] = useState(false);
+    const [showMissionsUnlockPrompt, setShowMissionsUnlockPrompt] = useState(missionsUnlockPromptActive);
+    const [showMissionsScreen, setShowMissionsScreen] = useState(false);
     const [showSkillsUnlockPrompt, setShowSkillsUnlockPrompt] = useState(false);
     const [showConstellationUnlockPrompt, setShowConstellationUnlockPrompt] = useState(false);
     const [showMerchantUnlockPrompt, setShowMerchantUnlockPrompt] = useState(false);
@@ -1205,14 +1232,12 @@ export const TavernScreen: React.FC<{
     }, [campGamepadFocus, campUiProfile, onGamepadFocusChange]);
 
     const showDiamondOnTopHud = showDiamondHud;
-    const bossUnlocked = killCount >= 10;
     const canAccessDungeon = dungeonUnlocked;
     const canNavigateDungeonFromPortal = canAccessDungeon && !dungeonUnlockPromptActive;
     const canStartHuntFromCurrentRegion = sceneRegion === 'forest';
     const canStartDungeonFromCurrentRegion = canAccessDungeon && sceneRegion === 'dungeon';
-    const canStartBossFromCurrentRegion = bossUnlocked && sceneRegion === 'forest';
     const canStartTowerFromCurrentRegion = sceneRegion === 'tower';
-    const availableAdventureActionsCount = [canStartHuntFromCurrentRegion, canStartDungeonFromCurrentRegion, canStartBossFromCurrentRegion, canStartTowerFromCurrentRegion].filter(Boolean).length;
+    const availableAdventureActionsCount = [canStartHuntFromCurrentRegion, canStartDungeonFromCurrentRegion, canStartTowerFromCurrentRegion].filter(Boolean).length;
     const currentClass = getPlayerClassById(player.classId);
     const classAccentColor = currentClass.visualProfile.secondaryColor;
     const hpPercent = player.stats.maxHp > 0 ? Math.min(100, (player.stats.hp / player.stats.maxHp) * 100) : 0;
@@ -1304,6 +1329,16 @@ export const TavernScreen: React.FC<{
             accent: 'border-violet-400/50 bg-violet-900/60 text-violet-200 hover:bg-violet-800/70',
             onClick: openSkillsScreenModal,
         }] : []),
+        ...(missionsUnlocked && sceneRegion === 'forest' ? [{
+            id: 'missions',
+            label: 'Missões',
+            icon: <img src={BOOK_MISSOES_URL} width={20} alt="" className="object-contain" />,
+            accent: 'border-[#cfab91] bg-[#f4e5d4] text-[#6b3141] hover:bg-[#e9d7c2]',
+            onClick: () => {
+                uiSfx.play('modal_open');
+                setShowMissionsScreen(true);
+            },
+        }] : []),
     ];
 
     useEffect(() => {
@@ -1311,6 +1346,12 @@ export const TavernScreen: React.FC<{
             setShowInventoryUnlockPrompt(true);
         }
     }, [inventoryUnlockPromptActive]);
+
+    useEffect(() => {
+        if (missionsUnlockPromptActive) {
+            setShowMissionsUnlockPrompt(true);
+        }
+    }, [missionsUnlockPromptActive]);
 
     useEffect(() => {
         if (cardsUnlockPromptActive) {
@@ -1349,7 +1390,7 @@ export const TavernScreen: React.FC<{
     }, [alchemistUnlockPromptActive]);
 
     useEffect(() => {
-        if (!showInventoryUnlockPrompt && !showCardsUnlockPrompt && !showSkillsUnlockPrompt && !showConstellationUnlockPrompt && !showMerchantUnlockPrompt && !showDungeonUnlockPrompt && !showAlchemistUnlockPrompt) {
+        if (!showInventoryUnlockPrompt && !showCardsUnlockPrompt && !showSkillsUnlockPrompt && !showConstellationUnlockPrompt && !showMerchantUnlockPrompt && !showDungeonUnlockPrompt && !showAlchemistUnlockPrompt && !showMissionsUnlockPrompt) {
             return;
         }
 
@@ -1362,7 +1403,7 @@ export const TavernScreen: React.FC<{
 
         window.addEventListener('keydown', handleBlockEscape, true);
         return () => window.removeEventListener('keydown', handleBlockEscape, true);
-    }, [showCardsUnlockPrompt, showConstellationUnlockPrompt, showInventoryUnlockPrompt, showSkillsUnlockPrompt, showMerchantUnlockPrompt, showDungeonUnlockPrompt, showAlchemistUnlockPrompt]);
+    }, [showCardsUnlockPrompt, showConstellationUnlockPrompt, showInventoryUnlockPrompt, showSkillsUnlockPrompt, showMerchantUnlockPrompt, showDungeonUnlockPrompt, showAlchemistUnlockPrompt, showMissionsUnlockPrompt]);
 
     const closePortalTravelModal = (onClosed?: () => void) => {
         setIsPortalTravelModalVisible(false);
@@ -1552,6 +1593,7 @@ export const TavernScreen: React.FC<{
     // ── Gamepad: itens do menu lateral direito (Y) ───────────────────────
     const sideMenuItems: { id: string; label: string; action: () => void }[] = [
         ...(inventoryUnlocked  ? [{ id: 'inventory', label: 'Mochila',      action: () => openInventoryModal('all') }] : []),
+        ...(missionsUnlocked && sceneRegion === 'forest' ? [{ id: 'missions', label: 'Missões', action: () => { uiSfx.play('modal_open'); setShowMissionsScreen(true); } }] : []),
         ...(showSkillsAction    ? [{ id: 'skills',    label: 'Habilidades',  action: () => openSkillsScreenModal() }] : []),
         ...(merchantUnlocked && sceneRegion === 'forest' ? [{ id: 'merchant', label: 'Mercador', action: () => handleServiceTransition(onShop) }] : []),
         ...(alchemistUnlocked && sceneRegion === 'dungeon' ? [{ id: 'alchemist', label: 'Alquimista', action: () => handleServiceTransition(onAlchemist) }] : []),
@@ -1910,7 +1952,7 @@ export const TavernScreen: React.FC<{
                 </div>
 
                 {/* CAMP SIDE-RAIL ─ mochila/skill/merchant/alchemist icons, right side below currency */}
-                {!heroInspectOpen && !portalInspectMode && !portalTransitioning && (inventoryUnlocked || showSkillsAction || (merchantUnlocked && sceneRegion === 'forest') || (alchemistUnlocked && sceneRegion === 'dungeon')) && (
+                {!heroInspectOpen && !portalInspectMode && !portalTransitioning && (inventoryUnlocked || showSkillsAction || (missionsUnlocked && sceneRegion === 'forest') || (merchantUnlocked && sceneRegion === 'forest') || (alchemistUnlocked && sceneRegion === 'dungeon')) && (
                     <div className="absolute right-3 sm:right-5 top-[4.5rem] sm:top-24 z-10 pointer-events-auto flex flex-col gap-4">
                         {(() => {
                             // constrói lista na mesma ordem que sideMenuItems para alinhar índices
@@ -1930,6 +1972,24 @@ export const TavernScreen: React.FC<{
                                                 Mochila
                                             </span>
                                             <img src={ICONE_MOCHILA_URL} alt="" className="h-14 w-14 object-contain" style={{ filter: 'drop-shadow(0.5px 0 0 #fff) drop-shadow(-0.5px 0 0 #fff) drop-shadow(0 0.5px 0 #fff) drop-shadow(0 -0.5px 0 #fff)' }} />
+                                        </button>
+                                    ),
+                                },
+                                {
+                                    id: 'missions',
+                                    visible: missionsUnlocked && sceneRegion === 'forest' && !showMissionsScreen,
+                                    jsx: (
+                                        <button
+                                            key="missions"
+                                            onClick={() => { uiSfx.play('modal_open'); setShowMissionsScreen(true); }}
+                                            className="group flex items-center justify-end gap-2 p-0 bg-transparent border-0 transition-all duration-200 hover:-translate-y-0.5 hover:scale-105 active:scale-95"
+                                            title="Diário de Missões"
+                                            aria-label="Diário de Missões"
+                                        >
+                                            <span className="text-white text-[11px] font-black uppercase tracking-[0.1em] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-150" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}>
+                                                Missões
+                                            </span>
+                                            <img src={BOOK_MISSOES_URL} alt="" className="h-14 w-14 object-contain" style={{ filter: 'drop-shadow(0.5px 0 0 #fff) drop-shadow(-0.5px 0 0 #fff) drop-shadow(0 0.5px 0 #fff) drop-shadow(0 -0.5px 0 #fff)' }} />
                                         </button>
                                     ),
                                 },
@@ -2071,12 +2131,6 @@ export const TavernScreen: React.FC<{
                         );
                     })()}
 
-                    {!campIntroOnly && canStartBossFromCurrentRegion && (
-                        <button onClick={() => handleServiceTransition(onBoss)} className="mb-2 rounded-xl border border-[#a83a42] bg-[#c44b54]/95 px-2.5 py-2.5 text-center transition-all hover:-translate-y-0.5 hover:bg-[#b5424a] pointer-events-auto sm:hidden">
-                            <div className="flex items-center justify-center gap-1.5 text-xs font-black text-white"><Skull size={17} /> Chefao</div>
-                        </button>
-                    )}
-
                     <div className={`hidden sm:grid gap-2.5 pointer-events-auto ${availableAdventureActionsCount >= 3 ? 'sm:grid-cols-3' : availableAdventureActionsCount === 2 ? 'sm:grid-cols-2' : 'sm:grid-cols-1'}`}>
                         {canStartHuntFromCurrentRegion && (
                             <button onClick={() => handleMenuTransition('hunt')} className="rounded-2xl border border-[#b26a2e] bg-[#b87a3a]/95 px-4 py-4 text-center transition-all hover:-translate-y-0.5 hover:bg-[#c88a4a]">
@@ -2099,12 +2153,6 @@ export const TavernScreen: React.FC<{
                             </button>
                         )}
 
-                        {canStartBossFromCurrentRegion && (
-                            <button onClick={() => handleServiceTransition(onBoss)} className="rounded-2xl border px-4 py-4 text-center transition-all border-[#a83a42] bg-[#c44b54]/95 hover:-translate-y-0.5 hover:bg-[#b5424a]">
-                                <div className="flex items-center justify-center gap-2 text-base sm:text-lg font-black text-white"><Skull size={20} /> Chefao</div>
-                                <div className="mt-1 text-[10px] uppercase tracking-[0.2em] text-rose-100">Avanca fase</div>
-                            </button>
-                        )}
                     </div>
                 </section>
                 )}
@@ -2221,6 +2269,16 @@ export const TavernScreen: React.FC<{
     <AnimatedModal open={showSkillsScreen}>
         {(isClosing) => (
             <SkillsModal player={player} onClose={closeSkillsScreenModal} isClosing={isClosing} targetSlotIndex={skillsTargetSlotIndex} onEquipSkillToSlot={onEquipSkillToSlot} />
+        )}
+    </AnimatedModal>
+    <AnimatedModal open={showMissionsScreen}>
+        {(isClosing) => (
+            <MissionsModal
+                missions={missions}
+                onClose={() => { uiSfx.play('modal_close'); setShowMissionsScreen(false); }}
+                isClosing={isClosing}
+                onClaimReward={onClaimMissionReward ?? (() => {})}
+            />
         )}
     </AnimatedModal>
 
@@ -2406,6 +2464,33 @@ export const TavernScreen: React.FC<{
                         className="w-full rounded-xl bg-[#2b6878] px-4 py-3 font-black text-white shadow-[0_8px_24px_rgba(47,98,116,0.32)] transition-all hover:bg-[#357b8e]"
                     >
                         Ver alquimista
+                    </button>
+                </div>
+            </div>
+        </div>
+    )}
+
+    {showMissionsUnlockPrompt && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-sm pointer-events-auto p-4">
+            <div className="w-full max-w-sm rounded-[28px] border border-[#cfab91] bg-[#f7ecdd] shadow-[0_30px_80px_rgba(107,49,65,0.22)] overflow-hidden" onClick={e => e.stopPropagation()}>
+                <div className="bg-[#6b3141] px-6 py-5 text-center">
+                    <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.3em] text-[#f6eadc]">
+                        <img src={BOOK_MISSOES_URL} width={14} alt="" /> Diário de Missões
+                    </div>
+                    <h3 className="mt-3 text-2xl font-black text-white">Diário de Missões</h3>
+                    <p className="mt-1.5 text-sm text-[#dcc0aa]">Registre suas conquistas em batalha e ganhe recompensas de ouro completando missões progressivas.</p>
+                </div>
+                <div className="px-6 py-5">
+                    <button
+                        onClick={() => {
+                            setShowMissionsUnlockPrompt(false);
+                            onAcknowledgeMissionsUnlock?.();
+                            setShowMissionsScreen(true);
+                            uiSfx.play('modal_open');
+                        }}
+                        className="w-full rounded-xl bg-[#4d7a96] px-4 py-3 font-black text-white shadow-[0_8px_24px_rgba(77,122,150,0.28)] transition-all hover:bg-[#5a8aa6]"
+                    >
+                        Ver Diário de Missões
                     </button>
                 </div>
             </div>
@@ -3082,7 +3167,7 @@ function getPotionBattleBadges(item: Item): BattleBadge[] {
 }
 
 export const BattleHUD: React.FC<GameUIProps> = (props) => {
-    const { player, enemy, turnState, logs, onAttack, onDefend, onChargeImpulse, onAbsorbImpulse, onSkill, onUseItem, enemyIntentPreview = null, onUnlockTalent, onResetTalents, currentNarration, gameState, shopItems, floatingTexts, onFlee, onStartBattle, stage, dungeonPhase = 1, killCount, onEquipItem, onUnequipItem, isDungeonRun, dungeonRewards, dungeonCleared = 0, dungeonTotal = 30, gameTime, restrictProfileToStatusOnly = false, limitBattleActionsToBasics = false, inventoryUnlocked = false, inventoryUnlockPromptActive = false, onAcknowledgeInventoryUnlock, cardsUnlockPromptActive = false, onAcknowledgeCardsUnlock, skillsUnlockPromptActive = false, onAcknowledgeSkillsUnlock, impulseUnlockPromptActive = null, onAcknowledgeImpulseUnlock, constellationUnlockPromptActive = false, onAcknowledgeConstellationUnlock, constellationRespecUnlockPromptActive = false, onAcknowledgeConstellationRespecUnlock, allowCardsInProfile = false, fleeUnlocked = false, showItemsAction = false, showSkillsAction = false, itemsUnlockPromptActive = false, onAcknowledgeItemsUnlock, fleeUnlockPromptActive = false, onAcknowledgeFleeUnlock, autoOpenProfileToken = 0, showDiamondHud = false, diamondUnlockPromptActive = false, onAcknowledgeDiamondUnlock, musicEnabled = true, sfxEnabled = true, renderQualityPreset = 'balanced', recommendedRenderQualityPreset = 'balanced', onUpdateBattleSettings, onBattleSettingsOpenChange, onEquipSkillToSlot, towerEssence = 0, sceneRegion = 'forest', additionalEnemies = [], pendingTargetAction = null, onSelectTarget, onCancelTargetSelection } = props;
+    const { player, enemy, turnState, logs, onAttack, onDefend, onChargeImpulse, onAbsorbImpulse, onSkill, onUseItem, enemyIntentPreview = null, onUnlockTalent, onResetTalents, currentNarration, gameState, shopItems, floatingTexts, onFlee, onStartBattle, stage, dungeonPhase = 1, killCount, onEquipItem, onUnequipItem, isDungeonRun, dungeonRewards, dungeonCleared = 0, dungeonTotal = 30, gameTime, restrictProfileToStatusOnly = false, limitBattleActionsToBasics = false, inventoryUnlocked = false, inventoryUnlockPromptActive = false, onAcknowledgeInventoryUnlock, cardsUnlockPromptActive = false, onAcknowledgeCardsUnlock, skillsUnlockPromptActive = false, onAcknowledgeSkillsUnlock, impulseUnlockPromptActive = null, onAcknowledgeImpulseUnlock, constellationUnlockPromptActive = false, onAcknowledgeConstellationUnlock, constellationRespecUnlockPromptActive = false, onAcknowledgeConstellationRespecUnlock, allowCardsInProfile = false, fleeUnlocked = false, showItemsAction = false, showSkillsAction = false, itemsUnlockPromptActive = false, onAcknowledgeItemsUnlock, fleeUnlockPromptActive = false, onAcknowledgeFleeUnlock, autoOpenProfileToken = 0, showDiamondHud = false, diamondUnlockPromptActive = false, onAcknowledgeDiamondUnlock, musicEnabled = true, sfxEnabled = true, renderQualityPreset = 'balanced', recommendedRenderQualityPreset = 'balanced', onUpdateBattleSettings, onBattleSettingsOpenChange, onEquipSkillToSlot, towerEssence = 0, sceneRegion = 'forest', additionalEnemies = [], pendingTargetAction = null, onSelectTarget, onCancelTargetSelection, missions = [], missionsUnlocked = false, onClaimMissionReward, missionsUnlockPromptActive = false, onAcknowledgeMissionsUnlock } = props;
   const [activeBattleMenu, setActiveBattleMenu] = useState<'skills' | 'items' | null>(null);
     const [selectedDefenseType, setSelectedDefenseType] = useState<TipoDefesa>('FISICA');
   const [battleInfoPopup, setBattleInfoPopup] = useState<{ type: 'skill' | 'item'; id: string } | null>(null);
@@ -3107,6 +3192,8 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
     const [pendingDungeonExtractItem, setPendingDungeonExtractItem] = useState<Item | null>(null);
     const [showDungeonLootPreview, setShowDungeonLootPreview] = useState(false);
     const [showBattleStats, setShowBattleStats] = useState(false);
+    const [showMissionsUnlockPrompt, setShowMissionsUnlockPrompt] = useState(missionsUnlockPromptActive);
+    const [showMissionsScreen, setShowMissionsScreen] = useState(false);
     const [resourceDelta, setResourceDelta] = useState<number>(0);
     const [resourcePulse, setResourcePulse] = useState<'gain' | 'spend' | null>(null);
     const resourceDeltaTimeoutRef = useRef<number | null>(null);
@@ -3133,6 +3220,12 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
             }
         };
     }, [onBattleSettingsOpenChange, showBattleSettings]);
+
+    useEffect(() => {
+        if (missionsUnlockPromptActive) {
+            setShowMissionsUnlockPrompt(true);
+        }
+    }, [missionsUnlockPromptActive]);
     // === Stage Map computations ===
     const stageMapIsBoss = Boolean(enemy?.isBoss);
     const stageMapIsSubBoss = Boolean(enemy?.isSubBoss);
@@ -3144,23 +3237,12 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
         : { bright: '#fdba74', mid: '#fb923c', dim: 'rgba(251,146,60,0.22)', glow: '0 0 10px rgba(251,146,60,0.6)' };
     const stageMapNodes: { type: 'mob' | 'subboss' | 'boss'; done: boolean; active: boolean }[] = [];
     if (!isDungeonRun) {
-        // Montanha: 10 círculos individuais + sub-chefe inserido após o 5º kill
-        // Sub-chefe aparece quando killCount+1===5, igual ao spawnEnemy
-        const HUNT_SUB_BOSS_AT_KILL = 5;
-        // Sub-chefe foi derrotado quando killCount>=5 e não estamos lutando contra ele agora
-        const huntSubBossDone = (killCount >= HUNT_SUB_BOSS_AT_KILL && !stageMapIsSubBoss) || stageMapIsBoss;
-        for (let i = 0; i < 10; i++) {
+        const huntPhaseLength = getHuntPhaseLength(stage);
+        const huntMobSteps = Math.max(0, huntPhaseLength - 1);
+        for (let i = 0; i < huntMobSteps; i++) {
             const done = killCount > i || stageMapIsBoss;
-            const active = !done && killCount === i && Boolean(enemy) && !stageMapIsBoss && !stageMapIsSubBoss;
+            const active = !done && killCount === i && Boolean(enemy) && !stageMapIsBoss;
             stageMapNodes.push({ type: 'mob', done, active });
-            // inserir sub-chefe logo após o 5º nó (kill 5)
-            if (i === HUNT_SUB_BOSS_AT_KILL - 1) {
-                stageMapNodes.push({
-                    type: 'subboss',
-                    done: huntSubBossDone,
-                    active: stageMapIsSubBoss,
-                });
-            }
         }
     } else {
         // Dungeon: 10 mobs + sub-chefe inserido na posição 5 (após 5 kills) + boss final
@@ -3329,7 +3411,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
             ? 'border-amber-300 bg-amber-100 text-amber-700'
             : 'border-[#d69f69] bg-[#fff1dc] text-[#8d5e29]';
     const enemyUsesManaSkills = Boolean(enemy?.skillSet.some((skill) => skill.manaCost > 0));
-    const canLeaveFreely = !isDungeonRun && killCount >= 10;
+    const canLeaveFreely = !isDungeonRun && killCount >= (getHuntPhaseLength(stage) - 1);
     const dungeonRewardItems = Object.entries(dungeonRewards?.drops ?? {})
             .map(([itemId, quantity]) => ({ item: ALL_ITEMS.find(entry => entry.id === itemId), quantity }))
             .filter((entry): entry is { item: Item; quantity: number } => Boolean(entry.item));
@@ -3972,6 +4054,61 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
           </div>
       )}
 
+      {showMissionsUnlockPrompt && (
+          <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/55 backdrop-blur-[2px] pointer-events-auto p-4">
+              <div className="w-full max-w-sm rounded-[28px] border border-[#cfab91] bg-[#f7ecdd] shadow-[0_30px_80px_rgba(107,49,65,0.22)] overflow-hidden animate-fade-in-down" onClick={e => e.stopPropagation()}>
+                  <div className="bg-[#6b3141] px-6 py-5 text-center">
+                      <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.3em] text-[#f6eadc]">
+                          <img src={BOOK_MISSOES_URL} width={14} alt="" /> Diário de Missões
+                      </div>
+                      <h3 className="mt-3 text-2xl font-black text-white">Diário de Missões</h3>
+                      <p className="mt-1.5 text-sm text-[#dcc0aa]">Registre suas conquistas em batalha e ganhe recompensas de ouro completando missões progressivas.</p>
+                  </div>
+                  <div className="px-6 py-5">
+                      <button
+                          onClick={() => {
+                              setShowMissionsUnlockPrompt(false);
+                              onAcknowledgeMissionsUnlock?.();
+                              setShowMissionsScreen(true);
+                              uiSfx.play('modal_open');
+                          }}
+                          className="w-full rounded-xl bg-[#4d7a96] px-4 py-3 font-black text-white shadow-[0_8px_24px_rgba(77,122,150,0.28)] transition-all hover:bg-[#5a8aa6]"
+                      >
+                          Ver Diário de Missões
+                      </button>
+                  </div>
+              </div>
+          </div>
+      )}
+
+      <AnimatedModal open={showMissionsScreen}>
+          {(isClosing) => (
+              <MissionsModal
+                  missions={missions}
+                  onClose={() => { uiSfx.play('modal_close'); setShowMissionsScreen(false); }}
+                  isClosing={isClosing}
+                  onClaimReward={onClaimMissionReward ?? (() => {})}
+              />
+          )}
+      </AnimatedModal>
+
+      {/* BATTLE SIDE-RAIL — missions icon, right side below top bar */}
+      {missionsUnlocked && !isDungeonRun && sceneRegion === 'forest' && (
+          <div className="absolute right-3 sm:right-5 top-44 sm:top-24 z-30 pointer-events-auto flex flex-col gap-4">
+              <button
+                  onClick={() => { uiSfx.play('modal_open'); setShowMissionsScreen(true); }}
+                  className="group flex items-center justify-end gap-2 p-0 bg-transparent border-0 transition-all duration-200 hover:-translate-y-0.5 hover:scale-105 active:scale-95"
+                  title="Diário de Missões"
+                  aria-label="Diário de Missões"
+              >
+                  <span className="text-white text-[11px] font-black uppercase tracking-[0.1em] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-150" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}>
+                      Missões
+                  </span>
+                  <img src={BOOK_MISSOES_URL} alt="" className="h-14 w-14 object-contain" style={{ filter: 'drop-shadow(0.5px 0 0 #fff) drop-shadow(-0.5px 0 0 #fff) drop-shadow(0 0.5px 0 #fff) drop-shadow(0 -0.5px 0 #fff)' }} />
+              </button>
+          </div>
+      )}
+
       {/* --- TOP: Player vitals (left) + Stage (center) + Enemy HP (right) --- */}
       <div className="absolute top-0 left-0 w-full z-20 pointer-events-none">
           {/* ── Top bar: clock (left) + stage map (desktop center) + resources (right) ── */}
@@ -4290,14 +4427,6 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                       </div>
                   </div>
 
-                  {enemy && !isDungeonRun && killCount >= 10 && !enemy.isBoss && (
-                      <button
-                          onClick={() => onStartBattle(true)}
-                          className="pointer-events-auto w-full rounded-[14px] border border-rose-300 bg-[linear-gradient(135deg,#e11d48_0%,#f43f5e_100%)] px-3 py-2 text-[11px] font-black uppercase tracking-[0.12em] text-white shadow-[0_12px_24px_rgba(225,29,72,0.36)] transition-all active:scale-[0.98] animate-pulse flex items-center justify-center gap-2"
-                      >
-                          <Skull size={16} /> ENFRENTAR CHEFÃO
-                      </button>
-                  )}
               </div>
           </div>
 
@@ -4508,11 +4637,6 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
               {/* Stage progress — desktop: now in shared top bar, remove this column */}
 
               {/* Enemy HP replaced by 3D nameplate above model */}
-              {enemy && !isDungeonRun && killCount >= 10 && !enemy.isBoss && (
-                  <button onClick={() => onStartBattle(true)} className="pointer-events-auto rounded-[14px] border border-rose-300 bg-[linear-gradient(135deg,#e11d48_0%,#f43f5e_100%)] px-3 py-2 text-[10px] sm:text-sm font-black uppercase tracking-[0.12em] text-white transition-all hover:brightness-105 hover:scale-[1.01] animate-pulse shadow-[0_12px_24px_rgba(225,29,72,0.36)] flex items-center justify-center gap-2">
-                      <Skull size={16} /> ENFRENTAR CHEFÃO
-                  </button>
-              )}
           </div>
       </div>
 

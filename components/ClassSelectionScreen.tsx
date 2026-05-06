@@ -11,7 +11,8 @@ import { PlayerAnimationAction, PlayerClassDefinition, PlayerClassId, WeaponGrip
 import { hasRuntimeFbxAssets } from './scene3d/animation';
 import { AnimatedClassHero } from './scene3d/characters';
 import { BattleScenario } from './scene3d/scenarios';
-import { SkyboxController, getRenderPowerPreference, getRenderQualityProfile } from './scene3d/environment';
+import { SkyboxController, getDefaultRenderQualityPreset, getRenderPlatform, getRenderPowerPreference, getRenderQualityProfile } from './scene3d/environment';
+import { configureGltfLoader } from './scene3d/gltfLoader';
 import { onAction } from '../game/mechanics/inputManager';
 import { useInputMode } from '../game/hooks/useInputMode';
 import { GamepadActionLegend } from './ui/GamepadActionLegend';
@@ -171,7 +172,7 @@ const RuntimeSelectionScenarioGlb = ({
     scale: number;
   };
 }) => {
-  const gltf = useLoader(GLTFLoader, modelUrl) as { scene: THREE.Group };
+  const gltf = useLoader(GLTFLoader, modelUrl, configureGltfLoader) as { scene: THREE.Group };
 
   const model = useMemo(() => {
     const clone = gltf.scene.clone(true);
@@ -581,6 +582,39 @@ const SelectionHeroAccentLights = ({
   );
 };
 
+const SelectionFpsCap = ({ fps }: { fps: number }) => {
+  const invalidate = useThree((state) => state.invalidate);
+
+  useEffect(() => {
+    if (fps <= 0) return undefined;
+
+    const frameIntervalMs = 1000 / fps;
+    let rafId = 0;
+    let lastFrameTime = 0;
+
+    const tick = (now: number) => {
+      rafId = window.requestAnimationFrame(tick);
+      if (lastFrameTime === 0) {
+        lastFrameTime = now;
+        invalidate();
+        return;
+      }
+
+      const elapsed = now - lastFrameTime;
+      if (elapsed < frameIntervalMs) return;
+      lastFrameTime = now - (elapsed % frameIntervalMs);
+      invalidate();
+    };
+
+    rafId = window.requestAnimationFrame(tick);
+    return () => {
+      window.cancelAnimationFrame(rafId);
+    };
+  }, [invalidate, fps]);
+
+  return null;
+};
+
 const ForestSelectionScene = ({
   classes,
   focusedClassId,
@@ -601,8 +635,14 @@ const ForestSelectionScene = ({
   onSceneReady?: () => void;
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const quality = useMemo(() => getRenderQualityProfile(), []);
-  const powerPreference = useMemo(() => getRenderPowerPreference(), []);
+  const renderQualityPreset = useMemo(() => getDefaultRenderQualityPreset(), []);
+  const quality = useMemo(() => getRenderQualityProfile(renderQualityPreset), [renderQualityPreset]);
+  const powerPreference = useMemo(() => getRenderPowerPreference(renderQualityPreset), [renderQualityPreset]);
+  const isMobileDevice = useMemo(() => getRenderPlatform() === 'mobile', []);
+  const isQualityMode = renderQualityPreset === 'quality';
+  const selectionShadowsEnabled = isQualityMode || (!isMobileDevice && renderQualityPreset === 'balanced');
+  const isElectron = typeof window !== 'undefined' && (window as Window & { electronBridge?: { isElectron: boolean } }).electronBridge?.isElectron === true;
+  const selectionFpsCap = isElectron ? (isQualityMode ? 30 : 45) : (isMobileDevice ? (isQualityMode ? 30 : 45) : 30);
   const selectionRuntimeScenarioPreset = useMemo(
     () => getRuntimeScenarioPreset('hero-selection') ?? getRuntimeScenarioPreset('tower'),
     [],
@@ -698,12 +738,14 @@ const ForestSelectionScene = ({
   return (
     <div ref={containerRef} className="absolute inset-0">
       <Canvas
-        shadows={{ type: THREE.PCFSoftShadowMap }}
+        shadows={selectionShadowsEnabled ? { type: isQualityMode ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap } : false}
         dpr={quality.dpr}
         gl={{ antialias: quality.antialias, powerPreference }}
         performance={{ min: 0.5 }}
+        frameloop="demand"
         style={{ touchAction: 'none' }}
       >
+        <SelectionFpsCap fps={selectionFpsCap} />
         <PerspectiveCamera makeDefault position={[0, 2.62, 17.2]} fov={33} rotation={[-0.075, 0, 0]} />
         <AnimatedSelectionCamera
           focusedClassId={focusedClassId}
@@ -735,7 +777,7 @@ const ForestSelectionScene = ({
           </Suspense>
         ) : (
           <Suspense fallback={null}>
-            <BattleScenario scenario={scenario} lowQuality={quality.isLowQuality} />
+            <BattleScenario scenario={scenario} lowQuality={quality.isLowQuality} noShadows={isMobileDevice && !isQualityMode} />
           </Suspense>
         )}
 
@@ -747,7 +789,7 @@ const ForestSelectionScene = ({
           detailsClassId={detailsClassId}
           stageLayout={heroStageLayout}
         />
-        <ContactShadows position={[0, -1.04, -0.2]} opacity={0.42} scale={30} blur={2.8} far={12} resolution={quality.contactShadowResolution} />
+        <ContactShadows frames={1} position={[0, -1.04, -0.2]} opacity={0.42} scale={30} blur={2.8} far={12} resolution={quality.contactShadowResolution} />
 
         {classes.map((playerClass) => (
           <StageHero

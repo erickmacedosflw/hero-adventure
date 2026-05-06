@@ -9,6 +9,7 @@ import { GltfMonsterBodyType, PlayerAnimationAction, PlayerClassAssets } from '.
 import { GLTF_BODY_ANIMATION_MAP } from '../../game/data/gltfMonsters';
 import { getPlayerClassById } from '../../game/data/classes';
 import { getEquippedWeaponGrip, getRegisteredWeapon3DByItemId } from '../../game/data/weaponCatalog';
+import { configureGltfLoader } from './gltfLoader';
 import {
   RuntimeHeroAssets,
   createRigComparisonReport,
@@ -689,7 +690,7 @@ const GltfEnemyModel: React.FC<{
   bodyType: GltfMonsterBodyType;
   animationAction: PlayerAnimationAction;
 }> = ({ modelUrl, bodyType, animationAction }) => {
-  const gltf = useLoader(GLTFLoader, modelUrl) as any;
+  const gltf = useLoader(GLTFLoader, modelUrl, configureGltfLoader) as any;
 
   const { clonedScene, floorOffsetY } = useMemo(() => {
     const scene = (SkeletonUtils.clone as (src: THREE.Object3D) => THREE.Group)(gltf.scene);

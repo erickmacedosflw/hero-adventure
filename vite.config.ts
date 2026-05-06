@@ -54,7 +54,7 @@ export default defineConfig(() => {
             clientsClaim: true,
             maximumFileSizeToCacheInBytes: 10 * 1024 * 1024,
             navigateFallback: '/index.html',
-            globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,jpg,jpeg,woff2,fbx,mp3,wav,ogg,m4a,json,webmanifest}'],
+            globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,jpg,jpeg,woff2,wasm,json,webmanifest}'],
             runtimeCaching: [
               {
                 urlPattern: ({ request }) => request.mode === 'navigate',
@@ -69,7 +69,7 @@ export default defineConfig(() => {
                 },
               },
               {
-                urlPattern: /\.(?:fbx|png|jpg|jpeg|webp|svg|json)$/,
+                urlPattern: /\.(?:fbx|glb|gltf|wasm|png|jpg|jpeg|webp|svg|json)$/,
                 handler: 'CacheFirst',
                 options: {
                   cacheName: 'hero-adventure-assets',

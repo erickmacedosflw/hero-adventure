@@ -79,6 +79,8 @@ export type PlayerAnimationAction = 'idle' | 'battle-idle' | 'attack' | 'defend'
 export type MonsterElementType = 'agua' | 'terra' | 'fogo' | 'vento' | 'sombrio';
 /** Categoria de corpo dos monstros GLTF (define rig e animações disponíveis). */
 export type GltfMonsterBodyType = 'Big' | 'Flying';
+/** Arquétipo de classe dos monstros GLTF para missões de caça. */
+export type MonsterArchetype = 'ladino' | 'barbaro' | 'mago' | 'guerreiro' | 'atirador' | 'dragao' | 'demonio' | 'orc';
 
 export interface GltfMonsterTemplate {
   id: string;
@@ -99,6 +101,45 @@ export interface GltfMonsterTemplate {
   scale: number;
   attackStyle: 'armed' | 'unarmed';
   rareDrops?: LootChance[];
+  /** Arquétipo de classe para missões do Diário de Missões. */
+  archetipo?: MonsterArchetype;
+}
+
+// ── Diário de Missões ──────────────────────────────────────────────────────
+export type MissionActionType =
+  | 'KILL_ENEMY'
+  | 'KILL_FLYING'
+  | 'KILL_ELEMENT_DARK'
+  | 'KILL_ELEMENT_FIRE'
+  | 'KILL_ELEMENT_TERRA'
+  | 'KILL_ELEMENT_AGUA'
+  | 'KILL_ELEMENT_VENTO'
+  | 'KILL_ARCHETYPE_ROGUE'
+  | 'KILL_ARCHETYPE_BARBARIAN'
+  | 'KILL_ARCHETYPE_MAGE'
+  | 'KILL_ARCHETYPE_WARRIOR'
+  | 'KILL_ARCHETYPE_RANGER'
+  | 'KILL_ARCHETYPE_DRAGON'
+  | 'KILL_ARCHETYPE_DEMON'
+  | 'KILL_ARCHETYPE_ORC'
+  | 'KILL_BOSS'
+  | 'REACH_STAGE';
+
+export type MissionCategory = 'CAÇA' | 'ESPECIAL';
+
+export interface Mission {
+  id: string;
+  tipoMissao: MissionActionType;
+  categoria: MissionCategory;
+  descricao: string;
+  progressoAtual: number;
+  metaAtual: number;
+  nivelAtual: number;
+  recompensaAtual: number;
+  metaBase: number;
+  metaIncrement: number;
+  recompensaBase: number;
+  recompensaIncrement: number;
 }
 
 export interface PlayerClassVisualProfile {
@@ -611,6 +652,8 @@ export interface Enemy {
   element?: MonsterElementType;
   /** Body rig type of GLTF monster, determines which animation clip map is used. */
   gltfBodyType?: GltfMonsterBodyType;
+  /** Arquétipo de classe para missões do Diário de Missões. */
+  archetipo?: MonsterArchetype;
   aiProfile: {
     tier: number;
     lowHpThreshold: number;

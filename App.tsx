@@ -11,8 +11,9 @@ import { useInputMode } from './game/hooks/useInputMode';
 import { AdminPanel } from './components/AdminPanel';
 import { AlchemistScreen } from './components/shop/AlchemistMenuScreen';
 import { 
-    Player, Enemy, EnemyIntentPreview, GameState, TurnState, BattleLog, Item, Skill, Stats, Particle, FloatingText, ProgressionCard, CardRewardOffer, AlchemistCardOffer, AlchemistItemOffer, DungeonRunState, DungeonResult, DungeonRewards, EnemyTemplate, DungeonEnemyTemplate, DungeonBossTemplate, PlayerAnimationAction, BossVictoryContext, CardCategory, GltfMonsterBodyType, PlayerClassId, PendingTargetAction, BattleTimelineState, TipoDefesa
+    Player, Enemy, EnemyIntentPreview, GameState, TurnState, BattleLog, Item, Skill, Stats, Particle, FloatingText, ProgressionCard, CardRewardOffer, AlchemistCardOffer, AlchemistItemOffer, DungeonRunState, DungeonResult, DungeonRewards, EnemyTemplate, DungeonEnemyTemplate, DungeonBossTemplate, PlayerAnimationAction, BossVictoryContext, CardCategory, GltfMonsterBodyType, PlayerClassId, PendingTargetAction, BattleTimelineState, TipoDefesa, Mission, MissionActionType
 } from './types';
+import { INITIAL_MISSIONS } from './game/data/missions';
 import { 
     INITIAL_PLAYER, SHOP_ITEMS, ALL_ITEMS, MATERIALS, SKILLS, ENEMY_DATA, ENEMY_COLORS, DUNGEON_ENEMY_DATA, DUNGEON_BOSS, ALCHEMIST_ITEM_OFFERS 
 } from './constants';
@@ -56,13 +57,15 @@ type BootWindow = Window & { __heroAdventureBootReady?: boolean };
 const MENU_CAMERA_TRANSITION_MS = 2500;
 const PORTAL_TRAVEL_CAMERA_ZOOM_MS = 720;
 type SceneRegion = 'forest' | 'dungeon' | 'tower';
-type OnboardingPhase = 'intro_camp' | 'post_first_hunt' | 'inventory_prompt' | 'inventory_unlocked' | 'cards_prompt' | 'cards_unlocked' | 'merchant_prompt' | 'merchant_unlocked' | 'items_prompt' | 'flee_prompt' | 'flee_unlocked' | 'dungeon_prompt' | 'dungeon_unlocked' | 'alchemist_prompt' | 'alchemist_unlocked';
+type OnboardingPhase = 'intro_camp' | 'post_first_hunt' | 'inventory_prompt' | 'inventory_unlocked' | 'missions_prompt' | 'missions_unlocked' | 'cards_prompt' | 'cards_unlocked' | 'merchant_prompt' | 'merchant_unlocked' | 'items_prompt' | 'flee_prompt' | 'flee_unlocked' | 'dungeon_prompt' | 'dungeon_unlocked' | 'alchemist_prompt' | 'alchemist_unlocked';
 
 const ONBOARDING_PHASES: OnboardingPhase[] = [
     'intro_camp',
     'post_first_hunt',
     'inventory_prompt',
     'inventory_unlocked',
+    'missions_prompt',
+    'missions_unlocked',
     'cards_prompt',
     'cards_unlocked',
     'merchant_prompt',
@@ -102,6 +105,7 @@ const LEGACY_WEAPON_ID_MAP: Record<string, string> = {
 };
 const ALL_ITEMS_BY_ID = new Map(ALL_ITEMS.map((item) => [item.id, item]));
 const BATTLE_SETTINGS_STORAGE_KEY = 'hero_adventure_battle_settings_v1';
+const BATTLE_SETTINGS_GRAPHICS_REVISION = 2;
 const MENU_BACKGROUND_IMAGE_URL = new URL('./game/assets/Imagens/Menu_Screen.png', import.meta.url).href;
 const MENU_LOGO_IMAGE_URL = new URL('./game/assets/Imagens/Logo_Hero_Tower.png', import.meta.url).href;
 const SAVE_THUMB_FOREST_URL = new URL('./game/assets/Scenario/Florest/cenario_thumbnail_floresta.png', import.meta.url).href;
@@ -133,12 +137,14 @@ interface BattleSettings {
     musicEnabled: boolean;
     sfxEnabled: boolean;
     renderQualityPreset: RenderQualityPreset;
+    graphicsPresetRevision: number;
 }
 
 const createDefaultBattleSettings = (): BattleSettings => ({
     musicEnabled: true,
     sfxEnabled: true,
     renderQualityPreset: getDefaultRenderQualityPreset(),
+    graphicsPresetRevision: BATTLE_SETTINGS_GRAPHICS_REVISION,
 });
 
 const sanitizeRenderQualityPreset = (value: unknown): RenderQualityPreset | null => {
@@ -162,10 +168,20 @@ const readBattleSettings = (): BattleSettings => {
         }
 
         const parsed = JSON.parse(raw) as Partial<BattleSettings>;
+        const storedRenderQualityPreset = sanitizeRenderQualityPreset(parsed.renderQualityPreset);
+        const isLegacyGraphicsPreset = typeof parsed.graphicsPresetRevision !== 'number'
+            || parsed.graphicsPresetRevision < BATTLE_SETTINGS_GRAPHICS_REVISION;
+        const renderQualityPreset = isLegacyGraphicsPreset
+            && storedRenderQualityPreset === 'quality'
+            && defaults.renderQualityPreset !== 'quality'
+            ? defaults.renderQualityPreset
+            : storedRenderQualityPreset ?? defaults.renderQualityPreset;
+
         return {
             musicEnabled: typeof parsed.musicEnabled === 'boolean' ? parsed.musicEnabled : defaults.musicEnabled,
             sfxEnabled: typeof parsed.sfxEnabled === 'boolean' ? parsed.sfxEnabled : defaults.sfxEnabled,
-            renderQualityPreset: sanitizeRenderQualityPreset(parsed.renderQualityPreset) ?? defaults.renderQualityPreset,
+            renderQualityPreset,
+            graphicsPresetRevision: BATTLE_SETTINGS_GRAPHICS_REVISION,
         };
     } catch {
         return defaults;
@@ -499,15 +515,78 @@ export default function App() {
         return pickRandom(weightedPool);
     };
 
-    const ENEMY_CLASS_BASE_SPEED_FLOOR: Record<Player['classId'], number> = {
-        knight: 10,
-        barbarian: 11,
-        mage: 12,
-        ranger: 14,
-        rogue: 16,
+    const ENEMY_CLASS_BASE_HP: Record<Player['classId'], number> = {
+        knight: 110,
+        barbarian: 124,
+        mage: 68,
+        ranger: 88,
+        rogue: 88,
     };
 
+    const ENEMY_CLASS_BASE_MP: Record<Player['classId'], number> = {
+        knight: 18,
+        barbarian: 16,
+        mage: 40,
+        ranger: 24,
+        rogue: 24,
+    };
+
+    const ENEMY_CLASS_BASE_SPEED_FLOOR: Record<Player['classId'], number> = {
+        knight: 12,
+        barbarian: 8,
+        mage: 16,
+        ranger: 16,
+        rogue: 20,
+    };
+
+    const ENEMY_CLASS_BASE_ATK_FLOOR: Record<Player['classId'], number> = {
+        knight: 16,
+        barbarian: 20,
+        mage: 14,
+        ranger: 16,
+        rogue: 14,
+    };
+
+    const ENEMY_CLASS_BASE_DEF: Record<Player['classId'], number> = {
+        knight: 8,
+        barbarian: 6,
+        mage: 3,
+        ranger: 8,
+        rogue: 6,
+    };
+
+    const ENEMY_CLASS_BASE_MAGIC_FLOOR: Record<Player['classId'], number> = {
+        knight: 6,
+        barbarian: 10,
+        mage: 20,
+        ranger: 14,
+        rogue: 14,
+    };
+
+    const ENEMY_CLASS_BASE_MAGIC_DEF_FLOOR: Record<Player['classId'], number> = {
+        knight: 6,
+        barbarian: 3,
+        mage: 16,
+        ranger: 8,
+        rogue: 8,
+    };
+
+    const ENEMY_CLASS_BASE_LUCK: Record<Player['classId'], number> = {
+        knight: 1,
+        barbarian: 1,
+        mage: 2,
+        ranger: 2,
+        rogue: 3,
+    };
+
+    const getEnemyClassBaseHp = (enemyClassId: Player['classId']) => ENEMY_CLASS_BASE_HP[enemyClassId];
+    const getEnemyClassBaseMp = (enemyClassId: Player['classId']) => ENEMY_CLASS_BASE_MP[enemyClassId];
     const getEnemyClassBaseSpeedFloor = (enemyClassId: Player['classId']) => ENEMY_CLASS_BASE_SPEED_FLOOR[enemyClassId];
+    const getEnemyClassBaseAtkFloor = (enemyClassId: Player['classId']) => ENEMY_CLASS_BASE_ATK_FLOOR[enemyClassId];
+    const getEnemyClassBaseDef = (enemyClassId: Player['classId']) => ENEMY_CLASS_BASE_DEF[enemyClassId];
+    const getEnemyClassBaseMagicFloor = (enemyClassId: Player['classId']) => ENEMY_CLASS_BASE_MAGIC_FLOOR[enemyClassId];
+    const getEnemyClassBaseMagicDefFloor = (enemyClassId: Player['classId']) => ENEMY_CLASS_BASE_MAGIC_DEF_FLOOR[enemyClassId];
+    const getEnemyClassBaseLuck = (enemyClassId: Player['classId']) => ENEMY_CLASS_BASE_LUCK[enemyClassId];
 
     const createEnemySkillSet = (enemyClassId: Player['classId'], tier: number, cycleStrength: number): Enemy['skillSet'] => {
         const skills: Enemy['skillSet'] = [];
@@ -523,14 +602,14 @@ export default function App() {
                     effect: 'damage',
                     attackKind: 'magic',
                     damageMultiplier: 1.26 + (cycleStrength * 0.14),
-                    manaCost: 10 + (cycleStrength * 2),
+                    manaCost: 12 + (cycleStrength * 2),
                     cooldown: 2,
                     currentCooldown: 0,
                 });
             }
             if (hasTier2Skill) {
                 skills.push({
-                    id: 'enemy_mage_dark_mend',
+                    id: 'enemy_mage_arcane_mend',
                     name: 'Mend Arcano',
                     type: 'heal',
                     effect: 'heal',
@@ -882,11 +961,15 @@ export default function App() {
   const [logs, setLogs] = useState<BattleLog[]>([]);
   const [narration, setNarration] = useState<string>("");
   
-  const [stage, setStage] = useState(1);
-  const [killCount, setKillCount] = useState(0); // Track kills in current stage
-  const [subBossDefeatedInStage, setSubBossDefeatedInStage] = useState(false);
+    const [stage, setStage] = useState(1);
+    const [killCount, setKillCount] = useState(0); // Track kills in current stage
     const [dungeonEvolution, setDungeonEvolution] = useState(0);
     const [dungeonSubBossDefeatedEvolution, setDungeonSubBossDefeatedEvolution] = useState<number | null>(null);
+
+    const getHuntPhaseLength = useCallback((currentStage: number) => {
+            const safeStage = Math.max(1, currentStage);
+            return 6 + Math.floor((safeStage - 1) / 4);
+    }, []);
 
   const [particles, setParticles] = useState<Particle[]>([]);
   const [floatingTexts, setFloatingTexts] = useState<FloatingText[]>([]);
@@ -1125,6 +1208,8 @@ export default function App() {
     const [menuPortalTravelCinematicToken, setMenuPortalTravelCinematicToken] = useState(0);
     const [portalSceneOverlay, setPortalSceneOverlay] = useState<{ targetRegion: SceneRegion; phase: 'in' | 'hold' | 'out' } | null>(null);
     const [onboardingPhase, setOnboardingPhase] = useState<OnboardingPhase>('intro_camp');
+    const [missions, setMissions] = useState<Mission[]>(() => INITIAL_MISSIONS.map(m => ({ ...m })));
+    const [showMissions, setShowMissions] = useState(false);
     const [hasPlayerDiedOnce, setHasPlayerDiedOnce] = useState(false);
     const [skillsUnlockPromptPending, setSkillsUnlockPromptPending] = useState(false);
     const [impulseUnlockPromptQueue, setImpulseUnlockPromptQueue] = useState<number[]>([]);
@@ -1191,7 +1276,6 @@ export default function App() {
         player: clonePlayer(player),
         stage,
         killCount,
-        subBossDefeatedInStage,
         dungeonEvolution,
         dungeonSubBossDefeatedEvolution,
         onboardingPhase,
@@ -1238,7 +1322,6 @@ export default function App() {
         gameState,
         hasPlayerDiedOnce,
         killCount,
-        subBossDefeatedInStage,
         logs,
         narration,
         onboardingPhase,
@@ -1326,7 +1409,6 @@ export default function App() {
         setPlayer(clonePlayer(normalizedPlayer));
         setStage(payload.stage);
         setKillCount(wasInterrupted ? 0 : payload.killCount);
-        setSubBossDefeatedInStage(payload.subBossDefeatedInStage ?? false);
         setDungeonEvolution(payload.dungeonEvolution);
         setDungeonSubBossDefeatedEvolution(restoredDungeonSubBossDefeatedEvolution);
         setOnboardingPhase(safePhase);
@@ -1420,7 +1502,6 @@ export default function App() {
             hadDungeonRun: false,
             sceneRegion: wasInterrupted ? 'forest' : payload.sceneRegion,
             killCount: wasInterrupted ? 0 : payload.killCount,
-            subBossDefeatedInStage: payload.subBossDefeatedInStage ?? false,
         };
         lastSavedSignatureRef.current = JSON.stringify(signaturePayload);
 
@@ -2243,12 +2324,11 @@ export default function App() {
     levelMult *= getDungeonPowerMultiplier(activeDungeonEvolution);
     }
     const dungeonClearedInCurrentPhase = dungeonRun?.rewards.clearedMonsters ?? 0;
-    const isHuntSubBossEncounter = !isDungeonEncounter && !isBoss && !subBossDefeatedInStage && (killCount + 1 === 5);
     const isDungeonSubBossEncounter = isDungeonEncounter
         && !isBoss
         && !dungeonRun?.rewards.subBossDefeatedInPhase
         && (dungeonClearedInCurrentPhase + 1 === 5);
-    const isSubBossEncounter = isHuntSubBossEncounter || isDungeonSubBossEncounter;
+    const isSubBossEncounter = isDungeonSubBossEncounter;
     if (isSubBossEncounter) {
         levelMult *= 1.18;
     }
@@ -2275,14 +2355,26 @@ export default function App() {
 
     // Use GLTF base stats for mob encounters, fallback to template base stats otherwise
     const templateBaseStats = gltfMonsterTemplate ? gltfMonsterTemplate.baseStats : enemyTemplate.baseStats;
-    const baseHp = templateBaseStats?.maxHp ?? templateBaseStats?.hp ?? 68;
-    const baseMp = templateBaseStats?.maxMp ?? templateBaseStats?.mp;
-    const baseAtk = templateBaseStats?.atk ?? 9;
-    const baseMagic = (templateBaseStats as any)?.magic ?? 8;
-    const baseDef = templateBaseStats?.def ?? 3;
+    const templateHp = templateBaseStats?.maxHp ?? templateBaseStats?.hp ?? 0;
+    const baseHp = Math.max(getEnemyClassBaseHp(enemyClassId), templateHp);
+    const templateMp = templateBaseStats?.maxMp ?? templateBaseStats?.mp ?? 0;
+    const baseMp = Math.max(getEnemyClassBaseMp(enemyClassId), templateMp);
+    const templateAtk = templateBaseStats?.atk ?? 0;
+    const templateMagic = (templateBaseStats as any)?.magic ?? 0;
+    const templateDef = templateBaseStats?.def ?? 0;
+    const baseDef = Math.max(getEnemyClassBaseDef(enemyClassId), templateDef);
+    const inferredMagicDef = Math.max(1, Math.floor(baseDef * 0.7));
+    const templateMagicDef = templateBaseStats?.magicDef ?? 0;
+    const baseAtk = Math.max(getEnemyClassBaseAtkFloor(enemyClassId), templateAtk);
+    const baseMagic = Math.max(getEnemyClassBaseMagicFloor(enemyClassId), templateMagic);
+    const baseMagicDef = Math.max(
+        getEnemyClassBaseMagicDefFloor(enemyClassId),
+        templateMagicDef > 0 ? templateMagicDef : inferredMagicDef,
+    );
     const templateSpeed = templateBaseStats?.speed ?? 0;
     const baseSpeed = Math.max(getEnemyClassBaseSpeedFloor(enemyClassId), templateSpeed);
-    const baseLuck = templateBaseStats?.luck;
+    const templateLuck = templateBaseStats?.luck ?? 0;
+    const baseLuck = Math.max(getEnemyClassBaseLuck(enemyClassId), templateLuck);
     const templateCombatProfile = enemyTemplate as Partial<DungeonEnemyTemplate & DungeonBossTemplate>;
     const hpMultiplier = templateCombatProfile.hpMultiplier ?? 1;
     const atkMultiplier = templateCombatProfile.atkMultiplier ?? 1;
@@ -2337,6 +2429,7 @@ export default function App() {
             atk: Math.floor(baseAtk * levelMult * atkMultiplier * enemyAtkMultiplier * (isSubBossEncounter ? 1.22 : 1)),
                     magic: Math.max(1, Math.floor(baseMagic * levelMult * enemyMagicMultiplier * (isSubBossEncounter ? 1.18 : 1))),
             def: Math.floor(baseDef * levelMult * defMultiplier * (isSubBossEncounter ? 1.2 : 1)),
+            magicDef: Math.max(1, Math.floor(baseMagicDef * levelMult * defMultiplier * (isSubBossEncounter ? 1.2 : 1))),
             speed: baseSpeed + speedBonus + (isDungeonEncounter ? Math.floor(activeDungeonEvolution / 3) : 0) + (isSubBossEncounter ? 2 : 0),
         luck: baseLuck !== undefined
             ? Math.max(1, Math.floor(baseLuck + (isBoss ? 3 : 0) + (isSubBossEncounter ? 3 : 0) + (isDungeonEncounter ? activeDungeonEvolution * 0.35 : 0)))
@@ -2365,6 +2458,7 @@ export default function App() {
               : undefined,
             element: gltfMonsterTemplate ? gltfMonsterTemplate.element : undefined,
             gltfBodyType: gltfMonsterTemplate ? gltfMonsterTemplate.bodyType as GltfMonsterBodyType : undefined,
+            archetipo: gltfMonsterTemplate ? gltfMonsterTemplate.archetipo : undefined,
             manaRegenOnDefend: combatProfile.manaRegenOnDefend,
             potionCharges: combatProfile.potionCharges,
             potionHealValue: combatProfile.potionHealValue,
@@ -2442,6 +2536,7 @@ export default function App() {
             gltfBodyType: tmpl.bodyType as GltfMonsterBodyType,
             attackStyle: tmpl.attackStyle,
             element: tmpl.element,
+            archetipo: tmpl.archetipo,
             assets: undefined,
             isBoss: false as const,
             isSubBoss: false as const,
@@ -2562,7 +2657,6 @@ export default function App() {
     setActiveSaveSlotId(selectedSaveSlotId);
     setStage(1);
     setKillCount(0);
-    setSubBossDefeatedInStage(false);
         setDungeonEvolution(0);
         setDungeonSubBossDefeatedEvolution(null);
         setSelectedStartingClassId(classId);
@@ -2605,7 +2699,6 @@ export default function App() {
                 player: clonePlayer(startingPlayer),
                 stage: 1,
                 killCount: 0,
-                subBossDefeatedInStage: false,
                 dungeonEvolution: 0,
                 dungeonSubBossDefeatedEvolution: null,
                 onboardingPhase: 'intro_camp',
@@ -2713,8 +2806,69 @@ export default function App() {
             }, PORTAL_TRAVEL_CAMERA_ZOOM_MS); // 720ms — zoom-in ends
   }, [onboardingPhase, sceneRegion]);
 
+  // ── Diário de Missões: callbacks ────────────────────────────────────────
+  const recordKillForMissions = useCallback((meta: { isBoss: boolean; element?: string; bodyType?: string; archetipo?: string }) => {
+    const types: MissionActionType[] = ['KILL_ENEMY'];
+    if (meta.bodyType === 'Flying') types.push('KILL_FLYING');
+    if (meta.element === 'sombrio') types.push('KILL_ELEMENT_DARK');
+    if (meta.element === 'fogo') types.push('KILL_ELEMENT_FIRE');
+    if (meta.element === 'terra') types.push('KILL_ELEMENT_TERRA');
+    if (meta.element === 'agua') types.push('KILL_ELEMENT_AGUA');
+    if (meta.element === 'vento') types.push('KILL_ELEMENT_VENTO');
+    if (meta.archetipo === 'ladino') types.push('KILL_ARCHETYPE_ROGUE');
+    if (meta.archetipo === 'barbaro') types.push('KILL_ARCHETYPE_BARBARIAN');
+    if (meta.archetipo === 'mago') types.push('KILL_ARCHETYPE_MAGE');
+    if (meta.archetipo === 'guerreiro') types.push('KILL_ARCHETYPE_WARRIOR');
+    if (meta.archetipo === 'atirador') types.push('KILL_ARCHETYPE_RANGER');
+    if (meta.archetipo === 'dragao') types.push('KILL_ARCHETYPE_DRAGON');
+    if (meta.archetipo === 'demonio') types.push('KILL_ARCHETYPE_DEMON');
+    if (meta.archetipo === 'orc') types.push('KILL_ARCHETYPE_ORC');
+    if (meta.isBoss) types.push('KILL_BOSS');
+    setMissions(prev => prev.map(m => {
+      if (!types.includes(m.tipoMissao)) return m;
+      return { ...m, progressoAtual: m.progressoAtual + 1 };
+    }));
+  }, []);
+
+  const checkStageMissions = useCallback((currentStage: number) => {
+    setMissions(prev => prev.map(m => {
+      if (m.tipoMissao !== 'REACH_STAGE') return m;
+      if (currentStage >= m.metaAtual && m.progressoAtual < m.metaAtual) {
+        return { ...m, progressoAtual: m.metaAtual };
+      }
+      return m;
+    }));
+  }, []);
+
+  const claimMissionReward = useCallback((missionId: string) => {
+    setMissions(prev => {
+      const idx = prev.findIndex(m => m.id === missionId);
+      if (idx < 0) return prev;
+      const m = prev[idx];
+      if (m.progressoAtual < m.metaAtual) return prev;
+      // Give gold for the reward
+      setPlayer(p => ({ ...p, gold: p.gold + m.recompensaAtual }));
+      const isFixed = m.metaIncrement === 0;
+      const nextNivel = m.nivelAtual + 1;
+      const nextMeta = isFixed ? m.metaBase : m.metaBase + m.nivelAtual * m.metaIncrement;
+      const nextRecompensa = isFixed ? m.recompensaBase : m.recompensaBase + m.nivelAtual * m.recompensaIncrement;
+      const updated = [...prev];
+      updated[idx] = { ...m, progressoAtual: 0, nivelAtual: nextNivel, metaAtual: nextMeta, recompensaAtual: nextRecompensa };
+      return updated;
+    });
+  }, []);
+
+  useEffect(() => {
+    if (sceneRegion === 'forest') checkStageMissions(stage);
+  }, [stage, sceneRegion, checkStageMissions]);
+
   const enterBattleImmediate = (isBoss: boolean, mode: 'hunt' | 'dungeon' = dungeonRun ? 'dungeon' : 'hunt', dungeonClearedOverride?: number) => {
             const isDungeonBattle = mode === 'dungeon';
+            if (mode === 'hunt'
+                && hasPlayerDiedOnce
+                && onboardingPhase === 'inventory_unlocked') {
+                setOnboardingPhase('missions_prompt');
+            }
             if (mode === 'hunt' && onboardingPhase === 'merchant_unlocked') {
                 setOnboardingPhase('items_prompt');
             }
@@ -2763,7 +2917,10 @@ export default function App() {
             setActiveBattleActorId(null);
             setBattleTimelineState('RUNNING');
       setLogs([]);
-      spawnEnemy(encounterStage, isBoss, mode, isDungeonBattle ? activeDungeonEvolution : undefined);
+      const shouldSpawnBoss = isDungeonBattle
+          ? isBoss
+          : (isBoss || (killCount + 1 >= getHuntPhaseLength(encounterStage)));
+      spawnEnemy(encounterStage, shouldSpawnBoss, mode, isDungeonBattle ? activeDungeonEvolution : undefined);
   };
 
   const enterBattle = (isBoss: boolean, mode: 'hunt' | 'dungeon' = dungeonRun ? 'dungeon' : 'hunt', dungeonClearedOverride?: number) => {
@@ -3068,7 +3225,7 @@ export default function App() {
           return;
       }
 
-      const canLeaveFreely = killCount >= 10;
+    const canLeaveFreely = killCount >= (getHuntPhaseLength(stage) - 1);
       const cost = canLeaveFreely ? 0 : 50;
       const lostGold = Math.min(player.gold, cost);
 
@@ -3102,6 +3259,11 @@ export default function App() {
               || prev === 'dungeon_unlocked'
               || prev === 'alchemist_prompt'
               || prev === 'alchemist_unlocked') {
+              return prev;
+          }
+
+          // Não pular missões — o desbloqueio ocorre via enterBattleImmediate
+          if (ONBOARDING_PHASES.indexOf(prev) < ONBOARDING_PHASES.indexOf('missions_unlocked')) {
               return prev;
           }
 
@@ -3351,7 +3513,6 @@ export default function App() {
     setGameState,
     setStage,
     setKillCount,
-    setSubBossDefeatedInStage,
     setEnemyAnimationAction,
     setPlayerAnimationAction,
     generateVictorySpeech,
@@ -3377,6 +3538,7 @@ export default function App() {
         onPartialGroupKill,
         onActorTurnDone,
         accumulatedGroupRewards,
+        onEnemyKilledForMissions: recordKillForMissions,
   });
 
   const {
@@ -4029,7 +4191,8 @@ export default function App() {
         || onboardingPhase === 'alchemist_prompt';
     const isProfileStatusOnly = true;
     const isFirstBattleActionRestricted = false;
-    const isInventoryUnlocked = onboardingPhase === 'inventory_unlocked' || onboardingPhase === 'cards_prompt' || onboardingPhase === 'cards_unlocked' || onboardingPhase === 'merchant_prompt' || onboardingPhase === 'merchant_unlocked' || onboardingPhase === 'items_prompt' || onboardingPhase === 'flee_prompt' || onboardingPhase === 'flee_unlocked' || onboardingPhase === 'dungeon_prompt' || onboardingPhase === 'dungeon_unlocked' || onboardingPhase === 'alchemist_prompt' || onboardingPhase === 'alchemist_unlocked';
+    const isInventoryUnlocked = onboardingPhase === 'inventory_unlocked' || onboardingPhase === 'missions_prompt' || onboardingPhase === 'missions_unlocked' || onboardingPhase === 'cards_prompt' || onboardingPhase === 'cards_unlocked' || onboardingPhase === 'merchant_prompt' || onboardingPhase === 'merchant_unlocked' || onboardingPhase === 'items_prompt' || onboardingPhase === 'flee_prompt' || onboardingPhase === 'flee_unlocked' || onboardingPhase === 'dungeon_prompt' || onboardingPhase === 'dungeon_unlocked' || onboardingPhase === 'alchemist_prompt' || onboardingPhase === 'alchemist_unlocked';
+    const isMissionsUnlocked = ONBOARDING_PHASES.indexOf(onboardingPhase) >= ONBOARDING_PHASES.indexOf('missions_unlocked');
     const isCardsUnlocked = onboardingPhase === 'cards_prompt' || onboardingPhase === 'cards_unlocked' || onboardingPhase === 'merchant_prompt' || onboardingPhase === 'merchant_unlocked' || onboardingPhase === 'items_prompt' || onboardingPhase === 'flee_prompt' || onboardingPhase === 'flee_unlocked' || onboardingPhase === 'dungeon_prompt' || onboardingPhase === 'dungeon_unlocked' || onboardingPhase === 'alchemist_prompt' || onboardingPhase === 'alchemist_unlocked';
     const isItemsActionUnlocked = onboardingPhase === 'items_prompt' || onboardingPhase === 'flee_prompt' || onboardingPhase === 'flee_unlocked' || onboardingPhase === 'dungeon_prompt' || onboardingPhase === 'dungeon_unlocked' || onboardingPhase === 'alchemist_prompt' || onboardingPhase === 'alchemist_unlocked';
     const isFleeUnlocked = onboardingPhase === 'flee_unlocked' || onboardingPhase === 'dungeon_prompt' || onboardingPhase === 'dungeon_unlocked' || onboardingPhase === 'alchemist_prompt' || onboardingPhase === 'alchemist_unlocked';
@@ -5509,6 +5672,11 @@ export default function App() {
                         onGamepadFocusChange={setCampGamepadFocusForScene}
                         onEquipSkillToSlot={equipSkillToSlot}
                         onEquipItemToSlot={equipItemToSlot}
+                        missions={missions}
+                        missionsUnlocked={isMissionsUnlocked}
+                        onClaimMissionReward={claimMissionReward}
+                        missionsUnlockPromptActive={onboardingPhase === 'missions_prompt'}
+                        onAcknowledgeMissionsUnlock={() => setOnboardingPhase('missions_unlocked')}
           />
       )}
 
@@ -5642,6 +5810,11 @@ export default function App() {
                                                                                                 onEquipSkillToSlot={equipSkillToSlot}
                                                                                                 towerEssence={towerMeta.essence}
                                                                                                 sceneRegion={sceneRegion}
+                        missions={missions}
+                        missionsUnlocked={isMissionsUnlocked}
+                        onClaimMissionReward={claimMissionReward}
+                        missionsUnlockPromptActive={onboardingPhase === 'missions_prompt'}
+                        onAcknowledgeMissionsUnlock={() => setOnboardingPhase('missions_unlocked')}
         />
       )}
 
