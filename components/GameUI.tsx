@@ -1965,22 +1965,21 @@ export const TavernScreen: React.FC<{
 
                 {/* CAMP SIDE-RAIL ─ mochila/skill/merchant/alchemist icons, right side below currency */}
                 {!heroInspectOpen && !portalInspectMode && !portalTransitioning && (inventoryUnlocked || showSkillsAction || (missionsUnlocked && sceneRegion === 'forest') || (merchantUnlocked && sceneRegion === 'forest') || (alchemistUnlocked && sceneRegion === 'dungeon')) && (
-                    <div className="absolute right-3 sm:right-5 top-[4.5rem] sm:top-24 z-10 pointer-events-auto flex flex-col gap-4">
+                    <div className="absolute right-3 sm:right-5 top-[4.5rem] sm:top-24 z-10 pointer-events-auto flex flex-col items-end gap-3">
                         {(() => {
-                            // Quadrado girado (losango) com fundo preto e blur atrás do ícone
-                            const SideIconFrame = ({ children, size = 56 }: { children: React.ReactNode; size?: number }) => (
-                                <div style={{ position: 'relative', width: size, height: size, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            // Losango com fundo preto/blur atrás do ícone
+                            const SideIconFrame = ({ children }: { children: React.ReactNode }) => (
+                                <div style={{ position: 'relative', width: 48, height: 48, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                                     {/* Diamond background */}
                                     <div style={{
                                         position: 'absolute',
-                                        inset: 6,
-                                        borderRadius: 10,
+                                        inset: 4,
+                                        borderRadius: 7,
                                         transform: 'rotate(45deg)',
-                                        background: 'rgba(0,0,0,0.72)',
+                                        background: 'rgba(0,0,0,0.78)',
                                         backdropFilter: 'blur(10px)',
                                         WebkitBackdropFilter: 'blur(10px)',
-                                        border: '1.5px solid rgba(255,255,255,0.18)',
-                                        boxShadow: '0 4px 18px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.10)',
+                                        border: '1.5px solid rgba(255,255,255,0.55)',
                                     }} />
                                     {/* Icon */}
                                     <div style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -1997,7 +1996,12 @@ export const TavernScreen: React.FC<{
                                         <button
                                             key="inventory"
                                             onClick={() => openInventoryModal('all')}
-                                            className="group flex items-center justify-end gap-2 p-0 bg-transparent border-0 transition-all duration-200 hover:-translate-y-0.5 hover:scale-105 active:scale-95"
+                                            className="group flex items-center justify-end gap-2 p-0 bg-transparent border-0"
+                                            style={{ transition: 'transform 0.15s cubic-bezier(0.34,1.56,0.64,1)' }}
+                                            onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.12)')}
+                                            onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
+                                            onMouseDown={e => (e.currentTarget.style.transform = 'scale(0.92)')}
+                                            onMouseUp={e => (e.currentTarget.style.transform = 'scale(1.12)')}
                                             title="Mochila"
                                             aria-label="Mochila"
                                         >
@@ -2005,7 +2009,7 @@ export const TavernScreen: React.FC<{
                                                 Mochila
                                             </span>
                                             <SideIconFrame>
-                                                <img src={ICONE_MOCHILA_URL} alt="" className="h-10 w-10 object-contain" style={{ filter: 'drop-shadow(0 0 3px rgba(255,255,255,0.9)) drop-shadow(0 0 1px #fff)' }} />
+                                                <img src={ICONE_MOCHILA_URL} alt="" className="h-8 w-8 object-contain" />
                                             </SideIconFrame>
                                         </button>
                                     ),
@@ -2019,7 +2023,12 @@ export const TavernScreen: React.FC<{
                                         <button
                                             key="missions"
                                             onClick={() => { uiSfx.play('modal_open'); setShowMissionsScreen(true); }}
-                                            className="group relative flex items-center justify-end gap-2 p-0 bg-transparent border-0 transition-all duration-200 hover:-translate-y-0.5 hover:scale-105 active:scale-95"
+                                            className="group relative flex items-center justify-end gap-2 p-0 bg-transparent border-0"
+                                            style={{ transition: 'transform 0.15s cubic-bezier(0.34,1.56,0.64,1)' }}
+                                            onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.12)')}
+                                            onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
+                                            onMouseDown={e => (e.currentTarget.style.transform = 'scale(0.92)')}
+                                            onMouseUp={e => (e.currentTarget.style.transform = 'scale(1.12)')}
                                             title="Diário de Missões"
                                             aria-label="Diário de Missões"
                                         >
@@ -2027,9 +2036,9 @@ export const TavernScreen: React.FC<{
                                                 Missões
                                             </span>
                                             <SideIconFrame>
-                                                <img src={BOOK_MISSOES_URL} alt="" className="h-10 w-10 object-contain" style={{ filter: 'drop-shadow(0 0 3px rgba(255,255,255,0.9)) drop-shadow(0 0 1px #fff)' }} />
+                                                <img src={BOOK_MISSOES_URL} alt="" className="h-8 w-8 object-contain" />
                                                 {_mDone > 0 && (
-                                                    <span style={{ position: 'absolute', top: -2, right: -2, minWidth: 18, height: 18, borderRadius: 99, background: 'linear-gradient(135deg,#b45309,#fbbf24)', border: '2px solid #fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 900, color: '#fff', padding: '0 3px', boxShadow: '0 2px 8px rgba(180,83,9,0.60)', pointerEvents: 'none', zIndex: 2 }}>
+                                                    <span style={{ position: 'absolute', top: -2, right: -2, minWidth: 16, height: 16, borderRadius: 99, background: 'linear-gradient(135deg,#b45309,#fbbf24)', border: '2px solid #fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, fontWeight: 900, color: '#fff', padding: '0 3px', pointerEvents: 'none', zIndex: 2 }}>
                                                         {_mDone}
                                                     </span>
                                                 )}
@@ -2045,7 +2054,12 @@ export const TavernScreen: React.FC<{
                                         <button
                                             key="skills"
                                             onClick={() => openSkillsScreenModal()}
-                                            className="group flex items-center justify-end gap-2 p-0 bg-transparent border-0 transition-all duration-200 hover:-translate-y-0.5 hover:scale-105 active:scale-95"
+                                            className="group flex items-center justify-end gap-2 p-0 bg-transparent border-0"
+                                            style={{ transition: 'transform 0.15s cubic-bezier(0.34,1.56,0.64,1)' }}
+                                            onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.12)')}
+                                            onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
+                                            onMouseDown={e => (e.currentTarget.style.transform = 'scale(0.92)')}
+                                            onMouseUp={e => (e.currentTarget.style.transform = 'scale(1.12)')}
                                             title="Habilidades"
                                             aria-label="Habilidades"
                                         >
@@ -2053,7 +2067,7 @@ export const TavernScreen: React.FC<{
                                                 Habilidades
                                             </span>
                                             <SideIconFrame>
-                                                <img src={BOOK_HABILIDADES_URL} alt="" className="h-10 w-10 object-contain" style={{ filter: 'drop-shadow(0 0 3px rgba(255,255,255,0.9)) drop-shadow(0 0 1px #fff)' }} />
+                                                <img src={BOOK_HABILIDADES_URL} alt="" className="h-8 w-8 object-contain" />
                                             </SideIconFrame>
                                         </button>
                                     ),
@@ -2065,7 +2079,12 @@ export const TavernScreen: React.FC<{
                                         <button
                                             key="merchant"
                                             onClick={onShop}
-                                            className="group flex items-center justify-end gap-2 p-0 bg-transparent border-0 transition-all duration-200 hover:-translate-y-0.5 hover:scale-105 active:scale-95"
+                                            className="group flex items-center justify-end gap-2 p-0 bg-transparent border-0"
+                                            style={{ transition: 'transform 0.15s cubic-bezier(0.34,1.56,0.64,1)' }}
+                                            onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.12)')}
+                                            onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
+                                            onMouseDown={e => (e.currentTarget.style.transform = 'scale(0.92)')}
+                                            onMouseUp={e => (e.currentTarget.style.transform = 'scale(1.12)')}
                                             title="Mercador"
                                             aria-label="Mercador"
                                         >
@@ -2073,7 +2092,7 @@ export const TavernScreen: React.FC<{
                                                 Mercador
                                             </span>
                                             <SideIconFrame>
-                                                <img src={ICONE_MERCADOR_URL} alt="" className="h-10 w-10 object-contain" style={{ filter: 'drop-shadow(0 0 3px rgba(255,255,255,0.9)) drop-shadow(0 0 1px #fff)' }} />
+                                                <img src={ICONE_MERCADOR_URL} alt="" className="h-8 w-8 object-contain" />
                                             </SideIconFrame>
                                         </button>
                                     ),
@@ -2085,7 +2104,12 @@ export const TavernScreen: React.FC<{
                                         <button
                                             key="alchemist"
                                             onClick={onAlchemist}
-                                            className="group flex items-center justify-end gap-2 p-0 bg-transparent border-0 transition-all duration-200 hover:-translate-y-0.5 hover:scale-105 active:scale-95"
+                                            className="group flex items-center justify-end gap-2 p-0 bg-transparent border-0"
+                                            style={{ transition: 'transform 0.15s cubic-bezier(0.34,1.56,0.64,1)' }}
+                                            onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.12)')}
+                                            onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
+                                            onMouseDown={e => (e.currentTarget.style.transform = 'scale(0.92)')}
+                                            onMouseUp={e => (e.currentTarget.style.transform = 'scale(1.12)')}
                                             title="Alquimista"
                                             aria-label="Alquimista"
                                         >
@@ -2093,7 +2117,7 @@ export const TavernScreen: React.FC<{
                                                 Alquimista
                                             </span>
                                             <SideIconFrame>
-                                                <img src={ICONE_ALQUIMISTA_URL} alt="" className="h-10 w-10 object-contain" style={{ filter: 'drop-shadow(0 0 3px rgba(255,255,255,0.9)) drop-shadow(0 0 1px #fff)' }} />
+                                                <img src={ICONE_ALQUIMISTA_URL} alt="" className="h-8 w-8 object-contain" />
                                             </SideIconFrame>
                                         </button>
                                     ),
