@@ -3549,7 +3549,7 @@ const HeroNameplateCard: React.FC<{
       onTouchEnd={interactive ? () => { setHovered(false); setPressed(false); } : undefined}
       style={{
         width: cardW,
-        background: hovered ? 'rgba(20,12,50,0.82)' : 'rgba(15,10,40,0.55)',
+        background: hovered ? 'rgba(14,8,38,0.93)' : 'rgba(10,6,28,0.86)',
         backdropFilter: 'blur(18px)',
         WebkitBackdropFilter: 'blur(18px)',
         border,
@@ -4214,7 +4214,7 @@ export const GameScene: React.FC<SceneProps> = (props) => {
                         return (
                           <div
                             style={{
-                              width: cardW, background: 'rgba(15,10,40,0.60)', backdropFilter: 'blur(18px)',
+                              width: cardW, background: 'rgba(10,6,28,0.88)', backdropFilter: 'blur(18px)',
                               border: `1px solid ${isSelecting ? '#38bdf8' : 'rgba(148,163,184,0.3)'}`,
                               borderRadius: '10px', padding: isMobileDevice ? '10px 14px' : '6px 10px',
                               display: 'flex', flexDirection: 'column', gap: 4, boxSizing: 'border-box',
@@ -4352,7 +4352,7 @@ export const GameScene: React.FC<SceneProps> = (props) => {
                       </div>
                     )}
                     {/* Main card */}
-                    <div style={{ width: cardW, background: 'rgba(15,10,40,0.55)', backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)', border: `1px solid ${accentColor}44`, borderRadius: '12px', padding: isMobileDevice ? '12px 16px' : '8px 12px', display: 'flex', flexDirection: 'column', gap: isMobileDevice ? '10px' : '6px', boxShadow: `0 0 0 1px ${accentColor}22, 0 6px 24px rgba(0,0,0,0.45)`, boxSizing: 'border-box' as const }}>
+                    <div style={{ width: cardW, background: 'rgba(10,6,28,0.88)', backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)', border: `1px solid ${accentColor}44`, borderRadius: '12px', padding: isMobileDevice ? '12px 16px' : '8px 12px', display: 'flex', flexDirection: 'column', gap: isMobileDevice ? '10px' : '6px', boxShadow: `0 0 0 1px ${accentColor}22, 0 6px 24px rgba(0,0,0,0.45)`, boxSizing: 'border-box' as const }}>
                       {/* Name + level */}
                       <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
                         <span style={{ width: iconBoxSz, height: iconBoxSz, borderRadius: '999px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#fff', background: `${accentColor}cc`, border: `1px solid ${accentColor}`, flexShrink: 0, boxShadow: `0 0 8px ${accentColor}` }}>
