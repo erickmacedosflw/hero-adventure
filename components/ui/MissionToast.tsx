@@ -14,13 +14,13 @@ if (typeof document !== 'undefined' && !document.getElementById('mission-toast-s
   s.id = 'mission-toast-style';
   s.textContent = `
     @keyframes mission-toast-in {
-      0%   { opacity: 0; transform: translateY(-32px) scale(0.92); }
-      60%  { opacity: 1; transform: translateY(4px) scale(1.02); }
-      100% { opacity: 1; transform: translateY(0) scale(1); }
+      0%   { opacity: 0; transform: translateX(-50%) translateY(-32px) scale(0.92); }
+      60%  { opacity: 1; transform: translateX(-50%) translateY(4px) scale(1.02); }
+      100% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
     }
     @keyframes mission-toast-out {
-      0%   { opacity: 1; transform: translateY(0) scale(1); }
-      100% { opacity: 0; transform: translateY(-24px) scale(0.94); }
+      0%   { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+      100% { opacity: 0; transform: translateX(-50%) translateY(-24px) scale(0.94); }
     }
   `;
   document.head.appendChild(s);
@@ -81,7 +81,8 @@ export const MissionToast: React.FC<Props> = ({ toast, onOpen }) => {
         left: '50%',
         transform: 'translateX(-50%)',
         zIndex: 9999,
-        width: 'min(90vw, 360px)',
+        width: 'min(92vw, 360px)',
+        willChange: 'transform, opacity',
         animation: leaving
           ? 'mission-toast-out 0.35s cubic-bezier(0.4,0,1,1) forwards'
           : 'mission-toast-in 0.42s cubic-bezier(0.22,1,0.36,1) forwards',

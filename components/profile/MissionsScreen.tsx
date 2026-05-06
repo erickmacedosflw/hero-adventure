@@ -89,7 +89,7 @@ const MissionCard: React.FC<{ mission: Mission; onClaim: () => void }> = ({ miss
               fontSize: 9, fontWeight: 900, textTransform: 'uppercase' as const,
               letterSpacing: '0.18em', color: 'rgba(255,255,255,0.45)', lineHeight: 1.5,
             }}>
-              Nível {mission.nivelAtual}
+              Desafio {mission.nivelAtual}
             </span>
           )}
 

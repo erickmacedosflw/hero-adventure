@@ -2881,8 +2881,13 @@ export default function App() {
       setPlayer(p => ({ ...p, gold: p.gold + m.recompensaAtual }));
       const isFixed = m.metaIncrement === 0;
       const nextNivel = m.nivelAtual + 1;
-      const nextMeta = isFixed ? m.metaBase : m.metaBase + m.nivelAtual * m.metaIncrement;
-      const nextRecompensa = isFixed ? m.recompensaBase : m.recompensaBase + m.nivelAtual * m.recompensaIncrement;
+      // Exponential +30% per desafio for progressive missions; fixed missions reset to base
+      const nextMeta = isFixed
+        ? m.metaBase
+        : Math.max(1, Math.round(m.metaAtual * 1.30));
+      const nextRecompensa = isFixed
+        ? m.recompensaBase
+        : Math.round(m.recompensaAtual * 1.30);
       const updated = [...prev];
       updated[idx] = { ...m, progressoAtual: 0, nivelAtual: nextNivel, metaAtual: nextMeta, recompensaAtual: nextRecompensa };
       return updated;
