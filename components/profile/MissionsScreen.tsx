@@ -198,15 +198,15 @@ const MissionCard: React.FC<{ mission: Mission; onClaim: () => void }> = ({ miss
             <span
               key={mission.nivelAtual}
               style={{
-                display: 'inline-flex', alignItems: 'center',
-                borderRadius: 99, border: '1px solid rgba(255,255,255,0.12)',
-                background: 'rgba(255,255,255,0.06)',
+                display: 'inline-flex', alignItems: 'center', gap: 4,
+                borderRadius: 99, border: '1px solid rgba(253,230,138,0.35)',
+                background: 'rgba(253,230,138,0.10)',
                 padding: '3px 9px',
                 fontSize: 9, fontWeight: 900, textTransform: 'uppercase' as const,
-                letterSpacing: '0.18em', color: 'rgba(255,255,255,0.45)', lineHeight: 1.5,
+                letterSpacing: '0.18em', color: 'rgba(253,230,138,0.70)', lineHeight: 1.5,
                 animation: levelPop ? 'msn-badge-pop 0.45s cubic-bezier(0.34,1.56,0.64,1) forwards' : 'none',
               }}>
-              Desafio {mission.nivelAtual}
+              Desafio <span style={{ fontSize: 11, color: '#fde68a', fontWeight: 900, letterSpacing: 0 }}>{mission.nivelAtual}</span>
             </span>
           )}
 
