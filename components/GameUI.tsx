@@ -4065,7 +4065,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
           <div className="absolute inset-0 z-40 flex items-end sm:items-center justify-center pointer-events-auto p-4 pb-6 rpg-modal-overlay-in" style={{ background: 'rgba(0,0,0,0.55)' }}>
               <div className="w-full max-w-sm rounded-[24px] overflow-hidden shadow-[0_32px_80px_rgba(0,0,0,0.7)] rpg-modal-panel-in" style={{ background: 'rgba(12,4,2,0.65)', backdropFilter: 'blur(28px)', WebkitBackdropFilter: 'blur(28px)', border: '1px solid rgba(251,146,60,0.25)' }} onClick={e => e.stopPropagation()}>
                   <div className="flex flex-col items-center gap-3.5 px-6 pt-8 pb-4">
-                      <img src={ICONE_MOCHILA_URL} style={{ width: 68, height: 68, objectFit: 'contain', filter: 'drop-shadow(0 4px 20px rgba(251,146,60,0.85))' }} alt="" />
+                      <FlaskConical size={64} style={{ color: '#fb923c', filter: 'drop-shadow(0 4px 20px rgba(251,146,60,0.90))' }} />
                       <div className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[9px] font-black uppercase tracking-[0.28em] text-orange-200/80" style={{ background: 'rgba(251,146,60,0.14)', border: '1px solid rgba(251,146,60,0.24)' }}>Novo desbloqueio</div>
                       <h3 className="text-xl font-black text-white text-center leading-tight">Itens liberados!</h3>
                       <p className="text-xs text-white/55 text-center leading-relaxed">Agora você pode usar itens comprados no mercador e itens conquistados dos inimigos durante a batalha.</p>
