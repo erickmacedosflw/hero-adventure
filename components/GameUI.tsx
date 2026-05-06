@@ -1357,8 +1357,12 @@ export const TavernScreen: React.FC<{
     }, [missionsUnlockPromptActive]);
 
     // Open missions modal when toast is clicked
+    const lastHandledMissionsTokenRef = useRef<number>(autoOpenMissionsToken);
     useEffect(() => {
-        if (autoOpenMissionsToken > 0) setShowMissionsScreen(true);
+        if (autoOpenMissionsToken <= 0) return;
+        if (autoOpenMissionsToken === lastHandledMissionsTokenRef.current) return;
+        lastHandledMissionsTokenRef.current = autoOpenMissionsToken;
+        setShowMissionsScreen(true);
     }, [autoOpenMissionsToken]);
 
     useEffect(() => {
@@ -3246,8 +3250,12 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
     }, [missionsUnlockPromptActive]);
 
     // Open missions modal when toast is clicked
+    const lastHandledMissionsTokenRef = useRef<number>(autoOpenMissionsToken);
     useEffect(() => {
-        if (autoOpenMissionsToken > 0) setShowMissionsScreen(true);
+        if (autoOpenMissionsToken <= 0) return;
+        if (autoOpenMissionsToken === lastHandledMissionsTokenRef.current) return;
+        lastHandledMissionsTokenRef.current = autoOpenMissionsToken;
+        setShowMissionsScreen(true);
     }, [autoOpenMissionsToken]);
 
     // === Stage Map computations ===
