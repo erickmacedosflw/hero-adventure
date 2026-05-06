@@ -4323,18 +4323,23 @@ export default function App() {
             || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
         const recoveryDelays = isLikelyIos ? [0, 180, 620] : [0];
         const pendingRecoveryTimers = new Set<number>();
+        const isGestureEvent = (event?: Event) => ['pointerdown', 'touchstart', 'mousedown', 'click', 'keydown'].includes(event?.type ?? '');
 
-        const recoverAudio = () => {
+        const recoverAudio = (event?: Event) => {
             if (document.visibilityState === 'hidden') {
                 return;
             }
 
-            const ensureRecovered = async () => {
-                const unlockResults = await Promise.allSettled([gameMusicManager.unlock(), battleSfx.unlock(), uiSfx.unlock()]);
-                const isContextReady = unlockResults.some((result) => result.status === 'fulfilled' && result.value);
+            const shouldAttemptUnlock = isGestureEvent(event);
 
-                if (!isContextReady) {
-                    return;
+            const ensureRecovered = async () => {
+                if (shouldAttemptUnlock) {
+                    const unlockResults = await Promise.allSettled([gameMusicManager.unlock(), battleSfx.unlock(), uiSfx.unlock()]);
+                    const isContextReady = unlockResults.some((result) => result.status === 'fulfilled' && result.value);
+
+                    if (!isContextReady) {
+                        return;
+                    }
                 }
 
                 if (!battleSettings.musicEnabled || !targetMusicTrack) {
@@ -4363,8 +4368,6 @@ export default function App() {
         window.addEventListener('click', recoverAudio, listenerOptions);
         window.addEventListener('keydown', recoverAudio, { capture: true });
         document.addEventListener('visibilitychange', recoverAudio);
-
-        recoverAudio();
 
         return () => {
             window.removeEventListener('focus', recoverAudio);
