@@ -1970,16 +1970,15 @@ export const TavernScreen: React.FC<{
                             // Losango com fundo preto/blur atrás do ícone
                             const SideIconFrame = ({ children }: { children: React.ReactNode }) => (
                                 <div style={{ position: 'relative', width: 48, height: 48, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                    {/* Diamond background */}
+                                    {/* Blur layer (sem transform para backdrop-filter funcionar) */}
                                     <div style={{
                                         position: 'absolute',
                                         inset: 5,
                                         borderRadius: 7,
+                                        backdropFilter: 'blur(12px)',
+                                        WebkitBackdropFilter: 'blur(12px)',
                                         transform: 'rotate(45deg)',
-                                        background: 'rgba(0,0,0,0.28)',
-                                        backdropFilter: 'blur(10px)',
-                                        WebkitBackdropFilter: 'blur(10px)',
-                                        border: '1.5px solid rgba(255,255,255,0.55)',
+                                        background: 'rgba(0,0,0,0.32)',
                                     }} />
                                     {/* Icon */}
                                     <div style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -4198,15 +4197,15 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                   </span>
                   {/* Frame: losango pequeno, ícone maior sobressai */}
                   <div style={{ position: 'relative', width: 48, height: 48, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      {/* Blur layer (sem transform para backdrop-filter funcionar) */}
                       <div style={{
                           position: 'absolute',
                           inset: 5,
                           borderRadius: 7,
+                          backdropFilter: 'blur(12px)',
+                          WebkitBackdropFilter: 'blur(12px)',
                           transform: 'rotate(45deg)',
-                          background: 'rgba(0,0,0,0.28)',
-                          backdropFilter: 'blur(10px)',
-                          WebkitBackdropFilter: 'blur(10px)',
-                          border: '1.5px solid rgba(255,255,255,0.55)',
+                          background: 'rgba(0,0,0,0.32)',
                       }} />
                       <img src={BOOK_MISSOES_URL} alt="" style={{ position: 'relative', zIndex: 1, width: 44, height: 44, objectFit: 'contain' }} />
                       {_bDone > 0 && (
