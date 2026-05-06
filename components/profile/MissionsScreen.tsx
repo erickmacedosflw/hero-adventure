@@ -357,9 +357,7 @@ export const MissionsScreen: React.FC<MissionsScreenProps> = ({
       >
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 18px 10px', borderBottom: '1px solid rgba(255,255,255,0.08)', flexShrink: 0 }}>
-          <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(234,179,8,0.15)', border: '1.5px solid rgba(234,179,8,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <img src={BOOK_IMAGE_URL} alt="" style={{ width: 22, height: 22, objectFit: 'contain', filter: 'drop-shadow(0.5px 0 0 #fff) drop-shadow(-0.5px 0 0 #fff) drop-shadow(0 0.5px 0 #fff) drop-shadow(0 -0.5px 0 #fff)' }} />
-          </div>
+          <img src={BOOK_IMAGE_URL} alt="" style={{ width: 36, height: 36, objectFit: 'contain', flexShrink: 0, filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.7))' }} />
           <div style={{ minWidth: 0, flex: 1 }}>
             <div style={{ fontSize: 16, fontWeight: 900, color: '#fff', lineHeight: 1.1 }}>Diário de Missões</div>
             <div style={{ fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.45)', marginTop: 2 }}>
