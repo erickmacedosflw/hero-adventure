@@ -1970,22 +1970,27 @@ export const TavernScreen: React.FC<{
                             // Losango com fundo preto/blur atrás do ícone
                             const SideIconFrame = ({ children }: { children: React.ReactNode }) => (
                                 <div style={{ position: 'relative', width: 48, height: 48, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                    {/* Blur layer (sem transform para backdrop-filter funcionar) */}
-                                    <div style={{
+                                    {/* Blur layer */}
+                                    <div data-diamond="1" style={{
                                         position: 'absolute',
                                         inset: 5,
                                         borderRadius: 7,
                                         backdropFilter: 'blur(24px)',
                                         WebkitBackdropFilter: 'blur(24px)',
-                                        transform: 'rotate(45deg)',
-                                        background: 'rgba(0,0,0,0.32)',
+                                        transform: 'rotate(45deg) scale(1)',
+                                        background: 'rgba(0,0,0,0.42)',
+                                        transition: 'transform 0.15s cubic-bezier(0.34,1.56,0.64,1), background 0.15s',
                                     }} />
                                     {/* Icon */}
-                                    <div style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <div data-iconwrap="1" style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'transform 0.15s cubic-bezier(0.34,1.56,0.64,1)' }}>
                                         {children}
                                     </div>
                                 </div>
                             );
+                            const _srEnter = (e: React.MouseEvent<HTMLButtonElement>) => { const d = e.currentTarget.querySelector<HTMLElement>('[data-diamond]'); if (d) { d.style.transform = 'rotate(45deg) scale(0.88)'; d.style.background = 'rgba(0,0,0,0.52)'; } const w = e.currentTarget.querySelector<HTMLElement>('[data-iconwrap]'); if (w) w.style.transform = 'scale(1.15)'; };
+                            const _srLeave = (e: React.MouseEvent<HTMLButtonElement>) => { const d = e.currentTarget.querySelector<HTMLElement>('[data-diamond]'); if (d) { d.style.transform = 'rotate(45deg) scale(1)'; d.style.background = 'rgba(0,0,0,0.42)'; } const w = e.currentTarget.querySelector<HTMLElement>('[data-iconwrap]'); if (w) w.style.transform = 'scale(1)'; };
+                            const _srDown  = (e: React.MouseEvent<HTMLButtonElement>) => { const d = e.currentTarget.querySelector<HTMLElement>('[data-diamond]'); if (d) { d.style.transform = 'rotate(45deg) scale(0.78)'; d.style.background = 'rgba(0,0,0,0.62)'; } const w = e.currentTarget.querySelector<HTMLElement>('[data-iconwrap]'); if (w) w.style.transform = 'scale(1)'; };
+                            const _srUp    = (e: React.MouseEvent<HTMLButtonElement>) => { const d = e.currentTarget.querySelector<HTMLElement>('[data-diamond]'); if (d) { d.style.transform = 'rotate(45deg) scale(0.88)'; d.style.background = 'rgba(0,0,0,0.52)'; } const w = e.currentTarget.querySelector<HTMLElement>('[data-iconwrap]'); if (w) w.style.transform = 'scale(1.15)'; };
                             // constrói lista na mesma ordem que sideMenuItems para alinhar índices
                             const railItems: { id: string; visible: boolean; jsx: React.ReactNode }[] = [
                                 {
@@ -1996,11 +2001,10 @@ export const TavernScreen: React.FC<{
                                             key="inventory"
                                             onClick={() => openInventoryModal('all')}
                                             className="group flex items-center justify-end gap-2 p-0 bg-transparent border-0"
-                                            style={{ transition: 'transform 0.15s cubic-bezier(0.34,1.56,0.64,1)' }}
-                                            onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.12)')}
-                                            onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
-                                            onMouseDown={e => (e.currentTarget.style.transform = 'scale(0.92)')}
-                                            onMouseUp={e => (e.currentTarget.style.transform = 'scale(1.12)')}
+                                            onMouseEnter={_srEnter}
+                                            onMouseLeave={_srLeave}
+                                            onMouseDown={_srDown}
+                                            onMouseUp={_srUp}
                                             title="Mochila"
                                             aria-label="Mochila"
                                         >
@@ -2023,11 +2027,10 @@ export const TavernScreen: React.FC<{
                                             key="missions"
                                             onClick={() => { uiSfx.play('modal_open'); setShowMissionsScreen(true); }}
                                             className="group relative flex items-center justify-end gap-2 p-0 bg-transparent border-0"
-                                            style={{ transition: 'transform 0.15s cubic-bezier(0.34,1.56,0.64,1)' }}
-                                            onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.12)')}
-                                            onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
-                                            onMouseDown={e => (e.currentTarget.style.transform = 'scale(0.92)')}
-                                            onMouseUp={e => (e.currentTarget.style.transform = 'scale(1.12)')}
+                                            onMouseEnter={_srEnter}
+                                            onMouseLeave={_srLeave}
+                                            onMouseDown={_srDown}
+                                            onMouseUp={_srUp}
                                             title="Diário de Missões"
                                             aria-label="Diário de Missões"
                                         >
@@ -2054,11 +2057,10 @@ export const TavernScreen: React.FC<{
                                             key="skills"
                                             onClick={() => openSkillsScreenModal()}
                                             className="group flex items-center justify-end gap-2 p-0 bg-transparent border-0"
-                                            style={{ transition: 'transform 0.15s cubic-bezier(0.34,1.56,0.64,1)' }}
-                                            onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.12)')}
-                                            onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
-                                            onMouseDown={e => (e.currentTarget.style.transform = 'scale(0.92)')}
-                                            onMouseUp={e => (e.currentTarget.style.transform = 'scale(1.12)')}
+                                            onMouseEnter={_srEnter}
+                                            onMouseLeave={_srLeave}
+                                            onMouseDown={_srDown}
+                                            onMouseUp={_srUp}
                                             title="Habilidades"
                                             aria-label="Habilidades"
                                         >
@@ -2079,11 +2081,10 @@ export const TavernScreen: React.FC<{
                                             key="merchant"
                                             onClick={onShop}
                                             className="group flex items-center justify-end gap-2 p-0 bg-transparent border-0"
-                                            style={{ transition: 'transform 0.15s cubic-bezier(0.34,1.56,0.64,1)' }}
-                                            onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.12)')}
-                                            onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
-                                            onMouseDown={e => (e.currentTarget.style.transform = 'scale(0.92)')}
-                                            onMouseUp={e => (e.currentTarget.style.transform = 'scale(1.12)')}
+                                            onMouseEnter={_srEnter}
+                                            onMouseLeave={_srLeave}
+                                            onMouseDown={_srDown}
+                                            onMouseUp={_srUp}
                                             title="Mercador"
                                             aria-label="Mercador"
                                         >
@@ -2104,11 +2105,10 @@ export const TavernScreen: React.FC<{
                                             key="alchemist"
                                             onClick={onAlchemist}
                                             className="group flex items-center justify-end gap-2 p-0 bg-transparent border-0"
-                                            style={{ transition: 'transform 0.15s cubic-bezier(0.34,1.56,0.64,1)' }}
-                                            onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.12)')}
-                                            onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
-                                            onMouseDown={e => (e.currentTarget.style.transform = 'scale(0.92)')}
-                                            onMouseUp={e => (e.currentTarget.style.transform = 'scale(1.12)')}
+                                            onMouseEnter={_srEnter}
+                                            onMouseLeave={_srLeave}
+                                            onMouseDown={_srDown}
+                                            onMouseUp={_srUp}
                                             title="Alquimista"
                                             aria-label="Alquimista"
                                         >
@@ -4184,11 +4184,10 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
               <button
                   onClick={() => { uiSfx.play('modal_open'); setShowMissionsScreen(true); }}
                   className="group relative flex items-center justify-end gap-2 p-0 bg-transparent border-0"
-                  style={{ transition: 'transform 0.15s cubic-bezier(0.34,1.56,0.64,1)' }}
-                  onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.12)')}
-                  onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
-                  onMouseDown={e => (e.currentTarget.style.transform = 'scale(0.92)')}
-                  onMouseUp={e => (e.currentTarget.style.transform = 'scale(1.12)')}
+                  onMouseEnter={e => { const d = e.currentTarget.querySelector<HTMLElement>('[data-diamond]'); if (d) { d.style.transform = 'rotate(45deg) scale(0.88)'; d.style.background = 'rgba(0,0,0,0.52)'; } const w = e.currentTarget.querySelector<HTMLElement>('[data-iconwrap]'); if (w) w.style.transform = 'scale(1.15)'; }}
+                  onMouseLeave={e => { const d = e.currentTarget.querySelector<HTMLElement>('[data-diamond]'); if (d) { d.style.transform = 'rotate(45deg) scale(1)'; d.style.background = 'rgba(0,0,0,0.42)'; } const w = e.currentTarget.querySelector<HTMLElement>('[data-iconwrap]'); if (w) w.style.transform = 'scale(1)'; }}
+                  onMouseDown={e => { const d = e.currentTarget.querySelector<HTMLElement>('[data-diamond]'); if (d) { d.style.transform = 'rotate(45deg) scale(0.78)'; d.style.background = 'rgba(0,0,0,0.62)'; } const w = e.currentTarget.querySelector<HTMLElement>('[data-iconwrap]'); if (w) w.style.transform = 'scale(1)'; }}
+                  onMouseUp={e => { const d = e.currentTarget.querySelector<HTMLElement>('[data-diamond]'); if (d) { d.style.transform = 'rotate(45deg) scale(0.88)'; d.style.background = 'rgba(0,0,0,0.52)'; } const w = e.currentTarget.querySelector<HTMLElement>('[data-iconwrap]'); if (w) w.style.transform = 'scale(1.15)'; }}
                   title="Diário de Missões"
                   aria-label="Diário de Missões"
               >
@@ -4198,16 +4197,19 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                   {/* Frame: losango pequeno, ícone maior sobressai */}
                   <div style={{ position: 'relative', width: 48, height: 48, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                       {/* Blur layer (sem transform para backdrop-filter funcionar) */}
-                      <div style={{
+                      <div data-diamond="1" style={{
                           position: 'absolute',
                           inset: 5,
                           borderRadius: 7,
                           backdropFilter: 'blur(24px)',
                           WebkitBackdropFilter: 'blur(24px)',
-                          transform: 'rotate(45deg)',
-                          background: 'rgba(0,0,0,0.32)',
+                          transform: 'rotate(45deg) scale(1)',
+                          background: 'rgba(0,0,0,0.42)',
+                          transition: 'transform 0.15s cubic-bezier(0.34,1.56,0.64,1), background 0.15s',
                       }} />
-                      <img src={BOOK_MISSOES_URL} alt="" style={{ position: 'relative', zIndex: 1, width: 44, height: 44, objectFit: 'contain', filter: 'drop-shadow(1.5px 0 0 rgba(255,255,255,0.85)) drop-shadow(-1.5px 0 0 rgba(255,255,255,0.85)) drop-shadow(0 1.5px 0 rgba(255,255,255,0.85)) drop-shadow(0 -1.5px 0 rgba(255,255,255,0.85))' }} />
+                      <div data-iconwrap="1" style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'transform 0.15s cubic-bezier(0.34,1.56,0.64,1)' }}>
+                          <img src={BOOK_MISSOES_URL} alt="" style={{ position: 'relative', zIndex: 1, width: 44, height: 44, objectFit: 'contain', filter: 'drop-shadow(1.5px 0 0 rgba(255,255,255,0.85)) drop-shadow(-1.5px 0 0 rgba(255,255,255,0.85)) drop-shadow(0 1.5px 0 rgba(255,255,255,0.85)) drop-shadow(0 -1.5px 0 rgba(255,255,255,0.85))' }} />
+                      </div>
                       {_bDone > 0 && (
                           <span style={{ position: 'absolute', top: -2, right: -2, minWidth: 16, height: 16, borderRadius: 99, background: 'linear-gradient(135deg,#b45309,#fbbf24)', border: '2px solid #fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, fontWeight: 900, color: '#fff', padding: '0 3px', pointerEvents: 'none', zIndex: 2 }}>
                               {_bDone}
