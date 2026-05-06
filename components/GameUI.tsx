@@ -1973,7 +1973,7 @@ export const TavernScreen: React.FC<{
                                     {/* Diamond background */}
                                     <div style={{
                                         position: 'absolute',
-                                        inset: 9,
+                                        inset: 5,
                                         borderRadius: 7,
                                         transform: 'rotate(45deg)',
                                         background: 'rgba(0,0,0,0.78)',
@@ -4200,7 +4200,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                   <div style={{ position: 'relative', width: 48, height: 48, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                       <div style={{
                           position: 'absolute',
-                          inset: 9,
+                          inset: 5,
                           borderRadius: 7,
                           transform: 'rotate(45deg)',
                           background: 'rgba(0,0,0,0.78)',
