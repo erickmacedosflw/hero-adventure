@@ -3788,10 +3788,14 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
             `}</style>
       <AnimatedModal open={showBattleSettings}>
           {(isClosing) => (
-              <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/55 pointer-events-auto p-4" onClick={closeBattleSettingsModal}>
+              <div
+                  className={`absolute inset-0 z-40 flex items-center justify-center pointer-events-auto p-4 ${isClosing ? 'settings-overlay-out' : 'settings-overlay-in'}`}
+                  style={{ background: 'rgba(10,4,14,0.60)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}
+                  onClick={closeBattleSettingsModal}
+              >
                   <div
-                      className={`w-full max-w-sm overflow-hidden rounded-2xl shadow-[0_32px_80px_rgba(40,10,20,0.40)] transition-all duration-300 ${isClosing ? 'opacity-0 scale-95 translate-y-2' : 'opacity-100 scale-100 translate-y-0'}`}
-                      style={{ background: 'linear-gradient(160deg, #2a1525 0%, #1c0e19 100%)', border: '1px solid rgba(220,150,170,0.18)' }}
+                      className={isClosing ? 'settings-card-out' : 'settings-card-in'}
+                      style={{ width: '100%', maxWidth: 384, overflow: 'hidden', borderRadius: 20, boxShadow: '0 32px_80px rgba(40,10,20,0.55), 0 0 0 1px rgba(220,150,170,0.14)', background: 'linear-gradient(160deg, #2a1525 0%, #1c0e19 100%)', border: '1px solid rgba(220,150,170,0.18)' }}
                       onClick={(event) => event.stopPropagation()}
                   >
                       {/* Header */}
