@@ -314,7 +314,8 @@ export const MissionsScreen: React.FC<MissionsScreenProps> = ({
   const sortedMissions = missions;
 
   return (
-    <div className={`absolute inset-0 z-[80] flex flex-col overflow-hidden pointer-events-auto backdrop-blur-md ${isMobile ? panelSlide : overlayFade}`}>
+    <div className={`absolute inset-0 z-[80] flex flex-col pointer-events-auto backdrop-blur-md ${isMobile ? panelSlide : `overflow-hidden ${overlayFade}`}`}
+      style={isMobile ? { touchAction: 'pan-y' } : undefined}>
 
       {/* Top click-to-close area with book image — oculto no mobile */}
       {!isMobile && (
@@ -350,7 +351,7 @@ export const MissionsScreen: React.FC<MissionsScreenProps> = ({
 
       {/* Bottom panel — dark glass */}
       <div
-        className={`flex flex-col bg-black/75 backdrop-blur-xl border-t border-white/8 ${isMobile ? 'flex-1' : `shrink-0 ${panelSlide}`}`}
+        className={`flex flex-col bg-black/75 backdrop-blur-xl border-t border-white/8 ${isMobile ? 'flex-1 overflow-hidden' : `shrink-0 ${panelSlide}`}`}
         style={{ ...(isMobile ? {} : { maxHeight: '72vh', minHeight: 320 }), ...font }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -381,7 +382,7 @@ export const MissionsScreen: React.FC<MissionsScreenProps> = ({
         {/* Mission cards — horizontal (desktop) ou lista vertical (mobile) */}
         {isMobile ? (
           <div
-            style={{ overflowY: 'auto', overflowX: 'hidden', flex: 1, minHeight: 0, padding: '12px 14px 24px', display: 'flex', flexDirection: 'column', gap: 10, WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain', touchAction: 'pan-y' }}
+            style={{ overflowY: 'scroll', overflowX: 'hidden', flex: '1 1 0', height: 0, padding: '12px 14px 24px', display: 'flex', flexDirection: 'column', gap: 10, WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain', touchAction: 'pan-y' }}
           >
             {sortedMissions.map(m => (
               <div key={m.id} style={{ width: '100%', flexShrink: 0 }}>
