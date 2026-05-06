@@ -382,10 +382,12 @@ const GameOverScreen: React.FC<{ stage: number; onRespawn: () => void }> = ({ st
                 className={leaving ? 'gameover-card-out' : 'gameover-card-in'}
                 style={{
                     width: '100%', maxWidth: 520,
-                    background: 'rgba(22,8,8,0.95)',
+                    background: 'rgba(22,8,8,0.72)',
+                    backdropFilter: 'blur(24px)',
+                    WebkitBackdropFilter: 'blur(24px)',
                     border: '1px solid rgba(180,80,80,0.38)',
                     borderRadius: 28, overflow: 'hidden',
-                    boxShadow: '0 40px_120px rgba(80,10,10,0.65), 0 0 0 1px rgba(200,80,80,0.10)',
+                    boxShadow: '0 40px 120px rgba(80,10,10,0.65), 0 0 0 1px rgba(200,80,80,0.10)',
                 }}
             >
                 {/* Header */}
