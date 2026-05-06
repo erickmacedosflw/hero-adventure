@@ -179,18 +179,18 @@ const MissionCard: React.FC<{ mission: Mission; onClaim: () => void }> = ({ miss
         flexShrink: 0,
       }} />
 
-      <div style={{ padding: '10px 13px 12px', display: 'flex', flexDirection: 'column', gap: 9, flex: 1 }}>
+      <div style={{ padding: '8px 11px 10px', display: 'flex', flexDirection: 'column', gap: 7, flex: 1 }}>
 
         {/* Top row: badge + reward */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
           {isFixed ? (
             <span style={{
-              display: 'inline-flex', alignItems: 'center', gap: 4,
+              display: 'inline-flex', alignItems: 'center', gap: 3,
               borderRadius: 99, border: '1px solid rgba(251,191,36,0.40)',
               background: 'rgba(251,191,36,0.12)',
-              padding: '3px 9px',
-              fontSize: 9, fontWeight: 900, textTransform: 'uppercase' as const,
-              letterSpacing: '0.18em', color: '#fcd34d', lineHeight: 1.5,
+              padding: '2px 7px',
+              fontSize: 8, fontWeight: 900, textTransform: 'uppercase' as const,
+              letterSpacing: '0.14em', color: '#fcd34d', lineHeight: 1.4,
             }}>
               ∞ Recorrente
             </span>
@@ -198,15 +198,15 @@ const MissionCard: React.FC<{ mission: Mission; onClaim: () => void }> = ({ miss
             <span
               key={mission.nivelAtual}
               style={{
-                display: 'inline-flex', alignItems: 'center', gap: 4,
+                display: 'inline-flex', alignItems: 'center', gap: 3,
                 borderRadius: 99, border: '1px solid rgba(253,230,138,0.35)',
                 background: 'rgba(253,230,138,0.10)',
-                padding: '3px 9px',
-                fontSize: 9, fontWeight: 900, textTransform: 'uppercase' as const,
-                letterSpacing: '0.18em', color: 'rgba(253,230,138,0.70)', lineHeight: 1.5,
+                padding: '2px 7px',
+                fontSize: 8, fontWeight: 900, textTransform: 'uppercase' as const,
+                letterSpacing: '0.14em', color: 'rgba(253,230,138,0.70)', lineHeight: 1.4,
                 animation: levelPop ? 'msn-badge-pop 0.45s cubic-bezier(0.34,1.56,0.64,1) forwards' : 'none',
               }}>
-              Desafio <span style={{ fontSize: 11, color: '#fde68a', fontWeight: 900, letterSpacing: 0 }}>{mission.nivelAtual}</span>
+              Desafio <span style={{ fontSize: 9, color: '#fde68a', fontWeight: 900, letterSpacing: 0 }}>{mission.nivelAtual}</span>
             </span>
           )}
 
@@ -248,8 +248,8 @@ const MissionCard: React.FC<{ mission: Mission; onClaim: () => void }> = ({ miss
           disabled={!isComplete || claiming}
           style={{
             width: '100%', borderRadius: 12,
-            padding: '11px 0',
-            fontSize: 12, fontWeight: 900, letterSpacing: '0.06em', textTransform: 'uppercase' as const,
+            padding: '8px 0',
+            fontSize: 11, fontWeight: 900, letterSpacing: '0.06em', textTransform: 'uppercase' as const,
             border: 'none',
             background: isComplete
               ? 'linear-gradient(135deg, #b45309 0%, #d97706 50%, #fbbf24 100%)'
@@ -368,7 +368,7 @@ export const MissionsScreen: React.FC<MissionsScreenProps> = ({
           onTouchMove={(e) => e.stopPropagation()}
         >
           {sortedMissions.map(m => (
-            <div key={m.id} style={{ scrollSnapAlign: 'start', flexShrink: 0, width: 210 }}>
+            <div key={m.id} style={{ scrollSnapAlign: 'start', flexShrink: 0, width: 180 }}>
               <MissionCard mission={m} onClaim={() => onClaimReward(m.id)} />
             </div>
           ))}
