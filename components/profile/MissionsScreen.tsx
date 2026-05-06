@@ -179,7 +179,7 @@ const MissionCard: React.FC<{ mission: Mission; onClaim: () => void }> = ({ miss
         flexShrink: 0,
       }} />
 
-      <div style={{ padding: '14px 16px 16px', display: 'flex', flexDirection: 'column', gap: 12, flex: 1 }}>
+      <div style={{ padding: '10px 13px 12px', display: 'flex', flexDirection: 'column', gap: 9, flex: 1 }}>
 
         {/* Top row: badge + reward */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
@@ -368,7 +368,7 @@ export const MissionsScreen: React.FC<MissionsScreenProps> = ({
           onTouchMove={(e) => e.stopPropagation()}
         >
           {sortedMissions.map(m => (
-            <div key={m.id} style={{ scrollSnapAlign: 'start', flexShrink: 0, width: 260 }}>
+            <div key={m.id} style={{ scrollSnapAlign: 'start', flexShrink: 0, width: 210 }}>
               <MissionCard mission={m} onClaim={() => onClaimReward(m.id)} />
             </div>
           ))}
