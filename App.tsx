@@ -360,6 +360,98 @@ class SceneErrorBoundary extends React.Component<{ children: React.ReactNode }, 
     }
 }
 
+const GameOverScreen: React.FC<{ stage: number; onRespawn: () => void }> = ({ stage, onRespawn }) => {
+    const [leaving, setLeaving] = React.useState(false);
+    const handleRespawn = () => {
+        if (leaving) return;
+        setLeaving(true);
+        setTimeout(onRespawn, 580);
+    };
+    return (
+        <div
+            className={leaving ? 'gameover-overlay-out' : 'gameover-overlay-in'}
+            style={{
+                position: 'absolute', inset: 0, zIndex: 50,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: 'radial-gradient(circle at top, rgba(160,38,38,0.38), rgba(20,8,8,0.94) 48%, rgba(6,2,2,0.99) 100%)',
+                padding: 16, pointerEvents: 'auto',
+                fontFamily: "'Segoe UI',system-ui,sans-serif",
+            }}
+        >
+            <div
+                className={leaving ? 'gameover-card-out' : 'gameover-card-in'}
+                style={{
+                    width: '100%', maxWidth: 520,
+                    background: 'rgba(22,8,8,0.95)',
+                    border: '1px solid rgba(180,80,80,0.38)',
+                    borderRadius: 28, overflow: 'hidden',
+                    boxShadow: '0 40px_120px rgba(80,10,10,0.65), 0 0 0 1px rgba(200,80,80,0.10)',
+                }}
+            >
+                {/* Header */}
+                <div style={{
+                    background: 'linear-gradient(160deg, #5c1414 0%, #7a1e1e 45%, #5c1414 100%)',
+                    borderBottom: '1px solid rgba(180,80,80,0.25)',
+                    padding: '32px 32px 26px', textAlign: 'center', position: 'relative', overflow: 'hidden',
+                }}>
+                    <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse at top, rgba(255,60,60,0.10), transparent 65%)', pointerEvents: 'none' }} />
+                    <div className="gameover-badge" style={{
+                        display: 'inline-flex', alignItems: 'center',
+                        borderRadius: 99, border: '1px solid rgba(255,200,200,0.20)',
+                        background: 'rgba(255,255,255,0.08)',
+                        padding: '5px 16px',
+                        fontSize: 10, fontWeight: 900, letterSpacing: '0.28em', textTransform: 'uppercase',
+                        color: 'rgba(255,215,215,0.82)',
+                    }}>Derrota</div>
+                    <h1 style={{
+                        marginTop: 18,
+                        fontSize: 'clamp(2.4rem, 6vw, 3.2rem)',
+                        fontWeight: 900, letterSpacing: '0.06em', textTransform: 'uppercase',
+                        color: '#ffe8e8',
+                        textShadow: '0 0 48px rgba(255,70,70,0.38), 0 2px 0 rgba(0,0,0,0.5)',
+                        lineHeight: 1,
+                    }}>Você perdeu</h1>
+                    <p style={{ marginTop: 12, fontSize: 14, fontWeight: 500, color: 'rgba(255,195,195,0.60)', letterSpacing: '0.01em' }}>
+                        A batalha terminou, mas sua jornada continua.
+                    </p>
+                </div>
+                {/* Body */}
+                <div style={{ padding: '22px 26px 26px' }}>
+                    <div style={{
+                        borderRadius: 14, border: '1px solid rgba(180,80,80,0.18)',
+                        background: 'rgba(255,60,60,0.05)',
+                        padding: '15px 18px', textAlign: 'center', marginBottom: 18,
+                    }}>
+                        <div style={{ fontSize: 9, fontWeight: 900, letterSpacing: '0.28em', textTransform: 'uppercase', color: 'rgba(255,155,155,0.55)' }}>Resumo</div>
+                        <div style={{ marginTop: 6, fontSize: 19, fontWeight: 900, color: '#ffe2e2', letterSpacing: '0.03em' }}>Fase {stage}</div>
+                        <p style={{ marginTop: 7, fontSize: 12, color: 'rgba(255,185,185,0.48)', lineHeight: 1.55 }}>
+                            HP e mana serão restaurados ao renascer no acampamento.
+                        </p>
+                    </div>
+                    <button
+                        className="gameover-btn"
+                        onClick={handleRespawn}
+                        disabled={leaving}
+                        style={{
+                            width: '100%', padding: '14px 20px', borderRadius: 14,
+                            border: '1px solid rgba(240,175,175,0.32)',
+                            background: 'linear-gradient(135deg, #efcece, #f8e6e6)',
+                            color: '#6b1f1f', fontSize: 13, fontWeight: 900,
+                            letterSpacing: '0.14em', textTransform: 'uppercase',
+                            cursor: leaving ? 'default' : 'pointer',
+                            boxShadow: '0 4px 22px rgba(200,60,60,0.16)',
+                            opacity: leaving ? 0.6 : 1,
+                            fontFamily: "'Segoe UI',system-ui,sans-serif",
+                        }}
+                    >
+                        Renascer no acampamento
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 export default function App() {
     const clonePlayer = (source: Player): Player => ({
         ...source,
@@ -5945,32 +6037,7 @@ export default function App() {
       )}
 
       {resolvedGameState === GameState.GAME_OVER && (
-          <div className="absolute inset-0 z-50 flex items-center justify-center bg-[radial-gradient(circle_at_top,rgba(160,38,38,0.35),rgba(20,8,8,0.92)_45%,rgba(8,4,4,0.98)_100%)] p-4 pointer-events-auto">
-              <div className="w-full max-w-xl overflow-hidden rounded-[28px] border border-[#b46d6d] bg-[#2a1414]/90 text-[#fce8e8] shadow-[0_30px_120px_rgba(80,20,20,0.55)] backdrop-blur-sm">
-                  <div className="border-b border-[#8d4d4d] bg-[linear-gradient(135deg,#6b1f1f,#8f2d2d)] px-6 py-6 text-center sm:px-8">
-                      <div className="inline-flex items-center rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.28em] text-[#f9dada]">
-                          Derrota
-                      </div>
-                      <h1 className="mt-4 text-4xl font-black uppercase tracking-[0.08em] text-[#ffe2e2] sm:text-5xl">Voce perdeu</h1>
-                      <p className="mt-2 text-sm font-semibold text-[#f3c3c3] sm:text-base">A batalha terminou, mas sua jornada continua.</p>
-                  </div>
-
-                  <div className="px-6 py-6 sm:px-8 sm:py-7">
-                      <div className="rounded-2xl border border-[#8d4d4d] bg-[#3a1b1b]/70 px-5 py-4 text-center">
-                          <div className="text-[10px] font-black uppercase tracking-[0.24em] text-[#d8a3a3]">Resumo</div>
-                          <div className="mt-1 text-lg font-black text-[#ffe2e2]">Fase {stage}</div>
-                          <p className="mt-2 text-sm text-[#e7b7b7]">HP e mana serao restaurados ao renascer no acampamento.</p>
-                      </div>
-
-                      <button
-                          onClick={respawnAtCamp}
-                          className="mt-5 w-full rounded-xl border border-[#d8a3a3] bg-[#f6dada] px-5 py-3 text-base font-black uppercase tracking-[0.14em] text-[#6b1f1f] transition-all hover:bg-[#ffe7e7]"
-                      >
-                          Renascer no acampamento
-                      </button>
-                  </div>
-              </div>
-          </div>
+          <GameOverScreen stage={stage} onRespawn={respawnAtCamp} />
       )}
 
       {resourceUnlockModal && (
