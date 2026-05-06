@@ -2975,15 +2975,12 @@ export default function App() {
   }, []);
 
   const claimMissionReward = useCallback((missionId: string) => {
-    // Read current missions synchronously via functional updater to avoid stale closure
-    let updatedMissions: Mission[] | null = null;
-    let goldReward = 0;
     setMissions(prev => {
       const idx = prev.findIndex(m => m.id === missionId);
       if (idx < 0) return prev;
       const m = prev[idx];
       if (m.progressoAtual < m.metaAtual) return prev;
-      goldReward = m.recompensaAtual;
+      const goldReward = m.recompensaAtual;
       const isFixed = m.metaIncrement === 0;
       const nextNivel = m.nivelAtual + 1;
       const nextMeta = isFixed
@@ -2994,19 +2991,14 @@ export default function App() {
         : Math.round(m.recompensaAtual * 1.30);
       const updated = [...prev];
       updated[idx] = { ...m, progressoAtual: 0, nivelAtual: nextNivel, metaAtual: nextMeta, recompensaAtual: nextRecompensa };
-      updatedMissions = updated;
+      // Aplica ouro aqui dentro do updater para garantir que goldReward seja lido no momento certo
+      if (goldReward > 0) {
+        setPlayer(p => ({ ...p, gold: p.gold + goldReward }));
+      }
+      setTimeout(() => persistSaveNowRef.current({ missions: updated.map(x => ({ ...x })) }), 50);
       return updated;
     });
-    // setPlayer and save OUTSIDE the updater to avoid side-effects in render phase
-    if (goldReward > 0) {
-      setPlayer(p => ({ ...p, gold: p.gold + goldReward }));
-    }
-    if (updatedMissions) {
-      const snapshot = (updatedMissions as Mission[]).map(x => ({ ...x }));
-      // Use ref so we always call the freshest persistSaveNow (never stale during battle)
-      setTimeout(() => persistSaveNowRef.current({ missions: snapshot }), 50);
-    }
-  }, []);
+  }, [setPlayer]);
 
   useEffect(() => {
     if (sceneRegion === 'forest') checkStageMissions(stage);
