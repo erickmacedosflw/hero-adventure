@@ -181,12 +181,7 @@ const MissionCard: React.FC<{ mission: Mission; onClaim: () => void }> = ({ miss
 
       <div style={{ padding: '8px 11px 10px', display: 'flex', flexDirection: 'column', gap: 7, flex: 1 }}>
 
-        {/* Description — top */}
-        <p style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.88)', lineHeight: 1.45, margin: 0 }}>
-          {formatDesc(mission.descricao, mission.metaAtual)}
-        </p>
-
-        {/* Badge + reward */}
+        {/* Top row: badge + reward */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
           {isFixed ? (
             <span style={{
@@ -220,6 +215,11 @@ const MissionCard: React.FC<{ mission: Mission; onClaim: () => void }> = ({ miss
             <span style={{ fontSize: 14, fontWeight: 900, color: '#fcd34d', letterSpacing: '-0.01em' }}>{mission.recompensaAtual}</span>
           </div>
         </div>
+
+        {/* Description */}
+        <p style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.88)', lineHeight: 1.5, margin: 0 }}>
+          {formatDesc(mission.descricao, mission.metaAtual)}
+        </p>
 
         {/* Progress */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
