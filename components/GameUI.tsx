@@ -1975,8 +1975,8 @@ export const TavernScreen: React.FC<{
                                         position: 'absolute',
                                         inset: 5,
                                         borderRadius: 7,
-                                        backdropFilter: 'blur(12px)',
-                                        WebkitBackdropFilter: 'blur(12px)',
+                                        backdropFilter: 'blur(24px)',
+                                        WebkitBackdropFilter: 'blur(24px)',
                                         transform: 'rotate(45deg)',
                                         background: 'rgba(0,0,0,0.32)',
                                     }} />
@@ -4202,8 +4202,8 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                           position: 'absolute',
                           inset: 5,
                           borderRadius: 7,
-                          backdropFilter: 'blur(12px)',
-                          WebkitBackdropFilter: 'blur(12px)',
+                          backdropFilter: 'blur(24px)',
+                          WebkitBackdropFilter: 'blur(24px)',
                           transform: 'rotate(45deg)',
                           background: 'rgba(0,0,0,0.32)',
                       }} />
