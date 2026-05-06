@@ -124,6 +124,9 @@ export const useBattleResolution = ({
       setPlayerAnimationAction('idle');
       // Don't reset enemy animation — let 'death' finish playing on the dying model
       // Delay the swap so the death animation fully plays (~900ms)
+      if (onEnemyKilledForMissions) {
+        onEnemyKilledForMissions({ isBoss: false, element: enemy.element, bodyType: enemy.gltfBodyType, archetipo: enemy.archetipo });
+      }
       window.setTimeout(() => {
         if (onPartialGroupKill) onPartialGroupKill(enemy.id, xpGain, goldGain);
         if (onActorTurnDone) onActorTurnDone();
@@ -453,6 +456,7 @@ export const useBattleResolution = ({
     onPartialGroupKill,
     onActorTurnDone,
     accumulatedGroupRewards,
+    onEnemyKilledForMissions,
   ]);
 
   return { handleVictory };
