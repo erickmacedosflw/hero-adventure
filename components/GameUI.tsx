@@ -1063,6 +1063,7 @@ const ICONE_MOCHILA_URL = new URL('../game/assets/Icons/Menu/Icone_Mochila.png',
 const PORTAL_THUMB_MOUNTAIN_URL = new URL('../game/assets/Scenario/Moutain/cenario_thumbnail_montanha.png', import.meta.url).href;
 const PORTAL_THUMB_DUNGEON_URL = new URL('../game/assets/Scenario/Dungeon/cenario_thumbnail_dungeon.png', import.meta.url).href;
 const PORTAL_THUMB_TOWER_URL = new URL('../game/assets/Scenario/Tower/cenario_thumbnail_torre.png', import.meta.url).href;
+const SCENARIO_THUMB_FOREST_URL = new URL('../game/assets/Scenario/Florest/cenario_thumbnail_floresta.png', import.meta.url).href;
 
 export const MenuScreen: React.FC<{ onStart: () => void }> = ({ onStart }) => (
     <div className="absolute inset-0 z-50 overflow-hidden pointer-events-auto hero-brand-root">
@@ -2190,7 +2191,7 @@ export const TavernScreen: React.FC<{
                                     onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0) scale(1)'; e.currentTarget.style.boxShadow = '0 2px 12px rgba(251,146,60,0.20), inset 0 1px 0 rgba(255,255,255,0.10)'; }}
                                     onMouseDown={e => { e.currentTarget.style.transform = 'translateY(1px) scale(0.96)'; e.currentTarget.style.boxShadow = '0 1px 6px rgba(251,146,60,0.30)'; }}
                                     onMouseUp={e => { e.currentTarget.style.transform = 'translateY(-3px) scale(1.04)'; e.currentTarget.style.boxShadow = '0 8px 28px rgba(251,146,60,0.45), inset 0 1px 0 rgba(255,255,255,0.18)'; }}
-                                    style={{ borderRadius: 14, border: '1.5px solid rgba(251,146,60,0.70)', background: 'rgba(140,55,10,0.50)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', padding: '10px 6px', textAlign: 'center', transition: 'transform 0.18s cubic-bezier(0.22,1,0.36,1), box-shadow 0.18s', boxShadow: '0 2px 12px rgba(251,146,60,0.25), inset 0 1px 0 rgba(255,255,255,0.15)', cursor: 'pointer' }}
+                                    style={{ borderRadius: 14, border: '1.5px solid rgba(251,146,60,0.70)', background: 'linear-gradient(145deg, #c2622a, #9c3d14)', padding: '10px 6px', textAlign: 'center', transition: 'transform 0.18s cubic-bezier(0.22,1,0.36,1), box-shadow 0.18s', boxShadow: '0 2px 12px rgba(251,146,60,0.30)', cursor: 'pointer' }}
                                 >
                                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -2208,7 +2209,7 @@ export const TavernScreen: React.FC<{
                                     onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0) scale(1)'; e.currentTarget.style.boxShadow = '0 2px 12px rgba(56,189,248,0.18), inset 0 1px 0 rgba(255,255,255,0.10)'; }}
                                     onMouseDown={e => { e.currentTarget.style.transform = 'translateY(1px) scale(0.96)'; e.currentTarget.style.boxShadow = '0 1px 6px rgba(56,189,248,0.25)'; }}
                                     onMouseUp={e => { e.currentTarget.style.transform = 'translateY(-3px) scale(1.04)'; e.currentTarget.style.boxShadow = '0 8px 28px rgba(56,189,248,0.40), inset 0 1px 0 rgba(255,255,255,0.18)'; }}
-                                    style={{ borderRadius: 14, border: '1.5px solid rgba(56,189,248,0.65)', background: 'rgba(10,60,110,0.50)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', padding: '10px 6px', textAlign: 'center', transition: 'transform 0.18s cubic-bezier(0.22,1,0.36,1), box-shadow 0.18s', boxShadow: '0 2px 12px rgba(56,189,248,0.22), inset 0 1px 0 rgba(255,255,255,0.15)', cursor: 'pointer' }}
+                                    style={{ borderRadius: 14, border: '1.5px solid rgba(56,189,248,0.65)', background: 'linear-gradient(145deg, #1a7aab, #0e4a72)', padding: '10px 6px', textAlign: 'center', transition: 'transform 0.18s cubic-bezier(0.22,1,0.36,1), box-shadow 0.18s', boxShadow: '0 2px 12px rgba(56,189,248,0.28)', cursor: 'pointer' }}
                                 >
                                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -2226,7 +2227,7 @@ export const TavernScreen: React.FC<{
                                     onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0) scale(1)'; e.currentTarget.style.boxShadow = '0 2px 12px rgba(167,139,250,0.22), inset 0 1px 0 rgba(255,255,255,0.10)'; }}
                                     onMouseDown={e => { e.currentTarget.style.transform = 'translateY(1px) scale(0.96)'; e.currentTarget.style.boxShadow = '0 1px 6px rgba(167,139,250,0.30)'; }}
                                     onMouseUp={e => { e.currentTarget.style.transform = 'translateY(-3px) scale(1.04)'; e.currentTarget.style.boxShadow = '0 8px 28px rgba(167,139,250,0.45), inset 0 1px 0 rgba(255,255,255,0.18)'; }}
-                                    style={{ borderRadius: 14, border: '1.5px solid rgba(167,139,250,0.70)', background: 'rgba(60,20,150,0.50)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', padding: '10px 6px', textAlign: 'center', transition: 'transform 0.18s cubic-bezier(0.22,1,0.36,1), box-shadow 0.18s', boxShadow: '0 2px 12px rgba(167,139,250,0.25), inset 0 1px 0 rgba(255,255,255,0.15)', cursor: 'pointer' }}
+                                    style={{ borderRadius: 14, border: '1.5px solid rgba(167,139,250,0.70)', background: 'linear-gradient(145deg, #6b31b8, #44167a)', padding: '10px 6px', textAlign: 'center', transition: 'transform 0.18s cubic-bezier(0.22,1,0.36,1), box-shadow 0.18s', boxShadow: '0 2px 12px rgba(167,139,250,0.30)', cursor: 'pointer' }}
                                 >
                                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -2249,7 +2250,7 @@ export const TavernScreen: React.FC<{
                                 onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0) scale(1)'; e.currentTarget.style.boxShadow = '0 4px 18px rgba(251,146,60,0.22), inset 0 1px 0 rgba(255,255,255,0.10)'; }}
                                 onMouseDown={e => { e.currentTarget.style.transform = 'translateY(1px) scale(0.97)'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(251,146,60,0.30)'; }}
                                 onMouseUp={e => { e.currentTarget.style.transform = 'translateY(-4px) scale(1.03)'; e.currentTarget.style.boxShadow = '0 12px 40px rgba(251,146,60,0.50), inset 0 1px 0 rgba(255,255,255,0.20)'; }}
-                                style={{ borderRadius: 20, border: '1.5px solid rgba(251,146,60,0.70)', background: 'rgba(140,55,10,0.50)', backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)', padding: '16px 16px', textAlign: 'center', transition: 'transform 0.20s cubic-bezier(0.22,1,0.36,1), box-shadow 0.20s', boxShadow: '0 4px 18px rgba(251,146,60,0.28), inset 0 1px 0 rgba(255,255,255,0.15)', cursor: 'pointer' }}
+                                style={{ borderRadius: 20, border: '1.5px solid rgba(251,146,60,0.70)', background: 'linear-gradient(145deg, #c2622a, #9c3d14)', padding: '16px 16px', textAlign: 'center', transition: 'transform 0.20s cubic-bezier(0.22,1,0.36,1), box-shadow 0.20s', boxShadow: '0 4px 18px rgba(251,146,60,0.32)', cursor: 'pointer' }}
                             >
                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontSize: 18, fontWeight: 900, color: '#fff' }}>{campUiProfile === 'gamepad' && <CampXArc />}<Sword size={20} style={{ color: '#fb923c', filter: 'drop-shadow(0 0 8px rgba(251,146,60,0.9))' }} /> Caçar</div>
                                 <div style={{ marginTop: 4, fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.22em', color: 'rgba(251,186,120,0.75)' }}>Batalha rápida</div>
@@ -2262,7 +2263,7 @@ export const TavernScreen: React.FC<{
                                 onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0) scale(1)'; e.currentTarget.style.boxShadow = '0 4px 18px rgba(56,189,248,0.20), inset 0 1px 0 rgba(255,255,255,0.10)'; }}
                                 onMouseDown={e => { e.currentTarget.style.transform = 'translateY(1px) scale(0.97)'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(56,189,248,0.25)'; }}
                                 onMouseUp={e => { e.currentTarget.style.transform = 'translateY(-4px) scale(1.03)'; e.currentTarget.style.boxShadow = '0 12px 40px rgba(56,189,248,0.45), inset 0 1px 0 rgba(255,255,255,0.20)'; }}
-                                style={{ borderRadius: 20, border: '1.5px solid rgba(56,189,248,0.65)', background: 'rgba(10,60,110,0.50)', backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)', padding: '16px 16px', textAlign: 'center', transition: 'transform 0.20s cubic-bezier(0.22,1,0.36,1), box-shadow 0.20s', boxShadow: '0 4px 18px rgba(56,189,248,0.25), inset 0 1px 0 rgba(255,255,255,0.15)', cursor: 'pointer' }}
+                                style={{ borderRadius: 20, border: '1.5px solid rgba(56,189,248,0.65)', background: 'linear-gradient(145deg, #1a7aab, #0e4a72)', padding: '16px 16px', textAlign: 'center', transition: 'transform 0.20s cubic-bezier(0.22,1,0.36,1), box-shadow 0.20s', boxShadow: '0 4px 18px rgba(56,189,248,0.28)', cursor: 'pointer' }}
                             >
                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontSize: 18, fontWeight: 900, color: '#fff' }}>{campUiProfile === 'gamepad' && <CampXArc />}<Crosshair size={20} style={{ color: '#38bdf8', filter: 'drop-shadow(0 0 8px rgba(56,189,248,0.9))' }} /> Dungeon</div>
                                 <div style={{ marginTop: 4, fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.22em', color: 'rgba(120,200,248,0.75)' }}>Modo progressivo</div>
@@ -2275,7 +2276,7 @@ export const TavernScreen: React.FC<{
                                 onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0) scale(1)'; e.currentTarget.style.boxShadow = '0 4px 18px rgba(167,139,250,0.22), inset 0 1px 0 rgba(255,255,255,0.10)'; }}
                                 onMouseDown={e => { e.currentTarget.style.transform = 'translateY(1px) scale(0.97)'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(167,139,250,0.30)'; }}
                                 onMouseUp={e => { e.currentTarget.style.transform = 'translateY(-4px) scale(1.03)'; e.currentTarget.style.boxShadow = '0 12px 40px rgba(167,139,250,0.50), inset 0 1px 0 rgba(255,255,255,0.20)'; }}
-                                style={{ borderRadius: 20, border: '1.5px solid rgba(167,139,250,0.70)', background: 'rgba(60,20,150,0.50)', backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)', padding: '16px 16px', textAlign: 'center', transition: 'transform 0.20s cubic-bezier(0.22,1,0.36,1), box-shadow 0.20s', boxShadow: '0 4px 18px rgba(167,139,250,0.28), inset 0 1px 0 rgba(255,255,255,0.15)', cursor: 'pointer' }}
+                                style={{ borderRadius: 20, border: '1.5px solid rgba(167,139,250,0.70)', background: 'linear-gradient(145deg, #6b31b8, #44167a)', padding: '16px 16px', textAlign: 'center', transition: 'transform 0.20s cubic-bezier(0.22,1,0.36,1), box-shadow 0.20s', boxShadow: '0 4px 18px rgba(167,139,250,0.32)', cursor: 'pointer' }}
                             >
                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontSize: 18, fontWeight: 900, color: '#fff' }}>{campUiProfile === 'gamepad' && <CampXArc />}<Crown size={20} style={{ color: '#a78bfa', filter: 'drop-shadow(0 0 8px rgba(167,139,250,0.9))' }} /> Torre</div>
                                 <div style={{ marginTop: 4, fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.22em', color: 'rgba(190,170,255,0.75)' }}>Roguelike</div>
@@ -2411,25 +2412,22 @@ export const TavernScreen: React.FC<{
     </AnimatedModal>
 
     {showInventoryUnlockPrompt && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-sm pointer-events-auto p-4">
-            <div className="w-full max-w-sm rounded-[28px] border border-[#cfab91] bg-[#f7ecdd] shadow-[0_30px_80px_rgba(107,49,65,0.22)] overflow-hidden" onClick={e => e.stopPropagation()}>
-                <div className="bg-[#6b3141] px-6 py-5 text-center">
-                    <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.3em] text-[#f6eadc]">
-                        <GameAssetIcon name="bag" size={14} /> Mochila
+        <div className="absolute inset-0 z-50 flex items-end sm:items-center justify-center pointer-events-auto p-4 pb-6 rpg-modal-overlay-in" style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
+            <div className="w-full max-w-sm rounded-[24px] overflow-hidden shadow-[0_32px_80px_rgba(0,0,0,0.6)] rpg-modal-panel-in" style={{ border: '1px solid rgba(251,191,36,0.30)' }} onClick={e => e.stopPropagation()}>
+                <div className="relative flex flex-col items-center justify-center gap-3 px-6 py-7" style={{ background: 'linear-gradient(145deg, #7c4f0a, #4a2d06)' }}>
+                    <div className="w-16 h-16 rounded-2xl flex items-center justify-center shadow-[0_8px_24px_rgba(0,0,0,0.4)]" style={{ background: 'rgba(251,191,36,0.18)', border: '1.5px solid rgba(251,191,36,0.35)' }}>
+                        <img src={ICONE_MOCHILA_URL} style={{ width: 40, height: 40, objectFit: 'contain', filter: 'drop-shadow(0 2px 8px rgba(251,191,36,0.6))' }} alt="" />
                     </div>
-                    <h3 className="mt-3 text-2xl font-black text-white">Mochila liberada</h3>
-                    <p className="mt-1.5 text-sm text-[#dcc0aa]">Agora voce ja pode abrir a mochila para ver todos os itens conquistados nas batalhas.</p>
+                    <div className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[9px] font-black uppercase tracking-[0.28em] text-amber-200/80" style={{ background: 'rgba(251,191,36,0.15)', border: '1px solid rgba(251,191,36,0.25)' }}>
+                        Novo desbloqueio
+                    </div>
+                    <h3 className="text-xl font-black text-white text-center leading-tight">Mochila liberada!</h3>
+                    <p className="text-xs text-amber-100/70 text-center">Agora você pode abrir a mochila para ver todos os itens conquistados nas batalhas.</p>
                 </div>
-
-                <div className="px-6 py-5">
-                    <button
-                        onClick={() => {
-                            setShowInventoryUnlockPrompt(false);
-                            onAcknowledgeInventoryUnlock?.();
-                            openInventoryModal('all');
-                        }}
-                        className="w-full rounded-xl bg-[#4d7a96] px-4 py-3 font-black text-white shadow-[0_8px_24px_rgba(77,122,150,0.28)] transition-all hover:bg-[#5a8aa6]"
-                    >
+                <div className="px-5 py-4" style={{ background: 'rgba(15,8,2,0.88)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)' }}>
+                    <button onClick={() => { setShowInventoryUnlockPrompt(false); onAcknowledgeInventoryUnlock?.(); openInventoryModal('all'); }}
+                        className="w-full rounded-xl py-3 font-black text-sm text-white transition-all hover:brightness-110 hover:scale-[1.02] active:scale-95"
+                        style={{ background: 'linear-gradient(135deg, #b45309, #78350f)', border: '1px solid rgba(251,191,36,0.35)', boxShadow: '0 6px 20px rgba(180,83,9,0.40)' }}>
                         Ver mochila
                     </button>
                 </div>
@@ -2438,25 +2436,22 @@ export const TavernScreen: React.FC<{
     )}
 
     {showCardsUnlockPrompt && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-sm pointer-events-auto p-4">
-            <div className="w-full max-w-sm rounded-[28px] border border-[#cfab91] bg-[#f7ecdd] shadow-[0_30px_80px_rgba(107,49,65,0.22)] overflow-hidden" onClick={e => e.stopPropagation()}>
-                <div className="bg-[#6b3141] px-6 py-5 text-center">
-                    <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.3em] text-[#f6eadc]">
-                        <GameAssetIcon name="scroll" size={14} /> Cartas
+        <div className="absolute inset-0 z-50 flex items-end sm:items-center justify-center pointer-events-auto p-4 pb-6 rpg-modal-overlay-in" style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
+            <div className="w-full max-w-sm rounded-[24px] overflow-hidden shadow-[0_32px_80px_rgba(0,0,0,0.6)] rpg-modal-panel-in" style={{ border: '1px solid rgba(167,139,250,0.30)' }} onClick={e => e.stopPropagation()}>
+                <div className="relative flex flex-col items-center justify-center gap-3 px-6 py-7" style={{ background: 'linear-gradient(145deg, #4c1d95, #2d1066)' }}>
+                    <div className="w-16 h-16 rounded-2xl flex items-center justify-center shadow-[0_8px_24px_rgba(0,0,0,0.4)]" style={{ background: 'rgba(167,139,250,0.18)', border: '1.5px solid rgba(167,139,250,0.35)' }}>
+                        <img src={BOOK_HABILIDADES_URL} style={{ width: 40, height: 40, objectFit: 'contain', filter: 'drop-shadow(0 2px 8px rgba(167,139,250,0.7))' }} alt="" />
                     </div>
-                    <h3 className="mt-3 text-2xl font-black text-white">Evolucao liberada</h3>
-                    <p className="mt-1.5 text-sm text-[#dcc0aa]">Voce ganhou sua primeira carta. Abra o perfil para ver suas cartas de evolucao.</p>
+                    <div className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[9px] font-black uppercase tracking-[0.28em] text-violet-200/80" style={{ background: 'rgba(167,139,250,0.15)', border: '1px solid rgba(167,139,250,0.25)' }}>
+                        Novo desbloqueio
+                    </div>
+                    <h3 className="text-xl font-black text-white text-center leading-tight">Evolução liberada!</h3>
+                    <p className="text-xs text-violet-100/70 text-center">Você ganhou sua primeira carta. Abra o perfil para ver suas cartas de evolução.</p>
                 </div>
-
-                <div className="px-6 py-5">
-                    <button
-                        onClick={() => {
-                            setShowCardsUnlockPrompt(false);
-                            onAcknowledgeCardsUnlock?.();
-                            openProfileModal('cards');
-                        }}
-                        className="w-full rounded-xl bg-[#4d7a96] px-4 py-3 font-black text-white shadow-[0_8px_24px_rgba(77,122,150,0.28)] transition-all hover:bg-[#5a8aa6]"
-                    >
+                <div className="px-5 py-4" style={{ background: 'rgba(8,2,20,0.88)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)' }}>
+                    <button onClick={() => { setShowCardsUnlockPrompt(false); onAcknowledgeCardsUnlock?.(); openProfileModal('cards'); }}
+                        className="w-full rounded-xl py-3 font-black text-sm text-white transition-all hover:brightness-110 hover:scale-[1.02] active:scale-95"
+                        style={{ background: 'linear-gradient(135deg, #6b31b8, #44167a)', border: '1px solid rgba(167,139,250,0.35)', boxShadow: '0 6px 20px rgba(107,49,184,0.40)' }}>
                         Ver cartas
                     </button>
                 </div>
@@ -2465,25 +2460,22 @@ export const TavernScreen: React.FC<{
     )}
 
     {showSkillsUnlockPrompt && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-sm pointer-events-auto p-4">
-            <div className="w-full max-w-sm rounded-[28px] border border-[#cfab91] bg-[#f7ecdd] shadow-[0_30px_80px_rgba(107,49,65,0.22)] overflow-hidden" onClick={e => e.stopPropagation()}>
-                <div className="bg-[#6b3141] px-6 py-5 text-center">
-                    <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.3em] text-[#f6eadc]">
-                        <Sparkles size={14} /> Habilidades
+        <div className="absolute inset-0 z-50 flex items-end sm:items-center justify-center pointer-events-auto p-4 pb-6 rpg-modal-overlay-in" style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
+            <div className="w-full max-w-sm rounded-[24px] overflow-hidden shadow-[0_32px_80px_rgba(0,0,0,0.6)] rpg-modal-panel-in" style={{ border: '1px solid rgba(52,211,153,0.30)' }} onClick={e => e.stopPropagation()}>
+                <div className="relative flex flex-col items-center justify-center gap-3 px-6 py-7" style={{ background: 'linear-gradient(145deg, #065f46, #022c22)' }}>
+                    <div className="w-16 h-16 rounded-2xl flex items-center justify-center shadow-[0_8px_24px_rgba(0,0,0,0.4)]" style={{ background: 'rgba(52,211,153,0.18)', border: '1.5px solid rgba(52,211,153,0.35)' }}>
+                        <Sparkles size={32} style={{ color: '#6ee7b7', filter: 'drop-shadow(0 2px 8px rgba(52,211,153,0.7))' }} />
                     </div>
-                    <h3 className="mt-3 text-2xl font-black text-white">Habilidades liberadas</h3>
-                    <p className="mt-1.5 text-sm text-[#dcc0aa]">Voce conquistou sua primeira habilidade. Abra o perfil para ver e gerenciar todas as habilidades da sua classe.</p>
+                    <div className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[9px] font-black uppercase tracking-[0.28em] text-emerald-200/80" style={{ background: 'rgba(52,211,153,0.15)', border: '1px solid rgba(52,211,153,0.25)' }}>
+                        Novo desbloqueio
+                    </div>
+                    <h3 className="text-xl font-black text-white text-center leading-tight">Habilidades liberadas!</h3>
+                    <p className="text-xs text-emerald-100/70 text-center">Você conquistou sua primeira habilidade. Abra o perfil para ver e gerenciar todas as habilidades da sua classe.</p>
                 </div>
-
-                <div className="px-6 py-5">
-                    <button
-                        onClick={() => {
-                            setShowSkillsUnlockPrompt(false);
-                            onAcknowledgeSkillsUnlock?.();
-                            openProfileModal('skills');
-                        }}
-                        className="w-full rounded-xl bg-[#4d7a96] px-4 py-3 font-black text-white shadow-[0_8px_24px_rgba(77,122,150,0.28)] transition-all hover:bg-[#5a8aa6]"
-                    >
+                <div className="px-5 py-4" style={{ background: 'rgba(2,15,8,0.88)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)' }}>
+                    <button onClick={() => { setShowSkillsUnlockPrompt(false); onAcknowledgeSkillsUnlock?.(); openProfileModal('skills'); }}
+                        className="w-full rounded-xl py-3 font-black text-sm text-white transition-all hover:brightness-110 hover:scale-[1.02] active:scale-95"
+                        style={{ background: 'linear-gradient(135deg, #065f46, #022c22)', border: '1px solid rgba(52,211,153,0.35)', boxShadow: '0 6px 20px rgba(6,95,70,0.50)' }}>
                         Ver habilidades
                     </button>
                 </div>
@@ -2492,26 +2484,23 @@ export const TavernScreen: React.FC<{
     )}
 
     {showConstellationUnlockPrompt && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-sm pointer-events-auto p-4">
-            <div className="w-full max-w-sm rounded-[28px] border border-[#cfab91] bg-[#f7ecdd] shadow-[0_30px_80px_rgba(107,49,65,0.22)] overflow-hidden" onClick={e => e.stopPropagation()}>
-                <div className="bg-[#6b3141] px-6 py-5 text-center">
-                    <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.3em] text-[#f6eadc]">
-                        <Orbit size={14} /> Constelacao
+        <div className="absolute inset-0 z-50 flex items-end sm:items-center justify-center pointer-events-auto p-4 pb-6 rpg-modal-overlay-in" style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
+            <div className="w-full max-w-sm rounded-[24px] overflow-hidden shadow-[0_32px_80px_rgba(0,0,0,0.6)] rpg-modal-panel-in" style={{ border: '1px solid rgba(99,102,241,0.30)' }} onClick={e => e.stopPropagation()}>
+                <div className="relative flex flex-col items-center justify-center gap-3 px-6 py-7" style={{ background: 'linear-gradient(145deg, #1e1b4b, #0f0a2e)' }}>
+                    <div className="w-16 h-16 rounded-2xl flex items-center justify-center shadow-[0_8px_24px_rgba(0,0,0,0.4)]" style={{ background: 'rgba(99,102,241,0.18)', border: '1.5px solid rgba(99,102,241,0.35)' }}>
+                        <Orbit size={32} style={{ color: '#a5b4fc', filter: 'drop-shadow(0 2px 8px rgba(99,102,241,0.8))' }} />
                     </div>
-                    <h3 className="mt-3 text-2xl font-black text-white">Constelacao habilitada</h3>
-                    <p className="mt-1.5 text-sm text-[#dcc0aa]">Ao subir de nivel voce ganha pontos de evolucao. Agora voce pode abrir sua constelacao.</p>
+                    <div className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[9px] font-black uppercase tracking-[0.28em] text-indigo-200/80" style={{ background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.25)' }}>
+                        Novo desbloqueio
+                    </div>
+                    <h3 className="text-xl font-black text-white text-center leading-tight">Constelação habilitada!</h3>
+                    <p className="text-xs text-indigo-100/70 text-center">Ao subir de nível você ganha pontos de evolução. Agora você pode abrir sua constelação.</p>
                 </div>
-
-                <div className="px-6 py-5">
-                    <button
-                        onClick={() => {
-                            setShowConstellationUnlockPrompt(false);
-                            onAcknowledgeConstellationUnlock?.();
-                            openProfileModal('constellation');
-                        }}
-                        className="w-full rounded-xl bg-[#4d7a96] px-4 py-3 font-black text-white shadow-[0_8px_24px_rgba(77,122,150,0.28)] transition-all hover:bg-[#5a8aa6]"
-                    >
-                        Ver constelacao
+                <div className="px-5 py-4" style={{ background: 'rgba(4,2,20,0.88)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)' }}>
+                    <button onClick={() => { setShowConstellationUnlockPrompt(false); onAcknowledgeConstellationUnlock?.(); openProfileModal('constellation'); }}
+                        className="w-full rounded-xl py-3 font-black text-sm text-white transition-all hover:brightness-110 hover:scale-[1.02] active:scale-95"
+                        style={{ background: 'linear-gradient(135deg, #3730a3, #1e1b4b)', border: '1px solid rgba(99,102,241,0.35)', boxShadow: '0 6px 20px rgba(55,48,163,0.45)' }}>
+                        Ver constelação
                     </button>
                 </div>
             </div>
@@ -2519,25 +2508,22 @@ export const TavernScreen: React.FC<{
     )}
 
     {showMerchantUnlockPrompt && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-sm pointer-events-auto p-4">
-            <div className="w-full max-w-sm rounded-[28px] border border-[#cfab91] bg-[#f7ecdd] shadow-[0_30px_80px_rgba(107,49,65,0.22)] overflow-hidden" onClick={e => e.stopPropagation()}>
-                <div className="bg-[#6b3141] px-6 py-5 text-center">
-                    <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.3em] text-[#f6eadc]">
-                        <GameAssetIcon name="chest" size={14} /> Mercador
+        <div className="absolute inset-0 z-50 flex items-end sm:items-center justify-center pointer-events-auto p-4 pb-6 rpg-modal-overlay-in" style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
+            <div className="w-full max-w-sm rounded-[24px] overflow-hidden shadow-[0_32px_80px_rgba(0,0,0,0.6)] rpg-modal-panel-in" style={{ border: '1px solid rgba(251,146,60,0.30)' }} onClick={e => e.stopPropagation()}>
+                <div className="relative flex flex-col items-center justify-center gap-3 px-6 py-7" style={{ background: 'linear-gradient(145deg, #7c2d12, #431407)' }}>
+                    <div className="w-16 h-16 rounded-2xl flex items-center justify-center shadow-[0_8px_24px_rgba(0,0,0,0.4)]" style={{ background: 'rgba(251,146,60,0.18)', border: '1.5px solid rgba(251,146,60,0.35)' }}>
+                        <img src={ICONE_MERCADOR_URL} style={{ width: 40, height: 40, objectFit: 'contain', filter: 'drop-shadow(0 2px 8px rgba(251,146,60,0.7))' }} alt="" />
                     </div>
-                    <h3 className="mt-3 text-2xl font-black text-white">Mercador liberado</h3>
-                    <p className="mt-1.5 text-sm text-[#dcc0aa]">No mercador voce pode comprar itens de cura, armas e equipamentos para ficar mais forte. Tudo que comprar fica na mochila para usar nas batalhas.</p>
+                    <div className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[9px] font-black uppercase tracking-[0.28em] text-orange-200/80" style={{ background: 'rgba(251,146,60,0.15)', border: '1px solid rgba(251,146,60,0.25)' }}>
+                        Novo desbloqueio
+                    </div>
+                    <h3 className="text-xl font-black text-white text-center leading-tight">Mercador liberado!</h3>
+                    <p className="text-xs text-orange-100/70 text-center">No mercador você pode comprar itens de cura, armas e equipamentos. Tudo que comprar fica na mochila.</p>
                 </div>
-
-                <div className="px-6 py-5">
-                    <button
-                        onClick={() => {
-                            setShowMerchantUnlockPrompt(false);
-                            onAcknowledgeMerchantUnlock?.();
-                            handleServiceTransition(onShop);
-                        }}
-                        className="w-full rounded-xl bg-[#b87a3a] px-4 py-3 font-black text-white shadow-[0_8px_24px_rgba(184,122,58,0.3)] transition-all hover:bg-[#c88a4a]"
-                    >
+                <div className="px-5 py-4" style={{ background: 'rgba(15,5,2,0.88)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)' }}>
+                    <button onClick={() => { setShowMerchantUnlockPrompt(false); onAcknowledgeMerchantUnlock?.(); handleServiceTransition(onShop); }}
+                        className="w-full rounded-xl py-3 font-black text-sm text-white transition-all hover:brightness-110 hover:scale-[1.02] active:scale-95"
+                        style={{ background: 'linear-gradient(135deg, #c2622a, #9c3d14)', border: '1px solid rgba(251,146,60,0.35)', boxShadow: '0 6px 20px rgba(194,98,42,0.40)' }}>
                         Ver mercador
                     </button>
                 </div>
@@ -2546,24 +2532,23 @@ export const TavernScreen: React.FC<{
     )}
 
     {showDungeonUnlockPrompt && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-sm pointer-events-auto p-4">
-            <div className="w-full max-w-sm rounded-[28px] border border-[#cfab91] bg-[#f7ecdd] shadow-[0_30px_80px_rgba(107,49,65,0.22)] overflow-hidden" onClick={e => e.stopPropagation()}>
-                <div className="bg-[#6b3141] px-6 py-5 text-center">
-                    <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.3em] text-[#f6eadc]">
-                        <GameAssetIcon name="map" size={14} /> Dungeon
+        <div className="absolute inset-0 z-50 flex items-end sm:items-center justify-center pointer-events-auto p-4 pb-6 rpg-modal-overlay-in" style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
+            <div className="w-full max-w-sm rounded-[24px] overflow-hidden shadow-[0_32px_80px_rgba(0,0,0,0.6)] rpg-modal-panel-in" style={{ border: '1px solid rgba(56,189,248,0.25)' }} onClick={e => e.stopPropagation()}>
+                <div className="relative h-36 overflow-hidden">
+                    <img src={PORTAL_THUMB_DUNGEON_URL} alt="" className="w-full h-full object-cover" style={{ filter: 'brightness(0.65)' }} />
+                    <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, rgba(10,60,110,0.40) 0%, rgba(0,0,0,0.78) 100%)' }} />
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
+                        <div className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[9px] font-black uppercase tracking-[0.28em] text-sky-200/90" style={{ background: 'rgba(56,189,248,0.20)', border: '1px solid rgba(56,189,248,0.40)' }}>
+                            Novo desbloqueio
+                        </div>
+                        <h3 className="text-xl font-black text-white drop-shadow-lg text-center">Dungeon liberada!</h3>
                     </div>
-                    <h3 className="mt-3 text-2xl font-black text-white">Dungeon liberada</h3>
-                    <p className="mt-1.5 text-sm text-[#dcc0aa]">Um novo modo de risco foi desbloqueado. Na dungeon voce enfrenta uma sequ�ncia longa de inimigos para acumular espolio raro, mas derrotas podem custar tudo.</p>
                 </div>
-
-                <div className="px-6 py-5">
-                    <button
-                        onClick={() => {
-                            setShowDungeonUnlockPrompt(false);
-                            onAcknowledgeDungeonUnlock?.();
-                        }}
-                        className="w-full rounded-xl bg-[#4d7a96] px-4 py-3 font-black text-white shadow-[0_8px_24px_rgba(77,122,150,0.28)] transition-all hover:bg-[#5a8aa6]"
-                    >
+                <div className="flex flex-col gap-2.5 px-5 py-4" style={{ background: 'rgba(2,10,25,0.88)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)' }}>
+                    <p className="text-xs text-white/70 text-center leading-relaxed">Um novo modo de risco foi desbloqueado. Enfrente uma sequência longa de inimigos para acumular espólio raro — mas derrotas podem custar tudo.</p>
+                    <button onClick={() => { setShowDungeonUnlockPrompt(false); onAcknowledgeDungeonUnlock?.(); }}
+                        className="w-full rounded-xl py-3 font-black text-sm text-white transition-all hover:brightness-110 hover:scale-[1.02] active:scale-95 mt-1"
+                        style={{ background: 'linear-gradient(135deg, #1a7aab, #0e4a72)', border: '1px solid rgba(56,189,248,0.35)', boxShadow: '0 6px 20px rgba(26,122,171,0.40)' }}>
                         Entendi
                     </button>
                 </div>
@@ -2572,25 +2557,22 @@ export const TavernScreen: React.FC<{
     )}
 
     {showAlchemistUnlockPrompt && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-sm pointer-events-auto p-4">
-            <div className="w-full max-w-sm rounded-[28px] border border-[#96bccb] bg-[#eef8fe] shadow-[0_30px_80px_rgba(47,98,116,0.26)] overflow-hidden" onClick={e => e.stopPropagation()}>
-                <div className="bg-[linear-gradient(135deg,#2b6878,#66b8d2)] px-6 py-5 text-center">
-                    <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.3em] text-[#f2fbff]">
-                        <FlaskConical size={12} /> Alquimista
+        <div className="absolute inset-0 z-50 flex items-end sm:items-center justify-center pointer-events-auto p-4 pb-6 rpg-modal-overlay-in" style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
+            <div className="w-full max-w-sm rounded-[24px] overflow-hidden shadow-[0_32px_80px_rgba(0,0,0,0.6)] rpg-modal-panel-in" style={{ border: '1px solid rgba(52,211,238,0.25)' }} onClick={e => e.stopPropagation()}>
+                <div className="relative flex flex-col items-center justify-center gap-3 px-6 py-7" style={{ background: 'linear-gradient(145deg, #164e63, #082f3d)' }}>
+                    <div className="w-16 h-16 rounded-2xl flex items-center justify-center shadow-[0_8px_24px_rgba(0,0,0,0.4)]" style={{ background: 'rgba(52,211,238,0.18)', border: '1.5px solid rgba(52,211,238,0.35)' }}>
+                        <img src={ICONE_ALQUIMISTA_URL} style={{ width: 40, height: 40, objectFit: 'contain', filter: 'drop-shadow(0 2px 8px rgba(52,211,238,0.7))' }} alt="" />
                     </div>
-                    <h3 className="mt-3 text-2xl font-black text-white">Loja do Alquimista</h3>
-                    <p className="mt-1.5 text-sm text-[#e4f6ff]">Voce desbloqueou o alquimista. Agora pode comprar cartas e itens unicos com raridades comum, rara e lendaria.</p>
+                    <div className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[9px] font-black uppercase tracking-[0.28em] text-cyan-200/80" style={{ background: 'rgba(52,211,238,0.15)', border: '1px solid rgba(52,211,238,0.25)' }}>
+                        Novo desbloqueio
+                    </div>
+                    <h3 className="text-xl font-black text-white text-center leading-tight">Loja do Alquimista!</h3>
+                    <p className="text-xs text-cyan-100/70 text-center">Você desbloqueou o alquimista. Agora pode comprar cartas e itens únicos com raridades comum, rara e lendária.</p>
                 </div>
-
-                <div className="px-6 py-5">
-                    <button
-                        onClick={() => {
-                            setShowAlchemistUnlockPrompt(false);
-                            onAcknowledgeAlchemistUnlock?.();
-                            handleServiceTransition(onAlchemist);
-                        }}
-                        className="w-full rounded-xl bg-[#2b6878] px-4 py-3 font-black text-white shadow-[0_8px_24px_rgba(47,98,116,0.32)] transition-all hover:bg-[#357b8e]"
-                    >
+                <div className="px-5 py-4" style={{ background: 'rgba(2,12,16,0.88)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)' }}>
+                    <button onClick={() => { setShowAlchemistUnlockPrompt(false); onAcknowledgeAlchemistUnlock?.(); handleServiceTransition(onAlchemist); }}
+                        className="w-full rounded-xl py-3 font-black text-sm text-white transition-all hover:brightness-110 hover:scale-[1.02] active:scale-95"
+                        style={{ background: 'linear-gradient(135deg, #0e7490, #082f3d)', border: '1px solid rgba(52,211,238,0.35)', boxShadow: '0 6px 20px rgba(14,116,144,0.45)' }}>
                         Ver alquimista
                     </button>
                 </div>
@@ -2599,25 +2581,22 @@ export const TavernScreen: React.FC<{
     )}
 
     {showMissionsUnlockPrompt && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-sm pointer-events-auto p-4">
-            <div className="w-full max-w-sm rounded-[28px] border border-[#cfab91] bg-[#f7ecdd] shadow-[0_30px_80px_rgba(107,49,65,0.22)] overflow-hidden" onClick={e => e.stopPropagation()}>
-                <div className="bg-[#6b3141] px-6 py-5 text-center">
-                    <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.3em] text-[#f6eadc]">
-                        <img src={BOOK_MISSOES_URL} width={14} alt="" /> Diário de Missões
+        <div className="absolute inset-0 z-50 flex items-end sm:items-center justify-center pointer-events-auto p-4 pb-6 rpg-modal-overlay-in" style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
+            <div className="w-full max-w-sm rounded-[24px] overflow-hidden shadow-[0_32px_80px_rgba(0,0,0,0.6)] rpg-modal-panel-in" style={{ border: '1px solid rgba(251,191,36,0.25)' }} onClick={e => e.stopPropagation()}>
+                <div className="relative flex flex-col items-center justify-center gap-3 px-6 py-7" style={{ background: 'linear-gradient(145deg, #78350f, #3d1a05)' }}>
+                    <div className="w-16 h-16 rounded-2xl flex items-center justify-center shadow-[0_8px_24px_rgba(0,0,0,0.4)]" style={{ background: 'rgba(251,191,36,0.18)', border: '1.5px solid rgba(251,191,36,0.35)' }}>
+                        <img src={BOOK_MISSOES_URL} style={{ width: 40, height: 40, objectFit: 'contain', filter: 'drop-shadow(0 2px 8px rgba(251,191,36,0.7))' }} alt="" />
                     </div>
-                    <h3 className="mt-3 text-2xl font-black text-white">Diário de Missões</h3>
-                    <p className="mt-1.5 text-sm text-[#dcc0aa]">Registre suas conquistas em batalha e ganhe recompensas de ouro completando missões progressivas.</p>
+                    <div className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[9px] font-black uppercase tracking-[0.28em] text-amber-200/80" style={{ background: 'rgba(251,191,36,0.15)', border: '1px solid rgba(251,191,36,0.25)' }}>
+                        Novo desbloqueio
+                    </div>
+                    <h3 className="text-xl font-black text-white text-center leading-tight">Diário de Missões!</h3>
+                    <p className="text-xs text-amber-100/70 text-center">Registre suas conquistas em batalha e ganhe recompensas de ouro completando missões progressivas.</p>
                 </div>
-                <div className="px-6 py-5">
-                    <button
-                        onClick={() => {
-                            setShowMissionsUnlockPrompt(false);
-                            onAcknowledgeMissionsUnlock?.();
-                            setShowMissionsScreen(true);
-                            uiSfx.play('modal_open');
-                        }}
-                        className="w-full rounded-xl bg-[#4d7a96] px-4 py-3 font-black text-white shadow-[0_8px_24px_rgba(77,122,150,0.28)] transition-all hover:bg-[#5a8aa6]"
-                    >
+                <div className="px-5 py-4" style={{ background: 'rgba(12,6,2,0.88)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)' }}>
+                    <button onClick={() => { setShowMissionsUnlockPrompt(false); onAcknowledgeMissionsUnlock?.(); setShowMissionsScreen(true); uiSfx.play('modal_open'); }}
+                        className="w-full rounded-xl py-3 font-black text-sm text-white transition-all hover:brightness-110 hover:scale-[1.02] active:scale-95"
+                        style={{ background: 'linear-gradient(135deg, #b45309, #78350f)', border: '1px solid rgba(251,191,36,0.35)', boxShadow: '0 6px 20px rgba(180,83,9,0.40)' }}>
                         Ver Diário de Missões
                     </button>
                 </div>
@@ -2626,112 +2605,124 @@ export const TavernScreen: React.FC<{
     )}
 
     {showHuntIntroConfirm && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-sm pointer-events-auto p-4" onClick={() => setShowHuntIntroConfirm(false)}>
-            <div className="w-full max-w-sm rounded-[28px] border border-[#cfab91] bg-[#f7ecdd] shadow-[0_30px_80px_rgba(107,49,65,0.22)] overflow-hidden" onClick={e => e.stopPropagation()}>
-                <div className="bg-[#6b3141] px-6 py-5 text-center">
-                    <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.3em] text-[#f6eadc]">
-                        <Sword size={12} /> Caca
+        <div className="absolute inset-0 z-50 flex items-end sm:items-center justify-center pointer-events-auto p-4 pb-6 rpg-modal-overlay-in" style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }} onClick={() => setShowHuntIntroConfirm(false)}>
+            <div className="w-full max-w-sm rounded-[24px] overflow-hidden shadow-[0_32px_80px_rgba(0,0,0,0.6)] rpg-modal-panel-in" style={{ border: '1px solid rgba(251,146,60,0.30)' }} onClick={e => e.stopPropagation()}>
+                {/* Hero image */}
+                <div className="relative h-40 overflow-hidden">
+                    <img src={PORTAL_THUMB_MOUNTAIN_URL} alt="" className="w-full h-full object-cover" style={{ filter: 'brightness(0.75)' }} />
+                    <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, rgba(140,55,10,0.40) 0%, rgba(0,0,0,0.70) 100%)' }} />
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
+                        <div className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.28em] text-white/90" style={{ background: 'rgba(251,146,60,0.25)', border: '1px solid rgba(251,146,60,0.45)' }}>
+                            <Sword size={11} /> Caçar
+                        </div>
+                        <h3 className="text-2xl font-black text-white drop-shadow-lg">Entrar na Caçada?</h3>
+                        <p className="text-xs text-orange-200/80">Primeiro passo da sua jornada.</p>
                     </div>
-                    <h3 className="mt-3 text-2xl font-black text-white">Entrar na Caca?</h3>
-                    <p className="mt-1.5 text-sm text-[#dcc0aa]">Primeiro passo da sua jornada.</p>
                 </div>
-
-                <div className="flex flex-col gap-3 px-6 py-5">
-                    <div className="flex items-start gap-3 rounded-2xl border border-[#4d7a96]/25 bg-[#4d7a96]/8 px-4 py-3">
-                        <Crosshair size={16} className="text-[#4d7a96] mt-0.5 shrink-0" />
-                        <p className="text-sm text-[#6b3141] leading-snug"><span className="font-black">Caca e batalha curta.</span> Enfrente inimigos, ganhe experiencia, conquiste itens e evolua no seu proprio ritmo.</p>
+                {/* Body glass */}
+                <div className="flex flex-col gap-2.5 px-5 py-4" style={{ background: 'rgba(20,10,5,0.82)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)' }}>
+                    <div className="flex items-start gap-3 rounded-xl px-3.5 py-3" style={{ background: 'rgba(251,146,60,0.10)', border: '1px solid rgba(251,146,60,0.22)' }}>
+                        <Crosshair size={15} style={{ color: '#fb923c', marginTop: 1, flexShrink: 0 }} />
+                        <p className="text-xs text-white/80 leading-snug"><span className="font-black text-white">Caça e batalha curta.</span> Enfrente inimigos, ganhe experiência, conquiste itens e evolua no seu ritmo.</p>
                     </div>
                     {fleeUnlocked && (
-                        <div className="flex items-start gap-3 rounded-2xl border border-[#c44b54]/25 bg-[#c44b54]/8 px-4 py-3">
-                            <AlertTriangle size={16} className="text-[#c44b54] mt-0.5 shrink-0" />
-                            <p className="text-sm text-[#6b3141] leading-snug"><span className="font-black">Voce pode fugir.</span> Se quiser recuar durante a luta, use a opcao de retirada.</p>
+                        <div className="flex items-start gap-3 rounded-xl px-3.5 py-3" style={{ background: 'rgba(239,68,68,0.10)', border: '1px solid rgba(239,68,68,0.22)' }}>
+                            <AlertTriangle size={15} style={{ color: '#f87171', marginTop: 1, flexShrink: 0 }} />
+                            <p className="text-xs text-white/80 leading-snug"><span className="font-black text-white">Você pode fugir.</span> Se quiser recuar durante a luta, use a opção de retirada.</p>
                         </div>
                     )}
-                </div>
-
-                <div className="grid grid-cols-2 gap-3 px-6 pb-6">
-                    <button onClick={() => setShowHuntIntroConfirm(false)} className="rounded-xl border border-[#cfab91] bg-[#f4e5d4] px-4 py-3 font-black text-[#6b3141] transition-colors hover:bg-[#e9d7c2]">
-                        Cancelar
-                    </button>
-                    <button onClick={confirmEnterHunt} className="rounded-xl bg-[#b87a3a] px-4 py-3 font-black text-white shadow-[0_8px_24px_rgba(184,122,58,0.3)] transition-all hover:bg-[#c88a4a]">
-                        Entrar
-                    </button>
+                    <div className="grid grid-cols-2 gap-2.5 mt-1">
+                        <button onClick={() => setShowHuntIntroConfirm(false)} className="rounded-xl py-3 font-black text-sm text-white/70 transition-all hover:text-white hover:scale-[1.02] active:scale-95" style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)' }}>
+                            Cancelar
+                        </button>
+                        <button onClick={confirmEnterHunt} className="rounded-xl py-3 font-black text-sm text-white transition-all hover:brightness-110 hover:scale-[1.02] active:scale-95" style={{ background: 'linear-gradient(135deg, #c2622a, #9c3d14)', border: '1px solid rgba(251,146,60,0.40)', boxShadow: '0 6px 20px rgba(251,146,60,0.35)' }}>
+                            Entrar
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
     )}
 
     {showDungeonConfirm && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-sm pointer-events-auto p-4" onClick={() => setShowDungeonConfirm(false)}>
-            <div className="w-full max-w-sm rounded-[28px] border border-[#cfab91] bg-[#f7ecdd] shadow-[0_30px_80px_rgba(107,49,65,0.22)] overflow-hidden" onClick={e => e.stopPropagation()}>
-                <div className="bg-[#6b3141] px-6 py-5 text-center">
-                    <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.3em] text-[#f6eadc]">
-                        <Crosshair size={12} /> Dungeon
-                    </div>
-                    <h3 className="mt-3 text-2xl font-black text-white">Entrar na Dungeon?</h3>
-                    <p className="mt-1.5 text-sm text-[#dcc0aa]">Leia as regras antes de entrar.</p>
-                </div>
-
-                <div className="flex flex-col gap-3 px-6 py-5">
-                    <div className="flex items-start gap-3 rounded-2xl border border-[#c44b54]/25 bg-[#c44b54]/8 px-4 py-3">
-                        <AlertTriangle size={16} className="text-[#c44b54] mt-0.5 shrink-0" />
-                        <p className="text-sm text-[#6b3141] leading-snug"><span className="font-black">Sem fuga.</span> Uma vez dentro, n�o � poss�vel abandonar a dungeon voluntariamente.</p>
-                    </div>
-                    <div className="flex items-start gap-3 rounded-2xl border border-[#c44b54]/25 bg-[#c44b54]/8 px-4 py-3">
-                        <Skull size={16} className="text-[#c44b54] mt-0.5 shrink-0" />
-                        <p className="text-sm text-[#6b3141] leading-snug"><span className="font-black">Morte = tudo perdido.</span> Ouro, XP, diamantes e itens acumulados durante a dungeon s�o perdidos.</p>
-                    </div>
-                    <div className="flex items-start gap-3 rounded-2xl border border-[#4d7a96]/25 bg-[#4d7a96]/8 px-4 py-3">
-                        <Sparkles size={16} className="text-[#4d7a96] mt-0.5 shrink-0" />
-                        <p className="text-sm text-[#6b3141] leading-snug"><span className="font-black">Derrotar o boss = vit�ria total.</span> Tudo que voc� acumulou ao longo da dungeon � seu ao vencer o chef�o.</p>
+        <div className="absolute inset-0 z-50 flex items-end sm:items-center justify-center pointer-events-auto p-4 pb-6 rpg-modal-overlay-in" style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }} onClick={() => setShowDungeonConfirm(false)}>
+            <div className="w-full max-w-sm rounded-[24px] overflow-hidden shadow-[0_32px_80px_rgba(0,0,0,0.6)] rpg-modal-panel-in" style={{ border: '1px solid rgba(56,189,248,0.25)' }} onClick={e => e.stopPropagation()}>
+                {/* Hero image */}
+                <div className="relative h-40 overflow-hidden">
+                    <img src={PORTAL_THUMB_DUNGEON_URL} alt="" className="w-full h-full object-cover" style={{ filter: 'brightness(0.70)' }} />
+                    <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, rgba(10,60,110,0.45) 0%, rgba(0,0,0,0.75) 100%)' }} />
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
+                        <div className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.28em] text-white/90" style={{ background: 'rgba(56,189,248,0.20)', border: '1px solid rgba(56,189,248,0.40)' }}>
+                            <Crosshair size={11} /> Dungeon
+                        </div>
+                        <h3 className="text-2xl font-black text-white drop-shadow-lg">Entrar na Dungeon?</h3>
+                        <p className="text-xs text-sky-200/80">Leia as regras antes de entrar.</p>
                     </div>
                 </div>
-
-                <div className="grid grid-cols-2 gap-3 px-6 pb-6">
-                    <button onClick={() => setShowDungeonConfirm(false)} className="rounded-xl border border-[#cfab91] bg-[#f4e5d4] px-4 py-3 font-black text-[#6b3141] transition-colors hover:bg-[#e9d7c2]">
-                        Cancelar
-                    </button>
-                    <button onClick={confirmEnterDungeon} className="rounded-xl bg-[#4d7a96] px-4 py-3 font-black text-white shadow-[0_8px_24px_rgba(77,122,150,0.28)] transition-all hover:bg-[#5a8aa6]">
-                        Entrar
-                    </button>
+                {/* Body glass */}
+                <div className="flex flex-col gap-2.5 px-5 py-4" style={{ background: 'rgba(2,10,25,0.85)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)' }}>
+                    <div className="flex items-start gap-3 rounded-xl px-3.5 py-3" style={{ background: 'rgba(239,68,68,0.10)', border: '1px solid rgba(239,68,68,0.22)' }}>
+                        <AlertTriangle size={15} style={{ color: '#f87171', marginTop: 1, flexShrink: 0 }} />
+                        <p className="text-xs text-white/80 leading-snug"><span className="font-black text-white">Sem fuga.</span> Uma vez dentro, não é possível abandonar a dungeon voluntariamente.</p>
+                    </div>
+                    <div className="flex items-start gap-3 rounded-xl px-3.5 py-3" style={{ background: 'rgba(239,68,68,0.10)', border: '1px solid rgba(239,68,68,0.22)' }}>
+                        <Skull size={15} style={{ color: '#f87171', marginTop: 1, flexShrink: 0 }} />
+                        <p className="text-xs text-white/80 leading-snug"><span className="font-black text-white">Morte = tudo perdido.</span> Ouro, XP e itens acumulados na dungeon são perdidos.</p>
+                    </div>
+                    <div className="flex items-start gap-3 rounded-xl px-3.5 py-3" style={{ background: 'rgba(56,189,248,0.10)', border: '1px solid rgba(56,189,248,0.22)' }}>
+                        <Sparkles size={15} style={{ color: '#38bdf8', marginTop: 1, flexShrink: 0 }} />
+                        <p className="text-xs text-white/80 leading-snug"><span className="font-black text-white">Derrotar o boss = vitória total.</span> Tudo que acumulou ao longo da dungeon é seu.</p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2.5 mt-1">
+                        <button onClick={() => setShowDungeonConfirm(false)} className="rounded-xl py-3 font-black text-sm text-white/70 transition-all hover:text-white hover:scale-[1.02] active:scale-95" style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)' }}>
+                            Cancelar
+                        </button>
+                        <button onClick={confirmEnterDungeon} className="rounded-xl py-3 font-black text-sm text-white transition-all hover:brightness-110 hover:scale-[1.02] active:scale-95" style={{ background: 'linear-gradient(135deg, #1a7aab, #0e4a72)', border: '1px solid rgba(56,189,248,0.35)', boxShadow: '0 6px 20px rgba(56,189,248,0.30)' }}>
+                            Entrar
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
     )}
 
     {showTowerConfirm && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-sm pointer-events-auto p-4" onClick={() => setShowTowerConfirm(false)}>
-            <div className="w-full max-w-sm rounded-[28px] border border-violet-300/30 bg-[#f5f0ff] shadow-[0_30px_80px_rgba(91,33,182,0.28)] overflow-hidden" onClick={e => e.stopPropagation()}>
-                <div className="bg-gradient-to-br from-[#4c1d95] to-[#6d28d9] px-6 py-5 text-center">
-                    <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.3em] text-violet-100">
-                        <Crown size={12} /> Torre Heroica
-                    </div>
-                    <h3 className="mt-3 text-2xl font-black text-white">Entrar na Torre?</h3>
-                    <p className="mt-1.5 text-sm text-violet-200">Um desafio roguelike �nico � suba o mais alto que puder.</p>
-                </div>
-
-                <div className="flex flex-col gap-3 px-6 py-5">
-                    <div className="flex items-start gap-3 rounded-2xl border border-violet-400/25 bg-violet-400/8 px-4 py-3">
-                        <Star size={16} className="text-violet-600 mt-0.5 shrink-0" />
-                        <p className="text-sm text-[#3b0764] leading-snug"><span className="font-black">15 andares.</span> Cada andar traz um novo inimigo e recompensas �nicas. Suba o mais longe poss�vel.</p>
-                    </div>
-                    <div className="flex items-start gap-3 rounded-2xl border border-violet-400/25 bg-violet-400/8 px-4 py-3">
-                        <Sparkles size={16} className="text-violet-600 mt-0.5 shrink-0" />
-                        <p className="text-sm text-[#3b0764] leading-snug"><span className="font-black">Ess�ncia.</span> Moeda exclusiva da torre � usada para melhorar slots e desbloquear cartas de run.</p>
-                    </div>
-                    <div className="flex items-start gap-3 rounded-2xl border border-violet-400/25 bg-violet-400/8 px-4 py-3">
-                        <AlertTriangle size={16} className="text-violet-600 mt-0.5 shrink-0" />
-                        <p className="text-sm text-[#3b0764] leading-snug"><span className="font-black">Ao morrer, perde-se a run.</span> Progresso interno da torre � zerado, mas Ess�ncia acumulada � preservada.</p>
+        <div className="absolute inset-0 z-50 flex items-end sm:items-center justify-center pointer-events-auto p-4 pb-6 rpg-modal-overlay-in" style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }} onClick={() => setShowTowerConfirm(false)}>
+            <div className="w-full max-w-sm rounded-[24px] overflow-hidden shadow-[0_32px_80px_rgba(0,0,0,0.6)] rpg-modal-panel-in" style={{ border: '1px solid rgba(167,139,250,0.25)' }} onClick={e => e.stopPropagation()}>
+                {/* Hero image */}
+                <div className="relative h-40 overflow-hidden">
+                    <img src={PORTAL_THUMB_TOWER_URL} alt="" className="w-full h-full object-cover" style={{ filter: 'brightness(0.70)' }} />
+                    <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, rgba(60,20,150,0.45) 0%, rgba(0,0,0,0.75) 100%)' }} />
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
+                        <div className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.28em] text-white/90" style={{ background: 'rgba(167,139,250,0.20)', border: '1px solid rgba(167,139,250,0.40)' }}>
+                            <Crown size={11} /> Torre Heroica
+                        </div>
+                        <h3 className="text-2xl font-black text-white drop-shadow-lg">Entrar na Torre?</h3>
+                        <p className="text-xs text-violet-200/80">Um desafio roguelike — suba o mais alto que puder.</p>
                     </div>
                 </div>
-
-                <div className="grid grid-cols-2 gap-3 px-6 pb-6">
-                    <button onClick={() => setShowTowerConfirm(false)} className="rounded-xl border border-violet-200 bg-violet-50 px-4 py-3 font-black text-violet-700 transition-colors hover:bg-violet-100">
-                        Cancelar
-                    </button>
-                    <button onClick={confirmEnterTower} className="rounded-xl bg-gradient-to-br from-[#5b21b6] to-[#7c3aed] px-4 py-3 font-black text-white shadow-[0_8px_24px_rgba(109,40,217,0.35)] transition-all hover:from-[#6d28d9] hover:to-[#8b5cf6]">
-                        Entrar na Torre
-                    </button>
+                {/* Body glass */}
+                <div className="flex flex-col gap-2.5 px-5 py-4" style={{ background: 'rgba(8,2,20,0.85)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)' }}>
+                    <div className="flex items-start gap-3 rounded-xl px-3.5 py-3" style={{ background: 'rgba(167,139,250,0.10)', border: '1px solid rgba(167,139,250,0.22)' }}>
+                        <Star size={15} style={{ color: '#c4b5fd', marginTop: 1, flexShrink: 0 }} />
+                        <p className="text-xs text-white/80 leading-snug"><span className="font-black text-white">15 andares.</span> Cada andar traz um novo inimigo e recompensas únicas. Suba o mais longe possível.</p>
+                    </div>
+                    <div className="flex items-start gap-3 rounded-xl px-3.5 py-3" style={{ background: 'rgba(167,139,250,0.10)', border: '1px solid rgba(167,139,250,0.22)' }}>
+                        <Sparkles size={15} style={{ color: '#c4b5fd', marginTop: 1, flexShrink: 0 }} />
+                        <p className="text-xs text-white/80 leading-snug"><span className="font-black text-white">Essência.</span> Moeda exclusiva da torre — usada para melhorar slots e desbloquear cartas de run.</p>
+                    </div>
+                    <div className="flex items-start gap-3 rounded-xl px-3.5 py-3" style={{ background: 'rgba(239,68,68,0.09)', border: '1px solid rgba(239,68,68,0.20)' }}>
+                        <AlertTriangle size={15} style={{ color: '#f87171', marginTop: 1, flexShrink: 0 }} />
+                        <p className="text-xs text-white/80 leading-snug"><span className="font-black text-white">Ao morrer, perde-se a run.</span> Progresso interno é zerado, mas Essência acumulada é preservada.</p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2.5 mt-1">
+                        <button onClick={() => setShowTowerConfirm(false)} className="rounded-xl py-3 font-black text-sm text-white/70 transition-all hover:text-white hover:scale-[1.02] active:scale-95" style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)' }}>
+                            Cancelar
+                        </button>
+                        <button onClick={confirmEnterTower} className="rounded-xl py-3 font-black text-sm text-white transition-all hover:brightness-110 hover:scale-[1.02] active:scale-95" style={{ background: 'linear-gradient(135deg, #6b31b8, #44167a)', border: '1px solid rgba(167,139,250,0.35)', boxShadow: '0 6px 20px rgba(167,139,250,0.35)' }}>
+                            Entrar na Torre
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -3982,25 +3973,20 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
       )}
 
       {showInventoryUnlockPrompt && (
-          <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/55 backdrop-blur-[2px] pointer-events-auto p-4">
-              <div className="w-full max-w-sm rounded-[24px] border border-[#cfab91] bg-[#f7ecdd] shadow-[0_24px_80px_rgba(107,49,65,0.22)] overflow-hidden animate-fade-in-down" onClick={event => event.stopPropagation()}>
-                  <div className="bg-[#6b3141] px-5 py-4 text-center">
-                      <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.28em] text-[#f6eadc]">
-                          <GameAssetIcon name="bag" size={14} /> Mochila
+          <div className="absolute inset-0 z-40 flex items-end sm:items-center justify-center pointer-events-auto p-4 pb-6 rpg-modal-overlay-in" style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
+              <div className="w-full max-w-sm rounded-[24px] overflow-hidden shadow-[0_32px_80px_rgba(0,0,0,0.6)] rpg-modal-panel-in" style={{ border: '1px solid rgba(251,191,36,0.30)' }} onClick={e => e.stopPropagation()}>
+                  <div className="relative flex flex-col items-center justify-center gap-3 px-6 py-7" style={{ background: 'linear-gradient(145deg, #7c4f0a, #4a2d06)' }}>
+                      <div className="w-16 h-16 rounded-2xl flex items-center justify-center shadow-[0_8px_24px_rgba(0,0,0,0.4)]" style={{ background: 'rgba(251,191,36,0.18)', border: '1.5px solid rgba(251,191,36,0.35)' }}>
+                          <img src={ICONE_MOCHILA_URL} style={{ width: 40, height: 40, objectFit: 'contain', filter: 'drop-shadow(0 2px 8px rgba(251,191,36,0.6))' }} alt="" />
                       </div>
-                      <h3 className="mt-2 text-2xl font-black text-white">Mochila liberada</h3>
-                      <p className="mt-2 text-sm text-[#dcc0aa]">Agora voce pode abrir a mochila para ver os itens que conquistou nas batalhas.</p>
+                      <div className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[9px] font-black uppercase tracking-[0.28em] text-amber-200/80" style={{ background: 'rgba(251,191,36,0.15)', border: '1px solid rgba(251,191,36,0.25)' }}>Novo desbloqueio</div>
+                      <h3 className="text-xl font-black text-white text-center leading-tight">Mochila liberada!</h3>
+                      <p className="text-xs text-amber-100/70 text-center">Agora você pode abrir a mochila para ver os itens conquistados nas batalhas.</p>
                   </div>
-                  <div className="p-4">
-                      <button
-                          onClick={() => {
-                              setShowInventoryUnlockPrompt(false);
-                              onAcknowledgeInventoryUnlock?.();
-                              setResumeBattleAfterInventoryPrompt(true);
-                              openInventoryModal('all');
-                          }}
-                          className="w-full rounded-xl bg-[#4d7a96] px-4 py-3 font-black text-white shadow-[0_8px_24px_rgba(77,122,150,0.28)] transition-all hover:bg-[#5a8aa6]"
-                      >
+                  <div className="px-5 py-4" style={{ background: 'rgba(15,8,2,0.88)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)' }}>
+                      <button onClick={() => { setShowInventoryUnlockPrompt(false); onAcknowledgeInventoryUnlock?.(); setResumeBattleAfterInventoryPrompt(true); openInventoryModal('all'); }}
+                          className="w-full rounded-xl py-3 font-black text-sm text-white transition-all hover:brightness-110 hover:scale-[1.02] active:scale-95"
+                          style={{ background: 'linear-gradient(135deg, #b45309, #78350f)', border: '1px solid rgba(251,191,36,0.35)', boxShadow: '0 6px 20px rgba(180,83,9,0.40)' }}>
                           Ver mochila
                       </button>
                   </div>
@@ -4009,24 +3995,20 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
       )}
 
       {showCardsUnlockPrompt && (
-          <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/55 backdrop-blur-[2px] pointer-events-auto p-4">
-              <div className="w-full max-w-sm rounded-[24px] border border-[#cfab91] bg-[#f7ecdd] shadow-[0_24px_80px_rgba(107,49,65,0.22)] overflow-hidden animate-fade-in-down" onClick={event => event.stopPropagation()}>
-                  <div className="bg-[#6b3141] px-5 py-4 text-center">
-                      <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.28em] text-[#f6eadc]">
-                          <GameAssetIcon name="scroll" size={14} /> Cartas
+          <div className="absolute inset-0 z-40 flex items-end sm:items-center justify-center pointer-events-auto p-4 pb-6 rpg-modal-overlay-in" style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
+              <div className="w-full max-w-sm rounded-[24px] overflow-hidden shadow-[0_32px_80px_rgba(0,0,0,0.6)] rpg-modal-panel-in" style={{ border: '1px solid rgba(167,139,250,0.30)' }} onClick={e => e.stopPropagation()}>
+                  <div className="relative flex flex-col items-center justify-center gap-3 px-6 py-7" style={{ background: 'linear-gradient(145deg, #4c1d95, #2d1066)' }}>
+                      <div className="w-16 h-16 rounded-2xl flex items-center justify-center shadow-[0_8px_24px_rgba(0,0,0,0.4)]" style={{ background: 'rgba(167,139,250,0.18)', border: '1.5px solid rgba(167,139,250,0.35)' }}>
+                          <img src={BOOK_HABILIDADES_URL} style={{ width: 40, height: 40, objectFit: 'contain', filter: 'drop-shadow(0 2px 8px rgba(167,139,250,0.7))' }} alt="" />
                       </div>
-                      <h3 className="mt-2 text-2xl font-black text-white">Evolucao liberada</h3>
-                      <p className="mt-2 text-sm text-[#dcc0aa]">Sua primeira carta foi registrada. Abra o perfil para acompanhar suas cartas de evolucao.</p>
+                      <div className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[9px] font-black uppercase tracking-[0.28em] text-violet-200/80" style={{ background: 'rgba(167,139,250,0.15)', border: '1px solid rgba(167,139,250,0.25)' }}>Novo desbloqueio</div>
+                      <h3 className="text-xl font-black text-white text-center leading-tight">Evolução liberada!</h3>
+                      <p className="text-xs text-violet-100/70 text-center">Sua primeira carta foi registrada. Abra o perfil para acompanhar suas cartas de evolução.</p>
                   </div>
-                  <div className="p-4">
-                      <button
-                          onClick={() => {
-                              setShowCardsUnlockPrompt(false);
-                              onAcknowledgeCardsUnlock?.();
-                              openProfileModal('cards');
-                          }}
-                          className="w-full rounded-xl bg-[#4d7a96] px-4 py-3 font-black text-white shadow-[0_8px_24px_rgba(77,122,150,0.28)] transition-all hover:bg-[#5a8aa6]"
-                      >
+                  <div className="px-5 py-4" style={{ background: 'rgba(8,2,20,0.88)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)' }}>
+                      <button onClick={() => { setShowCardsUnlockPrompt(false); onAcknowledgeCardsUnlock?.(); openProfileModal('cards'); }}
+                          className="w-full rounded-xl py-3 font-black text-sm text-white transition-all hover:brightness-110 hover:scale-[1.02] active:scale-95"
+                          style={{ background: 'linear-gradient(135deg, #6b31b8, #44167a)', border: '1px solid rgba(167,139,250,0.35)', boxShadow: '0 6px 20px rgba(107,49,184,0.40)' }}>
                           Ver cartas
                       </button>
                   </div>
@@ -4035,24 +4017,20 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
       )}
 
       {showSkillsUnlockPrompt && (
-          <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/55 backdrop-blur-[2px] pointer-events-auto p-4">
-              <div className="w-full max-w-sm rounded-[24px] border border-[#cfab91] bg-[#f7ecdd] shadow-[0_24px_80px_rgba(107,49,65,0.22)] overflow-hidden animate-fade-in-down" onClick={event => event.stopPropagation()}>
-                  <div className="bg-[#6b3141] px-5 py-4 text-center">
-                      <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.28em] text-[#f6eadc]">
-                          <Sparkles size={14} /> Habilidades
+          <div className="absolute inset-0 z-40 flex items-end sm:items-center justify-center pointer-events-auto p-4 pb-6 rpg-modal-overlay-in" style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
+              <div className="w-full max-w-sm rounded-[24px] overflow-hidden shadow-[0_32px_80px_rgba(0,0,0,0.6)] rpg-modal-panel-in" style={{ border: '1px solid rgba(52,211,153,0.30)' }} onClick={e => e.stopPropagation()}>
+                  <div className="relative flex flex-col items-center justify-center gap-3 px-6 py-7" style={{ background: 'linear-gradient(145deg, #065f46, #022c22)' }}>
+                      <div className="w-16 h-16 rounded-2xl flex items-center justify-center shadow-[0_8px_24px_rgba(0,0,0,0.4)]" style={{ background: 'rgba(52,211,153,0.18)', border: '1.5px solid rgba(52,211,153,0.35)' }}>
+                          <Sparkles size={32} style={{ color: '#6ee7b7', filter: 'drop-shadow(0 2px 8px rgba(52,211,153,0.7))' }} />
                       </div>
-                      <h3 className="mt-2 text-2xl font-black text-white">Habilidades liberadas</h3>
-                      <p className="mt-2 text-sm text-[#dcc0aa]">Voce conquistou sua primeira habilidade. Abra o perfil para ver e usar todas as habilidades disponiveis.</p>
+                      <div className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[9px] font-black uppercase tracking-[0.28em] text-emerald-200/80" style={{ background: 'rgba(52,211,153,0.15)', border: '1px solid rgba(52,211,153,0.25)' }}>Novo desbloqueio</div>
+                      <h3 className="text-xl font-black text-white text-center leading-tight">Habilidades liberadas!</h3>
+                      <p className="text-xs text-emerald-100/70 text-center">Você conquistou sua primeira habilidade. Abra o perfil para ver e usar todas as habilidades disponíveis.</p>
                   </div>
-                  <div className="p-4">
-                      <button
-                          onClick={() => {
-                              setShowSkillsUnlockPrompt(false);
-                              onAcknowledgeSkillsUnlock?.();
-                              openProfileModal('skills');
-                          }}
-                          className="w-full rounded-xl bg-[#4d7a96] px-4 py-3 font-black text-white shadow-[0_8px_24px_rgba(77,122,150,0.28)] transition-all hover:bg-[#5a8aa6]"
-                      >
+                  <div className="px-5 py-4" style={{ background: 'rgba(2,15,8,0.88)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)' }}>
+                      <button onClick={() => { setShowSkillsUnlockPrompt(false); onAcknowledgeSkillsUnlock?.(); openProfileModal('skills'); }}
+                          className="w-full rounded-xl py-3 font-black text-sm text-white transition-all hover:brightness-110 hover:scale-[1.02] active:scale-95"
+                          style={{ background: 'linear-gradient(135deg, #065f46, #022c22)', border: '1px solid rgba(52,211,153,0.35)', boxShadow: '0 6px 20px rgba(6,95,70,0.50)' }}>
                           Ver habilidades
                       </button>
                   </div>
@@ -4061,29 +4039,26 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
       )}
 
       {showImpulseUnlockPromptLevel !== null && (
-          <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/55 backdrop-blur-[2px] pointer-events-auto p-4">
-              <div className="w-full max-w-sm rounded-[24px] border border-[#cfab91] bg-[#f7ecdd] shadow-[0_24px_80px_rgba(107,49,65,0.22)] overflow-hidden animate-fade-in-down" onClick={event => event.stopPropagation()}>
-                  <div className="bg-[#6b3141] px-5 py-4 text-center">
-                      <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.28em] text-[#f6eadc]">
-                          <Zap size={14} /> Impulso
+          <div className="absolute inset-0 z-40 flex items-end sm:items-center justify-center pointer-events-auto p-4 pb-6 rpg-modal-overlay-in" style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
+              <div className="w-full max-w-sm rounded-[24px] overflow-hidden shadow-[0_32px_80px_rgba(0,0,0,0.6)] rpg-modal-panel-in" style={{ border: '1px solid rgba(250,204,21,0.30)' }} onClick={e => e.stopPropagation()}>
+                  <div className="relative flex flex-col items-center justify-center gap-3 px-6 py-7" style={{ background: 'linear-gradient(145deg, #713f12, #3a1d06)' }}>
+                      <div className="w-16 h-16 rounded-2xl flex items-center justify-center shadow-[0_8px_24px_rgba(0,0,0,0.4)]" style={{ background: 'rgba(250,204,21,0.18)', border: '1.5px solid rgba(250,204,21,0.35)' }}>
+                          <Zap size={32} style={{ color: '#fde047', filter: 'drop-shadow(0 2px 12px rgba(250,204,21,0.9))' }} />
                       </div>
-                      <h3 className="mt-2 text-2xl font-black text-white">
-                          {showImpulseUnlockPromptLevel === 4 ? 'Impulso desbloqueado' : 'Nova barra de impulso'}
+                      <div className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[9px] font-black uppercase tracking-[0.28em] text-yellow-200/80" style={{ background: 'rgba(250,204,21,0.15)', border: '1px solid rgba(250,204,21,0.25)' }}>Novo desbloqueio</div>
+                      <h3 className="text-xl font-black text-white text-center leading-tight">
+                          {showImpulseUnlockPromptLevel === 4 ? 'Impulso desbloqueado!' : 'Nova barra de impulso!'}
                       </h3>
-                      <p className="mt-2 text-sm text-[#dcc0aa]">
+                      <p className="text-xs text-yellow-100/70 text-center">
                           {showImpulseUnlockPromptLevel === 4
-                              ? 'Agora voce pode carregar impulso e absorver para fortalecer suas acoes em batalha. A primeira barra de impulso foi liberada.'
-                              : 'Seu poder cresceu. Uma nova barra de impulso foi desbloqueada para ampliar seu potencial nas batalhas.'}
+                              ? 'Agora você pode carregar impulso e absorver para fortalecer suas ações em batalha.'
+                              : 'Seu poder cresceu. Uma nova barra de impulso foi desbloqueada para ampliar seu potencial.'}
                       </p>
                   </div>
-                  <div className="p-4">
-                      <button
-                          onClick={() => {
-                              setShowImpulseUnlockPromptLevel(null);
-                              onAcknowledgeImpulseUnlock?.();
-                          }}
-                          className="w-full rounded-xl bg-[#4d7a96] px-4 py-3 font-black text-white shadow-[0_8px_24px_rgba(77,122,150,0.28)] transition-all hover:bg-[#5a8aa6]"
-                      >
+                  <div className="px-5 py-4" style={{ background: 'rgba(14,7,2,0.88)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)' }}>
+                      <button onClick={() => { setShowImpulseUnlockPromptLevel(null); onAcknowledgeImpulseUnlock?.(); }}
+                          className="w-full rounded-xl py-3 font-black text-sm text-white transition-all hover:brightness-110 hover:scale-[1.02] active:scale-95"
+                          style={{ background: 'linear-gradient(135deg, #92400e, #78350f)', border: '1px solid rgba(250,204,21,0.35)', boxShadow: '0 6px 20px rgba(146,64,14,0.45)' }}>
                           Entendi
                       </button>
                   </div>
@@ -4092,25 +4067,21 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
       )}
 
       {showConstellationUnlockPrompt && (
-          <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/55 backdrop-blur-[2px] pointer-events-auto p-4">
-              <div className="w-full max-w-sm rounded-[24px] border border-[#cfab91] bg-[#f7ecdd] shadow-[0_24px_80px_rgba(107,49,65,0.22)] overflow-hidden animate-fade-in-down" onClick={event => event.stopPropagation()}>
-                  <div className="bg-[#6b3141] px-5 py-4 text-center">
-                      <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.28em] text-[#f6eadc]">
-                          <Orbit size={14} /> Constelacao
+          <div className="absolute inset-0 z-40 flex items-end sm:items-center justify-center pointer-events-auto p-4 pb-6 rpg-modal-overlay-in" style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
+              <div className="w-full max-w-sm rounded-[24px] overflow-hidden shadow-[0_32px_80px_rgba(0,0,0,0.6)] rpg-modal-panel-in" style={{ border: '1px solid rgba(99,102,241,0.30)' }} onClick={e => e.stopPropagation()}>
+                  <div className="relative flex flex-col items-center justify-center gap-3 px-6 py-7" style={{ background: 'linear-gradient(145deg, #1e1b4b, #0f0a2e)' }}>
+                      <div className="w-16 h-16 rounded-2xl flex items-center justify-center shadow-[0_8px_24px_rgba(0,0,0,0.4)]" style={{ background: 'rgba(99,102,241,0.18)', border: '1.5px solid rgba(99,102,241,0.35)' }}>
+                          <Orbit size={32} style={{ color: '#a5b4fc', filter: 'drop-shadow(0 2px 8px rgba(99,102,241,0.8))' }} />
                       </div>
-                      <h3 className="mt-2 text-2xl font-black text-white">Constelacao habilitada</h3>
-                      <p className="mt-2 text-sm text-[#dcc0aa]">Ao subir de nivel voce ganha pontos de evolucao. Agora voce pode abrir a aba de constelacao no perfil.</p>
+                      <div className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[9px] font-black uppercase tracking-[0.28em] text-indigo-200/80" style={{ background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.25)' }}>Novo desbloqueio</div>
+                      <h3 className="text-xl font-black text-white text-center leading-tight">Constelação habilitada!</h3>
+                      <p className="text-xs text-indigo-100/70 text-center">Ao subir de nível você ganha pontos de evolução. Abra a aba de constelação no perfil.</p>
                   </div>
-                  <div className="p-4">
-                      <button
-                          onClick={() => {
-                              setShowConstellationUnlockPrompt(false);
-                              onAcknowledgeConstellationUnlock?.();
-                              openProfileModal('constellation');
-                          }}
-                          className="w-full rounded-xl bg-[#4d7a96] px-4 py-3 font-black text-white shadow-[0_8px_24px_rgba(77,122,150,0.28)] transition-all hover:bg-[#5a8aa6]"
-                      >
-                          Ver constelacao
+                  <div className="px-5 py-4" style={{ background: 'rgba(4,2,20,0.88)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)' }}>
+                      <button onClick={() => { setShowConstellationUnlockPrompt(false); onAcknowledgeConstellationUnlock?.(); openProfileModal('constellation'); }}
+                          className="w-full rounded-xl py-3 font-black text-sm text-white transition-all hover:brightness-110 hover:scale-[1.02] active:scale-95"
+                          style={{ background: 'linear-gradient(135deg, #3730a3, #1e1b4b)', border: '1px solid rgba(99,102,241,0.35)', boxShadow: '0 6px 20px rgba(55,48,163,0.45)' }}>
+                          Ver constelação
                       </button>
                   </div>
               </div>
@@ -4118,23 +4089,20 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
       )}
 
       {showItemsUnlockPrompt && (
-          <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/55 backdrop-blur-[2px] pointer-events-auto p-4">
-              <div className="w-full max-w-sm rounded-[24px] border border-[#cfab91] bg-[#f7ecdd] shadow-[0_24px_80px_rgba(107,49,65,0.22)] overflow-hidden animate-fade-in-down" onClick={event => event.stopPropagation()}>
-                  <div className="bg-[#6b3141] px-5 py-4 text-center">
-                      <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.28em] text-[#f6eadc]">
-                          <FlaskConical size={14} /> Itens
+          <div className="absolute inset-0 z-40 flex items-end sm:items-center justify-center pointer-events-auto p-4 pb-6 rpg-modal-overlay-in" style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
+              <div className="w-full max-w-sm rounded-[24px] overflow-hidden shadow-[0_32px_80px_rgba(0,0,0,0.6)] rpg-modal-panel-in" style={{ border: '1px solid rgba(251,146,60,0.25)' }} onClick={e => e.stopPropagation()}>
+                  <div className="relative flex flex-col items-center justify-center gap-3 px-6 py-7" style={{ background: 'linear-gradient(145deg, #7c2d12, #431407)' }}>
+                      <div className="w-16 h-16 rounded-2xl flex items-center justify-center shadow-[0_8px_24px_rgba(0,0,0,0.4)]" style={{ background: 'rgba(251,146,60,0.18)', border: '1.5px solid rgba(251,146,60,0.35)' }}>
+                          <img src={ICONE_MOCHILA_URL} style={{ width: 40, height: 40, objectFit: 'contain', filter: 'drop-shadow(0 2px 8px rgba(251,146,60,0.7))' }} alt="" />
                       </div>
-                      <h3 className="mt-2 text-2xl font-black text-white">Itens liberados</h3>
-                      <p className="mt-2 text-sm text-[#dcc0aa]">Agora voce pode usar itens comprados no mercador e itens conquistados dos inimigos durante a batalha.</p>
+                      <div className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[9px] font-black uppercase tracking-[0.28em] text-orange-200/80" style={{ background: 'rgba(251,146,60,0.15)', border: '1px solid rgba(251,146,60,0.25)' }}>Novo desbloqueio</div>
+                      <h3 className="text-xl font-black text-white text-center leading-tight">Itens liberados!</h3>
+                      <p className="text-xs text-orange-100/70 text-center">Agora você pode usar itens comprados no mercador e itens conquistados dos inimigos durante a batalha.</p>
                   </div>
-                  <div className="p-4">
-                      <button
-                          onClick={() => {
-                              setShowItemsUnlockPrompt(false);
-                              onAcknowledgeItemsUnlock?.();
-                          }}
-                          className="w-full rounded-xl bg-[#4d7a96] px-4 py-3 font-black text-white shadow-[0_8px_24px_rgba(77,122,150,0.28)] transition-all hover:bg-[#5a8aa6]"
-                      >
+                  <div className="px-5 py-4" style={{ background: 'rgba(15,5,2,0.88)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)' }}>
+                      <button onClick={() => { setShowItemsUnlockPrompt(false); onAcknowledgeItemsUnlock?.(); }}
+                          className="w-full rounded-xl py-3 font-black text-sm text-white transition-all hover:brightness-110 hover:scale-[1.02] active:scale-95"
+                          style={{ background: 'linear-gradient(135deg, #c2622a, #9c3d14)', border: '1px solid rgba(251,146,60,0.35)', boxShadow: '0 6px 20px rgba(194,98,42,0.40)' }}>
                           Entendi
                       </button>
                   </div>
@@ -4143,23 +4111,20 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
       )}
 
       {showFleeUnlockPrompt && (
-          <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/55 backdrop-blur-[2px] pointer-events-auto p-4">
-              <div className="w-full max-w-sm rounded-[24px] border border-[#cfab91] bg-[#f7ecdd] shadow-[0_24px_80px_rgba(107,49,65,0.22)] overflow-hidden animate-fade-in-down" onClick={event => event.stopPropagation()}>
-                  <div className="bg-[#6b3141] px-5 py-4 text-center">
-                      <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.28em] text-[#f6eadc]">
-                          <LogOut size={14} /> Fuga
+          <div className="absolute inset-0 z-40 flex items-end sm:items-center justify-center pointer-events-auto p-4 pb-6 rpg-modal-overlay-in" style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
+              <div className="w-full max-w-sm rounded-[24px] overflow-hidden shadow-[0_32px_80px_rgba(0,0,0,0.6)] rpg-modal-panel-in" style={{ border: '1px solid rgba(161,161,170,0.25)' }} onClick={e => e.stopPropagation()}>
+                  <div className="relative flex flex-col items-center justify-center gap-3 px-6 py-7" style={{ background: 'linear-gradient(145deg, #27272a, #18181b)' }}>
+                      <div className="w-16 h-16 rounded-2xl flex items-center justify-center shadow-[0_8px_24px_rgba(0,0,0,0.4)]" style={{ background: 'rgba(161,161,170,0.18)', border: '1.5px solid rgba(161,161,170,0.35)' }}>
+                          <LogOut size={32} style={{ color: '#d4d4d8', filter: 'drop-shadow(0 2px 8px rgba(161,161,170,0.6))' }} />
                       </div>
-                      <h3 className="mt-2 text-2xl font-black text-white">Fuga liberada</h3>
-                      <p className="mt-2 text-sm text-[#dcc0aa]">Agora voce pode fugir da caca e voltar ao acampamento a qualquer momento, com custo de 50 de ouro.</p>
+                      <div className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[9px] font-black uppercase tracking-[0.28em] text-zinc-300/80" style={{ background: 'rgba(161,161,170,0.15)', border: '1px solid rgba(161,161,170,0.25)' }}>Novo desbloqueio</div>
+                      <h3 className="text-xl font-black text-white text-center leading-tight">Fuga liberada!</h3>
+                      <p className="text-xs text-zinc-300/70 text-center">Agora você pode fugir da caça e voltar ao acampamento a qualquer momento, com custo de 50 de ouro.</p>
                   </div>
-                  <div className="p-4">
-                      <button
-                          onClick={() => {
-                              setShowFleeUnlockPrompt(false);
-                              onAcknowledgeFleeUnlock?.();
-                          }}
-                          className="w-full rounded-xl bg-[#4d7a96] px-4 py-3 font-black text-white shadow-[0_8px_24px_rgba(77,122,150,0.28)] transition-all hover:bg-[#5a8aa6]"
-                      >
+                  <div className="px-5 py-4" style={{ background: 'rgba(8,8,10,0.88)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)' }}>
+                      <button onClick={() => { setShowFleeUnlockPrompt(false); onAcknowledgeFleeUnlock?.(); }}
+                          className="w-full rounded-xl py-3 font-black text-sm text-white transition-all hover:brightness-110 hover:scale-[1.02] active:scale-95"
+                          style={{ background: 'linear-gradient(135deg, #3f3f46, #27272a)', border: '1px solid rgba(161,161,170,0.30)', boxShadow: '0 6px 20px rgba(0,0,0,0.40)' }}>
                           Entendi
                       </button>
                   </div>
@@ -4168,23 +4133,20 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
       )}
 
       {showDiamondUnlockPrompt && (
-          <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/55 backdrop-blur-[2px] pointer-events-auto p-4">
-              <div className="w-full max-w-sm rounded-[24px] border border-[#95bdd0] bg-[#eef8fe] shadow-[0_24px_80px_rgba(34,116,152,0.26)] overflow-hidden animate-fade-in-down" onClick={event => event.stopPropagation()}>
-                  <div className="bg-[linear-gradient(135deg,#2b6878,#66b8d2)] px-5 py-4 text-center">
-                      <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.28em] text-[#f2fbff]">
-                          <GameAssetIcon name="diamond" size={14} /> Diamante
+          <div className="absolute inset-0 z-40 flex items-end sm:items-center justify-center pointer-events-auto p-4 pb-6 rpg-modal-overlay-in" style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
+              <div className="w-full max-w-sm rounded-[24px] overflow-hidden shadow-[0_32px_80px_rgba(0,0,0,0.6)] rpg-modal-panel-in" style={{ border: '1px solid rgba(56,189,248,0.25)' }} onClick={e => e.stopPropagation()}>
+                  <div className="relative flex flex-col items-center justify-center gap-3 px-6 py-7" style={{ background: 'linear-gradient(145deg, #0c4a6e, #082040)' }}>
+                      <div className="w-16 h-16 rounded-2xl flex items-center justify-center shadow-[0_8px_24px_rgba(0,0,0,0.4)]" style={{ background: 'rgba(56,189,248,0.18)', border: '1.5px solid rgba(56,189,248,0.35)' }}>
+                          <GameAssetIcon name="diamond" size={36} />
                       </div>
-                      <h3 className="mt-2 text-2xl font-black text-white">Primeiro diamante</h3>
-                      <p className="mt-2 text-sm text-[#e4f6ff]">Voce encontrou seu primeiro diamante. Agora pode acumular diamantes para trocar por itens e cartas especiais.</p>
+                      <div className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[9px] font-black uppercase tracking-[0.28em] text-sky-200/80" style={{ background: 'rgba(56,189,248,0.15)', border: '1px solid rgba(56,189,248,0.25)' }}>Novo desbloqueio</div>
+                      <h3 className="text-xl font-black text-white text-center leading-tight">Primeiro diamante!</h3>
+                      <p className="text-xs text-sky-100/70 text-center">Você encontrou seu primeiro diamante. Acumule diamantes para trocar por itens e cartas especiais.</p>
                   </div>
-                  <div className="p-4">
-                      <button
-                          onClick={() => {
-                              setShowDiamondUnlockPrompt(false);
-                              onAcknowledgeDiamondUnlock?.();
-                          }}
-                          className="w-full rounded-xl bg-[#2b6878] px-4 py-3 font-black text-white shadow-[0_8px_24px_rgba(34,116,152,0.28)] transition-all hover:bg-[#357b8e]"
-                      >
+                  <div className="px-5 py-4" style={{ background: 'rgba(2,8,18,0.88)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)' }}>
+                      <button onClick={() => { setShowDiamondUnlockPrompt(false); onAcknowledgeDiamondUnlock?.(); }}
+                          className="w-full rounded-xl py-3 font-black text-sm text-white transition-all hover:brightness-110 hover:scale-[1.02] active:scale-95"
+                          style={{ background: 'linear-gradient(135deg, #1a7aab, #0e4a72)', border: '1px solid rgba(56,189,248,0.35)', boxShadow: '0 6px 20px rgba(26,122,171,0.40)' }}>
                           Entendi
                       </button>
                   </div>
@@ -4193,25 +4155,20 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
       )}
 
       {showMissionsUnlockPrompt && (
-          <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/55 backdrop-blur-[2px] pointer-events-auto p-4">
-              <div className="w-full max-w-sm rounded-[28px] border border-[#cfab91] bg-[#f7ecdd] shadow-[0_30px_80px_rgba(107,49,65,0.22)] overflow-hidden animate-fade-in-down" onClick={e => e.stopPropagation()}>
-                  <div className="bg-[#6b3141] px-6 py-5 text-center">
-                      <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.3em] text-[#f6eadc]">
-                          <img src={BOOK_MISSOES_URL} width={14} alt="" /> Diário de Missões
+          <div className="absolute inset-0 z-40 flex items-end sm:items-center justify-center pointer-events-auto p-4 pb-6 rpg-modal-overlay-in" style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
+              <div className="w-full max-w-sm rounded-[24px] overflow-hidden shadow-[0_32px_80px_rgba(0,0,0,0.6)] rpg-modal-panel-in" style={{ border: '1px solid rgba(251,191,36,0.25)' }} onClick={e => e.stopPropagation()}>
+                  <div className="relative flex flex-col items-center justify-center gap-3 px-6 py-7" style={{ background: 'linear-gradient(145deg, #78350f, #3d1a05)' }}>
+                      <div className="w-16 h-16 rounded-2xl flex items-center justify-center shadow-[0_8px_24px_rgba(0,0,0,0.4)]" style={{ background: 'rgba(251,191,36,0.18)', border: '1.5px solid rgba(251,191,36,0.35)' }}>
+                          <img src={BOOK_MISSOES_URL} style={{ width: 40, height: 40, objectFit: 'contain', filter: 'drop-shadow(0 2px 8px rgba(251,191,36,0.7))' }} alt="" />
                       </div>
-                      <h3 className="mt-3 text-2xl font-black text-white">Diário de Missões</h3>
-                      <p className="mt-1.5 text-sm text-[#dcc0aa]">Registre suas conquistas em batalha e ganhe recompensas de ouro completando missões progressivas.</p>
+                      <div className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[9px] font-black uppercase tracking-[0.28em] text-amber-200/80" style={{ background: 'rgba(251,191,36,0.15)', border: '1px solid rgba(251,191,36,0.25)' }}>Novo desbloqueio</div>
+                      <h3 className="text-xl font-black text-white text-center leading-tight">Diário de Missões!</h3>
+                      <p className="text-xs text-amber-100/70 text-center">Registre suas conquistas em batalha e ganhe recompensas de ouro completando missões progressivas.</p>
                   </div>
-                  <div className="px-6 py-5">
-                      <button
-                          onClick={() => {
-                              setShowMissionsUnlockPrompt(false);
-                              onAcknowledgeMissionsUnlock?.();
-                              setShowMissionsScreen(true);
-                              uiSfx.play('modal_open');
-                          }}
-                          className="w-full rounded-xl bg-[#4d7a96] px-4 py-3 font-black text-white shadow-[0_8px_24px_rgba(77,122,150,0.28)] transition-all hover:bg-[#5a8aa6]"
-                      >
+                  <div className="px-5 py-4" style={{ background: 'rgba(12,6,2,0.88)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)' }}>
+                      <button onClick={() => { setShowMissionsUnlockPrompt(false); onAcknowledgeMissionsUnlock?.(); setShowMissionsScreen(true); uiSfx.play('modal_open'); }}
+                          className="w-full rounded-xl py-3 font-black text-sm text-white transition-all hover:brightness-110 hover:scale-[1.02] active:scale-95"
+                          style={{ background: 'linear-gradient(135deg, #b45309, #78350f)', border: '1px solid rgba(251,191,36,0.35)', boxShadow: '0 6px 20px rgba(180,83,9,0.40)' }}>
                           Ver Diário de Missões
                       </button>
                   </div>
