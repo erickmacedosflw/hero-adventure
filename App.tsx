@@ -1448,7 +1448,12 @@ export default function App() {
         setTowerRun(wasInterrupted ? null : (payload.towerRun ?? null));
         setTowerMeta(payload.towerMeta ?? getDefaultTowerMeta());
         if (payload.missions && payload.missions.length > 0) {
-            setMissions(payload.missions.map(m => ({ ...m })));
+            // Migrate descriptions: sync saved missions with current INITIAL_MISSIONS text
+            const descById = Object.fromEntries(INITIAL_MISSIONS.map(m => [m.id, m.descricao]));
+            setMissions(payload.missions.map(m => ({
+                ...m,
+                descricao: descById[m.id] ?? m.descricao,
+            })));
         }
         setCardRewardQueue(wasInterrupted ? [] : restoredCardRewardQueue);
         setCurrentCardOffer(wasInterrupted ? null : restoredCurrentCardOffer);
