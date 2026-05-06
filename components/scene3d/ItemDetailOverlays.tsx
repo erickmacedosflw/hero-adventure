@@ -223,19 +223,22 @@ const getHeroItemDetailChips = (item: Item): DetailChip[] => {
   const chips: DetailChip[] = [];
 
   if (item.type === 'weapon') {
-    chips.push({ label: 'ATQ', value: `+${item.value}`, color: '#f87171', bg: 'rgba(127,29,29,0.35)' });
-    if ((item.magicBonus ?? 0) > 0) {
-      chips.push({ label: 'MAG', value: `+${item.magicBonus}`, color: '#c4b5fd', bg: 'rgba(76,29,149,0.35)' });
-    }
+    const bonuses = getEquipmentBonuses(item);
+    if (bonuses.atk > 0) chips.push({ label: 'ATQ', value: `+${bonuses.atk}`, color: '#f87171', bg: 'rgba(127,29,29,0.35)' });
+    if (bonuses.magic > 0) chips.push({ label: 'MAG', value: `+${bonuses.magic}`, color: '#c4b5fd', bg: 'rgba(76,29,149,0.35)' });
+    if (bonuses.speed > 0) chips.push({ label: 'VEL', value: `+${bonuses.speed}`, color: '#34d399', bg: 'rgba(6,95,70,0.35)' });
+    if (bonuses.luck > 0) chips.push({ label: 'SRT', value: `+${bonuses.luck}`, color: '#fbbf24', bg: 'rgba(161,98,7,0.35)' });
     return chips;
   }
 
   if (['armor', 'helmet', 'legs', 'shield'].includes(item.type)) {
     const bonuses = getEquipmentBonuses(item);
     if (bonuses.def > 0) chips.push({ label: 'DEF', value: `+${bonuses.def}`, color: '#fb923c', bg: 'rgba(154,52,18,0.35)' });
+    if (bonuses.magicDef > 0) chips.push({ label: 'D.MAG', value: `+${bonuses.magicDef}`, color: '#60a5fa', bg: 'rgba(30,64,175,0.35)' });
     if (bonuses.maxHp > 0) chips.push({ label: 'VIDA', value: `+${bonuses.maxHp}`, color: '#86efac', bg: 'rgba(20,83,45,0.35)' });
     if (bonuses.maxMp > 0) chips.push({ label: 'MANA', value: `+${bonuses.maxMp}`, color: '#7dd3fc', bg: 'rgba(7,89,133,0.35)' });
-    if (bonuses.speed > 0) chips.push({ label: 'VEL', value: `+${bonuses.speed}`, color: '#d8b4fe', bg: 'rgba(88,28,135,0.35)' });
+    if (bonuses.speed > 0) chips.push({ label: 'VEL', value: `+${bonuses.speed}`, color: '#34d399', bg: 'rgba(6,95,70,0.35)' });
+    if (bonuses.luck > 0) chips.push({ label: 'SRT', value: `+${bonuses.luck}`, color: '#fbbf24', bg: 'rgba(161,98,7,0.35)' });
   }
 
   return chips;

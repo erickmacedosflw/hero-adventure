@@ -1,5 +1,5 @@
 ﻿import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { AlertTriangle, ArrowDown, ArrowLeft, ArrowUp, Heart, Shield, ShoppingBag, Sparkles, Sword, X, Zap } from 'lucide-react';
+import { AlertTriangle, ArrowDown, ArrowLeft, ArrowUp, Heart, Shield, ShoppingBag, Sparkles, Star, Sword, Wind, X, Zap } from 'lucide-react';
 import { Item, Player } from '../../types';
 import { GameAssetIcon, GameAssetIconName } from '../ui/game-asset-icon';
 import { isEquipmentType, ItemIcon, ItemTypeIcon, ItemTypeLabel } from '../ui/game-display';
@@ -87,21 +87,23 @@ const createEffectCard = (
 
 const getItemEffectCards = (item: Item): EffectCard[] => {
   if (item.type === 'weapon') {
-    const cards: EffectCard[] = [
-      createEffectCard('atk', 'ATK', `+${item.value}`, <Sword size={15} />, 'text-[#f87171]', 'border-[#7f1d1d]/40 bg-[#450a0a]/60'),
-    ];
-    if ((item.magicBonus ?? 0) > 0) {
-      cards.push(createEffectCard('mag', 'MAG', `+${item.magicBonus}`, <Sparkles size={15} />, 'text-[#c4b5fd]', 'border-[#4c1d95]/40 bg-[#2e1065]/60'));
-    }
+    const bonuses = getEquipmentBonuses(item);
+    const cards: EffectCard[] = [];
+    if (bonuses.atk > 0) cards.push(createEffectCard('atk', 'ATK', `+${bonuses.atk}`, <Sword size={15} />, 'text-[#f87171]', 'border-[#7f1d1d]/40 bg-[#450a0a]/60'));
+    if (bonuses.magic > 0) cards.push(createEffectCard('mag', 'MAG', `+${bonuses.magic}`, <Sparkles size={15} />, 'text-[#c4b5fd]', 'border-[#4c1d95]/40 bg-[#2e1065]/60'));
+    if (bonuses.speed > 0) cards.push(createEffectCard('spd', 'VEL', `+${bonuses.speed}`, <Wind size={15} />, 'text-[#34d399]', 'border-[#065f46]/40 bg-[#022c22]/60'));
+    if (bonuses.luck > 0) cards.push(createEffectCard('luck', 'SRT', `+${bonuses.luck}`, <Star size={15} />, 'text-[#fbbf24]', 'border-[#a16207]/40 bg-[#422006]/60'));
     return cards;
   }
   if (item.type === 'armor' || item.type === 'helmet' || item.type === 'legs' || item.type === 'shield') {
     const bonuses = getEquipmentBonuses(item);
     const cards: EffectCard[] = [];
     if (bonuses.def > 0) cards.push(createEffectCard('def', 'DEF', `+${bonuses.def}`, <Shield size={15} />, 'text-[#fb923c]', 'border-[#9a3412]/40 bg-[#431407]/60'));
+    if (bonuses.magicDef > 0) cards.push(createEffectCard('magic-def', 'D.MAG', `+${bonuses.magicDef}`, <Shield size={15} />, 'text-[#60a5fa]', 'border-[#1d4ed8]/40 bg-[#172554]/60'));
     if (bonuses.maxHp > 0) cards.push(createEffectCard('hp', 'VIDA', `+${bonuses.maxHp}`, <Heart size={15} />, 'text-[#86efac]', 'border-[#14532d]/40 bg-[#052e16]/60'));
     if (bonuses.maxMp > 0) cards.push(createEffectCard('mp', 'MANA', `+${bonuses.maxMp}`, <Zap size={15} />, 'text-[#7dd3fc]', 'border-[#075985]/40 bg-[#082f49]/60'));
-    if (bonuses.speed > 0) cards.push(createEffectCard('spd', 'VEL', `+${bonuses.speed}`, <Zap size={15} />, 'text-[#d8b4fe]', 'border-[#581c87]/40 bg-[#2e1065]/60'));
+    if (bonuses.speed > 0) cards.push(createEffectCard('spd', 'VEL', `+${bonuses.speed}`, <Wind size={15} />, 'text-[#34d399]', 'border-[#065f46]/40 bg-[#022c22]/60'));
+    if (bonuses.luck > 0) cards.push(createEffectCard('luck', 'SRT', `+${bonuses.luck}`, <Star size={15} />, 'text-[#fbbf24]', 'border-[#a16207]/40 bg-[#422006]/60'));
     return cards;
   }
   if (item.type === 'potion') {
@@ -140,7 +142,7 @@ const getEquippedItemForType = (player: Player, type: Item['type']): Item | null
 const getEquipmentComparableScore = (item: Item): number => {
   if (!isEquipmentType(item.type)) return 0;
   const bonuses = getEquipmentBonuses(item);
-  return bonuses.def + bonuses.maxHp + bonuses.maxMp + bonuses.speed
+  return bonuses.def + bonuses.magicDef + bonuses.maxHp + bonuses.maxMp + bonuses.speed + bonuses.luck
     + (item.type === 'weapon' ? bonuses.atk + bonuses.magic : 0);
 };
 

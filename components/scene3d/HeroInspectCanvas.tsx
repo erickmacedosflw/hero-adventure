@@ -1095,21 +1095,23 @@ export const HeroInspectCanvas = ({
 
               {(() => {
                 const eqItems = [player.equippedWeapon, player.equippedArmor, player.equippedHelmet, player.equippedLegs, player.equippedShield];
-                const eqBonus = { atk: 0, def: 0, speed: 0, magic: 0, luck: 0 };
+                const eqBonus = { atk: 0, def: 0, magicDef: 0, speed: 0, magic: 0, luck: 0 };
                 eqItems.forEach((it: any) => {
                   if (!it) return;
                   const bonus = getEquipmentBonuses(it);
                   eqBonus.atk += bonus.atk;
                   eqBonus.def += bonus.def;
+                  eqBonus.magicDef += bonus.magicDef;
                   eqBonus.speed += bonus.speed;
                   eqBonus.magic += bonus.magic;
+                  eqBonus.luck += bonus.luck;
                 });
                 const hasEquip = eqItems.some(Boolean);
                 const radarAxes = [
                   { value: player.stats.atk, base: player.stats.atk - eqBonus.atk, bonus: eqBonus.atk, color: '#f43f5e', Icon: Swords as React.FC<{ size?: number }> },
                   { value: player.stats.magic, base: player.stats.magic - eqBonus.magic, bonus: eqBonus.magic, color: '#a855f7', Icon: Sparkles as React.FC<{ size?: number }> },
-                  { value: magicDefense, base: magicDefense, bonus: 0, color: '#3b82f6', Icon: Shield as React.FC<{ size?: number }> },
-                  { value: player.stats.luck, base: player.stats.luck, bonus: 0, color: '#f59e0b', Icon: Clover as React.FC<{ size?: number }> },
+                  { value: magicDefense, base: magicDefense - eqBonus.magicDef, bonus: eqBonus.magicDef, color: '#3b82f6', Icon: Shield as React.FC<{ size?: number }> },
+                  { value: player.stats.luck, base: player.stats.luck - eqBonus.luck, bonus: eqBonus.luck, color: '#f59e0b', Icon: Clover as React.FC<{ size?: number }> },
                   { value: player.stats.speed, base: player.stats.speed - eqBonus.speed, bonus: eqBonus.speed, color: '#10b981', Icon: Wind as React.FC<{ size?: number }> },
                   { value: player.stats.def, base: player.stats.def - eqBonus.def, bonus: eqBonus.def, color: '#f97316', Icon: Shield as React.FC<{ size?: number }> },
                 ] as { value: number; base: number; bonus: number; color: string; Icon: React.FC<{ size?: number }> }[];

@@ -145,6 +145,10 @@ const getEnemyDefWithBuff = (target: Enemy) => (
   Math.floor(target.stats.def * (1 + (target.combatBuffs?.defMod ?? 0)))
 );
 
+const getEnemyMagicDefWithBuff = (target: Enemy) => (
+  Math.floor((target.stats.magicDef ?? target.stats.def) * (1 + (target.combatBuffs?.defMod ?? 0)))
+);
+
 const tickEnemyBuffs = (target: Enemy): Enemy => {
   if (!target.combatBuffs || target.combatBuffs.turns <= 0) {
     return target;
@@ -660,7 +664,7 @@ export const useBattleController = ({
       const schoolBonus = usesMagicBasicAttack ? talentBonuses.magicDamage : talentBonuses.physicalDamage;
       const attackResult = calculateDamage({
         attackerAtk: usesMagicBasicAttack ? player.stats.magic : player.stats.atk,
-        defenderDef: getEnemyDefWithBuff(enemy),
+        defenderDef: usesMagicBasicAttack ? getEnemyMagicDefWithBuff(enemy) : getEnemyDefWithBuff(enemy),
         attackerSpeed: player.stats.speed,
         defenderSpeed: enemy.stats.speed,
         multiplier: getBossDamageMultiplier() * attackImpulseMultiplier * (1 + schoolBonus + getMarkedBonus(enemy.statusEffects, talentBonuses.markedDamage)) * riposteMultiplier,
@@ -1107,7 +1111,7 @@ export const useBattleController = ({
         const riposteMultiplier = riposteActive && isFirstStrike ? RIPOSTE_DAMAGE_MULTIPLIER : 1;
         const attackResult = calculateDamage({
           attackerAtk: skill.type === 'magic' ? player.stats.magic : player.stats.atk,
-          defenderDef: getEnemyDefWithBuff(enemy),
+          defenderDef: skill.type === 'magic' ? getEnemyMagicDefWithBuff(enemy) : getEnemyDefWithBuff(enemy),
           attackerSpeed: player.stats.speed,
           defenderSpeed: enemy.stats.speed,
           multiplier: (skill.damageMult + resourceBurst) * getBossDamageMultiplier() * skillEffectMultiplier * (1 + schoolBonus + statusBonus) * riposteMultiplier,

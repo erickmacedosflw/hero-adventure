@@ -214,6 +214,9 @@ export interface Item {
   hpBonus?: number;
   mpBonus?: number;
   magicBonus?: number;
+  magicDefBonus?: number;
+  speedBonus?: number;
+  luckBonus?: number;
   icon: string; // Icon helper
   iconImage?: string; // Official PNG icon URL
   rarity: Rarity;

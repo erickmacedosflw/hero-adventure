@@ -4,7 +4,7 @@ import { Player, Enemy, EnemyIntentPreview, BattleLog, TurnState, Item, Skill, G
 import { Sword, Shield, Zap, Heart, Coins, ShoppingBag, Skull, Play, Plus, FlaskConical, User, X, Home, LogOut, DollarSign, AlertTriangle, MousePointerClick, Shirt, Footprints, Crown, LayoutGrid, Sparkles, Crosshair, ArrowLeft, Star, Clock, Orbit, Info, RefreshCw } from 'lucide-react';
 import { ItemPreviewThree } from './items/ItemPreviewThree';
 import { GameAssetIcon } from './ui/game-asset-icon';
-import { ItemIcon } from './ui/game-display';
+import { ItemIcon, getItemPowerLabel } from './ui/game-display';
 import { CharacterSheetModal } from './profile/CharacterSheetModal';
 import { InventoryScreen as InventoryModal } from './profile/InventoryScreen';
 import { SkillsScreen as SkillsModal } from './profile/SkillsScreen';
@@ -724,8 +724,7 @@ const InventoryScreen = ({ player, shopItems, onClose, onEquip, onUse }: { playe
                                 {selectedItem.type !== 'material' && (
                                     <div className="flex justify-center items-center gap-4 bg-slate-950 p-4 rounded-xl border border-slate-800">
                                         <span className="text-slate-500 font-bold uppercase text-xs tracking-widest">Poder</span>
-                                        <span className="text-2xl font-black text-emerald-400">+{selectedItem.value}</span>
-                                        <span className="text-slate-500 text-xs">{selectedItem.type === 'weapon' ? 'ATK' : selectedItem.type === 'potion' ? 'RECUPERA��O' : 'DEF'}</span>
+                                        <span className="text-lg font-black text-emerald-400 text-center">{getItemPowerLabel(selectedItem)}</span>
                                     </div>
                                 )}
                             </div>
@@ -780,8 +779,7 @@ const InventoryScreen = ({ player, shopItems, onClose, onEquip, onUse }: { playe
                             {mobileDetailItem.type !== 'material' && (
                                 <div className="flex justify-center items-center gap-3 bg-slate-950 p-3 rounded-xl border border-slate-800">
                                     <span className="text-slate-500 font-bold uppercase text-[10px] tracking-widest">Poder</span>
-                                    <span className="text-xl font-black text-emerald-400">+{mobileDetailItem.value}</span>
-                                    <span className="text-slate-500 text-[10px]">{mobileDetailItem.type === 'weapon' ? 'ATK' : mobileDetailItem.type === 'potion' ? 'RECUPERA��O' : 'DEF'}</span>
+                                    <span className="text-sm font-black text-emerald-400 text-center">{getItemPowerLabel(mobileDetailItem)}</span>
                                 </div>
                             )}
                         </div>
@@ -878,7 +876,7 @@ const CharacterSheet = ({ player, shopItems, onClose, onOpenInventory }: { playe
                  <div className="flex justify-between border-b border-slate-700/50 pb-1"><span>Defesa (DEF)</span> <span className="font-mono text-white text-orange-200">{player.stats.def}</span></div>
                  <div className="flex justify-between border-b border-slate-700/50 pb-1"><span>Defesa Magica (D.MAG)</span> <span className="font-mono text-white text-blue-200">{player.stats.magicDef ?? player.stats.def}</span></div>
                  <div className="flex justify-between border-b border-slate-700/50 pb-1"><span>Velocidade (SPD)</span> <span className="font-mono text-white text-green-200">{player.stats.speed}</span></div>
-                 <div className="flex justify-between border-b border-slate-700/50 pb-1"><span>Sorte (LUCK)</span> <span className="font-mono text-white text-purple-200">{player.stats.luck}</span></div>
+                 <div className="flex justify-between border-b border-slate-700/50 pb-1"><span>Sorte (SRT)</span> <span className="font-mono text-white text-amber-200">{player.stats.luck}</span></div>
                  <div className="flex justify-between border-b border-slate-700/50 pb-1"><span>Vida M�x.</span> <span className="font-mono text-white text-red-200">{player.stats.maxHp}</span></div>
                  <div className="flex justify-between"><span>Mana M�x.</span> <span className="font-mono text-white text-blue-200">{player.stats.maxMp}</span></div>
               </div>
@@ -906,7 +904,7 @@ const CharacterSheet = ({ player, shopItems, onClose, onOpenInventory }: { playe
                         <div className="flex-1 z-10">
                            <div className="text-[9px] uppercase tracking-wider text-slate-500">{slot.label}</div>
                            <div className="font-bold text-white text-sm truncate">{slot.item?.name || "Vazio"}</div>
-                           {slot.item && <div className="text-[10px] text-indigo-300">+{slot.item.value} {slot.item.type === 'weapon' ? 'ATK' : (slot.item.type === 'legs' ? 'VEL' : 'DEF')}</div>}
+                                    {slot.item && <div className="text-[10px] text-indigo-300">{getItemPowerLabel(slot.item)}</div>}
                         </div>
                      </div>
                  )})}

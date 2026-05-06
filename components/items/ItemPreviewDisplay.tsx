@@ -1,5 +1,6 @@
 import React from 'react';
 import type { Item } from '../../types';
+import { getEquipmentBonuses } from '../../game/mechanics/equipmentBonuses';
 
 type TonePalette = {
   bg: string;
@@ -365,10 +366,26 @@ const renderIllustration = (item: Item, palette: TonePalette) => {
 
 const getStatLine = (item: Item) => {
   if (item.type === 'material') return 'Crafting material';
-  if (item.type === 'weapon') return `+${item.value} ATK`;
-  if (item.type === 'legs') return `+${item.value} VEL`;
-  if (item.type === 'armor' && (item.mpBonus ?? 0) > 0) return `+${item.value} DEF | +${item.mpBonus} MP`;
-  if (item.type === 'helmet' && (item.hpBonus ?? 0) > 0) return `+${item.value} DEF | +${item.hpBonus} HP`;
+  if (item.type === 'weapon') {
+    const bonuses = getEquipmentBonuses(item);
+    const parts: string[] = [];
+    if (bonuses.atk > 0) parts.push(`+${bonuses.atk} ATK`);
+    if (bonuses.magic > 0) parts.push(`+${bonuses.magic} MAG`);
+    if (bonuses.speed > 0) parts.push(`+${bonuses.speed} VEL`);
+    if (bonuses.luck > 0) parts.push(`+${bonuses.luck} SRT`);
+    return parts.length > 0 ? parts.join(' | ') : '+0 ATK';
+  }
+  if (item.type === 'armor' || item.type === 'helmet' || item.type === 'legs' || item.type === 'shield') {
+    const bonuses = getEquipmentBonuses(item);
+    const parts: string[] = [];
+    if (bonuses.def > 0) parts.push(`+${bonuses.def} DEF`);
+    if (bonuses.magicDef > 0) parts.push(`+${bonuses.magicDef} D.MAG`);
+    if (bonuses.maxHp > 0) parts.push(`+${bonuses.maxHp} HP`);
+    if (bonuses.maxMp > 0) parts.push(`+${bonuses.maxMp} MP`);
+    if (bonuses.speed > 0) parts.push(`+${bonuses.speed} VEL`);
+    if (bonuses.luck > 0) parts.push(`+${bonuses.luck} SRT`);
+    return parts.length > 0 ? parts.join(' | ') : `+${item.value} DEF`;
+  }
   if (item.type === 'potion') {
     if (item.id.includes('pot_atk')) return '+50% ATK for 3 turns';
     if (item.id.includes('pot_def')) return '+50% DEF for 3 turns';

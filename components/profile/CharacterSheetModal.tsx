@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { CircleHelp, Coins, Crosshair, Heart, Lock, Orbit, RefreshCcw, Shield, Sparkles, Star, Sword, WandSparkles, X, Zap } from 'lucide-react';
+import { CircleHelp, Coins, Crosshair, Heart, Lock, Orbit, RefreshCcw, Shield, Sparkles, Star, Sword, WandSparkles, Wind, X, Zap } from 'lucide-react';
 import { ALL_CARDS } from '../../game/data/cards';
 import { getConstellationByClassId } from '../../game/data/classTalents';
 import { getPlayerClassById } from '../../game/data/classes';
@@ -242,13 +242,31 @@ const getEquipmentBonusMeta = (item: Item | null): Array<{ icon: React.ReactNode
       valueTone: 'text-[#c2410c]',
     });
   }
+  if (bonuses.magicDef > 0) {
+    chips.push({
+      icon: <Shield size={12} />,
+      label: 'D.MAG',
+      value: `+${bonuses.magicDef}`,
+      chip: 'border-[#93c5fd] bg-[#eff6ff]',
+      valueTone: 'text-[#1d4ed8]',
+    });
+  }
   if (bonuses.speed > 0) {
     chips.push({
-      icon: <Zap size={12} />,
+      icon: <Wind size={12} />,
       label: 'VEL',
       value: `+${bonuses.speed}`,
-      chip: 'border-[#d3bfd8] bg-[#d9c4e3]',
-      valueTone: 'text-[#7c4c76]',
+      chip: 'border-[#b7dec8] bg-[#ddf3e7]',
+      valueTone: 'text-[#1f8f63]',
+    });
+  }
+  if (bonuses.luck > 0) {
+    chips.push({
+      icon: <Star size={12} />,
+      label: 'SRT',
+      value: `+${bonuses.luck}`,
+      chip: 'border-[#dfc89e] bg-[#f4e4c5]',
+      valueTone: 'text-[#b26a2e]',
     });
   }
   if (bonuses.maxHp > 0) {
@@ -853,7 +871,7 @@ export const CharacterSheetModal = ({ player, shopItems: _shopItems, onClose, on
                 <SummaryCard compact label="Defesa" value={player.stats.def} tone="text-[#c2410c]" icon={<Shield size={13} className="text-[#c2410c]" />} panel="border-[#fdba74] bg-[#ffedd5]" bonusPercent={getProficiencyPercent('def')} bonusChipClass="border-[#fb923c] bg-[#fed7aa] text-[#c2410c]" />
                 <SummaryCard compact label="D.MAG" value={magicDefense} tone="text-[#1d4ed8]" icon={<Shield size={13} className="text-[#1d4ed8]" />} panel="border-[#93c5fd] bg-[#eff6ff]" />
                 <SummaryCard compact label="Magia" value={player.stats.magic} tone="text-[#5f4ab3]" icon={<WandSparkles size={13} className="text-[#5f4ab3]" />} panel="border-[#c7bee6] bg-[#ddd7f5]" bonusPercent={getProficiencyPercent('magic')} bonusChipClass="border-[#ac9de0] bg-[#cfc7ef] text-[#5f4ab3]" />
-                <SummaryCard compact label="Velocidade" value={player.stats.speed} tone="text-[#7c4c76]" icon={<Zap size={13} className="text-[#7c4c76]" />} panel="border-[#d3bfd8] bg-[#e8d8ef]" bonusPercent={getProficiencyPercent('speed')} bonusChipClass="border-[#b993c2] bg-[#d9c4e3] text-[#7c4c76]" />
+                <SummaryCard compact label="Velocidade" value={player.stats.speed} tone="text-[#1f8f63]" icon={<Wind size={13} className="text-[#1f8f63]" />} panel="border-[#b7dec8] bg-[#e1f4e8]" bonusPercent={getProficiencyPercent('speed')} bonusChipClass="border-[#9fcdb3] bg-[#ccebdd] text-[#1f8f63]" />
                 <SummaryCard compact label="Sorte" value={player.stats.luck} tone="text-[#b26a2e]" icon={<Star size={13} className="text-[#b26a2e]" />} panel="border-[#dfc89e] bg-[#f4e4c5]" bonusPercent={getProficiencyPercent('luck')} bonusChipClass="border-[#d7b16f] bg-[#edcf9a] text-[#b26a2e]" />
                 <SummaryCard compact label="Guarda Fisica" value="FIS" tone="text-[#c2410c]" icon={<Shield size={13} className="text-[#c2410c]" />} panel="border-[#fdba74] bg-[#fff7ed]" />
                 <SummaryCard compact label="Guarda Magica" value="MAG" tone="text-[#1d4ed8]" icon={<Shield size={13} className="text-[#1d4ed8]" />} panel="border-[#93c5fd] bg-[#eff6ff]" />

@@ -127,21 +127,27 @@ export const getCardEffectPreview = (card: ProgressionCard) => {
 
 export const getItemPowerLabel = (item: Item) => {
   if (item.type === 'weapon') {
-    if ((item.magicBonus ?? 0) > 0) {
-      return `+${item.value} ATK | +${item.magicBonus} MAG`;
-    }
-    return `+${item.value} ATK`;
+    const bonuses = getEquipmentBonuses(item);
+    const parts: string[] = [];
+    if (bonuses.atk > 0) parts.push(`+${bonuses.atk} ATK`);
+    if (bonuses.magic > 0) parts.push(`+${bonuses.magic} MAG`);
+    if (bonuses.speed > 0) parts.push(`+${bonuses.speed} VEL`);
+    return parts.length > 0 ? parts.join(' | ') : '+0 ATK';
   }
   if (item.type === 'potion' && !item.id.includes('pot_atk') && !item.id.includes('pot_def')) return `Recupera ${item.value}`;
   if (item.id.includes('pot_atk')) return `+${item.value * 100}% ATK`;
   if (item.id.includes('pot_def')) return `+${item.value * 100}% DEF`;
   if (item.type === 'material') return 'Ingrediente';
-  if (item.type === 'legs') return `+${item.value} VEL`;
 
   const bonuses = getEquipmentBonuses(item);
-  if (item.type === 'armor' && bonuses.maxMp > 0) return `+${bonuses.def} DEF | +${bonuses.maxMp} MP`;
-  if (item.type === 'helmet' && bonuses.maxHp > 0) return `+${bonuses.def} DEF | +${bonuses.maxHp} HP`;
-  return `+${item.value} DEF`;
+  const parts: string[] = [];
+  if (bonuses.def > 0) parts.push(`+${bonuses.def} DEF`);
+  if (bonuses.magicDef > 0) parts.push(`+${bonuses.magicDef} D.MAG`);
+  if (bonuses.maxHp > 0) parts.push(`+${bonuses.maxHp} HP`);
+  if (bonuses.maxMp > 0) parts.push(`+${bonuses.maxMp} MP`);
+  if (bonuses.speed > 0) parts.push(`+${bonuses.speed} VEL`);
+  if (bonuses.luck > 0) parts.push(`+${bonuses.luck} SRT`);
+  return parts.length > 0 ? parts.join(' | ') : `+${item.value} DEF`;
 };
 
 export const isEquipmentType = (type: Item['type']) => ['weapon', 'armor', 'helmet', 'legs', 'shield'].includes(type);
