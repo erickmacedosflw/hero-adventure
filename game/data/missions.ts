@@ -253,7 +253,7 @@ export const INITIAL_MISSIONS: Mission[] = [
     id: 'msn_reach_stage',
     tipoMissao: 'REACH_STAGE',
     categoria: 'ESPECIAL',
-    descricao: 'Chegue até a fase {meta}.'
+    descricao: 'Chegue até a fase {meta}.',
     progressoAtual: 0,
     metaAtual: 5,
     nivelAtual: 1,
