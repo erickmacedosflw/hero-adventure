@@ -517,11 +517,11 @@ export default function App() {
     };
 
     const ENEMY_CLASS_BASE_HP: Record<Player['classId'], number> = {
-        knight: 110,
-        barbarian: 124,
-        mage: 68,
-        ranger: 88,
-        rogue: 88,
+        knight: 77,
+        barbarian: 87,
+        mage: 48,
+        ranger: 62,
+        rogue: 62,
     };
 
     const ENEMY_CLASS_BASE_MP: Record<Player['classId'], number> = {
