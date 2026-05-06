@@ -377,20 +377,17 @@ const GameOverScreen: React.FC<{ stage: number; onRespawn: () => void }> = ({ st
                 fontFamily: "'Segoe UI',system-ui,sans-serif",
             }}
         >
-            {/* Dark vignette layer — separado do card para não impedir o blur */}
-            <div style={{
-                position: 'absolute', inset: 0, pointerEvents: 'none',
-                background: 'radial-gradient(circle at 50% 30%, rgba(140,20,20,0.32), rgba(10,4,4,0.82) 55%, rgba(4,2,2,0.92) 100%)',
-            }} />
             <div
                 className={leaving ? 'gameover-card-out' : 'gameover-card-in'}
                 style={{
                     position: 'relative', zIndex: 1,
                     width: '100%', maxWidth: 520,
-                    background: 'rgba(12,2,2,0.38)',
-                    border: '1px solid rgba(220,100,100,0.22)',
+                    background: 'rgba(10,2,2,0.50)',
+                    backdropFilter: 'blur(20px)',
+                    WebkitBackdropFilter: 'blur(20px)',
+                    border: '1px solid rgba(220,100,100,0.20)',
                     borderRadius: 28, overflow: 'hidden',
-                    boxShadow: '0 40px 120px rgba(80,10,10,0.35), 0 0 0 1px rgba(200,80,80,0.06)',
+                    boxShadow: '0 40px 120px rgba(80,10,10,0.50)',
                 }}
             >
                 {/* Header */}
