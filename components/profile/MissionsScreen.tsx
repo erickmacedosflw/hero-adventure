@@ -137,15 +137,15 @@ const MissionCard: React.FC<{ mission: Mission; onClaim: () => void }> = ({ miss
       style={{
         borderRadius: 20,
         border: isComplete
-          ? '1.5px solid rgba(180,120,20,0.70)'
+          ? '1.5px solid rgba(180,120,20,0.55)'
           : isFixed
-            ? '1.5px solid rgba(139,90,43,0.60)'
-            : '1.5px solid rgba(100,65,30,0.55)',
+            ? '1.5px solid rgba(139,90,43,0.35)'
+            : '1.5px solid rgba(255,255,255,0.10)',
         background: isComplete
-          ? 'linear-gradient(160deg, rgba(120,72,8,0.22) 0%, rgba(10,6,0,0.80) 100%)'
-          : 'linear-gradient(160deg, rgba(60,38,18,0.30) 0%, rgba(8,5,2,0.82) 100%)',
-        backdropFilter: 'blur(18px)',
-        WebkitBackdropFilter: 'blur(18px)',
+          ? 'rgba(120,72,8,0.18)'
+          : 'rgba(255,255,255,0.06)',
+        backdropFilter: 'blur(20px)',
+        WebkitBackdropFilter: 'blur(20px)',
         padding: 0,
         display: 'flex',
         flexDirection: 'column',
