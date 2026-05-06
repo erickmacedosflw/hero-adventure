@@ -373,30 +373,35 @@ const GameOverScreen: React.FC<{ stage: number; onRespawn: () => void }> = ({ st
             style={{
                 position: 'absolute', inset: 0, zIndex: 50,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                background: 'radial-gradient(circle at top, rgba(160,38,38,0.38), rgba(20,8,8,0.94) 48%, rgba(6,2,2,0.99) 100%)',
                 padding: 16, pointerEvents: 'auto',
                 fontFamily: "'Segoe UI',system-ui,sans-serif",
             }}
         >
+            {/* Dark vignette layer — separado do card para não impedir o blur */}
+            <div style={{
+                position: 'absolute', inset: 0, pointerEvents: 'none',
+                background: 'radial-gradient(circle at 50% 30%, rgba(140,20,20,0.32), rgba(10,4,4,0.82) 55%, rgba(4,2,2,0.92) 100%)',
+            }} />
             <div
                 className={leaving ? 'gameover-card-out' : 'gameover-card-in'}
                 style={{
+                    position: 'relative', zIndex: 1,
                     width: '100%', maxWidth: 520,
-                    background: 'rgba(22,8,8,0.72)',
-                    backdropFilter: 'blur(24px)',
-                    WebkitBackdropFilter: 'blur(24px)',
-                    border: '1px solid rgba(180,80,80,0.38)',
+                    background: 'rgba(18,4,4,0.52)',
+                    backdropFilter: 'blur(28px)',
+                    WebkitBackdropFilter: 'blur(28px)',
+                    border: '1px solid rgba(180,80,80,0.30)',
                     borderRadius: 28, overflow: 'hidden',
-                    boxShadow: '0 40px 120px rgba(80,10,10,0.65), 0 0 0 1px rgba(200,80,80,0.10)',
+                    boxShadow: '0 40px 120px rgba(80,10,10,0.55), 0 0 0 1px rgba(200,80,80,0.08)',
                 }}
             >
                 {/* Header */}
                 <div style={{
-                    background: 'linear-gradient(160deg, #5c1414 0%, #7a1e1e 45%, #5c1414 100%)',
-                    borderBottom: '1px solid rgba(180,80,80,0.25)',
+                    background: 'rgba(120,20,20,0.55)',
+                    borderBottom: '1px solid rgba(180,80,80,0.22)',
                     padding: '32px 32px 26px', textAlign: 'center', position: 'relative', overflow: 'hidden',
                 }}>
-                    <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse at top, rgba(255,60,60,0.10), transparent 65%)', pointerEvents: 'none' }} />
+                    <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse at top, rgba(255,60,60,0.12), transparent 65%)', pointerEvents: 'none' }} />
                     <div className="gameover-badge" style={{
                         display: 'inline-flex', alignItems: 'center',
                         borderRadius: 99, border: '1px solid rgba(255,200,200,0.20)',
