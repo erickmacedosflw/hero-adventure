@@ -8,22 +8,26 @@ import type { Mission } from '../../types';
 const BOOK_URL = new URL('../../game/assets/Icons/Missoes/Book_missoes.png', import.meta.url).href;
 const COIN_URL = new URL('../../game/assets/Icons/Misc/Golden Coin.png', import.meta.url).href;
 
-// Inject keyframes once
-if (typeof document !== 'undefined' && !document.getElementById('mission-toast-style')) {
-  const s = document.createElement('style');
-  s.id = 'mission-toast-style';
+// Inject keyframes — always replace so HMR picks up changes
+if (typeof document !== 'undefined') {
+  let s = document.getElementById('mission-toast-style-v2') as HTMLStyleElement | null;
+  if (!s) {
+    s = document.createElement('style');
+    s.id = 'mission-toast-style-v2';
+    document.head.appendChild(s);
+  }
+  // Centering via left:0/right:0/margin:auto — animation only needs Y + scale
   s.textContent = `
     @keyframes mission-toast-in {
-      0%   { opacity: 0; transform: translateX(-50%) translateY(-32px) scale(0.92); }
-      60%  { opacity: 1; transform: translateX(-50%) translateY(4px) scale(1.02); }
-      100% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+      0%   { opacity: 0; transform: translateY(-32px) scale(0.92); }
+      60%  { opacity: 1; transform: translateY(4px) scale(1.02); }
+      100% { opacity: 1; transform: translateY(0) scale(1); }
     }
     @keyframes mission-toast-out {
-      0%   { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
-      100% { opacity: 0; transform: translateX(-50%) translateY(-24px) scale(0.94); }
+      0%   { opacity: 1; transform: translateY(0) scale(1); }
+      100% { opacity: 0; transform: translateY(-24px) scale(0.94); }
     }
   `;
-  document.head.appendChild(s);
 }
 
 export interface MissionToastItem {
@@ -78,8 +82,9 @@ export const MissionToast: React.FC<Props> = ({ toast, onOpen }) => {
       style={{
         position: 'fixed',
         top: 'max(14px, env(safe-area-inset-top, 14px))',
-        left: '50%',
-        transform: 'translateX(-50%)',
+        left: 0,
+        right: 0,
+        margin: '0 auto',
         zIndex: 9999,
         width: 'min(92vw, 360px)',
         willChange: 'transform, opacity',
