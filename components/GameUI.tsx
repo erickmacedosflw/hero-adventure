@@ -1967,6 +1967,27 @@ export const TavernScreen: React.FC<{
                 {!heroInspectOpen && !portalInspectMode && !portalTransitioning && (inventoryUnlocked || showSkillsAction || (missionsUnlocked && sceneRegion === 'forest') || (merchantUnlocked && sceneRegion === 'forest') || (alchemistUnlocked && sceneRegion === 'dungeon')) && (
                     <div className="absolute right-3 sm:right-5 top-[4.5rem] sm:top-24 z-10 pointer-events-auto flex flex-col gap-4">
                         {(() => {
+                            // Quadrado girado (losango) com fundo preto e blur atrás do ícone
+                            const SideIconFrame = ({ children, size = 56 }: { children: React.ReactNode; size?: number }) => (
+                                <div style={{ position: 'relative', width: size, height: size, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    {/* Diamond background */}
+                                    <div style={{
+                                        position: 'absolute',
+                                        inset: 6,
+                                        borderRadius: 10,
+                                        transform: 'rotate(45deg)',
+                                        background: 'rgba(0,0,0,0.72)',
+                                        backdropFilter: 'blur(10px)',
+                                        WebkitBackdropFilter: 'blur(10px)',
+                                        border: '1.5px solid rgba(255,255,255,0.18)',
+                                        boxShadow: '0 4px 18px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.10)',
+                                    }} />
+                                    {/* Icon */}
+                                    <div style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        {children}
+                                    </div>
+                                </div>
+                            );
                             // constrói lista na mesma ordem que sideMenuItems para alinhar índices
                             const railItems: { id: string; visible: boolean; jsx: React.ReactNode }[] = [
                                 {
@@ -1983,7 +2004,9 @@ export const TavernScreen: React.FC<{
                                             <span className="text-white text-[11px] font-black uppercase tracking-[0.1em] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-150" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}>
                                                 Mochila
                                             </span>
-                                            <img src={ICONE_MOCHILA_URL} alt="" className="h-14 w-14 object-contain" style={{ filter: 'drop-shadow(0.5px 0 0 #fff) drop-shadow(-0.5px 0 0 #fff) drop-shadow(0 0.5px 0 #fff) drop-shadow(0 -0.5px 0 #fff)' }} />
+                                            <SideIconFrame>
+                                                <img src={ICONE_MOCHILA_URL} alt="" className="h-10 w-10 object-contain" style={{ filter: 'drop-shadow(0 0 3px rgba(255,255,255,0.9)) drop-shadow(0 0 1px #fff)' }} />
+                                            </SideIconFrame>
                                         </button>
                                     ),
                                 },
@@ -2003,14 +2026,14 @@ export const TavernScreen: React.FC<{
                                             <span className="text-white text-[11px] font-black uppercase tracking-[0.1em] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-150" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}>
                                                 Missões
                                             </span>
-                                            <div className="relative">
-                                                <img src={BOOK_MISSOES_URL} alt="" className="h-14 w-14 object-contain" style={{ filter: 'drop-shadow(0.5px 0 0 #fff) drop-shadow(-0.5px 0 0 #fff) drop-shadow(0 0.5px 0 #fff) drop-shadow(0 -0.5px 0 #fff)' }} />
+                                            <SideIconFrame>
+                                                <img src={BOOK_MISSOES_URL} alt="" className="h-10 w-10 object-contain" style={{ filter: 'drop-shadow(0 0 3px rgba(255,255,255,0.9)) drop-shadow(0 0 1px #fff)' }} />
                                                 {_mDone > 0 && (
-                                                    <span style={{ position: 'absolute', top: -4, right: -4, minWidth: 20, height: 20, borderRadius: 99, background: 'linear-gradient(135deg,#b45309,#fbbf24)', border: '2px solid #fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 900, color: '#fff', padding: '0 4px', boxShadow: '0 2px 8px rgba(180,83,9,0.60)', pointerEvents: 'none' }}>
+                                                    <span style={{ position: 'absolute', top: -2, right: -2, minWidth: 18, height: 18, borderRadius: 99, background: 'linear-gradient(135deg,#b45309,#fbbf24)', border: '2px solid #fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 900, color: '#fff', padding: '0 3px', boxShadow: '0 2px 8px rgba(180,83,9,0.60)', pointerEvents: 'none', zIndex: 2 }}>
                                                         {_mDone}
                                                     </span>
                                                 )}
-                                            </div>
+                                            </SideIconFrame>
                                         </button>
                                         );
                                     })(),
@@ -2029,7 +2052,9 @@ export const TavernScreen: React.FC<{
                                             <span className="text-white text-[11px] font-black uppercase tracking-[0.1em] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-150" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}>
                                                 Habilidades
                                             </span>
-                                            <img src={BOOK_HABILIDADES_URL} alt="" className="h-14 w-14 object-contain" style={{ filter: 'drop-shadow(0.5px 0 0 #fff) drop-shadow(-0.5px 0 0 #fff) drop-shadow(0 0.5px 0 #fff) drop-shadow(0 -0.5px 0 #fff)' }} />
+                                            <SideIconFrame>
+                                                <img src={BOOK_HABILIDADES_URL} alt="" className="h-10 w-10 object-contain" style={{ filter: 'drop-shadow(0 0 3px rgba(255,255,255,0.9)) drop-shadow(0 0 1px #fff)' }} />
+                                            </SideIconFrame>
                                         </button>
                                     ),
                                 },
@@ -2047,7 +2072,9 @@ export const TavernScreen: React.FC<{
                                             <span className="text-white text-[11px] font-black uppercase tracking-[0.1em] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-150" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}>
                                                 Mercador
                                             </span>
-                                            <img src={ICONE_MERCADOR_URL} alt="" className="h-16 w-16 object-contain" style={{ filter: 'drop-shadow(0.5px 0 0 #fff) drop-shadow(-0.5px 0 0 #fff) drop-shadow(0 0.5px 0 #fff) drop-shadow(0 -0.5px 0 #fff)' }} />
+                                            <SideIconFrame>
+                                                <img src={ICONE_MERCADOR_URL} alt="" className="h-10 w-10 object-contain" style={{ filter: 'drop-shadow(0 0 3px rgba(255,255,255,0.9)) drop-shadow(0 0 1px #fff)' }} />
+                                            </SideIconFrame>
                                         </button>
                                     ),
                                 },
@@ -2065,7 +2092,9 @@ export const TavernScreen: React.FC<{
                                             <span className="text-white text-[11px] font-black uppercase tracking-[0.1em] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-150" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}>
                                                 Alquimista
                                             </span>
-                                            <img src={ICONE_ALQUIMISTA_URL} alt="" className="h-14 w-14 object-contain" style={{ filter: 'drop-shadow(0.5px 0 0 #fff) drop-shadow(-0.5px 0 0 #fff) drop-shadow(0 0.5px 0 #fff) drop-shadow(0 -0.5px 0 #fff)' }} />
+                                            <SideIconFrame>
+                                                <img src={ICONE_ALQUIMISTA_URL} alt="" className="h-10 w-10 object-contain" style={{ filter: 'drop-shadow(0 0 3px rgba(255,255,255,0.9)) drop-shadow(0 0 1px #fff)' }} />
+                                            </SideIconFrame>
                                         </button>
                                     ),
                                 },
