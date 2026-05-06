@@ -149,7 +149,6 @@ const MissionCard: React.FC<{ mission: Mission; onClaim: () => void }> = ({ miss
         padding: 0,
         display: 'flex',
         flexDirection: 'column',
-        height: '100%',
         boxSizing: 'border-box' as const,
         overflow: 'hidden',
         position: 'relative',
@@ -363,7 +362,7 @@ export const MissionsScreen: React.FC<MissionsScreenProps> = ({
 
         {/* Mission cards — horizontal scroll */}
         <div
-          style={{ overflowX: 'auto', overflowY: 'hidden', flex: 1, minHeight: 0, padding: '14px 14px 18px', display: 'flex', flexDirection: 'row', gap: 12, alignItems: 'stretch', scrollSnapType: 'x proximity', WebkitOverflowScrolling: 'touch', touchAction: 'pan-x', overscrollBehaviorX: 'contain' as any }}
+          style={{ overflowX: 'auto', overflowY: 'hidden', flex: 1, minHeight: 0, padding: '14px 14px 18px', display: 'flex', flexDirection: 'row', gap: 12, alignItems: 'flex-start', scrollSnapType: 'x proximity', WebkitOverflowScrolling: 'touch', touchAction: 'pan-x', overscrollBehaviorX: 'contain' as any }}
           onTouchStart={(e) => e.stopPropagation()}
           onTouchMove={(e) => e.stopPropagation()}
         >
