@@ -381,9 +381,7 @@ export const MissionsScreen: React.FC<MissionsScreenProps> = ({
         {/* Mission cards — horizontal (desktop) ou lista vertical (mobile) */}
         {isMobile ? (
           <div
-            style={{ overflowY: 'auto', overflowX: 'hidden', flex: 1, minHeight: 0, padding: '12px 14px 24px', display: 'flex', flexDirection: 'column', gap: 10, WebkitOverflowScrolling: 'touch' }}
-            onTouchStart={(e) => e.stopPropagation()}
-            onTouchMove={(e) => e.stopPropagation()}
+            style={{ overflowY: 'auto', overflowX: 'hidden', flex: 1, minHeight: 0, padding: '12px 14px 24px', display: 'flex', flexDirection: 'column', gap: 10, WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain' }}
           >
             {sortedMissions.map(m => (
               <div key={m.id} style={{ width: '100%', flexShrink: 0 }}>
