@@ -1982,7 +1982,7 @@ export const TavernScreen: React.FC<{
                                         transition: 'transform 0.15s cubic-bezier(0.34,1.56,0.64,1), background 0.15s',
                                     }} />
                                     {/* Icon */}
-                                    <div data-iconwrap="1" style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'transform 0.15s cubic-bezier(0.34,1.56,0.64,1)' }}>
+                                    <div data-iconwrap="1" style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'transform 0.18s cubic-bezier(0.22,1,0.36,1)' }}>
                                         {children}
                                     </div>
                                 </div>
@@ -4207,7 +4207,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                           background: 'rgba(0,0,0,0.42)',
                           transition: 'transform 0.15s cubic-bezier(0.34,1.56,0.64,1), background 0.15s',
                       }} />
-                      <div data-iconwrap="1" style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'transform 0.15s cubic-bezier(0.34,1.56,0.64,1)' }}>
+                      <div data-iconwrap="1" style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'transform 0.18s cubic-bezier(0.22,1,0.36,1)' }}>
                           <img src={BOOK_MISSOES_URL} alt="" style={{ position: 'relative', zIndex: 1, width: 44, height: 44, objectFit: 'contain', filter: 'drop-shadow(1.5px 0 0 rgba(255,255,255,0.85)) drop-shadow(-1.5px 0 0 rgba(255,255,255,0.85)) drop-shadow(0 1.5px 0 rgba(255,255,255,0.85)) drop-shadow(0 -1.5px 0 rgba(255,255,255,0.85))' }} />
                       </div>
                       {_bDone > 0 && (
