@@ -1230,6 +1230,7 @@ export default function App() {
     const levelUpModalTimerRef = useRef<number | null>(null);
     const portalTravelRegionSwapTimerRef = useRef<number | null>(null);
     const lastSavedSignatureRef = useRef<string>('');
+    const persistSaveNowRef = useRef<(override?: Partial<SavePayload>) => boolean>(() => false);
     const wasResourceUnlockedRef = useRef(player.classResource.max > 0);
     const particleBudgetRef = useRef({
         windowStart: (typeof performance !== 'undefined' ? performance.now() : Date.now()),
@@ -1362,6 +1363,8 @@ export default function App() {
         lastSavedSignatureRef.current = signature;
         return true;
     }, [buildSavePayload, hasConfirmedStartingClass]);
+    // Keep ref always pointing to latest version (avoids stale closures in battle)
+    persistSaveNowRef.current = persistSaveNow;
 
     const applyLoadedSave = useCallback((slotId: SaveSlotId) => {
         const loaded = loadSaveFromSlot(slotId);
@@ -2873,16 +2876,17 @@ export default function App() {
   }, []);
 
   const claimMissionReward = useCallback((missionId: string) => {
+    // Read current missions synchronously via functional updater to avoid stale closure
+    let updatedMissions: Mission[] | null = null;
+    let goldReward = 0;
     setMissions(prev => {
       const idx = prev.findIndex(m => m.id === missionId);
       if (idx < 0) return prev;
       const m = prev[idx];
       if (m.progressoAtual < m.metaAtual) return prev;
-      // Give gold for the reward
-      setPlayer(p => ({ ...p, gold: p.gold + m.recompensaAtual }));
+      goldReward = m.recompensaAtual;
       const isFixed = m.metaIncrement === 0;
       const nextNivel = m.nivelAtual + 1;
-      // Exponential +30% per desafio for progressive missions; fixed missions reset to base
       const nextMeta = isFixed
         ? m.metaBase
         : Math.max(1, Math.round(m.metaAtual * 1.30));
@@ -2891,12 +2895,19 @@ export default function App() {
         : Math.round(m.recompensaAtual * 1.30);
       const updated = [...prev];
       updated[idx] = { ...m, progressoAtual: 0, nivelAtual: nextNivel, metaAtual: nextMeta, recompensaAtual: nextRecompensa };
-      // Pass the exact updated array as override to avoid stale-closure race condition
-      // (setMissions is async — persistSaveNow() called without override would read old state)
-      setTimeout(() => persistSaveNow({ missions: updated.map(x => ({ ...x })) }), 80);
+      updatedMissions = updated;
       return updated;
     });
-  }, [persistSaveNow]);
+    // setPlayer and save OUTSIDE the updater to avoid side-effects in render phase
+    if (goldReward > 0) {
+      setPlayer(p => ({ ...p, gold: p.gold + goldReward }));
+    }
+    if (updatedMissions) {
+      const snapshot = (updatedMissions as Mission[]).map(x => ({ ...x }));
+      // Use ref so we always call the freshest persistSaveNow (never stale during battle)
+      setTimeout(() => persistSaveNowRef.current({ missions: snapshot }), 50);
+    }
+  }, []);
 
   useEffect(() => {
     if (sceneRegion === 'forest') checkStageMissions(stage);
