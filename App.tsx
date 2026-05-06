@@ -397,7 +397,7 @@ const GameOverScreen: React.FC<{ stage: number; onRespawn: () => void }> = ({ st
                     padding: '32px 32px 26px', textAlign: 'center', position: 'relative', overflow: 'hidden',
                 }}>
                     <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse at top, rgba(255,60,60,0.10), transparent 65%)', pointerEvents: 'none' }} />
-                    <div className="gameover-badge" style={{
+                    <div className="gameover-badge-anim" style={{
                         display: 'inline-flex', alignItems: 'center',
                         borderRadius: 99, border: '1px solid rgba(255,200,200,0.20)',
                         background: 'rgba(255,255,255,0.08)',
@@ -405,7 +405,7 @@ const GameOverScreen: React.FC<{ stage: number; onRespawn: () => void }> = ({ st
                         fontSize: 10, fontWeight: 900, letterSpacing: '0.28em', textTransform: 'uppercase',
                         color: 'rgba(255,215,215,0.82)',
                     }}>Derrota</div>
-                    <h1 style={{
+                    <h1 className="gameover-title-anim" style={{
                         marginTop: 18,
                         fontSize: 'clamp(2.4rem, 6vw, 3.2rem)',
                         fontWeight: 900, letterSpacing: '0.06em', textTransform: 'uppercase',
@@ -413,12 +413,12 @@ const GameOverScreen: React.FC<{ stage: number; onRespawn: () => void }> = ({ st
                         textShadow: '0 0 48px rgba(255,70,70,0.38), 0 2px 0 rgba(0,0,0,0.5)',
                         lineHeight: 1,
                     }}>Você perdeu</h1>
-                    <p style={{ marginTop: 12, fontSize: 14, fontWeight: 500, color: 'rgba(255,195,195,0.60)', letterSpacing: '0.01em' }}>
+                    <p className="gameover-sub-anim" style={{ marginTop: 12, fontSize: 14, fontWeight: 500, color: 'rgba(255,195,195,0.60)', letterSpacing: '0.01em' }}>
                         A batalha terminou, mas sua jornada continua.
                     </p>
                 </div>
                 {/* Body */}
-                <div style={{ padding: '22px 26px 26px' }}>
+                <div className="gameover-body-anim" style={{ padding: '22px 26px 26px' }}>
                     <div style={{
                         borderRadius: 14, border: '1px solid rgba(200,80,80,0.14)',
                         background: 'rgba(255,40,40,0.06)',
@@ -431,7 +431,7 @@ const GameOverScreen: React.FC<{ stage: number; onRespawn: () => void }> = ({ st
                         </p>
                     </div>
                     <button
-                        className="gameover-btn"
+                        className="gameover-btn gameover-btn-anim"
                         onClick={handleRespawn}
                         disabled={leaving}
                         style={{
