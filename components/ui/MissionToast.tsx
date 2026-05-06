@@ -116,8 +116,7 @@ export const MissionToast: React.FC<Props> = ({ toast, onOpen }) => {
         <div
           style={{
             width: 48, height: 48, flexShrink: 0, borderRadius: 12,
-            border: '2px solid rgba(255,255,255,0.85)',
-            boxShadow: '0 0 10px rgba(255,255,255,0.30), 0 0 0 3px rgba(234,179,8,0.18)',
+            border: '2px solid #ffffff',
             background: 'rgba(234,179,8,0.10)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             overflow: 'hidden',

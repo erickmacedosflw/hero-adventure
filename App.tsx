@@ -1304,6 +1304,7 @@ export default function App() {
         pendingDungeonQueue: cloneCardRewardOffers(pendingDungeonQueue),
         towerRun: towerRun ? JSON.parse(JSON.stringify(towerRun)) as TowerRunState : null,
         towerMeta: { ...towerMeta },
+        missions: missions.map(m => ({ ...m })),
         logs: cloneBattleLogs(logs),
         narration,
         sceneRegion,
@@ -1339,6 +1340,7 @@ export default function App() {
         turnState,
         towerRun,
         towerMeta,
+        missions,
     ]);
 
     const persistSaveNow = useCallback((stateOverride?: Partial<SavePayload>) => {
@@ -1442,6 +1444,9 @@ export default function App() {
         setPendingDungeonQueue(wasInterrupted ? [] : restoredPendingDungeonQueue);
         setTowerRun(wasInterrupted ? null : (payload.towerRun ?? null));
         setTowerMeta(payload.towerMeta ?? getDefaultTowerMeta());
+        if (payload.missions && payload.missions.length > 0) {
+            setMissions(payload.missions.map(m => ({ ...m })));
+        }
         setCardRewardQueue(wasInterrupted ? [] : restoredCardRewardQueue);
         setCurrentCardOffer(wasInterrupted ? null : restoredCurrentCardOffer);
         setCurrentCardChoices(wasInterrupted ? [] : restoredCurrentCardChoices);

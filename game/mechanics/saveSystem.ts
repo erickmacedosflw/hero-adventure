@@ -1,4 +1,4 @@
-import { BattleLog, BossVictoryContext, CardRewardOffer, DungeonResult, DungeonRunState, GameState, Player, ProgressionCard, TowerMeta, TowerRunState, TurnState } from '../../types';
+import { BattleLog, BossVictoryContext, CardRewardOffer, DungeonResult, DungeonRunState, GameState, Mission, Player, ProgressionCard, TowerMeta, TowerRunState, TurnState } from '../../types';
 
 const SAVE_STORAGE_KEY = 'hero-adventure-save-v1';
 const SAVE_SCHEMA_VERSION = 1;
@@ -37,6 +37,7 @@ export interface SavePayload {
   pendingDungeonQueue?: CardRewardOffer[];
   towerRun?: TowerRunState | null;
   towerMeta?: TowerMeta;
+  missions?: Mission[];
   logs?: BattleLog[];
   narration?: string;
   sceneRegion: 'forest' | 'dungeon' | 'tower';
