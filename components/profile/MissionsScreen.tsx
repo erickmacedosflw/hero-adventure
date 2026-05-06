@@ -33,10 +33,14 @@ const MissionCard: React.FC<{ mission: Mission; onClaim: () => void }> = ({ miss
     <div
       style={{
         borderRadius: 20,
-        border: isComplete ? '1.5px solid rgba(234,179,8,0.45)' : '1.5px solid rgba(255,255,255,0.08)',
+        border: isComplete
+          ? '1.5px solid rgba(180,120,20,0.70)'
+          : isFixed
+            ? '1.5px solid rgba(139,90,43,0.60)'
+            : '1.5px solid rgba(100,65,30,0.55)',
         background: isComplete
-          ? 'linear-gradient(160deg, rgba(234,179,8,0.10) 0%, rgba(0,0,0,0.55) 100%)'
-          : 'linear-gradient(160deg, rgba(255,255,255,0.06) 0%, rgba(0,0,0,0.55) 100%)',
+          ? 'linear-gradient(160deg, rgba(120,72,8,0.22) 0%, rgba(10,6,0,0.80) 100%)'
+          : 'linear-gradient(160deg, rgba(60,38,18,0.30) 0%, rgba(8,5,2,0.82) 100%)',
         backdropFilter: 'blur(18px)',
         WebkitBackdropFilter: 'blur(18px)',
         padding: 0,
@@ -46,18 +50,18 @@ const MissionCard: React.FC<{ mission: Mission; onClaim: () => void }> = ({ miss
         boxSizing: 'border-box' as const,
         overflow: 'hidden',
         boxShadow: isComplete
-          ? '0 8px 32px rgba(234,179,8,0.14), inset 0 1px 0 rgba(255,255,255,0.06)'
-          : '0 4px 20px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.05)',
+          ? '0 8px 32px rgba(180,120,8,0.20), inset 0 1px 0 rgba(255,220,100,0.10), inset 0 0 0 1px rgba(255,200,60,0.06)'
+          : '0 4px 20px rgba(0,0,0,0.45), inset 0 1px 0 rgba(180,120,60,0.08), inset 0 0 0 1px rgba(120,80,30,0.06)',
       }}
     >
-      {/* Card top accent bar */}
+      {/* Card top accent bar — couro/livro */}
       <div style={{
         height: 3,
         background: isComplete
-          ? 'linear-gradient(90deg, #ca8a04, #fbbf24, #ca8a04)'
+          ? 'linear-gradient(90deg, #92400e, #d97706, #fbbf24, #d97706, #92400e)'
           : isFixed
-            ? 'linear-gradient(90deg, rgba(251,191,36,0.40), rgba(251,191,36,0.10))'
-            : 'linear-gradient(90deg, rgba(255,255,255,0.12), rgba(255,255,255,0.03))',
+            ? 'linear-gradient(90deg, rgba(180,100,30,0.70), rgba(120,65,18,0.30))'
+            : 'linear-gradient(90deg, rgba(120,72,30,0.55), rgba(80,45,15,0.20))',
         flexShrink: 0,
       }} />
 
@@ -237,7 +241,11 @@ export const MissionsScreen: React.FC<MissionsScreenProps> = ({
         </div>
 
         {/* Mission cards — horizontal scroll */}
-        <div style={{ overflowX: 'auto', overflowY: 'hidden', flex: 1, minHeight: 0, padding: '14px 14px 18px', display: 'flex', flexDirection: 'row', gap: 12, alignItems: 'stretch', scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch' }}>
+        <div
+          style={{ overflowX: 'auto', overflowY: 'hidden', flex: 1, minHeight: 0, padding: '14px 14px 18px', display: 'flex', flexDirection: 'row', gap: 12, alignItems: 'stretch', scrollSnapType: 'x proximity', WebkitOverflowScrolling: 'touch', touchAction: 'pan-x', overscrollBehaviorX: 'contain' as any }}
+          onTouchStart={(e) => e.stopPropagation()}
+          onTouchMove={(e) => e.stopPropagation()}
+        >
           {missions.map(m => (
             <div key={m.id} style={{ scrollSnapAlign: 'start', flexShrink: 0, width: 260 }}>
               <MissionCard mission={m} onClaim={() => onClaimReward(m.id)} />
