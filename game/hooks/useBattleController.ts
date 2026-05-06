@@ -358,7 +358,29 @@ const getDefenseTypeColor = (defenseType: TipoDefesa | null | undefined) => (
   defenseType === 'FISICA' ? '#f97316' : '#3b82f6'
 );
 
+const getDefenseTypeForAttackKind = (attackKind: 'physical' | 'magic'): TipoDefesa => (
+  attackKind === 'magic' ? 'MAGICA' : 'FISICA'
+);
+
+const getLikelyPlayerAttackKind = (sourcePlayer: Player): 'physical' | 'magic' => (
+  shouldUseMagicBasicAttack(sourcePlayer.classId, sourcePlayer.equippedWeapon) || sourcePlayer.stats.magic > sourcePlayer.stats.atk
+    ? 'magic'
+    : 'physical'
+);
+
+const getSkillAttackKind = (skill: Skill): 'physical' | 'magic' => (
+  skill.type === 'magic' ? 'magic' : 'physical'
+);
+
 const getMagicDefenseStat = (stats: Player['stats']) => stats.magicDef ?? stats.def;
+
+const getPlayerDefenseStatForAttackKind = (stats: Player['stats'], attackKind: 'physical' | 'magic') => (
+  attackKind === 'magic' ? getMagicDefenseStat(stats) : stats.def
+);
+
+const getEnemyDefenseStatForAttackKind = (target: Enemy, attackKind: 'physical' | 'magic') => (
+  attackKind === 'magic' ? getEnemyMagicDefWithBuff(target) : getEnemyDefWithBuff(target)
+);
 
 export const useBattleController = ({
   player,
@@ -662,15 +684,19 @@ export const useBattleController = ({
     const resolveStrike = (remainingHp: number, isFirstStrike: boolean) => {
       const riposteMultiplier = riposteActive && isFirstStrike ? RIPOSTE_DAMAGE_MULTIPLIER : 1;
       const schoolBonus = usesMagicBasicAttack ? talentBonuses.magicDamage : talentBonuses.physicalDamage;
+      const enemyDefenseType = enemy.tipoDefesaAtiva ?? 'FISICA';
+      const enemyDefenseMatchesAttack = isFirstStrike && enemy.isDefending && defenseTypeMatchesAttackKind(enemyDefenseType, basicAttackKind);
       const attackResult = calculateDamage({
         attackerAtk: usesMagicBasicAttack ? player.stats.magic : player.stats.atk,
-        defenderDef: usesMagicBasicAttack ? getEnemyMagicDefWithBuff(enemy) : getEnemyDefWithBuff(enemy),
+        defenderDef: getEnemyDefenseStatForAttackKind(enemy, basicAttackKind),
         attackerSpeed: player.stats.speed,
         defenderSpeed: enemy.stats.speed,
         multiplier: getBossDamageMultiplier() * attackImpulseMultiplier * (1 + schoolBonus + getMarkedBonus(enemy.statusEffects, talentBonuses.markedDamage)) * riposteMultiplier,
         luck: player.stats.luck,
         attackKind: basicAttackKind,
         defenderIsDefending: isFirstStrike ? enemy.isDefending : false,
+        defenderDefenseType: enemyDefenseType,
+        requireDefenseTypeMatch: true,
         attackerBuffs: player.buffs,
         applyAttackBuff: !usesMagicBasicAttack,
         critChanceBonus: talentBonuses.critChance,
@@ -700,14 +726,14 @@ export const useBattleController = ({
         return { remainingHp, defeated: false, evaded: true };
       }
 
-      const enemyGuardLevel = isFirstStrike && enemy.isDefending ? clampImpulse(enemy.impulseGuardLevel ?? 0) : 0;
-      const defendedDamage = isFirstStrike && enemy.isDefending ? Math.floor(attackResult.damage * 0.5) : attackResult.damage;
+      const enemyGuardLevel = enemyDefenseMatchesAttack ? clampImpulse(enemy.impulseGuardLevel ?? 0) : 0;
+      const defendedDamage = enemyDefenseMatchesAttack ? Math.floor(attackResult.damage * 0.5) : attackResult.damage;
       const appliedDamage = enemyGuardLevel >= 2
         ? 0
         : enemyGuardLevel === 1
           ? Math.floor(defendedDamage * (1 - IMPULSE_DEFENSE_EXTRA_MITIGATION))
           : defendedDamage;
-      const blockedByDefense = isFirstStrike && enemy.isDefending;
+      const blockedByDefense = enemyDefenseMatchesAttack;
       if (usesMagicBasicAttack) {
         setPlayerImpactAnimationId(SPRITE_ANIMATION_IDS.execMagic);
         setPlayerImpactAnimationTintColor(classAttackColor);
@@ -749,11 +775,15 @@ export const useBattleController = ({
             stats: { ...prev.stats, hp: Math.max(0, prev.stats.hp - appliedDamage) },
             isDefending: false,
             impulseGuardLevel: 0,
+            tipoDefesaAtiva: null,
           };
         });
         const riposteResourceGain = riposteActive && isFirstStrike ? RIPOSTE_RESOURCE_BONUS : 0;
         awardCombatBenefits(appliedDamage, 1 + Math.max(0, Math.floor(talentBonuses.resourceOnAttack)) + riposteResourceGain, talentBonuses);
-        addLog(`${isFirstStrike ? 'Causou' : 'Segundo golpe:'} ${appliedDamage} dano!${isFirstStrike && enemy.isDefending ? ' (Defendido)' : ''}`, attackResult.isCrit ? 'crit' : 'damage');
+        if (isFirstStrike && enemy.isDefending && !enemyDefenseMatchesAttack) {
+          addLog(`Defesa ${getDefenseTypeLabel(enemyDefenseType)} nao bloqueou ataque ${basicAttackKind === 'magic' ? 'magico' : 'fisico'}.`, 'damage');
+        }
+        addLog(`${isFirstStrike ? 'Causou' : 'Segundo golpe:'} ${appliedDamage} dano!${blockedByDefense ? ' (Defendido)' : ''}`, attackResult.isCrit ? 'crit' : 'damage');
       };
 
       if (bowProjectileImpactDelayMs > 0) {
@@ -1106,20 +1136,25 @@ export const useBattleController = ({
 
       const resolveSkillStrike = (remainingHp: number, isFirstStrike: boolean) => {
         const statusBonus = getMarkedBonus(enemy.statusEffects, talentBonuses.markedDamage);
-        const schoolBonus = skill.type === 'magic' ? talentBonuses.magicDamage : talentBonuses.physicalDamage;
+        const skillAttackKind = getSkillAttackKind(skill);
+        const schoolBonus = skillAttackKind === 'magic' ? talentBonuses.magicDamage : talentBonuses.physicalDamage;
         const resourceBurst = resourceSpent * (skill.resourceEffect?.bonusDamagePerPoint ?? 0);
         const riposteMultiplier = riposteActive && isFirstStrike ? RIPOSTE_DAMAGE_MULTIPLIER : 1;
+        const enemyDefenseType = enemy.tipoDefesaAtiva ?? 'FISICA';
+        const enemyDefenseMatchesAttack = isFirstStrike && enemy.isDefending && defenseTypeMatchesAttackKind(enemyDefenseType, skillAttackKind);
         const attackResult = calculateDamage({
-          attackerAtk: skill.type === 'magic' ? player.stats.magic : player.stats.atk,
-          defenderDef: skill.type === 'magic' ? getEnemyMagicDefWithBuff(enemy) : getEnemyDefWithBuff(enemy),
+          attackerAtk: skillAttackKind === 'magic' ? player.stats.magic : player.stats.atk,
+          defenderDef: getEnemyDefenseStatForAttackKind(enemy, skillAttackKind),
           attackerSpeed: player.stats.speed,
           defenderSpeed: enemy.stats.speed,
           multiplier: (skill.damageMult + resourceBurst) * getBossDamageMultiplier() * skillEffectMultiplier * (1 + schoolBonus + statusBonus) * riposteMultiplier,
           luck: player.stats.luck,
-          attackKind: skill.type === 'magic' ? 'magic' : 'physical',
+          attackKind: skillAttackKind,
           defenderIsDefending: isFirstStrike ? enemy.isDefending : false,
+          defenderDefenseType: enemyDefenseType,
+          requireDefenseTypeMatch: true,
           attackerBuffs: player.buffs,
-          applyAttackBuff: skill.type !== 'magic',
+          applyAttackBuff: skillAttackKind !== 'magic',
           critChanceBonus: talentBonuses.critChance,
           critDamageBonus: talentBonuses.critDamage,
           defenderDefenseIgnoreRatio: isBowSkillShot ? 0 : (activeImpulse >= 2 ? IMPULSE_DEF_IGNORE_RATIO : 0),
@@ -1148,14 +1183,14 @@ export const useBattleController = ({
           return { remainingHp, defeated: false };
         }
 
-        const enemyGuardLevel = isFirstStrike && enemy.isDefending ? clampImpulse(enemy.impulseGuardLevel ?? 0) : 0;
-        const defendedDamage = isFirstStrike && enemy.isDefending ? Math.floor(attackResult.damage * 0.5) : attackResult.damage;
+        const enemyGuardLevel = enemyDefenseMatchesAttack ? clampImpulse(enemy.impulseGuardLevel ?? 0) : 0;
+        const defendedDamage = enemyDefenseMatchesAttack ? Math.floor(attackResult.damage * 0.5) : attackResult.damage;
         const appliedDamage = enemyGuardLevel >= 2
           ? 0
           : enemyGuardLevel === 1
             ? Math.floor(defendedDamage * (1 - IMPULSE_DEFENSE_EXTRA_MITIGATION))
             : defendedDamage;
-        const blockedByDefense = isFirstStrike && enemy.isDefending;
+        const blockedByDefense = enemyDefenseMatchesAttack;
         if (isBowSkillShot) {
           setPlayerBowShotDidHit(true);
           setPlayerBowShotTrigger((prev) => prev + 1);
@@ -1164,9 +1199,9 @@ export const useBattleController = ({
         const updatedHp = Math.max(0, remainingHp - appliedDamage);
         const applyStrikeImpact = () => {
           playAttackImpactSfx({
-            attackKind: skill.type === 'magic' ? 'magic' : 'physical',
-            attackerStyle: skill.type === 'magic' ? 'unarmed' : (player.equippedWeapon ? 'weapon' : 'unarmed'),
-            defended: isFirstStrike ? enemy.isDefending : false,
+            attackKind: skillAttackKind,
+            attackerStyle: skillAttackKind === 'magic' ? 'unarmed' : (player.equippedWeapon ? 'weapon' : 'unarmed'),
+            defended: blockedByDefense,
             source: 'hero',
           });
           const strikePrefix = isFirstStrike ? '' : '2o ';
@@ -1201,6 +1236,7 @@ export const useBattleController = ({
               stats: { ...prev.stats, hp: Math.max(0, prev.stats.hp - appliedDamage) },
               isDefending: false,
               impulseGuardLevel: 0,
+              tipoDefesaAtiva: null,
             };
           });
 
@@ -1209,7 +1245,10 @@ export const useBattleController = ({
           if (isFirstStrike) {
             tryApplySkillStatus(skill, talentBonuses);
           }
-          addLog(`${isFirstStrike ? skill.name : `${skill.name} (2o golpe)`}: ${appliedDamage} dano!${isFirstStrike && enemy.isDefending ? ' (Defendido)' : ''}`, attackResult.isCrit ? 'crit' : 'damage');
+          if (isFirstStrike && enemy.isDefending && !enemyDefenseMatchesAttack) {
+            addLog(`Defesa ${getDefenseTypeLabel(enemyDefenseType)} nao bloqueou ataque ${skillAttackKind === 'magic' ? 'magico' : 'fisico'}.`, 'damage');
+          }
+          addLog(`${isFirstStrike ? skill.name : `${skill.name} (2o golpe)`}: ${appliedDamage} dano!${blockedByDefense ? ' (Defendido)' : ''}`, attackResult.isCrit ? 'crit' : 'damage');
         };
 
         if (skillProjectileImpactDelayMs > 0) {
@@ -1765,6 +1804,7 @@ export const useBattleController = ({
 
     const useDefendAction = (_reasonLabel: string, activeEnemyImpulse: number) => {
     battleSfx.play('defense_use', { source: 'enemy' });
+      const activeEnemyDefenseType = getDefenseTypeForAttackKind(getLikelyPlayerAttackKind(player));
       const recoveredMp = enemyUsesManaSkills
         ? Math.max(1, Math.min(simulatedEnemy.manaRegenOnDefend, simulatedEnemy.stats.maxMp - simulatedEnemy.stats.mp))
         : 0;
@@ -1772,6 +1812,7 @@ export const useBattleController = ({
         ...simulatedEnemy,
         lastAction: 'defend' as const,
         isDefending: true,
+        tipoDefesaAtiva: activeEnemyDefenseType,
         impulseGuardLevel: activeEnemyImpulse,
         stats: {
           ...simulatedEnemy.stats,
@@ -2024,7 +2065,7 @@ export const useBattleController = ({
             attackerAtk: chosenSkill.attackKind === 'magic'
               ? simulatedEnemy.stats.magic
               : getEnemyAtkWithBuff(simulatedEnemy),
-            defenderDef: chosenSkill.attackKind === 'magic' ? getMagicDefenseStat(player.stats) : player.stats.def,
+            defenderDef: getPlayerDefenseStatForAttackKind(player.stats, chosenSkill.attackKind),
             attackerSpeed: simulatedEnemy.stats.speed,
             defenderSpeed: player.stats.speed,
             defenderHasPerfectEvade: player.buffs.perfectEvadeTurns > 0,
@@ -2284,7 +2325,7 @@ export const useBattleController = ({
         const strikeExtraImpulseMitigationActive = strikeDefenseMatchesAttack && player.buffs.impulseDefenseBoostTurns > 0;
         const attackResult = calculateDamage({
           attackerAtk: enemyUsesMagicBasicAttack ? simulatedEnemy.stats.magic : getEnemyAtkWithBuff(simulatedEnemy),
-          defenderDef: enemyBasicAttackKind === 'magic' ? getMagicDefenseStat(player.stats) : player.stats.def,
+          defenderDef: getPlayerDefenseStatForAttackKind(player.stats, enemyBasicAttackKind),
           attackerSpeed: simulatedEnemy.stats.speed,
           defenderSpeed: player.stats.speed,
           defenderHasPerfectEvade: player.buffs.perfectEvadeTurns > 0,
