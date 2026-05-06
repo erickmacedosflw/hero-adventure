@@ -2891,10 +2891,11 @@ export default function App() {
         : Math.round(m.recompensaAtual * 1.30);
       const updated = [...prev];
       updated[idx] = { ...m, progressoAtual: 0, nivelAtual: nextNivel, metaAtual: nextMeta, recompensaAtual: nextRecompensa };
+      // Pass the exact updated array as override to avoid stale-closure race condition
+      // (setMissions is async — persistSaveNow() called without override would read old state)
+      setTimeout(() => persistSaveNow({ missions: updated.map(x => ({ ...x })) }), 80);
       return updated;
     });
-    // Flush save immediately so the new desafio persists
-    setTimeout(() => persistSaveNow(), 50);
   }, [persistSaveNow]);
 
   useEffect(() => {
