@@ -1,7 +1,7 @@
 ﻿
 import React, { useState, useEffect, useRef } from 'react';
 import { Player, Enemy, EnemyIntentPreview, BattleLog, TurnState, Item, Skill, GameState, FloatingText, Rarity, ProgressionCard, CardRewardOffer, AlchemistCardOffer, AlchemistItemOffer, DungeonResult, DungeonRewards, BossVictoryContext, PendingTargetAction, TipoDefesa, Mission } from '../types';
-import { Sword, Shield, Zap, Heart, Coins, ShoppingBag, Skull, Play, Plus, FlaskConical, User, X, Home, LogOut, DollarSign, AlertTriangle, MousePointerClick, Shirt, Footprints, Crown, LayoutGrid, Sparkles, Crosshair, ArrowLeft, Star, Clock, Orbit, Info, RefreshCw } from 'lucide-react';
+import { Sword, Shield, Zap, Heart, Coins, ShoppingBag, Skull, Play, Plus, FlaskConical, User, X, Home, LogOut, DollarSign, AlertTriangle, MousePointerClick, Shirt, Footprints, Crown, LayoutGrid, Sparkles, Crosshair, ArrowLeft, Star, Clock, Orbit, Info, RefreshCw, Music2, VolumeX, Volume2, Gauge, Gem, Settings2 } from 'lucide-react';
 import { ItemPreviewThree } from './items/ItemPreviewThree';
 import { GameAssetIcon } from './ui/game-asset-icon';
 import { ItemIcon, getItemPowerLabel } from './ui/game-display';
@@ -3788,56 +3788,130 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
             `}</style>
       <AnimatedModal open={showBattleSettings}>
           {(isClosing) => (
-              <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/50 pointer-events-auto p-4" onClick={closeBattleSettingsModal}>
-                  <div className={`w-full max-w-xs rounded-[20px] border border-[#cfab91] bg-[#f7ecdd] shadow-[0_24px_70px_rgba(107,49,65,0.26)] overflow-hidden transition-all duration-200 ${isClosing ? 'opacity-0 scale-95' : 'opacity-100 scale-100'}`} onClick={(event) => event.stopPropagation()}>
-                      <div className="bg-[#6b3141] px-4 py-3">
+              <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/55 pointer-events-auto p-4" onClick={closeBattleSettingsModal}>
+                  <div
+                      className={`w-full max-w-sm overflow-hidden rounded-2xl shadow-[0_32px_80px_rgba(40,10,20,0.40)] transition-all duration-300 ${isClosing ? 'opacity-0 scale-95 translate-y-2' : 'opacity-100 scale-100 translate-y-0'}`}
+                      style={{ background: 'linear-gradient(160deg, #2a1525 0%, #1c0e19 100%)', border: '1px solid rgba(220,150,170,0.18)' }}
+                      onClick={(event) => event.stopPropagation()}
+                  >
+                      {/* Header */}
+                      <div style={{ background: 'linear-gradient(135deg, rgba(107,49,65,0.9), rgba(80,30,50,0.9))', borderBottom: '1px solid rgba(220,140,160,0.14)', padding: '18px 20px 16px' }}>
                           <div className="flex items-center justify-between gap-3">
-                              <div>
-                                  <div className="text-[10px] font-black uppercase tracking-[0.22em] text-[#dcc0aa]">Configuracao</div>
-                                  <h3 className="mt-1 text-lg font-black text-white">Batalha</h3>
+                              <div className="flex items-center gap-3">
+                                  <div style={{ background: 'rgba(255,255,255,0.10)', borderRadius: 10, padding: 8, border: '1px solid rgba(255,255,255,0.12)' }}>
+                                      <Settings2 size={16} color="#f4c2ce" />
+                                  </div>
+                                  <div>
+                                      <div className="text-[9px] font-black uppercase tracking-[0.28em]" style={{ color: 'rgba(220,180,190,0.65)' }}>Configuração</div>
+                                      <h3 className="text-base font-black text-white mt-0.5">Batalha</h3>
+                                  </div>
                               </div>
-                              <button onClick={closeBattleSettingsModal} className="rounded-lg border border-white/25 bg-white/10 p-1.5 text-white transition-colors hover:bg-white/20" aria-label="Fechar configuracoes">
+                              <button
+                                  onClick={closeBattleSettingsModal}
+                                  className="settings-close-btn"
+                                  style={{ borderRadius: 10, border: '1px solid rgba(255,255,255,0.14)', background: 'rgba(255,255,255,0.08)', padding: 7, color: 'rgba(255,255,255,0.7)', transition: 'all 0.15s ease' }}
+                                  aria-label="Fechar"
+                              >
                                   <X size={14} />
                               </button>
                           </div>
                       </div>
 
-                      <div className="space-y-3 p-4">
-                          <div className="grid grid-cols-2 gap-2">
+                      {/* Body */}
+                      <div style={{ padding: '16px 16px 18px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                          {/* Audio row */}
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                              {/* Music */}
                               <button
                                   onClick={toggleMusic}
-                                  className={`rounded-xl border px-3 py-2 text-left transition-colors ${musicEnabled ? 'border-[#8eb4c0] bg-[#eaf6fb]' : 'border-[#cfab91] bg-[#f4e5d4]'}`}
+                                  className="settings-toggle-btn"
+                                  style={{
+                                      borderRadius: 14, border: musicEnabled ? '1px solid rgba(100,200,220,0.35)' : '1px solid rgba(180,100,110,0.28)',
+                                      background: musicEnabled ? 'rgba(40,140,160,0.18)' : 'rgba(160,50,70,0.14)',
+                                      padding: '12px 14px', textAlign: 'left', transition: 'all 0.2s ease', cursor: 'pointer',
+                                  }}
                               >
-                                  <div className="text-[10px] font-black uppercase tracking-[0.14em] text-[#8f6c67]">Musica</div>
-                                  <div className="mt-0.5 text-sm font-black text-[#6b3141]">{musicEnabled ? 'Ligada' : 'Desligada'}</div>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                                      <div style={{ borderRadius: 8, padding: 5, background: musicEnabled ? 'rgba(60,180,210,0.22)' : 'rgba(180,80,90,0.22)', transition: 'background 0.2s' }}>
+                                          {musicEnabled ? <Music2 size={13} color="#6ee7f7" /> : <VolumeX size={13} color="#f87171" />}
+                                      </div>
+                                      <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(220,180,190,0.60)' }}>Música</span>
+                                  </div>
+                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                      <span style={{ fontSize: 13, fontWeight: 900, color: musicEnabled ? '#a5f3fc' : '#fca5a5' }}>{musicEnabled ? 'Ligada' : 'Desligada'}</span>
+                                      {/* pill toggle */}
+                                      <div style={{ width: 30, height: 16, borderRadius: 99, background: musicEnabled ? '#0e9cb0' : 'rgba(120,50,60,0.5)', transition: 'background 0.22s', position: 'relative', flexShrink: 0 }}>
+                                          <div style={{ position: 'absolute', top: 2, left: musicEnabled ? 16 : 2, width: 12, height: 12, borderRadius: '50%', background: '#fff', transition: 'left 0.22s cubic-bezier(0.34,1.56,0.64,1)', boxShadow: '0 1px 3px rgba(0,0,0,0.3)' }} />
+                                      </div>
+                                  </div>
                               </button>
+
+                              {/* SFX */}
                               <button
                                   onClick={toggleSfx}
-                                  className={`rounded-xl border px-3 py-2 text-left transition-colors ${sfxEnabled ? 'border-[#8eb4c0] bg-[#eaf6fb]' : 'border-[#cfab91] bg-[#f4e5d4]'}`}
+                                  className="settings-toggle-btn"
+                                  style={{
+                                      borderRadius: 14, border: sfxEnabled ? '1px solid rgba(100,200,220,0.35)' : '1px solid rgba(180,100,110,0.28)',
+                                      background: sfxEnabled ? 'rgba(40,140,160,0.18)' : 'rgba(160,50,70,0.14)',
+                                      padding: '12px 14px', textAlign: 'left', transition: 'all 0.2s ease', cursor: 'pointer',
+                                  }}
                               >
-                                  <div className="text-[10px] font-black uppercase tracking-[0.14em] text-[#8f6c67]">Efeitos</div>
-                                  <div className="mt-0.5 text-sm font-black text-[#6b3141]">{sfxEnabled ? 'Ligados' : 'Desligados'}</div>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                                      <div style={{ borderRadius: 8, padding: 5, background: sfxEnabled ? 'rgba(60,180,210,0.22)' : 'rgba(180,80,90,0.22)', transition: 'background 0.2s' }}>
+                                          {sfxEnabled ? <Volume2 size={13} color="#6ee7f7" /> : <VolumeX size={13} color="#f87171" />}
+                                      </div>
+                                      <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(220,180,190,0.60)' }}>Efeitos</span>
+                                  </div>
+                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                      <span style={{ fontSize: 13, fontWeight: 900, color: sfxEnabled ? '#a5f3fc' : '#fca5a5' }}>{sfxEnabled ? 'Ligados' : 'Desligados'}</span>
+                                      <div style={{ width: 30, height: 16, borderRadius: 99, background: sfxEnabled ? '#0e9cb0' : 'rgba(120,50,60,0.5)', transition: 'background 0.22s', position: 'relative', flexShrink: 0 }}>
+                                          <div style={{ position: 'absolute', top: 2, left: sfxEnabled ? 16 : 2, width: 12, height: 12, borderRadius: '50%', background: '#fff', transition: 'left 0.22s cubic-bezier(0.34,1.56,0.64,1)', boxShadow: '0 1px 3px rgba(0,0,0,0.3)' }} />
+                                      </div>
+                                  </div>
                               </button>
                           </div>
 
-                          <div className="rounded-xl border border-[#cfab91] bg-[#f4e5d4] p-2.5">
-                              <div className="text-[10px] font-black uppercase tracking-[0.16em] text-[#8f6c67]">Qualidade grafica</div>
-                              <div className="mt-2 grid grid-cols-3 gap-1.5">
+                          {/* Render quality */}
+                          <div style={{ borderRadius: 14, border: '1px solid rgba(220,150,170,0.15)', background: 'rgba(255,255,255,0.04)', padding: '12px 14px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+                                  <Gauge size={13} color="rgba(220,170,190,0.70)" />
+                                  <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(220,170,190,0.60)' }}>Qualidade Gráfica</span>
+                              </div>
+                              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6 }}>
                                   {(['performance', 'balanced', 'quality'] as RenderQualityPreset[]).map((preset) => {
                                       const selected = renderQualityPreset === preset;
+                                      const icons: Record<RenderQualityPreset, React.ReactNode> = {
+                                          performance: <Zap size={12} color={selected ? '#fff' : 'rgba(200,160,180,0.6)'} />,
+                                          balanced: <Gauge size={12} color={selected ? '#fff' : 'rgba(200,160,180,0.6)'} />,
+                                          quality: <Gem size={12} color={selected ? '#fff' : 'rgba(200,160,180,0.6)'} />,
+                                      };
                                       return (
                                           <button
                                               key={preset}
                                               onClick={() => changeRenderPreset(preset)}
-                                              className={`rounded-lg border px-2 py-2 text-[11px] font-black uppercase tracking-[0.08em] transition-colors ${selected ? 'border-[#2f6274] bg-[#2b6878] text-white' : 'border-[#cfab91] bg-[#f7ecdd] text-[#6b3141] hover:bg-[#efe0cd]'}`}
+                                              className="settings-preset-btn"
+                                              style={{
+                                                  borderRadius: 10, border: selected ? '1px solid rgba(100,220,240,0.40)' : '1px solid rgba(180,120,140,0.20)',
+                                                  background: selected ? 'linear-gradient(135deg,#0d7a90,#0a5f72)' : 'rgba(255,255,255,0.05)',
+                                                  padding: '8px 4px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
+                                                  transition: 'all 0.18s cubic-bezier(0.34,1.56,0.64,1)', cursor: 'pointer',
+                                                  transform: selected ? 'scale(1.04)' : 'scale(1)',
+                                                  boxShadow: selected ? '0 4px 16px rgba(14,156,176,0.30)' : 'none',
+                                              }}
                                           >
-                                              {getRenderPresetLabel(preset)}
+                                              {icons[preset]}
+                                              <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: '0.10em', textTransform: 'uppercase', color: selected ? '#fff' : 'rgba(200,160,170,0.65)', whiteSpace: 'nowrap' }}>
+                                                  {getRenderPresetLabel(preset)}
+                                              </span>
                                           </button>
                                       );
                                   })}
                               </div>
-                              <div className="mt-2 text-[10px] font-bold uppercase tracking-[0.12em] text-[#8f6c67]">
-                                  Recomendado: {getRenderPresetLabel(recommendedRenderQualityPreset)}
+                              <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 4 }}>
+                                  <Sparkles size={9} color="rgba(180,140,160,0.55)" />
+                                  <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(180,140,160,0.55)' }}>
+                                      Recomendado: {getRenderPresetLabel(recommendedRenderQualityPreset)}
+                                  </span>
                               </div>
                           </div>
                       </div>
