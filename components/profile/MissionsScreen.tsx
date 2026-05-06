@@ -291,7 +291,14 @@ export const MissionsScreen: React.FC<MissionsScreenProps> = ({
   onClaimReward,
 }) => {
   const [mounted, setMounted] = useState(false);
+  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 640);
   useEffect(() => { const t = window.setTimeout(() => setMounted(true), 10); return () => window.clearTimeout(t); }, []);
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 639px)');
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
 
   const panelSlide = isClosing
     ? 'translate-y-full transition-transform duration-[220ms] ease-in'
@@ -309,40 +316,42 @@ export const MissionsScreen: React.FC<MissionsScreenProps> = ({
   return (
     <div className={`absolute inset-0 z-[80] flex flex-col overflow-hidden pointer-events-auto backdrop-blur-md ${overlayFade}`}>
 
-      {/* Top click-to-close area with book image */}
-      <div
-        className="relative flex-1 min-h-0 flex items-start justify-end p-4 cursor-pointer bg-black/30"
-        onClick={onClose}
-      >
-        <button
-          onClick={(e) => { e.stopPropagation(); onClose(); }}
-          className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-black/50 backdrop-blur-sm px-3 py-2 text-xs font-black uppercase tracking-widest text-white/70 hover:bg-black/70 hover:text-white transition-all active:scale-95"
-          style={font}
+      {/* Top click-to-close area with book image — oculto no mobile */}
+      {!isMobile && (
+        <div
+          className="relative flex-1 min-h-0 flex items-start justify-end p-4 cursor-pointer bg-black/30"
+          onClick={onClose}
         >
-          <ArrowLeft size={14} /> Fechar
-        </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); onClose(); }}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-black/50 backdrop-blur-sm px-3 py-2 text-xs font-black uppercase tracking-widest text-white/70 hover:bg-black/70 hover:text-white transition-all active:scale-95"
+            style={font}
+          >
+            <ArrowLeft size={14} /> Fechar
+          </button>
 
-        <div className="absolute bottom-[6%] left-1/2 -translate-x-1/2 w-[260px] md:w-[310px] h-[36vh] md:h-[40vh] max-h-[260px] md:max-h-[290px] pointer-events-none select-none">
-          <img
-            src={BOOK_IMAGE_URL}
-            alt=""
-            className="absolute bottom-0 left-1/2 h-full w-auto object-contain object-bottom"
-            style={{
-              transform: 'translateX(-50%)',
-              filter:
-                'drop-shadow(0 2px 8px rgba(0,0,0,0.95)) ' +
-                'drop-shadow(0 8px 28px rgba(0,0,0,0.80)) ' +
-                'drop-shadow(0 18px 56px rgba(0,0,0,0.55))',
-              animation: mounted ? 'none' : 'missions-book-appear 0.38s cubic-bezier(0.22,1,0.36,1)',
-            }}
-          />
+          <div className="absolute bottom-[6%] left-1/2 -translate-x-1/2 w-[260px] md:w-[310px] h-[36vh] md:h-[40vh] max-h-[260px] md:max-h-[290px] pointer-events-none select-none">
+            <img
+              src={BOOK_IMAGE_URL}
+              alt=""
+              className="absolute bottom-0 left-1/2 h-full w-auto object-contain object-bottom"
+              style={{
+                transform: 'translateX(-50%)',
+                filter:
+                  'drop-shadow(0 2px 8px rgba(0,0,0,0.95)) ' +
+                  'drop-shadow(0 8px 28px rgba(0,0,0,0.80)) ' +
+                  'drop-shadow(0 18px 56px rgba(0,0,0,0.55))',
+                animation: mounted ? 'none' : 'missions-book-appear 0.38s cubic-bezier(0.22,1,0.36,1)',
+              }}
+            />
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Bottom panel — dark glass */}
       <div
-        className={`shrink-0 flex flex-col bg-black/75 backdrop-blur-xl border-t border-white/8 ${panelSlide}`}
-        style={{ maxHeight: '72vh', minHeight: 320, ...font }}
+        className={`flex flex-col bg-black/75 backdrop-blur-xl border-t border-white/8 ${isMobile ? 'flex-1' : `shrink-0 ${panelSlide}`}`}
+        style={{ ...(isMobile ? {} : { maxHeight: '72vh', minHeight: 320 }), ...font }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -358,21 +367,43 @@ export const MissionsScreen: React.FC<MissionsScreenProps> = ({
                 : 'Complete missões de caça e ganhe ouro'}
             </div>
           </div>
-
+          {isMobile && (
+            <button
+              onClick={onClose}
+              className="inline-flex items-center gap-1 rounded-xl border border-white/10 bg-white/8 px-3 py-2 text-xs font-black uppercase tracking-widest text-white/60 active:scale-95"
+              style={font}
+            >
+              <ArrowLeft size={13} /> Fechar
+            </button>
+          )}
         </div>
 
-        {/* Mission cards — horizontal scroll */}
-        <div
-          style={{ overflowX: 'auto', overflowY: 'hidden', flex: 1, minHeight: 0, padding: '14px 14px 18px', display: 'flex', flexDirection: 'row', gap: 12, alignItems: 'stretch', scrollSnapType: 'x proximity', WebkitOverflowScrolling: 'touch', touchAction: 'pan-x', overscrollBehaviorX: 'contain' as any }}
-          onTouchStart={(e) => e.stopPropagation()}
-          onTouchMove={(e) => e.stopPropagation()}
-        >
-          {sortedMissions.map(m => (
-            <div key={m.id} style={{ scrollSnapAlign: 'start', flexShrink: 0, width: 180 }}>
-              <MissionCard mission={m} onClaim={() => onClaimReward(m.id)} />
-            </div>
-          ))}
-        </div>
+        {/* Mission cards — horizontal (desktop) ou lista vertical (mobile) */}
+        {isMobile ? (
+          <div
+            style={{ overflowY: 'auto', overflowX: 'hidden', flex: 1, minHeight: 0, padding: '12px 14px 24px', display: 'flex', flexDirection: 'column', gap: 10, WebkitOverflowScrolling: 'touch' }}
+            onTouchStart={(e) => e.stopPropagation()}
+            onTouchMove={(e) => e.stopPropagation()}
+          >
+            {sortedMissions.map(m => (
+              <div key={m.id} style={{ width: '100%', flexShrink: 0 }}>
+                <MissionCard mission={m} onClaim={() => onClaimReward(m.id)} />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div
+            style={{ overflowX: 'auto', overflowY: 'hidden', flex: 1, minHeight: 0, padding: '14px 14px 18px', display: 'flex', flexDirection: 'row', gap: 12, alignItems: 'stretch', scrollSnapType: 'x proximity', WebkitOverflowScrolling: 'touch', touchAction: 'pan-x', overscrollBehaviorX: 'contain' as any }}
+            onTouchStart={(e) => e.stopPropagation()}
+            onTouchMove={(e) => e.stopPropagation()}
+          >
+            {sortedMissions.map(m => (
+              <div key={m.id} style={{ scrollSnapAlign: 'start', flexShrink: 0, width: 180 }}>
+                <MissionCard mission={m} onClaim={() => onClaimReward(m.id)} />
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
