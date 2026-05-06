@@ -185,6 +185,16 @@ export const MissionsScreen: React.FC<MissionsScreenProps> = ({
 
   const completedCount = missions.filter(m => m.progressoAtual >= m.metaAtual).length;
 
+  // Sort: complete (not yet claimed = always complete here) first, then by % descending
+  const sortedMissions = [...missions].sort((a, b) => {
+    const aPct = a.progressoAtual / a.metaAtual;
+    const bPct = b.progressoAtual / b.metaAtual;
+    const aComplete = aPct >= 1 ? 1 : 0;
+    const bComplete = bPct >= 1 ? 1 : 0;
+    if (bComplete !== aComplete) return bComplete - aComplete;
+    return bPct - aPct;
+  });
+
   return (
     <div className={`absolute inset-0 z-[80] flex flex-col overflow-hidden pointer-events-auto backdrop-blur-md ${overlayFade}`}>
 
@@ -246,7 +256,7 @@ export const MissionsScreen: React.FC<MissionsScreenProps> = ({
           onTouchStart={(e) => e.stopPropagation()}
           onTouchMove={(e) => e.stopPropagation()}
         >
-          {missions.map(m => (
+          {sortedMissions.map(m => (
             <div key={m.id} style={{ scrollSnapAlign: 'start', flexShrink: 0, width: 260 }}>
               <MissionCard mission={m} onClaim={() => onClaimReward(m.id)} />
             </div>

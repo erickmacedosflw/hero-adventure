@@ -37,6 +37,7 @@ import { PF } from './game/data/promptFont';
 import { GamepadHint } from './components/ui/GamepadHint';
 import { GamepadIndicator } from './components/ui/GamepadIndicator';
 import { GamepadActionLegend } from './components/ui/GamepadActionLegend';
+import { MissionToast, type MissionToastItem } from './components/ui/MissionToast';
 import { generateBattleDescription, generateVictorySpeech } from './services/battleNarrationService';
 import { TowerRunState, TowerMeta, TowerNode, TowerNodeType, TowerSanctuaryOption, TowerEventOption, RunCard, ConsumableSlot } from './types';
 import { DEFAULT_TOWER_META, TOWER_CONSUMABLE_UPGRADE_COST, getClassSlots } from './constants';
@@ -1209,6 +1210,8 @@ export default function App() {
     const [portalSceneOverlay, setPortalSceneOverlay] = useState<{ targetRegion: SceneRegion; phase: 'in' | 'hold' | 'out' } | null>(null);
     const [onboardingPhase, setOnboardingPhase] = useState<OnboardingPhase>('intro_camp');
     const [missions, setMissions] = useState<Mission[]>(() => INITIAL_MISSIONS.map(m => ({ ...m })));
+  const [missionToast, setMissionToast] = useState<MissionToastItem | null>(null);
+  const [openMissionsFromToastToken, setOpenMissionsFromToastToken] = useState(0);
     const [showMissions, setShowMissions] = useState(false);
     const [hasPlayerDiedOnce, setHasPlayerDiedOnce] = useState(false);
     const [skillsUnlockPromptPending, setSkillsUnlockPromptPending] = useState(false);
@@ -2824,20 +2827,43 @@ export default function App() {
     if (meta.archetipo === 'demonio') types.push('KILL_ARCHETYPE_DEMON');
     if (meta.archetipo === 'orc') types.push('KILL_ARCHETYPE_ORC');
     if (meta.isBoss) types.push('KILL_BOSS');
-    setMissions(prev => prev.map(m => {
-      if (!types.includes(m.tipoMissao)) return m;
-      return { ...m, progressoAtual: m.progressoAtual + 1 };
-    }));
+    setMissions(prev => {
+      const next = prev.map(m => {
+        if (!types.includes(m.tipoMissao)) return m;
+        return { ...m, progressoAtual: m.progressoAtual + 1 };
+      });
+      // Fire toast for any mission that just hit 100%
+      const justCompleted = next.find((m, i) => {
+        const old = prev[i];
+        return m.progressoAtual >= m.metaAtual && old.progressoAtual < old.metaAtual;
+      });
+      if (justCompleted) {
+        const desc = justCompleted.descricao.replace('{meta}', String(justCompleted.metaAtual));
+        setMissionToast({ id: justCompleted.id + '_' + Date.now(), title: desc, reward: justCompleted.recompensaAtual });
+      }
+      return next;
+    });
   }, []);
 
   const checkStageMissions = useCallback((currentStage: number) => {
-    setMissions(prev => prev.map(m => {
-      if (m.tipoMissao !== 'REACH_STAGE') return m;
-      if (currentStage >= m.metaAtual && m.progressoAtual < m.metaAtual) {
-        return { ...m, progressoAtual: m.metaAtual };
+    setMissions(prev => {
+      const next = prev.map(m => {
+        if (m.tipoMissao !== 'REACH_STAGE') return m;
+        if (currentStage >= m.metaAtual && m.progressoAtual < m.metaAtual) {
+          return { ...m, progressoAtual: m.metaAtual };
+        }
+        return m;
+      });
+      const justCompleted = next.find((m, i) => {
+        const old = prev[i];
+        return m.progressoAtual >= m.metaAtual && old.progressoAtual < old.metaAtual;
+      });
+      if (justCompleted) {
+        const desc = justCompleted.descricao.replace('{meta}', String(justCompleted.metaAtual));
+        setMissionToast({ id: justCompleted.id + '_' + Date.now(), title: desc, reward: justCompleted.recompensaAtual });
       }
-      return m;
-    }));
+      return next;
+    });
   }, []);
 
   const claimMissionReward = useCallback((missionId: string) => {
@@ -5677,6 +5703,7 @@ export default function App() {
                         onClaimMissionReward={claimMissionReward}
                         missionsUnlockPromptActive={onboardingPhase === 'missions_prompt'}
                         onAcknowledgeMissionsUnlock={() => setOnboardingPhase('missions_unlocked')}
+                        autoOpenMissionsToken={openMissionsFromToastToken}
           />
       )}
 
@@ -5815,6 +5842,7 @@ export default function App() {
                         onClaimMissionReward={claimMissionReward}
                         missionsUnlockPromptActive={onboardingPhase === 'missions_prompt'}
                         onAcknowledgeMissionsUnlock={() => setOnboardingPhase('missions_unlocked')}
+                        autoOpenMissionsToken={openMissionsFromToastToken}
         />
       )}
 
@@ -6052,6 +6080,15 @@ export default function App() {
       <GamepadHint />
       {/* ── Gamepad indicator — badge bottom-left quando controle está ativo ── */}
       <GamepadIndicator />
+      {/* ── Mission completed toast ── */}
+      <MissionToast
+        toast={missionToast}
+        onOpen={() => {
+          setMissionToast(null);
+          // Open missions modal in whichever screen is active
+          setOpenMissionsFromToastToken(t => t + 1);
+        }}
+      />
       {showHeroDetailModal && (
         <HeroProfileDetailModal player={player} uiProfile={appUiProfile} onClose={() => setShowHeroDetailModal(false)} />
       )}
