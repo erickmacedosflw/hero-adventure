@@ -1,27 +1,91 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import type { Mission } from '../../types';
 
 const BOOK_IMAGE_URL = new URL('../../game/assets/Icons/Missoes/Book_missoes.png', import.meta.url).href;
 const COIN_URL       = new URL('../../game/assets/Icons/Misc/Golden Coin.png', import.meta.url).href;
 
-// -- Inject keyframes once ---------------------------------------------------
-if (typeof document !== 'undefined' && !document.getElementById('missions-anim-style')) {
-  const s = document.createElement('style');
-  s.id = 'missions-anim-style';
+// -- Inject keyframes --------------------------------------------------------
+if (typeof document !== 'undefined') {
+  let s = document.getElementById('missions-anim-style-v2') as HTMLStyleElement | null;
+  if (!s) { s = document.createElement('style'); s.id = 'missions-anim-style-v2'; document.head.appendChild(s); }
   s.textContent = `
     @keyframes missions-book-appear {
       0%   { opacity: 0; transform: translateX(-50%) translateY(40px) scale(0.88); }
       60%  { opacity: 1; transform: translateX(-50%) translateY(-6px) scale(1.02); }
       100% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
     }
+    @keyframes msn-claim-flash {
+      0%   { opacity: 0; }
+      30%  { opacity: 0.55; }
+      100% { opacity: 0; }
+    }
+    @keyframes msn-coin-fly {
+      0%   { opacity: 1; transform: translateY(0) scale(1); }
+      80%  { opacity: 0.7; transform: translateY(-48px) scale(1.15); }
+      100% { opacity: 0; transform: translateY(-72px) scale(0.8); }
+    }
+    @keyframes msn-badge-pop {
+      0%   { opacity: 0; transform: scale(0.5); }
+      65%  { opacity: 1; transform: scale(1.18); }
+      100% { opacity: 1; transform: scale(1); }
+    }
+    @keyframes msn-btn-press {
+      0%   { transform: scale(1); }
+      40%  { transform: scale(0.94); }
+      100% { transform: scale(1); }
+    }
+    @keyframes msn-reward-float {
+      0%   { opacity: 1; transform: translateY(0) scale(1); }
+      100% { opacity: 0; transform: translateY(-56px) scale(1.2); }
+    }
   `;
-  document.head.appendChild(s);
 }
 
 // -- Helpers -----------------------------------------------------------------
 const formatDesc = (template: string, meta: number) =>
   template.replace('{meta}', String(meta));
+
+// -- Coin burst overlay ------------------------------------------------------
+const CoinBurst: React.FC<{ reward: number }> = ({ reward }) => {
+  const coins = [
+    { x: -18, delay: 0 },
+    { x: 0,   delay: 60 },
+    { x: 18,  delay: 120 },
+  ];
+  return (
+    <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 10 }}>
+      {/* Flash overlay */}
+      <div style={{
+        position: 'absolute', inset: 0, borderRadius: 20,
+        background: 'radial-gradient(ellipse at 50% 80%, rgba(251,191,36,0.55) 0%, transparent 70%)',
+        animation: 'msn-claim-flash 0.55s ease-out forwards',
+      }} />
+      {/* Floating reward number */}
+      <div style={{
+        position: 'absolute', left: '50%', bottom: '56px',
+        transform: 'translateX(-50%)',
+        fontSize: 20, fontWeight: 900, color: '#fcd34d',
+        textShadow: '0 0 12px rgba(251,191,36,0.90)',
+        whiteSpace: 'nowrap',
+        animation: 'msn-reward-float 0.7s cubic-bezier(0.22,1,0.36,1) forwards',
+        fontFamily: "'Segoe UI',system-ui,sans-serif",
+      }}>
+        +{reward} ✦
+      </div>
+      {/* Flying coins */}
+      {coins.map((c, i) => (
+        <div key={i} style={{
+          position: 'absolute', bottom: 52, left: `calc(50% + ${c.x}px)`,
+          transform: 'translateX(-50%)',
+          animation: `msn-coin-fly 0.65s cubic-bezier(0.22,1,0.36,1) ${c.delay}ms forwards`,
+        }}>
+          <img src={COIN_URL} alt="" style={{ width: 18, height: 18, objectFit: 'contain' }} />
+        </div>
+      ))}
+    </div>
+  );
+};
 
 // -- Mission Card ------------------------------------------------------------
 const MissionCard: React.FC<{ mission: Mission; onClaim: () => void }> = ({ mission, onClaim }) => {
@@ -29,8 +93,35 @@ const MissionCard: React.FC<{ mission: Mission; onClaim: () => void }> = ({ miss
   const isComplete = mission.progressoAtual >= mission.metaAtual;
   const progressPct = Math.min(100, (mission.progressoAtual / mission.metaAtual) * 100);
 
+  const [hovered,  setHovered]  = useState(false);
+  const [claiming, setClaiming] = useState(false);
+  const [levelPop, setLevelPop] = useState(false);
+  const prevNivel = useRef(mission.nivelAtual);
+
+  // Detect level-up from parent re-render → trigger badge pop
+  useEffect(() => {
+    if (mission.nivelAtual !== prevNivel.current) {
+      prevNivel.current = mission.nivelAtual;
+      setLevelPop(true);
+      const t = setTimeout(() => setLevelPop(false), 600);
+      return () => clearTimeout(t);
+    }
+  }, [mission.nivelAtual]);
+
+  const handleClaim = () => {
+    if (!isComplete || claiming) return;
+    setClaiming(true);
+    // After flash animation, call real claim
+    setTimeout(() => {
+      onClaim();
+      setClaiming(false);
+    }, 480);
+  };
+
   return (
     <div
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       style={{
         borderRadius: 20,
         border: isComplete
@@ -49,12 +140,23 @@ const MissionCard: React.FC<{ mission: Mission; onClaim: () => void }> = ({ miss
         height: '100%',
         boxSizing: 'border-box' as const,
         overflow: 'hidden',
-        boxShadow: isComplete
-          ? '0 8px 32px rgba(180,120,8,0.20), inset 0 1px 0 rgba(255,220,100,0.10), inset 0 0 0 1px rgba(255,200,60,0.06)'
-          : '0 4px 20px rgba(0,0,0,0.45), inset 0 1px 0 rgba(180,120,60,0.08), inset 0 0 0 1px rgba(120,80,30,0.06)',
+        position: 'relative',
+        // Hover lift + glow
+        transform: hovered ? 'translateY(-4px) scale(1.015)' : 'translateY(0) scale(1)',
+        transition: 'transform 0.22s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.22s ease',
+        boxShadow: hovered
+          ? (isComplete
+            ? '0 16px 40px rgba(217,119,6,0.35), 0 0 0 1.5px rgba(251,191,36,0.50), inset 0 1px 0 rgba(255,220,100,0.15)'
+            : '0 12px 32px rgba(0,0,0,0.55), 0 0 0 1px rgba(180,120,60,0.25)')
+          : (isComplete
+            ? '0 8px 32px rgba(180,120,8,0.20), inset 0 1px 0 rgba(255,220,100,0.10)'
+            : '0 4px 20px rgba(0,0,0,0.45), inset 0 1px 0 rgba(180,120,60,0.08)'),
       }}
     >
-      {/* Card top accent bar — couro/livro */}
+      {/* Claim burst overlay */}
+      {claiming && <CoinBurst reward={mission.recompensaAtual} />}
+
+      {/* Card top accent bar */}
       <div style={{
         height: 3,
         background: isComplete
@@ -81,14 +183,17 @@ const MissionCard: React.FC<{ mission: Mission; onClaim: () => void }> = ({ miss
               ∞ Recorrente
             </span>
           ) : (
-            <span style={{
-              display: 'inline-flex', alignItems: 'center',
-              borderRadius: 99, border: '1px solid rgba(255,255,255,0.12)',
-              background: 'rgba(255,255,255,0.06)',
-              padding: '3px 9px',
-              fontSize: 9, fontWeight: 900, textTransform: 'uppercase' as const,
-              letterSpacing: '0.18em', color: 'rgba(255,255,255,0.45)', lineHeight: 1.5,
-            }}>
+            <span
+              key={mission.nivelAtual}
+              style={{
+                display: 'inline-flex', alignItems: 'center',
+                borderRadius: 99, border: '1px solid rgba(255,255,255,0.12)',
+                background: 'rgba(255,255,255,0.06)',
+                padding: '3px 9px',
+                fontSize: 9, fontWeight: 900, textTransform: 'uppercase' as const,
+                letterSpacing: '0.18em', color: 'rgba(255,255,255,0.45)', lineHeight: 1.5,
+                animation: levelPop ? 'msn-badge-pop 0.45s cubic-bezier(0.34,1.56,0.64,1) forwards' : 'none',
+              }}>
               Desafio {mission.nivelAtual}
             </span>
           )}
@@ -114,7 +219,6 @@ const MissionCard: React.FC<{ mission: Mission; onClaim: () => void }> = ({ miss
               {mission.progressoAtual}<span style={{ opacity: 0.5 }}>/{mission.metaAtual}</span>
             </span>
           </div>
-          {/* Track */}
           <div style={{ height: 6, borderRadius: 99, background: 'rgba(255,255,255,0.08)', overflow: 'hidden', position: 'relative' }}>
             <div style={{
               position: 'absolute', inset: 0, right: `${100 - progressPct}%`,
@@ -128,8 +232,8 @@ const MissionCard: React.FC<{ mission: Mission; onClaim: () => void }> = ({ miss
 
         {/* Claim button */}
         <button
-          onClick={onClaim}
-          disabled={!isComplete}
+          onClick={handleClaim}
+          disabled={!isComplete || claiming}
           style={{
             width: '100%', borderRadius: 12,
             padding: '11px 0',
@@ -139,16 +243,19 @@ const MissionCard: React.FC<{ mission: Mission; onClaim: () => void }> = ({ miss
               ? 'linear-gradient(135deg, #b45309 0%, #d97706 50%, #fbbf24 100%)'
               : 'rgba(255,255,255,0.06)',
             color: isComplete ? '#fff' : 'rgba(255,255,255,0.22)',
-            cursor: isComplete ? 'pointer' : 'not-allowed',
+            cursor: isComplete && !claiming ? 'pointer' : 'not-allowed',
             boxShadow: isComplete ? '0 6px 22px rgba(217,119,6,0.40), inset 0 1px 0 rgba(255,255,255,0.25)' : 'none',
-            transition: 'all 0.2s',
+            transition: 'all 0.2s, transform 0.15s',
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+            animation: claiming ? 'msn-btn-press 0.25s ease forwards' : 'none',
+            // Hover effect on button
+            ...(hovered && isComplete && !claiming ? { filter: 'brightness(1.12)' } : {}),
           }}
         >
           {isComplete ? (
             <>
               <img src={COIN_URL} alt="" style={{ width: 15, height: 15, objectFit: 'contain', filter: 'drop-shadow(0.5px 0 0 #fff) drop-shadow(-0.5px 0 0 #fff) drop-shadow(0 0.5px 0 #fff) drop-shadow(0 -0.5px 0 #fff)' }} />
-              Resgatar {mission.recompensaAtual}
+              {claiming ? 'Resgatando...' : `Resgatar ${mission.recompensaAtual}`}
             </>
           ) : 'Em progresso'}
         </button>
