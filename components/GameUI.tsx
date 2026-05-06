@@ -2008,7 +2008,7 @@ export const TavernScreen: React.FC<{
                                                 Mochila
                                             </span>
                                             <SideIconFrame>
-                                                <img src={ICONE_MOCHILA_URL} alt="" style={{ width: 44, height: 44, objectFit: 'contain', position: 'relative', zIndex: 1 }} />
+                                                <img src={ICONE_MOCHILA_URL} alt="" style={{ width: 44, height: 44, objectFit: 'contain', position: 'relative', zIndex: 1, outline: '1.5px solid rgba(255,255,255,0.75)', outlineOffset: '2px', borderRadius: 4 }} />
                                             </SideIconFrame>
                                         </button>
                                     ),
@@ -2035,7 +2035,7 @@ export const TavernScreen: React.FC<{
                                                 Missões
                                             </span>
                                             <SideIconFrame>
-                                                <img src={BOOK_MISSOES_URL} alt="" style={{ width: 44, height: 44, objectFit: 'contain', position: 'relative', zIndex: 1 }} />
+                                                <img src={BOOK_MISSOES_URL} alt="" style={{ width: 44, height: 44, objectFit: 'contain', position: 'relative', zIndex: 1, outline: '1.5px solid rgba(255,255,255,0.75)', outlineOffset: '2px', borderRadius: 4 }} />
                                                 {_mDone > 0 && (
                                                     <span style={{ position: 'absolute', top: -2, right: -2, minWidth: 16, height: 16, borderRadius: 99, background: 'linear-gradient(135deg,#b45309,#fbbf24)', border: '2px solid #fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, fontWeight: 900, color: '#fff', padding: '0 3px', pointerEvents: 'none', zIndex: 2 }}>
                                                         {_mDone}
@@ -2066,7 +2066,7 @@ export const TavernScreen: React.FC<{
                                                 Habilidades
                                             </span>
                                             <SideIconFrame>
-                                                <img src={BOOK_HABILIDADES_URL} alt="" style={{ width: 44, height: 44, objectFit: 'contain', position: 'relative', zIndex: 1 }} />
+                                                <img src={BOOK_HABILIDADES_URL} alt="" style={{ width: 44, height: 44, objectFit: 'contain', position: 'relative', zIndex: 1, outline: '1.5px solid rgba(255,255,255,0.75)', outlineOffset: '2px', borderRadius: 4 }} />
                                             </SideIconFrame>
                                         </button>
                                     ),
@@ -2091,7 +2091,7 @@ export const TavernScreen: React.FC<{
                                                 Mercador
                                             </span>
                                             <SideIconFrame>
-                                                <img src={ICONE_MERCADOR_URL} alt="" style={{ width: 44, height: 44, objectFit: 'contain', position: 'relative', zIndex: 1 }} />
+                                                <img src={ICONE_MERCADOR_URL} alt="" style={{ width: 44, height: 44, objectFit: 'contain', position: 'relative', zIndex: 1, outline: '1.5px solid rgba(255,255,255,0.75)', outlineOffset: '2px', borderRadius: 4 }} />
                                             </SideIconFrame>
                                         </button>
                                     ),
@@ -2116,7 +2116,7 @@ export const TavernScreen: React.FC<{
                                                 Alquimista
                                             </span>
                                             <SideIconFrame>
-                                                <img src={ICONE_ALQUIMISTA_URL} alt="" style={{ width: 44, height: 44, objectFit: 'contain', position: 'relative', zIndex: 1 }} />
+                                                <img src={ICONE_ALQUIMISTA_URL} alt="" style={{ width: 44, height: 44, objectFit: 'contain', position: 'relative', zIndex: 1, outline: '1.5px solid rgba(255,255,255,0.75)', outlineOffset: '2px', borderRadius: 4 }} />
                                             </SideIconFrame>
                                         </button>
                                     ),
@@ -4207,7 +4207,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                           transform: 'rotate(45deg)',
                           background: 'rgba(0,0,0,0.32)',
                       }} />
-                      <img src={BOOK_MISSOES_URL} alt="" style={{ position: 'relative', zIndex: 1, width: 44, height: 44, objectFit: 'contain' }} />
+                      <img src={BOOK_MISSOES_URL} alt="" style={{ position: 'relative', zIndex: 1, width: 44, height: 44, objectFit: 'contain', outline: '1.5px solid rgba(255,255,255,0.75)', outlineOffset: '2px', borderRadius: 4 }} />
                       {_bDone > 0 && (
                           <span style={{ position: 'absolute', top: -2, right: -2, minWidth: 16, height: 16, borderRadius: 99, background: 'linear-gradient(135deg,#b45309,#fbbf24)', border: '2px solid #fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, fontWeight: 900, color: '#fff', padding: '0 3px', pointerEvents: 'none', zIndex: 2 }}>
                               {_bDone}
