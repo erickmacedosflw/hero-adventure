@@ -387,19 +387,19 @@ const GameOverScreen: React.FC<{ stage: number; onRespawn: () => void }> = ({ st
                 style={{
                     position: 'relative', zIndex: 1,
                     width: '100%', maxWidth: 520,
-                    background: 'rgba(14,4,4,0.82)',
-                    border: '1px solid rgba(180,80,80,0.30)',
+                    background: 'rgba(12,2,2,0.38)',
+                    border: '1px solid rgba(220,100,100,0.22)',
                     borderRadius: 28, overflow: 'hidden',
-                    boxShadow: '0 40px 120px rgba(80,10,10,0.55), 0 0 0 1px rgba(200,80,80,0.08)',
+                    boxShadow: '0 40px 120px rgba(80,10,10,0.35), 0 0 0 1px rgba(200,80,80,0.06)',
                 }}
             >
                 {/* Header */}
                 <div style={{
-                    background: 'rgba(120,20,20,0.55)',
-                    borderBottom: '1px solid rgba(180,80,80,0.22)',
+                    background: 'rgba(100,16,16,0.42)',
+                    borderBottom: '1px solid rgba(220,100,100,0.15)',
                     padding: '32px 32px 26px', textAlign: 'center', position: 'relative', overflow: 'hidden',
                 }}>
-                    <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse at top, rgba(255,60,60,0.12), transparent 65%)', pointerEvents: 'none' }} />
+                    <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse at top, rgba(255,60,60,0.10), transparent 65%)', pointerEvents: 'none' }} />
                     <div className="gameover-badge" style={{
                         display: 'inline-flex', alignItems: 'center',
                         borderRadius: 99, border: '1px solid rgba(255,200,200,0.20)',
@@ -423,8 +423,8 @@ const GameOverScreen: React.FC<{ stage: number; onRespawn: () => void }> = ({ st
                 {/* Body */}
                 <div style={{ padding: '22px 26px 26px' }}>
                     <div style={{
-                        borderRadius: 14, border: '1px solid rgba(180,80,80,0.18)',
-                        background: 'rgba(255,60,60,0.05)',
+                        borderRadius: 14, border: '1px solid rgba(200,80,80,0.14)',
+                        background: 'rgba(255,40,40,0.06)',
                         padding: '15px 18px', textAlign: 'center', marginBottom: 18,
                     }}>
                         <div style={{ fontSize: 9, fontWeight: 900, letterSpacing: '0.28em', textTransform: 'uppercase', color: 'rgba(255,155,155,0.55)' }}>Resumo</div>
