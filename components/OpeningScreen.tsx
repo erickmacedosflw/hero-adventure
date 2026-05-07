@@ -287,10 +287,16 @@ export const OpeningScreen: React.FC<OpeningScreenProps> = ({ classes, enemies, 
             {loadingLabel}
           </p>
 
-          <div className="mx-auto mt-6 h-2.5 w-full max-w-lg overflow-hidden rounded-full bg-[#fff7ea]/22 shadow-[inset_0_0_0_1px_rgba(255,242,220,0.28)]">
+          <div className="mx-auto mt-6 h-2.5 w-full max-w-lg overflow-hidden rounded-full bg-[#fff7ea]/22 shadow-[inset_0_0_0_1px_rgba(255,242,220,0.28)] isolate">
             <div
-              className="h-full rounded-full bg-[linear-gradient(90deg,#f8d08c_0%,#f0b768_55%,#e18f51_100%)] transition-all duration-300"
-              style={{ width: `${percentage}%` }}
+              className="h-full bg-[linear-gradient(90deg,#f8d08c_0%,#f0b768_55%,#e18f51_100%)]"
+              style={{
+                width: '100%',
+                transform: `scaleX(${percentage / 100})`,
+                transformOrigin: 'left center',
+                transition: 'transform 0.3s linear',
+                willChange: 'transform',
+              }}
             />
           </div>
 

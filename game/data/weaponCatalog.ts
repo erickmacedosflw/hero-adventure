@@ -30,7 +30,7 @@ export interface RegisteredWeapon3DDefinition {
 }
 
 const sharedTexturePath = 'game/assets/Characters/Weapons/another/weapons_bits_texture.png';
-const sharedTextureUrl = new URL('../assets/Characters/Weapons/another/weapons_bits_texture.png', import.meta.url).href;
+const sharedTextureUrl = new URL('../assets/Characters/Weapons/another/weapons_bits_texture.webp', import.meta.url).href;
 const MIN_WEAPON_COST_BY_RARITY: Record<Item['rarity'], number> = {
   bronze: 340,
   silver: 1550,

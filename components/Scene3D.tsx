@@ -82,6 +82,9 @@ import { HeroItemDetailOverlay } from './scene3d/ItemDetailOverlays';
 import { HeroInspectCanvas } from './scene3d/HeroInspectCanvas';
 import { BattleActionsHtml, type BattleActionsConfig } from './scene3d/BattleActionsHtml';
 import { PortalInspectCanvas } from './scene3d/PortalInspectCanvas';
+import { useBattleVfxStore } from '../game/stores/battleVfxStore';
+import { useBattleGaugeStore } from '../game/stores/battleGaugeStore';
+import { useBattleStatsStore } from '../game/stores/battleStatsStore';
 export { ItemPreviewCanvas } from './items/ItemPreviewCanvas';
 export type {
   DeveloperAnimationRuntimeDiagnostic,
@@ -101,7 +104,6 @@ interface SceneProps {
   enemyAssets?: PlayerClassAssets;
   enemyAttackStyle?: 'armed' | 'unarmed';
   enemyAnimationAction?: PlayerAnimationAction;
-  floatingTexts?: FloatingText[];
   playerClassId?: PlayerClassId;
   playerAnimationAction?: PlayerAnimationAction;
   playerExecutionAnimationId?: string | null;
@@ -123,7 +125,6 @@ interface SceneProps {
   turnState: TurnState;
   isPlayerAttacking: boolean;
   isEnemyAttacking: boolean;
-  particles: Particle[];
   equippedWeaponId?: string;
   equippedArmorId?: string;
   equippedHelmetId?: string;
@@ -149,6 +150,7 @@ interface SceneProps {
   showMenuNavigationPortal?: boolean;
   menuPortalRegion?: 'forest' | 'dungeon' | 'tower';
   menuPortalTravelCinematicToken?: number;
+  bossEntryCinematicToken?: number;
   isDungeonScene?: boolean;
   stage?: number;
   isDungeonRun?: boolean;
@@ -161,7 +163,7 @@ interface SceneProps {
   enemyIntentPreview?: EnemyIntentPreview | null;
   battleTimelineState?: BattleTimelineState;
   activeBattleActorId?: string | null;
-  battleActorGauges?: BattleActorGaugeMap;
+  battleActorGauges?: BattleActorGaugeMap; // DEPRECATED: gauges now flow through useBattleGaugeStore. Kept for type compat.
   renderQualityPreset?: RenderQualityPreset;
   heroInspectMode?: boolean;
   onHeroInspectClose?: () => void;
@@ -918,10 +920,8 @@ const CombatCinematicFX = ({
   isPlayerHit,
   equippedWeaponId,
   enemyAttackStyle,
-  latestEnemyImpactColor,
   activeImpulseLevel,
   enemyImpulseLevel,
-  particleLoad,
 }: {
   playerAnimationAction?: PlayerAnimationAction;
   enemyAnimationAction?: PlayerAnimationAction;
@@ -947,10 +947,8 @@ const CombatCinematicFX = ({
   isPlayerHit?: boolean;
   equippedWeaponId?: string;
   enemyAttackStyle?: 'armed' | 'unarmed';
-  latestEnemyImpactColor?: string;
   activeImpulseLevel?: number;
   enemyImpulseLevel?: number;
-  particleLoad: number;
 }) => {
   const playerRefs = useRef<(THREE.Sprite | null)[]>([]);
   const enemyRefs = useRef<(THREE.Sprite | null)[]>([]);
@@ -1291,7 +1289,14 @@ const CombatCinematicFX = ({
     const playerSkillActive = false;
     const enemySkillActive = false;
     const hasSkillFx = false;
-    const loadScale = particleLoad > 84 ? 0.65 : particleLoad > 64 ? 0.82 : 1;
+    const storeParticles = useBattleVfxStore.getState().particles;
+    const pCount = storeParticles.length;
+    const loadScale = pCount > 84 ? 0.65 : pCount > 64 ? 0.82 : 1;
+    // Derive impact color from latest enemy-side particle
+    let latestEnemyImpactColor: string | undefined;
+    for (let _i = storeParticles.length - 1; _i >= 0; _i--) {
+      if (storeParticles[_i].position[0] > 0.8) { latestEnemyImpactColor = storeParticles[_i].color; break; }
+    }
     const activeTrailCount = Math.max(8, Math.floor(COMBAT_TRAIL_SEEDS.length * loadScale));
 
     if (hasSkillFx) {
@@ -3409,31 +3414,98 @@ const FpsCap = ({ fps }: { fps: number }) => {
   return null;
 };
 
+/** Isolated component — subscribes to particles from the VFX store so GameScene never re-renders for particles.
+ *  Also owns the pruneExpired tick so no setInterval lives outside the R3F loop. */
+const WorldParticlesConnected: React.FC<{ renderCap: number }> = ({ renderCap }) => {
+  const particles = useBattleVfxStore((s) => s.particles) ?? [];
+  const pruneFrameRef = useRef(0);
+
+  // Prune expired VFX every ~6 R3F frames (≈20ms × 6 ≈ 120ms) — synchronized with
+  // the render loop so zustand set() never fires from an external setInterval.
+  useFrame(() => {
+    pruneFrameRef.current += 1;
+    if (pruneFrameRef.current >= 6) {
+      pruneFrameRef.current = 0;
+      useBattleVfxStore.getState().pruneExpired();
+    }
+  });
+
+  const visible = particles.length > renderCap ? particles.slice(-renderCap) : particles;
+  return <>{visible.map((p) => <MeshParticle key={p.id} {...p} />)}</>;
+};
+
+/** Isolated component — subscribes to floatingTexts from the VFX store so GameScene never re-renders for texts. */
+const WorldFloatingTextsConnected: React.FC<{ enemyAnchor?: [number, number, number] }> = ({ enemyAnchor }) => {
+  const floatingTexts = useBattleVfxStore((s) => s.floatingTexts) ?? [];
+  return <WorldFloatingTexts texts={floatingTexts} enemyAnchor={enemyAnchor} />;
+};
+
 const SPEED_ATTRIBUTE_COLOR = '#10b981';
 const SPEED_ATTRIBUTE_TRACK = 'rgba(16,185,129,0.14)';
 
 const SpeedAttributeBar: React.FC<{
+  /** When provided, the bar subscribes to that actor's gauge slice from
+   *  battleGaugeStore directly and re-renders ONLY when that slice changes.
+   *  Avoids passing the whole gauge map down through the React tree. */
+  actorId?: string;
+  /** Legacy override: explicit pct (used while transitioning consumers). */
   pct?: number;
   state?: BattleActorChargeState;
   active?: boolean;
   isMobileDevice: boolean;
   barH: string;
-}> = ({ pct = 0, state = 'carregando', active = false, isMobileDevice, barH }) => {
-  const clampedPct = Math.max(0, Math.min(100, pct));
-  const previousPctRef = React.useRef(clampedPct);
+}> = ({ actorId, pct: pctOverride, state: stateOverride, active = false, isMobileDevice, barH }) => {
+  // Subscribe to the actor's gauge slice if actorId provided. Selector returns
+  // a primitive-friendly tuple to maximize React re-render skipping.
+  const subscribed = useBattleGaugeStore((s) => (actorId ? s.gauges[actorId] : undefined));
+  const pct = pctOverride ?? subscribed?.tempoDeAtaque ?? 0;
+  const state: BattleActorChargeState = stateOverride ?? subscribed?.state ?? 'carregando';
+  const fillRef = useRef<HTMLDivElement>(null);
+  const shimmerRef = useRef<HTMLDivElement>(null);
+  const trackRef = useRef<HTMLDivElement>(null);
+  const prevPctRef = useRef(-1);
+
   const isReady = active || state === 'pronto' || state === 'executando';
   const iconSize = isMobileDevice ? 16 : 11;
   const iconBox = isMobileDevice ? 20 : 14;
-  const shouldSnapReset = clampedPct < previousPctRef.current;
-  const minVisiblePct = clampedPct > 0 ? Math.max(clampedPct, isMobileDevice ? 3.2 : 2.4) : 0;
-  const fillScale = minVisiblePct / 100;
-  const fillShadow = isReady
-    ? `0 0 10px ${SPEED_ATTRIBUTE_COLOR}cc, 0 0 18px ${SPEED_ATTRIBUTE_COLOR}66`
-    : `0 0 7px ${SPEED_ATTRIBUTE_COLOR}55`;
+  const minVisible = isMobileDevice ? 3.2 : 2.4;
 
-  React.useEffect(() => {
-    previousPctRef.current = clampedPct;
-  }, [clampedPct]);
+  // CSS-transition approach: set transform/opacity directly on the DOM element.
+  // pct is already throttled to 30fps by useBattleTimeline — no rAF loop needed.
+  // transform/opacity changes are applied synchronously here; the browser renders
+  // them at the next paint (~33ms at 30fps), matching the ATB update rate exactly.
+  useEffect(() => {
+    const fill = fillRef.current;
+    const shimmer = shimmerRef.current;
+    if (!fill) return;
+
+    const clampedPct = Math.max(0, Math.min(100, pct));
+    const minVisiblePct = clampedPct > 0 ? Math.max(clampedPct, minVisible) : 0;
+    const targetScale = minVisiblePct / 100;
+    const isReset = pct < prevPctRef.current - 4;
+    prevPctRef.current = pct;
+
+    // No CSS transition — snap directly at 30fps (pct changes at 30fps from ATB hook)
+    fill.style.transition = isReset ? 'none' : 'opacity 0.18s ease, box-shadow 0.22s ease';
+    fill.style.transform = `scaleX(${targetScale})`;
+    fill.style.opacity = clampedPct > 0 ? '1' : '0';
+
+    if (shimmer) {
+      shimmer.style.opacity = clampedPct > 0 ? String(Math.min(1, 0.45 + (clampedPct / 100) * 0.4)) : '0';
+      shimmer.style.background = `linear-gradient(90deg, transparent 0%, transparent ${Math.max(0, minVisiblePct - 8)}%, rgba(255,255,255,0.18) ${Math.max(0, minVisiblePct - 1.5)}%, transparent ${Math.min(100, minVisiblePct + 8)}%)`;
+    }
+  }, [pct, minVisible]);
+
+  // Box-shadow glow on ready-state change (infrequent — does not need 60fps)
+  useEffect(() => {
+    const fill = fillRef.current;
+    const track = trackRef.current;
+    if (!fill || !track) return;
+    fill.style.boxShadow = isReady
+      ? `0 0 10px ${SPEED_ATTRIBUTE_COLOR}cc, 0 0 18px ${SPEED_ATTRIBUTE_COLOR}66`
+      : `0 0 7px ${SPEED_ATTRIBUTE_COLOR}55`;
+    track.style.boxShadow = isReady ? `0 0 0 1px ${SPEED_ATTRIBUTE_COLOR}22` : 'none';
+  }, [isReady]);
 
   return (
     <div
@@ -3461,49 +3533,104 @@ const SpeedAttributeBar: React.FC<{
         <Wind size={iconSize} strokeWidth={3} />
       </span>
       <div
+        ref={trackRef}
         style={{
           flex: 1,
           height: `max(${isMobileDevice ? '7px' : '5px'}, calc(${barH} * 0.58))`,
           borderRadius: '99px',
           background: SPEED_ATTRIBUTE_TRACK,
           overflow: 'hidden',
+          isolation: 'isolate',
           border: `1px solid ${SPEED_ATTRIBUTE_COLOR}33`,
-          boxShadow: isReady ? `0 0 0 1px ${SPEED_ATTRIBUTE_COLOR}22` : 'none',
           position: 'relative',
         }}
       >
         <div
+          ref={fillRef}
           style={{
             height: '100%',
             width: '100%',
-            borderRadius: '99px',
             background: `linear-gradient(90deg, ${SPEED_ATTRIBUTE_COLOR}99, ${SPEED_ATTRIBUTE_COLOR})`,
-            boxShadow: fillShadow,
-            opacity: clampedPct > 0 ? 1 : 0,
-            transform: `scaleX(${fillScale})`,
             transformOrigin: 'left center',
             willChange: 'transform, opacity',
-            transition: shouldSnapReset
-              ? 'box-shadow 0.18s ease, opacity 0.18s ease'
-              : 'transform 0.12s linear, box-shadow 0.18s ease, opacity 0.18s ease',
+            transform: 'scaleX(0)',
+            opacity: 0,
           }}
         />
-        {clampedPct > 0 && (
-          <div
-            style={{
-              position: 'absolute',
-              top: 0,
-              bottom: 0,
-              left: 0,
-              width: '100%',
-              pointerEvents: 'none',
-              opacity: Math.min(1, 0.45 + (clampedPct / 100) * 0.4),
-              background: `linear-gradient(90deg, transparent 0%, transparent ${Math.max(0, minVisiblePct - 8)}%, rgba(255,255,255,0.18) ${Math.max(0, minVisiblePct - 1.5)}%, transparent ${Math.min(100, minVisiblePct + 8)}%)`,
-              transition: shouldSnapReset ? 'opacity 0.18s ease' : 'background 0.12s linear, opacity 0.18s ease',
-            }}
-          />
-        )}
+        <div
+          ref={shimmerRef}
+          style={{
+            position: 'absolute',
+            top: 0,
+            bottom: 0,
+            left: 0,
+            width: '100%',
+            pointerEvents: 'none',
+            opacity: 0,
+          }}
+        />
       </div>
+    </div>
+  );
+};
+
+/**
+ * Subscribed HP bar — reads from useBattleStatsStore directly so it can update
+ * without re-rendering the entire 3D scene tree (GameScene React.memo skips
+ * stat-only changes via custom areEqual). Provide either `playerId` or `enemyId`.
+ * `fallbackHp/fallbackMaxHp` are used until the store is populated.
+ */
+const SubscribedHpBar: React.FC<{
+  source: 'player' | { enemyId: string };
+  barH: string;
+  fallbackHp: number;
+  fallbackMaxHp: number;
+  /** Compact variant: solid color, no gradient or border. */
+  compact?: boolean;
+}> = ({ source, barH, fallbackHp, fallbackMaxHp, compact = false }) => {
+  const hp = useBattleStatsStore((s) =>
+    source === 'player' ? s.playerHp : s.enemyHp[source.enemyId],
+  );
+  const maxHp = useBattleStatsStore((s) =>
+    source === 'player' ? s.playerMaxHp : s.enemyMaxHp[source.enemyId],
+  );
+  const safeHp = hp ?? fallbackHp;
+  const safeMaxHp = (maxHp && maxHp > 0) ? maxHp : Math.max(1, fallbackMaxHp);
+  const hpPct = Math.max(0, Math.min(100, (safeHp / safeMaxHp) * 100));
+  const hpColor = hpPct > 55 ? '#4ade80' : hpPct > 25 ? '#facc15' : '#f87171';
+  if (compact) {
+    return (
+      <div style={{ height: barH, borderRadius: '99px', background: 'rgba(0,0,0,0.5)', overflow: 'hidden', isolation: 'isolate' }}>
+        <div style={{ height: '100%', width: '100%', background: hpColor, transform: `scaleX(${hpPct / 100})`, transformOrigin: 'left center', transition: 'transform 0.35s ease' }} />
+      </div>
+    );
+  }
+  return (
+    <div style={{ height: barH, borderRadius: '99px', background: 'rgba(0,0,0,0.55)', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)', isolation: 'isolate' }}>
+      <div style={{ height: '100%', width: '100%', background: `linear-gradient(90deg, ${hpColor}99, ${hpColor})`, transform: `scaleX(${hpPct / 100})`, transformOrigin: 'left center', transition: 'transform 0.35s ease, background 0.5s ease' }} />
+    </div>
+  );
+};
+
+const SubscribedMpBar: React.FC<{
+  source: 'player' | { enemyId: string };
+  barH: string;
+  fallbackMp: number;
+  fallbackMaxMp: number;
+}> = ({ source, barH, fallbackMp, fallbackMaxMp }) => {
+  const mp = useBattleStatsStore((s) =>
+    source === 'player' ? s.playerMp : s.enemyMp[source.enemyId],
+  );
+  const maxMp = useBattleStatsStore((s) =>
+    source === 'player' ? s.playerMaxMp : s.enemyMaxMp[source.enemyId],
+  );
+  const safeMp = mp ?? fallbackMp;
+  const safeMaxMp = (maxMp && maxMp > 0) ? maxMp : Math.max(1, fallbackMaxMp);
+  if (safeMaxMp <= 0 || safeMp <= 0) return null;
+  const mpPct = Math.max(0, Math.min(100, (safeMp / safeMaxMp) * 100));
+  return (
+    <div style={{ height: barH, borderRadius: '99px', background: 'rgba(0,0,0,0.55)', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)', isolation: 'isolate' }}>
+      <div style={{ height: '100%', width: '100%', background: 'linear-gradient(90deg, #2b687899, #66b8d2)', transform: `scaleX(${mpPct / 100})`, transformOrigin: 'left center', transition: 'transform 0.35s ease' }} />
     </div>
   );
 };
@@ -3524,11 +3651,10 @@ const HeroNameplateCard: React.FC<{
   lvlFz: string;
   iconSz: number;
   F: React.CSSProperties;
-  speedGaugePct?: number;
-  speedGaugeState?: BattleActorChargeState;
+  speedGaugeActorId?: string;
   speedGaugeActive?: boolean;
   onClick?: () => void;
-}> = ({ accentColor, cardW, isMobileDevice, hpPct, hpColor, hasMana, mpPct, xpPct, classId, level, barH, nameFz, lvlFz, iconSz, F, speedGaugePct = 0, speedGaugeState = 'carregando', speedGaugeActive = false, onClick }) => {
+}> = ({ accentColor, cardW, isMobileDevice, hpPct, hpColor, hasMana, mpPct, xpPct, classId, level, barH, nameFz, lvlFz, iconSz, F, speedGaugeActorId, speedGaugeActive = false, onClick }) => {
   const [hovered, setHovered] = React.useState(false);
   const [pressed, setPressed] = React.useState(false);
   const interactive = !!onClick;
@@ -3576,23 +3702,28 @@ const HeroNameplateCard: React.FC<{
         <span style={{ fontSize: nameFz, fontWeight: 900, color: '#fff', letterSpacing: '0.03em', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{HERO_CLASS_NAME_PT[classId] ?? classId}</span>
         <span style={{ fontSize: lvlFz, fontWeight: 800, color: accentColor, letterSpacing: '0.10em', whiteSpace: 'nowrap', flexShrink: 0 }}>Nv {level}</span>
       </div>
-      {/* HP bar */}
-      <div style={{ height: barH, borderRadius: '99px', background: 'rgba(0,0,0,0.55)', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)' }}>
-        <div style={{ height: '100%', borderRadius: '99px', background: `linear-gradient(90deg, ${hpColor}99, ${hpColor})`, width: `${hpPct}%`, transition: 'width 0.35s ease, background 0.5s ease' }} />
-      </div>
-      {/* Mana bar */}
+      {/* HP bar — subscribes to battleStatsStore so it updates without re-rendering GameScene */}
+      <SubscribedHpBar
+        source="player"
+        barH={barH}
+        fallbackHp={Math.max(0, hpPct)}
+        fallbackMaxHp={100}
+      />
+      {/* Mana bar — also subscribed */}
       {hasMana && (
-        <div style={{ height: barH, borderRadius: '99px', background: 'rgba(0,0,0,0.55)', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)' }}>
-          <div style={{ height: '100%', borderRadius: '99px', background: 'linear-gradient(90deg, #2b687899, #66b8d2)', width: `${mpPct}%`, transition: 'width 0.35s ease' }} />
-        </div>
+        <SubscribedMpBar
+          source="player"
+          barH={barH}
+          fallbackMp={Math.max(0, mpPct)}
+          fallbackMaxMp={100}
+        />
       )}
       {/* XP bar */}
-      <div style={{ height: isMobileDevice ? '6px' : '4px', borderRadius: '99px', background: 'rgba(0,0,0,0.40)', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.06)' }}>
-        <div style={{ height: '100%', borderRadius: '99px', background: 'linear-gradient(90deg, #7d3d4d99, #c89a66)', width: `${xpPct}%`, transition: 'width 0.5s ease' }} />
+      <div style={{ height: isMobileDevice ? '6px' : '4px', borderRadius: '99px', background: 'rgba(0,0,0,0.40)', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.06)', isolation: 'isolate' }}>
+        <div style={{ height: '100%', width: '100%', background: 'linear-gradient(90deg, #7d3d4d99, #c89a66)', transform: `scaleX(${xpPct / 100})`, transformOrigin: 'left center', transition: 'transform 0.5s ease' }} />
       </div>
       <SpeedAttributeBar
-        pct={speedGaugePct}
-        state={speedGaugeState}
+        actorId={speedGaugeActorId}
         active={speedGaugeActive}
         isMobileDevice={isMobileDevice}
         barH={barH}
@@ -3619,10 +3750,11 @@ const HeroNameplateCard: React.FC<{
   );
 };
 
-export const GameScene: React.FC<SceneProps> = (props) => {
+export const GameScene: React.FC<SceneProps> = React.memo((props) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const outlineHeroRef = useRef<THREE.Group>(null);
   const outlineEnemyRef = useRef<THREE.Group>(null);
+
   const [gameTime, setGameTime] = useState("12:00");
   const [hoveredEnemyId, setHoveredEnemyId] = useState<string | null>(null);
   const [heroItemDetail, setHeroItemDetail] = useState<any | null>(null);
@@ -3671,10 +3803,6 @@ export const GameScene: React.FC<SceneProps> = (props) => {
     : isQualityMode
       ? (isMobileDevice ? 160 : 190)
       : (isMobileDevice ? 80 : 120);
-  const visibleParticles = useMemo(
-    () => props.particles.slice(-particleRenderCap),
-    [particleRenderCap, props.particles],
-  );
   const shouldUseDepthOfField = isDungeonRun ? shouldUseDungeonDepthOfField : shouldUseForestDepthOfField;
   const activeDepthOfFieldRange = isDungeonRun ? DUNGEON_FOCUS_RANGE : FOREST_FOCUS_RANGE;
   const activeDepthOfFieldBokeh = isDungeonRun ? 1.7 : 0.5;
@@ -3779,15 +3907,6 @@ export const GameScene: React.FC<SceneProps> = (props) => {
   }, [activeScenarioConfig, isDungeonRun]);
   const shouldShowDungeonReferenceGround = false;
   const enemyOverlay = null;
-  const latestEnemyImpactColor = useMemo(() => {
-    for (let i = props.particles.length - 1; i >= 0; i -= 1) {
-      const particle = props.particles[i];
-      if (particle.position[0] > 0.8) {
-        return particle.color;
-      }
-    }
-    return '#fef08a';
-  }, [props.particles]);
 
   return (
     <div
@@ -3827,6 +3946,7 @@ export const GameScene: React.FC<SceneProps> = (props) => {
           runtimeBattleCamera={runtimeBattleCamera}
           heroInspectMode={props.heroInspectMode}
           portalInspectMode={props.portalInspectMode}
+          bossEntryCinematicToken={props.bossEntryCinematicToken ?? 0}
         />
         {/* fog/background must be at Canvas root (scene level) Ã¢â‚¬â€ THREE.js only reads scene.fog and scene.background */}
         {isDungeonRun ? (
@@ -4210,7 +4330,6 @@ export const GameScene: React.FC<SceneProps> = (props) => {
                         const hpPct = Math.max(0, (extraEnemy.stats.hp / extraEnemy.stats.maxHp) * 100);
                         const hpColor = hpPct > 55 ? '#4ade80' : hpPct > 25 ? '#facc15' : '#f87171';
                         const cardW = isMobileDevice ? '230px' : '150px';
-                        const speedGauge = props.battleActorGauges?.[extraEnemy.id];
                         return (
                           <div
                             style={{
@@ -4227,12 +4346,15 @@ export const GameScene: React.FC<SceneProps> = (props) => {
                               <span style={{ fontSize: isMobileDevice ? '15px' : '11px', fontWeight: 800, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{extraEnemy.name}</span>
                               <span style={{ fontSize: isMobileDevice ? '12px' : '9px', color: '#94a3b8', marginLeft: 4 }}>Nv{extraEnemy.level}</span>
                             </div>
-                            <div style={{ height: isMobileDevice ? '10px' : '6px', borderRadius: '99px', background: 'rgba(0,0,0,0.5)', overflow: 'hidden' }}>
-                              <div style={{ height: '100%', borderRadius: '99px', background: hpColor, width: `${hpPct}%`, transition: 'width 0.35s ease' }} />
-                            </div>
+                            <SubscribedHpBar
+                              source={{ enemyId: extraEnemy.id }}
+                              barH={isMobileDevice ? '10px' : '6px'}
+                              fallbackHp={extraEnemy.stats.hp}
+                              fallbackMaxHp={extraEnemy.stats.maxHp}
+                              compact
+                            />
                             <SpeedAttributeBar
-                              pct={speedGauge?.tempoDeAtaque ?? 0}
-                              state={speedGauge?.state}
+                              actorId={extraEnemy.id}
                               active={props.activeBattleActorId === extraEnemy.id}
                               isMobileDevice={isMobileDevice}
                               barH={isMobileDevice ? '10px' : '6px'}
@@ -4320,7 +4442,7 @@ export const GameScene: React.FC<SceneProps> = (props) => {
               const EnemyClassIcon = INSPECT_CLASS_ICON[enemyClassId] ?? Shield;
               const accentColor = isBoss ? '#ef4444' : isSubBoss ? '#f59e0b' : (props.enemyColor ?? '#94a3b8');
               const badgeLabel = isBoss ? 'CHEFÃƒÆ’O' : isSubBoss ? 'SUBCHEFE' : null;
-              const speedGauge = props.battleActorGauges?.[en.id];
+              const speedGaugeActorId = en.id;
               const F: React.CSSProperties = { fontFamily: "'Segoe UI',system-ui,sans-serif" };
               const cardW = isMobileDevice ? '280px' : '190px';
               const nameFz = isMobileDevice ? '18px' : '13px';
@@ -4361,19 +4483,22 @@ export const GameScene: React.FC<SceneProps> = (props) => {
                         <span style={{ fontSize: nameFz, fontWeight: 900, color: '#fff', letterSpacing: '0.03em', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>{en.name}</span>
                         <span style={{ fontSize: lvlFz, fontWeight: 800, color: accentColor, letterSpacing: '0.10em', whiteSpace: 'nowrap' as const, flexShrink: 0 }}>Nv {en.level}</span>
                       </div>
-                      {/* HP bar */}
-                      <div style={{ height: barH, borderRadius: '99px', background: 'rgba(0,0,0,0.55)', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)' }}>
-                        <div style={{ height: '100%', borderRadius: '99px', background: `linear-gradient(90deg, ${hpColor}99, ${hpColor})`, width: `${hpPct}%`, transition: 'width 0.35s ease, background 0.5s ease' }} />
-                      </div>
-                      {/* Mana bar */}
-                      {hasMana && (
-                        <div style={{ height: barH, borderRadius: '99px', background: 'rgba(0,0,0,0.55)', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)' }}>
-                          <div style={{ height: '100%', borderRadius: '99px', background: 'linear-gradient(90deg, #2b687899, #66b8d2)', width: `${mpPct}%`, transition: 'width 0.35s ease' }} />
-                        </div>
-                      )}
+                      {/* HP bar — subscribes to battleStatsStore so updates skip GameScene re-render */}
+                      <SubscribedHpBar
+                        source={{ enemyId: en.id }}
+                        barH={barH}
+                        fallbackHp={en.stats.hp}
+                        fallbackMaxHp={en.stats.maxHp}
+                      />
+                      {/* Mana bar — also subscribed */}
+                      <SubscribedMpBar
+                        source={{ enemyId: en.id }}
+                        barH={barH}
+                        fallbackMp={en.stats.mp}
+                        fallbackMaxMp={en.stats.maxMp}
+                      />
                       <SpeedAttributeBar
-                        pct={speedGauge?.tempoDeAtaque ?? 0}
-                        state={speedGauge?.state}
+                        actorId={speedGaugeActorId}
                         active={props.activeBattleActorId === en.id}
                         isMobileDevice={isMobileDevice}
                         barH={barH}
@@ -4410,7 +4535,6 @@ export const GameScene: React.FC<SceneProps> = (props) => {
               const accentColor = pClass?.visualProfile?.secondaryColor ?? '#60a5fa';
               const ClassIcon = INSPECT_CLASS_ICON[classId] ?? Shield;
               const classNamePtHero = HERO_CLASS_NAME_PT[classId] ?? classId;
-              const speedGauge = props.battleActorGauges?.player;
               const F: React.CSSProperties = { fontFamily: "'Segoe UI',system-ui,sans-serif" };
               const cardW = isMobileDevice ? '280px' : '190px';
               const nameFz = isMobileDevice ? '18px' : '13px';
@@ -4451,8 +4575,7 @@ export const GameScene: React.FC<SceneProps> = (props) => {
                       lvlFz={lvlFz}
                       iconSz={iconSz}
                       F={F}
-                      speedGaugePct={speedGauge?.tempoDeAtaque ?? 0}
-                      speedGaugeState={speedGauge?.state}
+                      speedGaugeActorId="player"
                       speedGaugeActive={props.activeBattleActorId === 'player'}
                       onClick={props.onHeroNameplateClick}
                     />
@@ -4499,10 +4622,8 @@ export const GameScene: React.FC<SceneProps> = (props) => {
               isPlayerHit={props.isPlayerHit}
               equippedWeaponId={props.equippedWeaponId}
               enemyAttackStyle={props.enemyAttackStyle}
-              latestEnemyImpactColor={latestEnemyImpactColor}
               activeImpulseLevel={props.activeImpulseLevel}
               enemyImpulseLevel={props.enemyState?.impulso ?? 0}
-              particleLoad={props.particles.length}
             />
           </Suspense>
         )}
@@ -4510,7 +4631,7 @@ export const GameScene: React.FC<SceneProps> = (props) => {
           <AmbientDriftParticles isLowQuality={quality.isLowQuality} isDungeonRun={isDungeonRun} />
         ) : null}
 
-        {visibleParticles.map((particle) => <MeshParticle key={particle.id} {...particle} />)}
+        <WorldParticlesConnected renderCap={particleRenderCap} />
         {(() => {
           // Compute main enemy world anchor so floating text + loot appear over the actual model
           const ANCHOR_GRP = [
@@ -4527,7 +4648,7 @@ export const GameScene: React.FC<SceneProps> = (props) => {
             : [a.x, 0.5, a.z];
           return (
             <>
-              <WorldFloatingTexts texts={props.floatingTexts} enemyAnchor={enemyAnchor} />
+              <WorldFloatingTextsConnected enemyAnchor={enemyAnchor} />
               <WorldLootDisplay loot={props.lootResult ?? null} xpIcon={props.xpIconComponent} enemyAnchor={enemyAnchor} />
             </>
           );
@@ -4556,5 +4677,83 @@ export const GameScene: React.FC<SceneProps> = (props) => {
       </Canvas>
     </div>
   );
-};
+}, gameSceneAreEqual);
+
+/**
+ * Custom areEqual for the GameScene React.memo.
+ *
+ * The Three.js scene tree is the most expensive thing in the app to reconcile.
+ * On every hit the player/enemy state references change because their `stats`
+ * sub-object is replaced with a new object containing the new HP/MP. Without
+ * this comparator the entire 3D scene would reconcile on each tick.
+ *
+ * The HP/MP bars inside 3D nameplates subscribe directly to `useBattleStatsStore`
+ * (see `SubscribedHpBar` / `SubscribedMpBar`), so we can safely skip GameScene
+ * re-renders when the only change is HP/MP. We still re-render on death
+ * transitions (hp crossing 0) and on any non-stat change.
+ */
+function gameSceneAreEqual(prev: SceneProps, next: SceneProps): boolean {
+  const prevKeys = Object.keys(prev) as (keyof SceneProps)[];
+  const nextKeys = Object.keys(next) as (keyof SceneProps)[];
+  if (prevKeys.length !== nextKeys.length) return false;
+  for (const k of prevKeys) {
+    if (k === 'playerState' || k === 'enemyState' || k === 'additionalEnemies') continue;
+    if (prev[k] !== next[k]) return false;
+  }
+  if (!playerStateEqualExceptStats(prev.playerState, next.playerState)) return false;
+  if (!enemyStateEqualExceptStats(prev.enemyState ?? null, next.enemyState ?? null)) return false;
+  if (!additionalEnemiesEqualExceptStats(prev.additionalEnemies, next.additionalEnemies)) return false;
+  return true;
+}
+
+function statsEqualExceptHpMp(a: any, b: any): boolean {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  // Death transition forces re-render so isDying animations / death cleanup run.
+  if ((a.hp <= 0) !== (b.hp <= 0)) return false;
+  // Detect new mana availability so the mana bar can mount (compact bars
+  // conditionally render on hasMana).
+  if ((a.maxMp > 0 && a.mp > 0) !== (b.maxMp > 0 && b.mp > 0)) return false;
+  const keysA = Object.keys(a);
+  if (keysA.length !== Object.keys(b).length) return false;
+  for (const k of keysA) {
+    if (k === 'hp' || k === 'mp') continue;
+    if ((a as any)[k] !== (b as any)[k]) return false;
+  }
+  return true;
+}
+
+function playerStateEqualExceptStats(a: SceneProps['playerState'], b: SceneProps['playerState']): boolean {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  const keysA = Object.keys(a);
+  if (keysA.length !== Object.keys(b).length) return false;
+  for (const k of keysA) {
+    if (k === 'stats') continue;
+    if ((a as any)[k] !== (b as any)[k]) return false;
+  }
+  return statsEqualExceptHpMp((a as any).stats, (b as any).stats);
+}
+
+function enemyStateEqualExceptStats(a: SceneProps['enemyState'] | null, b: SceneProps['enemyState'] | null): boolean {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  const keysA = Object.keys(a);
+  if (keysA.length !== Object.keys(b).length) return false;
+  for (const k of keysA) {
+    if (k === 'stats') continue;
+    if ((a as any)[k] !== (b as any)[k]) return false;
+  }
+  return statsEqualExceptHpMp((a as any).stats, (b as any).stats);
+}
+
+function additionalEnemiesEqualExceptStats(a: SceneProps['additionalEnemies'], b: SceneProps['additionalEnemies']): boolean {
+  if (a === b) return true;
+  if (!a || !b) return a === b;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (!enemyStateEqualExceptStats(a[i] ?? null, b[i] ?? null)) return false;
+  }
+  return true;
+}
 

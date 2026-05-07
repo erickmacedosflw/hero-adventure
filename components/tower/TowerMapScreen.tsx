@@ -51,8 +51,8 @@ const HPBar: React.FC<{ hp: number; maxHp: number }> = ({ hp, maxHp }) => {
   const pct = maxHp > 0 ? Math.max(0, Math.min(100, (hp / maxHp) * 100)) : 0;
   const color = pct > 60 ? 'bg-green-500' : pct > 30 ? 'bg-yellow-500' : 'bg-red-500';
   return (
-    <div className="w-full h-2 bg-slate-700 rounded-full overflow-hidden">
-      <div className={`h-full rounded-full transition-all ${color}`} style={{ width: `${pct}%` }} />
+    <div className="w-full h-2 bg-slate-700 rounded-full overflow-hidden isolate">
+      <div className={`h-full ${color}`} style={{ width: '100%', transform: `scaleX(${pct / 100})`, transformOrigin: 'left center', transition: 'transform 0.3s ease', willChange: 'transform' }} />
     </div>
   );
 };

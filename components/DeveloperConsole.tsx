@@ -166,7 +166,7 @@ const BIPED_CHARACTER_CATALOG = [
   { id: 'orc-lord-guereiro',label: 'Orc Lord Guereiro',characterUrl: new URL('../game/assets/Characters/Modelos/Exemplo/Orc_Lord_Guereiro.glb',import.meta.url).href },
 ] as const;
 
-const ATLAS_MONSTERS_TEXTURE_URL = new URL('../game/assets/Characters/Monsters/Monsters/Big/Atlas_Monsters.png', import.meta.url).href;
+const ATLAS_MONSTERS_TEXTURE_URL = new URL('../game/assets/Characters/Monsters/Monsters/Big/Atlas_Monsters.webp', import.meta.url).href;
 
 const GLTF_MONSTER_CATALOG: Record<GltfMonsterCategory, Array<{ id: string; label: string; url: string }>> = {
   Big: [

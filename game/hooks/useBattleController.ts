@@ -1,5 +1,6 @@
 ﻿import { useCallback, useEffect, useRef } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
+import { useBattleVfxStore } from '../stores/battleVfxStore';
 import { ALL_ITEMS, SKILLS } from '../../constants';
 import { COMBAT_SPRITE_ANIMATION_DEFAULTS, getSpriteAnimationRegistryEntry, SPRITE_ANIMATION_IDS } from '../data/sprite-animations/registry';
 import { getPlayerClassById } from '../data/classes';
@@ -80,14 +81,6 @@ interface UseBattleControllerParams {
   withdrawFromDungeon: (reason: string, consumeItemId?: string) => boolean;
   handleVictory: (delayMs?: number) => Promise<void> | void;
   triggerEnemyAnimationAction: (action: PlayerAnimationAction, resetDelay?: number) => void;
-  spawnParticles: (position: [number, number, number], count: number, color: string, type: 'explode' | 'heal' | 'spark') => void;
-  spawnFloatingText: (
-    value: string | number,
-    target: 'player' | 'enemy',
-    type: 'damage' | 'heal' | 'crit' | 'buff' | 'skill' | 'item',
-    color?: string,
-    iconImage?: string,
-  ) => void;
   setPlayer: Dispatch<SetStateAction<Player>>;
   setEnemy: Dispatch<SetStateAction<Enemy | null>>;
   setTurnState: Dispatch<SetStateAction<TurnState>>;
@@ -396,8 +389,6 @@ export const useBattleController = ({
   withdrawFromDungeon,
   handleVictory,
   triggerEnemyAnimationAction,
-  spawnParticles,
-  spawnFloatingText,
   setPlayer,
   setEnemy,
   setTurnState,
@@ -439,9 +430,12 @@ export const useBattleController = ({
   const lastPlayerActionRef = useRef<'attack' | 'defend' | 'skill' | 'item' | null>(null);
   const pendingEnemyIntentRef = useRef<EnemyIntentType | null>(null);
 
+  // VFX functions from store — stable references, never need to be in dep arrays
+  const { spawnFloatingText, spawnParticles } = useBattleVfxStore.getState();
+
   const announceCounterAttack = useCallback((attacker: 'player' | 'enemy') => {
-    spawnFloatingText('⚔ CONTRA-ATAQUE!', attacker, 'damage');
-  }, [spawnFloatingText]);
+    useBattleVfxStore.getState().spawnFloatingText('⚔ CONTRA-ATAQUE!', attacker, 'damage');
+  }, []);
 
   useEffect(() => {
     handleVictoryRef.current = handleVictory;
@@ -470,7 +464,7 @@ export const useBattleController = ({
     spawnParticles(corePosition, 18 + (level * 4), color, 'heal');
     spawnParticles(corePosition, 14 + (level * 4), '#ffffff', 'spark');
     spawnFloatingText(label, target, 'buff', color);
-  }, [spawnFloatingText, spawnParticles]);
+  }, []);
 
   const awardCombatBenefits = useCallback((damage: number, resourceGain: number, talentBonuses: ReturnType<typeof getTalentBonuses>) => {
     if (damage <= 0 && resourceGain <= 0 && talentBonuses.lifeSteal <= 0 && talentBonuses.manaOnHit <= 0) {
@@ -519,7 +513,6 @@ export const useBattleController = ({
     setPlayerImpactAnimationTintColor,
     setPlayerImpactAnimationTarget,
     setPlayerImpactAnimationTrigger,
-    spawnFloatingText,
   ]);
 
   const tryApplySkillStatus = useCallback((skill: Skill, talentBonuses: ReturnType<typeof getTalentBonuses>) => {
@@ -547,7 +540,7 @@ export const useBattleController = ({
 
     spawnFloatingText(status.name.toUpperCase(), 'enemy', 'buff');
     addLog(`${skill.name} aplicou ${status.name.toLowerCase()}!`, 'buff');
-  }, [addLog, enemy, setEnemy, spawnFloatingText]);
+  }, [addLog, enemy, setEnemy]);
 
   const handleChargeImpulse = useCallback(() => {
     const maxImpulse = getImpulseCapacityByLevel(player.level);
@@ -880,8 +873,6 @@ export const useBattleController = ({
     setPlayerBowShotTrigger,
     setScreenShake,
     setTurnState,
-    spawnFloatingText,
-    spawnParticles,
     shouldUseBowBasicAttack,
     triggerEnemyAnimationAction,
     turnState,
@@ -957,8 +948,6 @@ export const useBattleController = ({
     setPlayer,
     setPlayerAnimationAction,
     setTurnState,
-    spawnFloatingText,
-    spawnParticles,
     turnState,
   ]);
 
@@ -1337,8 +1326,6 @@ export const useBattleController = ({
     setScreenShake,
     setIsEnemyHit,
     setTurnState,
-    spawnFloatingText,
-    spawnParticles,
     triggerEnemyAnimationAction,
     tryApplySkillStatus,
     turnState,
@@ -1517,8 +1504,6 @@ export const useBattleController = ({
     setPlayer,
     setPlayerAnimationAction,
     setTurnState,
-    spawnFloatingText,
-    spawnParticles,
     turnState,
     withdrawFromDungeon,
   ]);
@@ -2570,8 +2555,6 @@ export const useBattleController = ({
     setScreenShake,
     setTurnState,
     playImpulseVisual,
-    spawnFloatingText,
-    spawnParticles,
     triggerEnemyAnimationAction,
   ]);
 

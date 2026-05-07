@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import type { BattleActorGauge, BattleActorGaugeMap, BattleActorKind, BattleTimelineState, PlayerClassId } from '../../types';
+import { useBattleGaugeStore } from '../stores/battleGaugeStore';
 
 export const ATB_GAUGE_MAX = 100;
 export const ATB_MAX_FRAME_DELTA_SECONDS = 0.1;
@@ -111,6 +112,23 @@ const chooseReadyActor = (readyActors: BattleTimelineActor[]) => (
   })[0] ?? null
 );
 
+/**
+ * Returns true only when a React re-render is worth triggering.
+ * Skips frames where gauges changed by sub-1% — CSS transition fills the gaps.
+ */
+const gaugesNeedRender = (prev: BattleActorGaugeMap, next: BattleActorGaugeMap): boolean => {
+  const nextIds = Object.keys(next);
+  if (nextIds.length !== Object.keys(prev).length) return true;
+  return nextIds.some((id) => {
+    const p = prev[id];
+    const n = next[id];
+    if (!p) return true;
+    if (p.state !== n.state) return true;
+    if (Math.floor(p.tempoDeAtaque) !== Math.floor(n.tempoDeAtaque)) return true;
+    return false;
+  });
+};
+
 export const useBattleTimeline = ({
   isActive,
   actors,
@@ -118,8 +136,12 @@ export const useBattleTimeline = ({
   activeActorId,
   onActorReady,
 }: UseBattleTimelineParams) => {
-  const [gauges, setGauges] = useState<BattleActorGaugeMap>({});
+  // Gauges live in zustand (battleGaugeStore). Writes happen through the
+  // store API only \u2014 this hook never causes App-level re-renders for ATB ticks.
+  // SpeedAttributeBar (and any other consumer) must subscribe via useBattleGaugeStore.
+  const setGauges = useBattleGaugeStore.getState().setGauges;
   const gaugesRef = useRef<BattleActorGaugeMap>({});
+  const lastRenderedRef = useRef<BattleActorGaugeMap>({});
   const actorsRef = useRef<BattleTimelineActor[]>(actors);
   const onActorReadyRef = useRef(onActorReady);
   const readyDispatchRef = useRef<string | null>(null);
@@ -170,6 +192,8 @@ export const useBattleTimeline = ({
     readyDispatchRef.current = null;
     let rafId = 0;
     let lastFrameTime: number | null = null;
+    let lastRenderTime = 0;
+    const RENDER_INTERVAL_MS = 1000 / 30; // cap React updates at 30fps
 
     const tick = (now: number) => {
       rafId = window.requestAnimationFrame(tick);
@@ -214,7 +238,11 @@ export const useBattleTimeline = ({
       }
 
       gaugesRef.current = next;
-      setGauges(next);
+      if (now - lastRenderTime >= RENDER_INTERVAL_MS && gaugesNeedRender(lastRenderedRef.current, next)) {
+        lastRenderTime = now;
+        lastRenderedRef.current = next;
+        setGauges(next);
+      }
 
       if (selectedActor && readyDispatchRef.current !== selectedActor.id) {
         readyDispatchRef.current = selectedActor.id;
@@ -261,7 +289,6 @@ export const useBattleTimeline = ({
   }, []);
 
   return {
-    gauges,
     resetActorGauge,
     removeActorGauge,
     clearGauges,

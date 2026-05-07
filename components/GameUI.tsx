@@ -21,13 +21,20 @@ import type { RenderQualityPreset } from './scene3d/environment';
 import { useInputMode } from '../game/hooks/useInputMode';
 import { onAction } from '../game/mechanics/inputManager';
 import { GamepadActionLegend } from './ui/GamepadActionLegend';
+import { useGSAP } from '@gsap/react';
+import gsap from 'gsap';
+import { BattleParticlesOverlay } from './scene3d/BattleParticlesOverlay';
+import { useBattleVfxStore } from '../game/stores/battleVfxStore';
+import { useBattleLogStore } from '../game/stores/battleLogStore';
 
 interface GameUIProps {
   player: Player;
   enemy: Enemy | null;
   gameState: GameState;
   turnState: TurnState;
-  logs: BattleLog[];
+  /** Optional. Battle logs are now sourced from useBattleLogStore directly so
+   *  parent components do not need to subscribe to the logs slice. */
+  logs?: BattleLog[];
   onAttack: () => void;
     onDefend: (tipoDefesa: TipoDefesa) => void;
   onChargeImpulse: () => void;
@@ -47,7 +54,6 @@ interface GameUIProps {
   onFlee: () => void;
   currentNarration: string;
   shopItems: Item[];
-  floatingTexts?: FloatingText[];
   stage: number;
   dungeonPhase?: number;
   killCount: number;
@@ -119,6 +125,8 @@ interface GameUIProps {
     onAcknowledgeMissionsUnlock?: () => void;
     /** Token que incrementa quando o toast de missão é clicado — abre o modal. */
     autoOpenMissionsToken?: number;
+    /** Incrementa quando um inimigo morre — dispara burst de partículas. */
+    enemyDeathToken?: number;
 }
 
 // --- HELPERS ---
@@ -395,11 +403,56 @@ const ActionTile = ({
     );
 };
 
-export const ProgressBar = ({ current, max, color, label }: { current: number, max: number, color: string, label?: string }) => {
-  const percentage = Math.max(0, Math.min(100, (current / max) * 100));
+export const ProgressBar = ({ current, max, color, label, flashOnDecrease }: { current: number, max: number, color: string, label?: string, flashOnDecrease?: boolean }) => {
+  const scaleX = Math.max(0, Math.min(1, current / max));
+  const barRef = useRef<HTMLDivElement>(null);
+  const prevCurrentRef = useRef(current);
+  const flashTimeoutRef = useRef<number | null>(null);
+
+  // Use direct DOM writes + CSS transitions on transform/opacity (compositor).
+  // GSAP/rAF was being blocked by Three.js renders (~70-90ms), causing the
+  // HP/MP bars to freeze/jump during combat. CSS transitions run off-main-thread.
+  useEffect(() => {
+    const el = barRef.current;
+    if (!el) return;
+    const decreased = !!flashOnDecrease && current < prevCurrentRef.current;
+    prevCurrentRef.current = current;
+    // Smooth fill animation via compositor.
+    el.style.transition = 'transform 0.45s cubic-bezier(0.22, 1, 0.36, 1), background-color 0.22s ease';
+    el.style.transform = `scaleX(${scaleX})`;
+    if (decreased) {
+      el.style.backgroundColor = '#ef4444';
+      if (flashTimeoutRef.current !== null) {
+        window.clearTimeout(flashTimeoutRef.current);
+      }
+      flashTimeoutRef.current = window.setTimeout(() => {
+        if (barRef.current) {
+          barRef.current.style.backgroundColor = '';
+        }
+        flashTimeoutRef.current = null;
+      }, 220);
+    }
+  }, [current, scaleX, flashOnDecrease]);
+
+  useEffect(() => () => {
+    if (flashTimeoutRef.current !== null) {
+      window.clearTimeout(flashTimeoutRef.current);
+      flashTimeoutRef.current = null;
+    }
+  }, []);
+
   return (
-    <div className="w-full bg-gray-900 rounded-full h-4 mb-2 relative border border-gray-700 overflow-hidden">
-      <div className={`h-full rounded-full transition-all duration-500 ease-out ${color}`} style={{ width: `${percentage}%` }} />
+    <div className="w-full bg-gray-900 rounded-full h-4 mb-2 relative border border-gray-700 overflow-hidden isolate">
+      <div
+        ref={barRef}
+        className={`h-full ${color}`}
+        style={{
+          width: '100%',
+          transformOrigin: 'left center',
+          transform: `scaleX(${scaleX})`,
+          willChange: 'transform',
+        }}
+      />
       <div className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-white shadow-black drop-shadow-lg">
         {label && <span className="mr-1 opacity-75">{label}</span>} {current} / {max}
       </div>
@@ -418,27 +471,34 @@ interface LootResult {
 }
 
 export const KillLootOverlay = ({ loot }: { loot: LootResult | null }) => {
+    const containerRef = useRef<HTMLDivElement>(null);
+    const iconRef = useRef<HTMLDivElement>(null);
+
+    useGSAP(() => {
+        if (!loot || !containerRef.current || !iconRef.current) return;
+
+        // Entry animation — replicates killLootIn keyframes
+        gsap.set(containerRef.current, { opacity: 0, scale: 0.8, y: 30 });
+        const tl = gsap.timeline();
+        tl.to(containerRef.current, { opacity: 1, scale: 1.04, y: -4, duration: 0.39, ease: 'power2.out' })
+          .to(containerRef.current, { scale: 1, y: 0, duration: 0.22, ease: 'power1.inOut' })
+          .to(containerRef.current, { opacity: 0, scale: 0.92, y: -16, duration: 0.78, ease: 'power2.in' }, 2.01);
+
+        // Icon pulse — replicates lootIconPulse keyframes
+        gsap.to(iconRef.current, { scale: 1.12, duration: 0.6, repeat: -1, yoyo: true, ease: 'power1.inOut' });
+    }, { dependencies: [loot] });
+
     if (!loot) return null;
+
     return (
         <div
+            ref={containerRef}
             className="absolute inset-0 z-[60] flex items-center justify-center pointer-events-none"
-            style={{ animation: 'killLootIn 2.8s forwards ease-in-out' }}
         >
             <style>{`
-                @keyframes killLootIn {
-                    0%   { opacity: 0; transform: scale(0.8) translateY(30px); }
-                    14%  { opacity: 1; transform: scale(1.04) translateY(-4px); }
-                    22%  { opacity: 1; transform: scale(1) translateY(0); }
-                    72%  { opacity: 1; transform: scale(1) translateY(0); }
-                    100% { opacity: 0; transform: scale(0.92) translateY(-16px); }
-                }
                 @keyframes lootShimmer {
                     0% { background-position: -200% 0; }
                     100% { background-position: 200% 0; }
-                }
-                @keyframes lootIconPulse {
-                    0%, 100% { transform: scale(1); }
-                    50% { transform: scale(1.12); }
                 }
             `}</style>
             <div className={`rounded-[24px] shadow-2xl p-4 sm:p-6 text-center max-w-[280px] sm:max-w-sm w-full mx-3 backdrop-blur-md relative overflow-hidden
@@ -457,7 +517,7 @@ export const KillLootOverlay = ({ loot }: { loot: LootResult | null }) => {
                 />
 
                 <div className="relative mb-3 sm:mb-4">
-                    <div className="text-3xl sm:text-5xl mb-1.5" style={{ animation: 'lootIconPulse 1.2s ease-in-out infinite' }}>
+                    <div ref={iconRef} className="text-3xl sm:text-5xl mb-1.5">
                         {loot.isBoss ? '??' : '??'}
                     </div>
                     <div className={`font-black text-sm sm:text-lg tracking-[0.18em] uppercase
@@ -517,84 +577,92 @@ export const KillLootOverlay = ({ loot }: { loot: LootResult | null }) => {
 };
 
 // --- FLOATING TEXT COMPONENT ---
+const FloatingTextItem = ({ t, stackIndex }: { t: FloatingText; stackIndex: number }) => {
+    const itemRef = useRef<HTMLDivElement>(null);
+    const isCrit = t.type === 'crit';
+    const isBuff = t.type === 'buff';
+    const isSkill = t.type === 'skill';
+    const isItem = t.type === 'item';
+    const floatDurationSec = (t.durationMs ?? (isSkill || isItem ? 2100 : isCrit ? 1500 : 1100)) / 1000;
+
+    useGSAP(() => {
+        const el = itemRef.current;
+        if (!el) return;
+        const tl = gsap.timeline();
+        tl.fromTo(el,
+            { xPercent: -50, y: 0, scale: 0.72, opacity: 0 },
+            { xPercent: -50, y: -10, scale: 1.04, opacity: 1, duration: floatDurationSec * 0.18, ease: 'power2.out' }
+        ).to(el, {
+            xPercent: -50, y: -42, scale: 1, opacity: 0,
+            duration: floatDurationSec * 0.82, ease: 'power1.inOut',
+        });
+    }, { scope: itemRef });
+
+    const leftPos = t.target === 'player' ? '28%' : '72%';
+    const topPos = t.target === 'player' ? '37%' : '33%';
+    const verticalStackOffset = stackIndex * 56;
+
+    let colorClass = "text-white";
+    if (t.type === 'damage') colorClass = "text-red-500";
+    if (t.type === 'heal') colorClass = "text-green-400";
+    if (isCrit) colorClass = "text-amber-400";
+    if (isBuff) colorClass = "text-blue-400";
+    if (isSkill) colorClass = "text-violet-400";
+    if (isItem) colorClass = "text-yellow-300";
+    const colorStyle = t.color
+        ? { color: t.color }
+        : isSkill
+          ? { color: '#d946ef' }
+          : isItem
+            ? { color: '#facc15' }
+            : undefined;
+
+    return (
+        <div
+            ref={itemRef}
+            className={`absolute whitespace-nowrap leading-none font-black ${colorClass} drop-shadow-[0_2px_2px_rgba(0,0,0,1)] inline-flex items-center justify-center rounded-xl border border-white/10 bg-black/35 px-3 py-1.5 backdrop-blur-[2px]`}
+            style={{
+                left: `calc(${leftPos} + ${Math.round(t.xOffset * 0.22)}px)`,
+                top: `calc(${topPos} + ${Math.round(t.yOffset * 0.12) + verticalStackOffset}px)`,
+                fontSize: isCrit
+                    ? 'clamp(2.45rem, 9vw, 2.9rem)'
+                    : isBuff
+                      ? 'clamp(1.75rem, 7.2vw, 2.2rem)'
+                      : isSkill
+                        ? 'clamp(1.35rem, 5.8vw, 1.7rem)'
+                        : isItem
+                          ? 'clamp(1.25rem, 5.2vw, 1.55rem)'
+                      : 'clamp(2.2rem, 8.8vw, 2.7rem)',
+                minWidth: isCrit ? '8.1rem' : '6.8rem',
+                zIndex: isSkill || isItem ? 130 : 100,
+                ...colorStyle
+            }}
+        >
+            {isItem && t.iconImage
+                ? <img src={t.iconImage} draggable={false} alt={t.text} style={{ width: '3.8rem', height: '3.8rem', objectFit: 'contain' }} />
+                : t.text}
+        </div>
+    );
+};
+
 const FloatingTextOverlay = ({ texts }: { texts: FloatingText[] }) => {
     const stackIndexes = (() => {
         const nextIndexes = { player: 0, enemy: 0 };
         const result: Record<string, number> = {};
-
         texts.forEach((text) => {
             result[text.id] = nextIndexes[text.target];
             nextIndexes[text.target] += 1;
         });
-
         return result;
     })();
 
     return (
         <div className="absolute inset-0 z-40 pointer-events-none overflow-hidden">
-            {texts.map(t => {
-                const stackIndex = stackIndexes[t.id] ?? 0;
-                const leftPos = t.target === 'player' ? '28%' : '72%';
-                const topPos = t.target === 'player' ? '37%' : '33%';
-                const isCrit = t.type === 'crit';
-                const isBuff = t.type === 'buff';
-                const isSkill = t.type === 'skill';
-                const isItem = t.type === 'item';
-                const verticalStackOffset = stackIndex * 56;
-                const floatDurationMs = t.durationMs ?? (isSkill || isItem ? 2100 : isCrit ? 1500 : 1100);
-                
-                let colorClass = "text-white";
-                if (t.type === 'damage') colorClass = "text-red-500";
-                if (t.type === 'heal') colorClass = "text-green-400";
-                if (isCrit) colorClass = "text-amber-400";
-                if (isBuff) colorClass = "text-blue-400";
-                if (isSkill) colorClass = "text-violet-400";
-                if (isItem) colorClass = "text-yellow-300";
-                const colorStyle = t.color
-                    ? { color: t.color }
-                    : isSkill
-                      ? { color: '#d946ef' }
-                      : isItem
-                        ? { color: '#facc15' }
-                        : undefined;
-
-                return (
-                    <div 
-                        key={t.id}
-                        className={`absolute whitespace-nowrap leading-none font-black ${colorClass} drop-shadow-[0_2px_2px_rgba(0,0,0,1)] inline-flex items-center justify-center rounded-xl border border-white/10 bg-black/35 px-3 py-1.5 backdrop-blur-[2px]`}
-                        style={{
-                            left: `calc(${leftPos} + ${Math.round(t.xOffset * 0.22)}px)`,
-                            top: `calc(${topPos} + ${Math.round(t.yOffset * 0.12) + verticalStackOffset}px)`,
-                            fontSize: isCrit
-                                ? 'clamp(2.45rem, 9vw, 2.9rem)'
-                                : isBuff
-                                  ? 'clamp(1.75rem, 7.2vw, 2.2rem)'
-                                  : isSkill
-                                    ? 'clamp(1.35rem, 5.8vw, 1.7rem)'
-                                    : isItem
-                                      ? 'clamp(1.25rem, 5.2vw, 1.55rem)'
-                                  : 'clamp(2.2rem, 8.8vw, 2.7rem)',
-                            minWidth: isCrit ? '8.1rem' : '6.8rem',
-                            animation: `floatUp ${floatDurationMs}ms forwards ease-out`,
-                            zIndex: isSkill || isItem ? 130 : 100,
-                            ...colorStyle
-                        }}
-                    >
-                        <style>{`
-                            @keyframes floatUp {
-                                0% { transform: translate(-50%, 0) scale(0.72); opacity: 0; }
-                                18% { transform: translate(-50%, -10px) scale(1.04); opacity: 1; }
-                                100% { transform: translate(-50%, -42px) scale(1); opacity: 0; }
-                            }
-                        `}</style>
-                        {isItem && t.iconImage
-                            ? <img src={t.iconImage} draggable={false} alt={t.text} style={{ width: '3.8rem', height: '3.8rem', objectFit: 'contain' }} />
-                            : t.text}
-                    </div>
-                )
-            })}
+            {texts.map(t => (
+                <FloatingTextItem key={t.id} t={t} stackIndex={stackIndexes[t.id] ?? 0} />
+            ))}
         </div>
-    )
+    );
 }
 
 // --- COMPONENT: CHARACTER SHEET ---
@@ -1180,6 +1248,60 @@ export const TavernScreen: React.FC<{
     const [profileInitialTab, setProfileInitialTab] = useState<'overview' | 'cards' | 'skills' | 'constellation' | undefined>(undefined);
     const [isClosing, setIsClosing] = useState(false);
     const [showDungeonConfirm, setShowDungeonConfirm] = useState(false);
+    const tavernBackdropRef = useRef<HTMLDivElement>(null);
+
+    useGSAP(() => {
+        const el = tavernBackdropRef.current;
+        if (!el) return;
+        if (isClosing) {
+            gsap.to(el, { opacity: 0, duration: 0.24, ease: 'power1.in' });
+        } else {
+            gsap.fromTo(el, { opacity: 0 }, { opacity: 1, duration: 0.28, ease: 'power1.out' });
+        }
+    }, { dependencies: [isClosing], scope: tavernBackdropRef });
+
+    // --- Currency animated counters ---
+    const goldDisplayRef = useRef<HTMLSpanElement>(null);
+    const goldCounterRef = useRef({ value: player.gold });
+    useGSAP(() => {
+        const counter = goldCounterRef.current;
+        const from = counter.value;
+        counter.value = player.gold;
+        if (from === player.gold) return;
+        const obj = { v: from };
+        gsap.to(obj, {
+            v: player.gold, duration: 0.7, ease: 'power1.out',
+            onUpdate: () => { if (goldDisplayRef.current) goldDisplayRef.current.textContent = Math.round(obj.v).toString(); }
+        });
+    }, { dependencies: [player.gold] });
+
+    const diamondsDisplayRef = useRef<HTMLSpanElement>(null);
+    const diamondsCounterRef = useRef({ value: player.diamonds });
+    useGSAP(() => {
+        const counter = diamondsCounterRef.current;
+        const from = counter.value;
+        counter.value = player.diamonds;
+        if (from === player.diamonds) return;
+        const obj = { v: from };
+        gsap.to(obj, {
+            v: player.diamonds, duration: 0.7, ease: 'power1.out',
+            onUpdate: () => { if (diamondsDisplayRef.current) diamondsDisplayRef.current.textContent = Math.round(obj.v).toString(); }
+        });
+    }, { dependencies: [player.diamonds] });
+
+    const essenceDisplayRef = useRef<HTMLSpanElement>(null);
+    const essenceCounterRef = useRef({ value: towerEssence });
+    useGSAP(() => {
+        const counter = essenceCounterRef.current;
+        const from = counter.value;
+        counter.value = towerEssence;
+        if (from === towerEssence) return;
+        const obj = { v: from };
+        gsap.to(obj, {
+            v: towerEssence, duration: 0.7, ease: 'power1.out',
+            onUpdate: () => { if (essenceDisplayRef.current) essenceDisplayRef.current.textContent = Math.round(obj.v).toString(); }
+        });
+    }, { dependencies: [towerEssence] });
     const [showTowerConfirm, setShowTowerConfirm] = useState(false);
         const [showHuntIntroConfirm, setShowHuntIntroConfirm] = useState(false);
     const [showInventoryUnlockPrompt, setShowInventoryUnlockPrompt] = useState(false);
@@ -1920,17 +2042,7 @@ export const TavernScreen: React.FC<{
 
   return (
     <>
-    <div className={`absolute inset-0 z-40 pointer-events-none text-white ${isClosing ? 'animate-[tavernBackdropOut_240ms_ease-in_forwards]' : 'animate-[tavernBackdropIn_280ms_ease-out_both]'}`}>
-                <style>{`
-                    @keyframes tavernBackdropIn {
-                        0% { opacity: 0; }
-                        100% { opacity: 1; }
-                    }
-                    @keyframes tavernBackdropOut {
-                        0% { opacity: 1; }
-                        100% { opacity: 0; }
-                    }
-                `}</style>
+    <div ref={tavernBackdropRef} className="absolute inset-0 z-40 pointer-events-none text-white">
                 <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,rgba(0,0,0,0.18)_100%)] pointer-events-none" />
 
                 {/* CLOCK WIDGET � only in forest/mountain */}
@@ -1950,17 +2062,17 @@ export const TavernScreen: React.FC<{
                 <div className="absolute top-3 right-3 sm:top-5 sm:right-5 z-10 pointer-events-none inline-flex items-center gap-1.5 sm:gap-2">
                     <div className="inline-flex items-center gap-1.5 rounded-xl border border-amber-400/30 bg-amber-400/10 backdrop-blur-sm px-2.5 py-1.5 text-sm font-black text-amber-300 shadow-[0_4px_12px_rgba(0,0,0,0.25)]">
                         <GameAssetIcon name="coin" size={18} />
-                        {player.gold}
+                        <span ref={goldDisplayRef}>{player.gold}</span>
                     </div>
                     {showDiamondOnTopHud && (
                         <div className="inline-flex items-center gap-1.5 rounded-xl border border-sky-400/30 bg-sky-400/10 backdrop-blur-sm px-2.5 py-1.5 text-sm font-black text-sky-300 shadow-[0_4px_12px_rgba(0,0,0,0.25)]">
                             <GameAssetIcon name="diamond" size={18} />
-                            {player.diamonds}
+                            <span ref={diamondsDisplayRef}>{player.diamonds}</span>
                         </div>
                     )}
                     <div className="inline-flex items-center gap-1.5 rounded-xl border border-violet-400/30 bg-violet-400/10 backdrop-blur-sm px-2.5 py-1.5 text-sm font-black text-violet-300 shadow-[0_4px_12px_rgba(0,0,0,0.25)]">
                         <GameAssetIcon name="sapphire" size={18} />
-                        {towerEssence}
+                        <span ref={essenceDisplayRef}>{towerEssence}</span>
                     </div>
                 </div>
 
@@ -3264,7 +3376,11 @@ function getPotionBattleBadges(item: Item): BattleBadge[] {
 }
 
 export const BattleHUD: React.FC<GameUIProps> = (props) => {
-    const { player, enemy, turnState, logs, onAttack, onDefend, onChargeImpulse, onAbsorbImpulse, onSkill, onUseItem, enemyIntentPreview = null, onUnlockTalent, onResetTalents, currentNarration, gameState, shopItems, floatingTexts, onFlee, onStartBattle, stage, dungeonPhase = 1, killCount, onEquipItem, onUnequipItem, isDungeonRun, dungeonRewards, dungeonCleared = 0, dungeonTotal = 30, gameTime, restrictProfileToStatusOnly = false, limitBattleActionsToBasics = false, inventoryUnlocked = false, inventoryUnlockPromptActive = false, onAcknowledgeInventoryUnlock, cardsUnlockPromptActive = false, onAcknowledgeCardsUnlock, skillsUnlockPromptActive = false, onAcknowledgeSkillsUnlock, impulseUnlockPromptActive = null, onAcknowledgeImpulseUnlock, constellationUnlockPromptActive = false, onAcknowledgeConstellationUnlock, constellationRespecUnlockPromptActive = false, onAcknowledgeConstellationRespecUnlock, allowCardsInProfile = false, fleeUnlocked = false, showItemsAction = false, showSkillsAction = false, itemsUnlockPromptActive = false, onAcknowledgeItemsUnlock, fleeUnlockPromptActive = false, onAcknowledgeFleeUnlock, autoOpenProfileToken = 0, showDiamondHud = false, diamondUnlockPromptActive = false, onAcknowledgeDiamondUnlock, musicEnabled = true, sfxEnabled = true, renderQualityPreset = 'balanced', recommendedRenderQualityPreset = 'balanced', onUpdateBattleSettings, onBattleSettingsOpenChange, onEquipSkillToSlot, towerEssence = 0, sceneRegion = 'forest', additionalEnemies = [], pendingTargetAction = null, onSelectTarget, onCancelTargetSelection, missions = [], missionsUnlocked = false, onClaimMissionReward, missionsUnlockPromptActive = false, onAcknowledgeMissionsUnlock, autoOpenMissionsToken = 0 } = props;
+    const { player, enemy, turnState, onAttack, onDefend, onChargeImpulse, onAbsorbImpulse, onSkill, onUseItem, enemyIntentPreview = null, onUnlockTalent, onResetTalents, currentNarration, gameState, shopItems, onFlee, onStartBattle, stage, dungeonPhase = 1, killCount, onEquipItem, onUnequipItem, isDungeonRun, dungeonRewards, dungeonCleared = 0, dungeonTotal = 30, gameTime, restrictProfileToStatusOnly = false, limitBattleActionsToBasics = false, inventoryUnlocked = false, inventoryUnlockPromptActive = false, onAcknowledgeInventoryUnlock, cardsUnlockPromptActive = false, onAcknowledgeCardsUnlock, skillsUnlockPromptActive = false, onAcknowledgeSkillsUnlock, impulseUnlockPromptActive = null, onAcknowledgeImpulseUnlock, constellationUnlockPromptActive = false, onAcknowledgeConstellationUnlock, constellationRespecUnlockPromptActive = false, onAcknowledgeConstellationRespecUnlock, allowCardsInProfile = false, fleeUnlocked = false, showItemsAction = false, showSkillsAction = false, itemsUnlockPromptActive = false, onAcknowledgeItemsUnlock, fleeUnlockPromptActive = false, onAcknowledgeFleeUnlock, autoOpenProfileToken = 0, showDiamondHud = false, diamondUnlockPromptActive = false, onAcknowledgeDiamondUnlock, musicEnabled = true, sfxEnabled = true, renderQualityPreset = 'balanced', recommendedRenderQualityPreset = 'balanced', onUpdateBattleSettings, onBattleSettingsOpenChange, onEquipSkillToSlot, towerEssence = 0, sceneRegion = 'forest', additionalEnemies = [], pendingTargetAction = null, onSelectTarget, onCancelTargetSelection, missions = [], missionsUnlocked = false, onClaimMissionReward, missionsUnlockPromptActive = false, onAcknowledgeMissionsUnlock, autoOpenMissionsToken = 0, enemyDeathToken = 0 } = props;
+  const floatingTexts = useBattleVfxStore((s) => s.floatingTexts) ?? [];
+  // Subscribe directly to the battle log store — avoids re-rendering the
+  // 5800-line App component when logs change during combat.
+  const logs = useBattleLogStore((s) => s.logs);
   const [activeBattleMenu, setActiveBattleMenu] = useState<'skills' | 'items' | null>(null);
     const [selectedDefenseType, setSelectedDefenseType] = useState<TipoDefesa>('FISICA');
   const [battleInfoPopup, setBattleInfoPopup] = useState<{ type: 'skill' | 'item'; id: string } | null>(null);
@@ -4446,26 +4562,29 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                                       <span className="text-[9px] font-black uppercase tracking-[0.24em] text-rose-300">HP</span>
                                       <span className="text-[10px] font-black text-white/90">{player.stats.hp}/{player.stats.maxHp}</span>
                                   </div>
-                                  <div className="h-2.5 bg-white/15 rounded-full overflow-hidden"><div className="h-full rounded-full bg-[linear-gradient(90deg,#16a34a,#4ade80)] transition-all duration-300" style={{width: `${(player.stats.hp/player.stats.maxHp)*100}%`}}></div></div>
+                                  <div className="h-2.5 bg-white/15 rounded-full overflow-hidden isolate"><div className="h-full bg-[linear-gradient(90deg,#16a34a,#4ade80)]" style={{width:'100%',transformOrigin:'left center',transform:`scaleX(${player.stats.maxHp>0?player.stats.hp/player.stats.maxHp:0})`,transition:'transform 0.3s ease'}}></div></div>
                               </div>
                               <div>
                                   <div className="flex items-center justify-between mb-1">
                                       <span className="text-[9px] font-black uppercase tracking-[0.24em] text-sky-300">Mana</span>
                                       <span className="text-[10px] font-black text-white/90">{player.stats.mp}/{player.stats.maxMp}</span>
                                   </div>
-                                  <div className="h-2 bg-white/15 rounded-full overflow-hidden"><div className="h-full rounded-full bg-[linear-gradient(90deg,#2b6878,#66b8d2)] transition-all duration-300" style={{width: `${(player.stats.mp/player.stats.maxMp)*100}%`}}></div></div>
+                                  <div className="h-2 bg-white/15 rounded-full overflow-hidden isolate"><div className="h-full bg-[linear-gradient(90deg,#2b6878,#66b8d2)]" style={{width:'100%',transformOrigin:'left center',transform:`scaleX(${player.stats.maxMp>0?player.stats.mp/player.stats.maxMp:0})`,transition:'transform 0.3s ease'}}></div></div>
                               </div>
                               {player.classResource.max > 0 && (
-                                  <div className={`relative rounded-md px-1.5 py-1 transition-all duration-300 ${resourcePulse === 'gain' ? 'bg-emerald-500/20 ring-1 ring-emerald-500/35' : resourcePulse === 'spend' ? 'bg-rose-500/20 ring-1 ring-rose-500/35' : ''}`}>
+                                  <div className={`relative rounded-md px-1.5 py-1 transition-colors duration-300 ${resourcePulse === 'gain' ? 'bg-emerald-500/20 ring-1 ring-emerald-500/35' : resourcePulse === 'spend' ? 'bg-rose-500/20 ring-1 ring-rose-500/35' : ''}`}>
                                       <div className="flex items-center justify-between mb-0.5">
                                           <span className="text-[9px] font-black uppercase tracking-[0.18em] text-violet-300">{player.classResource.name}</span>
                                           <span className="text-[9px] font-black text-white/90">{player.classResource.value}/{player.classResource.max}</span>
                                       </div>
-                                      <div className="h-2 bg-white/15 rounded-full overflow-hidden">
+                                      <div className="h-2 bg-white/15 rounded-full overflow-hidden isolate">
                                           <div
-                                              className={`h-full rounded-full transition-all duration-300 ${resourcePulse ? 'animate-pulse' : ''}`}
+                                              className={`h-full ${resourcePulse ? 'animate-pulse' : ''}`}
                                               style={{
-                                                  width: `${player.classResource.max > 0 ? (player.classResource.value / player.classResource.max) * 100 : 0}%`,
+                                                  width: '100%',
+                                                  transformOrigin: 'left center',
+                                                  transform: `scaleX(${player.classResource.max > 0 ? player.classResource.value / player.classResource.max : 0})`,
+                                                  transition: 'transform 0.3s ease',
                                                   background: `linear-gradient(90deg, ${player.classResource.color}, #f5e6ff)`,
                                               }}
                                           />
@@ -4475,8 +4594,8 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                               <div className="pt-1 border-t border-white/15">
                                   <div className="flex items-center gap-1.5">
                                       <span className="text-[9px] font-black uppercase tracking-[0.14em] text-white/50">XP</span>
-                                      <div className="flex-1 h-1.5 bg-white/15 rounded-full overflow-hidden">
-                                          <div className="h-full rounded-full bg-[linear-gradient(90deg,#7d3d4d,#c89a66)] transition-all duration-500" style={{width: `${(player.xp/player.xpToNext)*100}%`}}></div>
+                                      <div className="flex-1 h-1.5 bg-white/15 rounded-full overflow-hidden isolate">
+                                          <div className="h-full bg-[linear-gradient(90deg,#7d3d4d,#c89a66)]" style={{width:'100%',transformOrigin:'left center',transform:`scaleX(${player.xpToNext>0?player.xp/player.xpToNext:0})`,transition:'transform 0.5s ease'}}></div>
                                       </div>
                                       <span className="text-[9px] font-black text-white/80">{player.xp}/{player.xpToNext}</span>
                                   </div>
@@ -4638,26 +4757,29 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                                   <span className="text-[11px] font-black uppercase tracking-[0.2em] text-rose-300">HP</span>
                                   <span className="text-sm font-black text-white/90">{player.stats.hp}/{player.stats.maxHp}</span>
                               </div>
-                              <div className="h-2.5 bg-white/15 rounded-full overflow-hidden"><div className="h-full rounded-full bg-[linear-gradient(90deg,#16a34a,#4ade80)] transition-all duration-300" style={{width: `${(player.stats.hp/player.stats.maxHp)*100}%`}}></div></div>
+                              <div className="h-2.5 bg-white/15 rounded-full overflow-hidden isolate"><div className="h-full bg-[linear-gradient(90deg,#16a34a,#4ade80)]" style={{width:'100%',transformOrigin:'left center',transform:`scaleX(${player.stats.maxHp>0?player.stats.hp/player.stats.maxHp:0})`,transition:'transform 0.3s ease'}}></div></div>
                           </div>
                           <div>
                               <div className="flex items-center justify-between mb-0.5">
                                   <span className="text-[11px] font-black uppercase tracking-[0.2em] text-sky-300">Mana</span>
                                   <span className="text-sm font-black text-white/90">{player.stats.mp}/{player.stats.maxMp}</span>
                               </div>
-                              <div className="h-2 bg-white/15 rounded-full overflow-hidden"><div className="h-full rounded-full bg-[linear-gradient(90deg,#2b6878,#66b8d2)] transition-all duration-300" style={{width: `${(player.stats.mp/player.stats.maxMp)*100}%`}}></div></div>
+                              <div className="h-2 bg-white/15 rounded-full overflow-hidden isolate"><div className="h-full bg-[linear-gradient(90deg,#2b6878,#66b8d2)]" style={{width:'100%',transformOrigin:'left center',transform:`scaleX(${player.stats.maxMp>0?player.stats.mp/player.stats.maxMp:0})`,transition:'transform 0.3s ease'}}></div></div>
                           </div>
                           {player.classResource.max > 0 && (
-                              <div className={`relative rounded-md px-1 py-0.5 transition-all duration-300 ${resourcePulse === 'gain' ? 'bg-emerald-500/20 ring-1 ring-emerald-500/35' : resourcePulse === 'spend' ? 'bg-rose-500/20 ring-1 ring-rose-500/35' : ''}`}>
+                              <div className={`relative rounded-md px-1 py-0.5 transition-colors duration-300 ${resourcePulse === 'gain' ? 'bg-emerald-500/20 ring-1 ring-emerald-500/35' : resourcePulse === 'spend' ? 'bg-rose-500/20 ring-1 ring-rose-500/35' : ''}`}>
                                   <div className="flex items-center justify-between mb-0.5">
                                       <span className="text-[11px] font-black uppercase tracking-[0.18em] text-violet-300">{player.classResource.name}</span>
                                       <span className="text-sm font-black text-white/90">{player.classResource.value}/{player.classResource.max}</span>
                                   </div>
-                                  <div className="h-1.5 bg-white/15 rounded-full overflow-hidden">
+                                  <div className="h-1.5 bg-white/15 rounded-full overflow-hidden isolate">
                                       <div
-                                          className={`h-full rounded-full transition-all duration-300 ${resourcePulse ? 'animate-pulse' : ''}`}
+                                          className={`h-full ${resourcePulse ? 'animate-pulse' : ''}`}
                                           style={{
-                                              width: `${player.classResource.max > 0 ? (player.classResource.value / player.classResource.max) * 100 : 0}%`,
+                                              width: '100%',
+                                              transformOrigin: 'left center',
+                                              transform: `scaleX(${player.classResource.max > 0 ? player.classResource.value / player.classResource.max : 0})`,
+                                              transition: 'transform 0.3s ease',
                                               background: `linear-gradient(90deg, ${player.classResource.color}, #f5e6ff)`,
                                           }}
                                       />
@@ -4674,7 +4796,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                       <div className="mt-1.5 pt-1 border-t border-white/15">
                           <div className="flex items-center gap-1.5">
                               <span className="text-[12px] font-black uppercase tracking-[0.14em] text-white/50">XP</span>
-                              <div className="flex-1 h-2 bg-white/15 rounded-full overflow-hidden"><div className="h-full rounded-full bg-[linear-gradient(90deg,#7d3d4d,#c89a66)] transition-all duration-500" style={{width: `${(player.xp/player.xpToNext)*100}%`}}></div></div>
+                              <div className="flex-1 h-2 bg-white/15 rounded-full overflow-hidden isolate"><div className="h-full bg-[linear-gradient(90deg,#7d3d4d,#c89a66)]" style={{width:'100%',transformOrigin:'left center',transform:`scaleX(${player.xpToNext>0?player.xp/player.xpToNext:0})`,transition:'transform 0.5s ease'}}></div></div>
                               <span className="text-sm font-black text-white/80">{player.xp}/{player.xpToNext}</span>
                           </div>
                       </div>
@@ -4897,8 +5019,8 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                                           onMouseLeave={e2 => (e2.currentTarget.style.background = '#0f172a')}
                                       >
                                           <span style={{ fontWeight: 700, fontSize: 10, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>{e!.name}</span>
-                                          <div style={{ width: '100%', height: 5, background: '#1e293b', borderRadius: 99, overflow: 'hidden', border: '1px solid #ffffff18' }}>
-                                              <div style={{ height: '100%', borderRadius: 99, background: hpColor, width: `${pct}%`, transition: 'width 0.3s' }} />
+                                          <div style={{ width: '100%', height: 5, background: '#1e293b', borderRadius: 99, overflow: 'hidden', border: '1px solid #ffffff18', isolation: 'isolate' }}>
+                                              <div style={{ height: '100%', width: '100%', background: hpColor, transform: `scaleX(${pct / 100})`, transformOrigin: 'left center', transition: 'transform 0.3s ease' }} />
                                           </div>
                                           <span style={{ color: hpColor, fontSize: 9 }}>{pct}% HP</span>
                                       </button>
@@ -5238,6 +5360,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
             <SkillsModal player={player} onClose={closeSkillsScreenModal} isClosing={isClosing} />
           )}
         </AnimatedModal>
+        <BattleParticlesOverlay enemyDeathToken={enemyDeathToken} />
     </div>
   );
 };

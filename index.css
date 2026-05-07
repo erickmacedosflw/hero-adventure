@@ -538,12 +538,12 @@ button {
 }
 
 @keyframes splash-bar {
-  0%   { width: 0%; }
-  15%  { width: 18%; }
-  40%  { width: 45%; }
-  70%  { width: 72%; }
-  90%  { width: 90%; }
-  100% { width: 100%; }
+  0%   { transform: scaleX(0);    }
+  15%  { transform: scaleX(0.18); }
+  40%  { transform: scaleX(0.45); }
+  70%  { transform: scaleX(0.72); }
+  90%  { transform: scaleX(0.90); }
+  100% { transform: scaleX(1);    }
 }
 
 @keyframes hero-save-card-in {

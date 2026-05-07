@@ -48,6 +48,9 @@ import { TowerResultScreen } from './components/tower/TowerResultScreen';
 import { buildTowerRunState, getDefaultTowerMeta, resolveTowerDeath, completeNode, getSanctuaryOptions, getRunCardOffer, getTowerShopItems, advanceToNextFloor, calculateEssenceReward, applyTowerRunRewardsToPlayer, scaleEnemyForTower } from './game/mechanics/towerEngine';
 import { TOWER_RUN_CARDS, TOWER_EVENTS } from './game/data/tower';
 import { getDefaultRenderQualityPreset, type RenderQualityPreset } from './components/scene3d/environment';
+import { useBattleVfxStore } from './game/stores/battleVfxStore';
+import { useBattleLogStore } from './game/stores/battleLogStore';
+import { useBattleStatsStore } from './game/stores/battleStatsStore';
 import { GLTF_MONSTER_BESTIARY, getGltfMonsterPoolForStage } from './game/data/gltfMonsters';
 
 const DeveloperConsole = React.lazy(async () => ({
@@ -1037,6 +1040,30 @@ export default function App() {
   const [enemy, setEnemy] = useState<Enemy | null>(null);
   // Multi-enemy group combat
   const [additionalEnemies, setAdditionalEnemies] = useState<Enemy[]>([]);
+
+  // Mirror volatile combat stats (hp/mp) into a dedicated zustand store so that
+  // HP/MP bars (in BattleHUD and 3D nameplates) can subscribe directly and
+  // GameScene's React.memo can skip re-renders when only stats changed.
+  // This is the same pattern used for vfx/logs/gauges to avoid full App-tree
+  // reconciliation on every hit.
+  useEffect(() => {
+    useBattleStatsStore.getState().setPlayerStats(
+      player.stats.hp,
+      player.stats.maxHp,
+      player.stats.mp,
+      player.stats.maxMp,
+    );
+  }, [player.stats.hp, player.stats.maxHp, player.stats.mp, player.stats.maxMp]);
+
+  useEffect(() => {
+    const store = useBattleStatsStore.getState();
+    if (enemy) {
+      store.setEnemyStats(enemy.id, enemy.stats.hp, enemy.stats.maxHp, enemy.stats.mp, enemy.stats.maxMp);
+    }
+    for (const ae of additionalEnemies) {
+      store.setEnemyStats(ae.id, ae.stats.hp, ae.stats.maxHp, ae.stats.mp, ae.stats.maxMp);
+    }
+  }, [enemy, additionalEnemies]);
   const [pendingTargetAction, setPendingTargetAction] = useState<PendingTargetAction>(null);
   const [targetCardLeaving, setTargetCardLeaving] = useState(false);
   const [showHeroDetailModal, setShowHeroDetailModal] = useState(false);
@@ -1053,7 +1080,13 @@ export default function App() {
   /** Tamanho inicial do grupo (1, 2 ou 3). Usado para escolher layout fixo — inimigos não se mexem quando outro morre. */
   const [initialGroupSize, setInitialGroupSize] = useState<number>(1);
   const [enemyIntentPreview, setEnemyIntentPreview] = useState<EnemyIntentPreview | null>(null);
-  const [logs, setLogs] = useState<BattleLog[]>([]);
+  // Logs live in a zustand store (battleLogStore) so updates do NOT re-render App.
+  // Components that need logs subscribe via useBattleLogStore (BattleHUD).
+  // App reads via useBattleLogStore.getState().logs inside save callbacks only.
+  const pendingLogsRef = useRef<BattleLog[]>([]);
+  const logFlushScheduledRef = useRef(false);
+  // Ref so equipment useCallbacks (defined before hasUnlockedMusic useState) can read current value
+  const hasUnlockedMusicRef = useRef(false);
   const [narration, setNarration] = useState<string>("");
   
     const [stage, setStage] = useState(1);
@@ -1066,7 +1099,11 @@ export default function App() {
             return 6 + Math.floor((safeStage - 1) / 4);
     }, []);
 
+  // particles and floatingTexts are managed in battleVfxStore — no useState needed
+  // Keep these as no-ops so downstream call-sites inside App.tsx still compile.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [particles, setParticles] = useState<Particle[]>([]);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [floatingTexts, setFloatingTexts] = useState<FloatingText[]>([]);
     const [lootResult, setLootResult] = useState<{ gold: number; xp: number; diamonds?: number; drops: Item[]; isBoss: boolean; enemyName: string } | null>(null);
     const [cardRewardQueue, setCardRewardQueue] = useState<CardRewardOffer[]>([]);
@@ -1301,6 +1338,8 @@ export default function App() {
     const [portalTransitioning, setPortalTransitioning] = useState(false);
     const portalTransitionClearTimerRef = useRef<number | null>(null);
     const [menuPortalTravelCinematicToken, setMenuPortalTravelCinematicToken] = useState(0);
+    const [bossEntryCinematicToken, setBossEntryCinematicToken] = useState(0);
+    const [enemyDeathToken, setEnemyDeathToken] = useState(0);
     const [portalSceneOverlay, setPortalSceneOverlay] = useState<{ targetRegion: SceneRegion; phase: 'in' | 'hold' | 'out' } | null>(null);
     const [onboardingPhase, setOnboardingPhase] = useState<OnboardingPhase>('intro_camp');
     const [missions, setMissions] = useState<Mission[]>(() => INITIAL_MISSIONS.map(m => ({ ...m })));
@@ -1400,7 +1439,7 @@ export default function App() {
         towerRun: towerRun ? JSON.parse(JSON.stringify(towerRun)) as TowerRunState : null,
         towerMeta: { ...towerMeta },
         missions: missions.map(m => ({ ...m })),
-        logs: cloneBattleLogs(logs),
+        logs: cloneBattleLogs(useBattleLogStore.getState().logs),
         narration,
         sceneRegion,
         ...stateOverride,
@@ -1421,7 +1460,6 @@ export default function App() {
         gameState,
         hasPlayerDiedOnce,
         killCount,
-        logs,
         narration,
         onboardingPhase,
         pendingDungeonQueue,
@@ -1526,7 +1564,7 @@ export default function App() {
         previousSkillCountRef.current = normalizedPlayer.skills.length;
 
         setEnemy(null);
-        setLogs(wasInterrupted
+        useBattleLogStore.getState().setLogs(wasInterrupted
             ? [{ message: interruptedDungeon ? 'Run da dungeon encerrada por fechamento inesperado. Voce voltou ao acampamento e perdeu o espolio pendente.' : 'Batalha interrompida por fechamento inesperado. Derrota aplicada e retorno ao acampamento.', type: 'info' }]
             : restoredLogs);
         setNarration(wasInterrupted
@@ -1689,7 +1727,6 @@ export default function App() {
         hasDiamondHudUnlocked,
         currentCardChoices,
         currentCardOffer,
-        logs,
         narration,
         onboardingPhase,
         missions,
@@ -1789,51 +1826,7 @@ export default function App() {
 
   // --- VFX SYSTEM ---
   const spawnParticles = (position: [number, number, number], count: number, color: string, type: 'explode' | 'heal' | 'spark') => {
-      const densityMultiplier = type === 'explode' ? 0.72 : type === 'spark' ? 0.68 : 0.78;
-      const targetCount = Math.max(6, Math.round(count * densityMultiplier));
-      const now = (typeof performance !== 'undefined' ? performance.now() : Date.now());
-      const nowMs = Date.now();
-      const windowDurationMs = 240;
-      const hardBudgetPerWindow = 70;
-
-      if (now - particleBudgetRef.current.windowStart > windowDurationMs) {
-          particleBudgetRef.current.windowStart = now;
-          particleBudgetRef.current.spawnedInWindow = 0;
-      }
-
-      const remainingBudget = Math.max(0, hardBudgetPerWindow - particleBudgetRef.current.spawnedInWindow);
-      const finalCount = Math.max(4, Math.min(targetCount, remainingBudget));
-      if (finalCount <= 0) {
-          return;
-      }
-
-      particleBudgetRef.current.spawnedInWindow += finalCount;
-      const shardChance = type === 'explode' ? 0.22 : type === 'spark' ? 0.14 : 0.08;
-      const newParticles: Particle[] = [];
-
-      for (let i = 0; i < finalCount; i++) {
-          const isShard = Math.random() < shardChance;
-          const spread = type === 'heal' ? 0.55 : isShard ? 1.45 : 1.1;
-          const lift = type === 'heal' ? 1.75 : isShard ? 0.5 : 0.85;
-
-          newParticles.push({
-              id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`,
-              position: [position[0], position[1], position[2]],
-              color,
-              scale: type === 'heal' ? 0.18 : isShard ? 0.13 : 0.24,
-              life: 1.0,
-              ttl: type === 'heal' ? 0.8 : isShard ? 0.7 : 0.92,
-              expiresAt: nowMs + 1100,
-              renderMode: isShard ? 'shard3d' : 'sprite2d',
-              velocity: [
-                  (Math.random() - 0.5) * spread * 2,
-                  (Math.random() - 0.5) * 1.7 + lift,
-                  (Math.random() - 0.5) * spread * 2,
-              ],
-          });
-      }
-
-      setParticles((prev) => [...prev, ...newParticles].slice(-120));
+      useBattleVfxStore.getState().spawnParticles(position, count, color, type);
   };
 
   const spawnFloatingText = (
@@ -1843,59 +1836,11 @@ export default function App() {
       color?: string,
       iconImage?: string,
   ) => {
-      const id = Math.random().toString(36);
-            const nowMs = Date.now();
-      const isNamedActionText = type === 'skill' || type === 'item';
-      const durationMs = type === 'item'
-        ? 1200
-        : isNamedActionText
-          ? 2100
-          : type === 'crit'
-            ? 1500
-            : 1100;
-      setFloatingTexts(prev => [...prev, {
-          id,
-          text: value.toString(),
-          iconImage,
-          type,
-          target,
-          xOffset: isNamedActionText ? 0 : (Math.random() * 40) - 20, // Keep skill/item labels centered and readable
-          yOffset: isNamedActionText ? 0 : (Math.random() * 20) - 10,
-          durationMs,
-          expiresAt: nowMs + durationMs,
-          color,
-      }].slice(-8));
+      useBattleVfxStore.getState().spawnFloatingText(value, target, type, color, iconImage);
   };
 
   useEffect(() => {
-      if (particles.length === 0 && floatingTexts.length === 0) {
-          return;
-      }
-
-      const pruneExpiredVfx = () => {
-          const nowMs = Date.now();
-
-          setParticles((prev) => {
-              const next = prev.filter((particle) => !particle.expiresAt || particle.expiresAt > nowMs);
-              return next.length === prev.length ? prev : next;
-          });
-
-          setFloatingTexts((prev) => {
-              const next = prev.filter((text) => !text.expiresAt || text.expiresAt > nowMs);
-              return next.length === prev.length ? prev : next;
-          });
-      };
-
-      pruneExpiredVfx();
-      const timer = window.setInterval(pruneExpiredVfx, 180);
-
-      return () => {
-          window.clearInterval(timer);
-      };
-  }, [floatingTexts.length, particles.length]);
-
-    useEffect(() => {
-        const handleLocationChange = () => setPathname(window.location.pathname);
+      const handleLocationChange = () => setPathname(window.location.pathname);
         window.addEventListener('popstate', handleLocationChange);
         return () => window.removeEventListener('popstate', handleLocationChange);
     }, []);
@@ -2357,7 +2302,6 @@ export default function App() {
     }, [gameState, setEnemy]);
 
     const {
-        gauges: battleActorGauges,
         resetActorGauge,
         removeActorGauge,
         clearGauges,
@@ -2423,7 +2367,18 @@ export default function App() {
     }, [clearGauges, gameState]);
 
   const addLog = useCallback((message: string, type: BattleLog['type'] = 'info') => {
-    setLogs(prev => [{ message, type }, ...prev]);
+    pendingLogsRef.current.push({ message, type });
+    if (!logFlushScheduledRef.current) {
+      logFlushScheduledRef.current = true;
+      queueMicrotask(() => {
+        logFlushScheduledRef.current = false;
+        const batch = pendingLogsRef.current.splice(0);
+        if (batch.length > 0) {
+          // Writes go to zustand store — no App re-render is triggered.
+          useBattleLogStore.getState().addLogBatch(batch);
+        }
+      });
+    }
   }, []);
 
     const spawnEnemy = async (currentStage: number, isBoss: boolean, mode: 'hunt' | 'dungeon' = dungeonRun ? 'dungeon' : 'hunt', dungeonEvolutionOverride?: number) => {
@@ -2774,7 +2729,7 @@ export default function App() {
         setHasConfirmedStartingClass(true);
         setHasSavePromptDecision(true);
                 setPlayer(startingPlayer);
-    setLogs([]);
+    useBattleLogStore.getState().clearLogs();
         setNarration('');
         setPostCardFlow(null);
         setDungeonRun(null);
@@ -2849,7 +2804,7 @@ export default function App() {
                 evolution: dungeonEvolution,
             };
             setDungeonRun(nextRun);
-            setLogs([]);
+            useBattleLogStore.getState().clearLogs();
             setEnemy(null);
             enterBattle(false, 'dungeon', 0);
   };
@@ -3058,10 +3013,13 @@ export default function App() {
             activeBattleActorIdRef.current = null;
             setActiveBattleActorId(null);
             setBattleTimelineState('RUNNING');
-      setLogs([]);
+      useBattleLogStore.getState().clearLogs();
       const shouldSpawnBoss = isDungeonBattle
           ? isBoss
           : (isBoss || (killCount + 1 >= getHuntPhaseLength(encounterStage)));
+      if (shouldSpawnBoss) {
+          setBossEntryCinematicToken(prev => prev + 1);
+      }
       spawnEnemy(encounterStage, shouldSpawnBoss, mode, isDungeonBattle ? activeDungeonEvolution : undefined);
   };
 
@@ -3151,6 +3109,7 @@ export default function App() {
 
       setTimeout(() => {
                 if (enemyRemainingHp <= 0) {
+                        setEnemyDeathToken(prev => prev + 1);
                         void handleVictory(900);
                         return;
                 }
@@ -3426,7 +3385,7 @@ export default function App() {
       }));
       setEnemy(null);
       setKillCount(0);
-      setLogs([]);
+      useBattleLogStore.getState().clearLogs();
       setTurnState(TurnState.PLAYER_INPUT);
       setNarration('Voce se recuperou no acampamento.');
       setGameState(GameState.TAVERN);
@@ -3705,8 +3664,6 @@ export default function App() {
     withdrawFromDungeon,
     handleVictory,
     triggerEnemyAnimationAction,
-    spawnParticles,
-    spawnFloatingText,
     setPlayer,
     setEnemy,
     setTurnState,
@@ -3830,7 +3787,6 @@ export default function App() {
     setTimeout(() => { setPendingTargetAction(null); setTargetCardLeaving(false); }, 220);
   }, []);
 
-  // ── Gamepad → ações de batalha ──────────────────────────────────────────────
   // Refs sempre frescos para que o useEffect não precise re-assinar
   const handleAttackRef2    = useRef(handleAttackWithTargetCheck);
     const handleDefenseRef    = useRef(handlePlayerDefenseWithTimeline);
@@ -3934,7 +3890,7 @@ export default function App() {
       setDungeonResult(null);
       setPendingDungeonQueue([]);
       setDungeonRun(nextRun);
-      setLogs([]);
+      useBattleLogStore.getState().clearLogs();
       setEnemy(null);
       setNarration(`A dungeon evoluiu para o nivel ${nextEvolution}. Um novo ciclo comecou.`);
       enterBattle(false, 'dungeon', 0);
@@ -4170,7 +4126,7 @@ export default function App() {
       }
   };
 
-  const unequipItem = (item: Item) => {
+  const unequipItem = useCallback((item: Item) => {
       if (gameState === GameState.BATTLE) {
           addLog('Durante a batalha voce nao pode trocar equipamento. Abra a mochila apenas para consultar.', 'info');
           return;
@@ -4232,12 +4188,12 @@ export default function App() {
           };
       });
 
-      if (hasUnlockedMusic) {
+      if (hasUnlockedMusicRef.current) {
           uiSfx.play('item_equip_off');
       }
-  };
+  }, [addLog, gameState, player.equippedWeapon?.id, player.equippedArmor?.id, player.equippedHelmet?.id, player.equippedLegs?.id, player.equippedShield?.id]);
 
-  const equipSkillToSlot = (slotIndex: number, skillId: string | null) => {
+  const equipSkillToSlot = useCallback((slotIndex: number, skillId: string | null) => {
       setPlayer((p) => {
           const maxSkills = getClassSlots(p.classId).skills;
           const ids = [...(p.equippedSkillIds ?? [])];
@@ -4252,9 +4208,9 @@ export default function App() {
           ids[slotIndex] = newId;
           return { ...p, equippedSkillIds: ids };
       });
-  };
+  }, []);
 
-  const equipItemToSlot = (slotIndex: number, itemId: string | null) => {
+  const equipItemToSlot = useCallback((slotIndex: number, itemId: string | null) => {
       setPlayer((p) => {
           const maxItems = getClassSlots(p.classId).items;
           const slots = (p.equippedItemSlots ?? []).map(s => ({ ...s }));
@@ -4280,10 +4236,44 @@ export default function App() {
 
           return { ...p, inventory: newInv, equippedItemSlots: slots };
       });
-      if (hasUnlockedMusic) {
+      if (hasUnlockedMusicRef.current) {
           uiSfx.play('item_equip_off');
       }
-  };
+  }, []);
+
+  // ── Stable GameScene callbacks (useCallback so React.memo on GameScene works) ──
+  const handleHeroInspectClose = useCallback(() => {
+    setHeroInspectMode(false);
+    setHeroInspectCloseToken((prev) => prev + 1);
+  }, []);
+  const handleHeroEquipSlotClick = useCallback((slot: 'weapon' | 'shield' | 'helmet' | 'armor' | 'legs') => {
+    setHeroEquipOpenFilter(slot);
+    setHeroEquipOpenToken((prev) => prev + 1);
+  }, []);
+  const handleHeroUnequipSlotClick = useCallback((item: Item) => { unequipItem(item); }, [unequipItem]);
+  const handleHeroSkillSlotClick = useCallback((slotIndex: number) => {
+    setHeroSkillSlotOpenIndex(slotIndex);
+    setHeroSkillSlotOpenToken((prev) => prev + 1);
+  }, []);
+  const handleHeroItemSlotClick = useCallback((slotIndex: number) => {
+    setHeroItemSlotOpenIndex(slotIndex);
+    setHeroItemSlotOpenToken((prev) => prev + 1);
+  }, []);
+  const handleHeroUnequipItemSlot = useCallback((slotIndex: number) => { equipItemToSlot(slotIndex, null); }, [equipItemToSlot]);
+  const handleHeroUnequipSkillSlot = useCallback((slotIndex: number) => { equipSkillToSlot(slotIndex, null); }, [equipSkillToSlot]);
+  const handlePortalInspectClose = useCallback(() => setPortalInspectMode(false), []);
+  const handlePortalTravelTo = useCallback((region: SceneRegion) => {
+    setPortalInspectMode(false);
+    handleNavigateSceneRegion(region);
+  }, [handleNavigateSceneRegion]);
+  const handleHeroNameplateClick = useCallback(() => setShowHeroDetailModal(true), []);
+
+  // Always-stable onMenuHeroClick — reads gameStateRef so this function reference never changes
+  const handleMenuHeroClickStable = useCallback(() => {
+    if (gameStateRef.current === GameState.TAVERN || gameStateRef.current === GameState.BATTLE) {
+      handleMenuHeroClick();
+    }
+  }, [handleMenuHeroClick]);
 
   const sellItem = (item: Item, quantity = 1) => {
       const safeQuantity = Math.max(1, Math.floor(quantity));
@@ -4494,6 +4484,7 @@ export default function App() {
 
     const [battleSettings, setBattleSettings] = useState<BattleSettings>(() => readBattleSettings());
     const [hasUnlockedMusic, setHasUnlockedMusic] = useState(false);
+    hasUnlockedMusicRef.current = hasUnlockedMusic;
     const recommendedRenderQualityPreset = useMemo(() => getDefaultRenderQualityPreset(), []);
     const updateBattleSettings = useCallback((partial: Partial<BattleSettings>) => {
         setBattleSettings((prev) => ({
@@ -5387,8 +5378,6 @@ export default function App() {
                                                 : playerAnimationAction}
                         isPlayerAttacking={isPlayerAttacking}
                         isEnemyAttacking={isEnemyAttacking}
-                        particles={particles}
-                        floatingTexts={floatingTexts}
                         equippedWeaponId={player.equippedWeapon?.id}
                         equippedArmorId={player.equippedArmor?.id}
                         equippedHelmetId={player.equippedHelmet?.id}
@@ -5438,53 +5427,32 @@ export default function App() {
                         enemyIntentPreview={enemyIntentPreview}
                         battleTimelineState={battleTimelineState}
                         activeBattleActorId={activeBattleActorId}
-                        battleActorGauges={battleActorGauges}
                         battleActionsConfig={resolvedGameState === GameState.BATTLE ? battleActionsConfig : undefined}
                         isMenuView={resolvedGameState === GameState.TAVERN}
                         menuCameraFocus={shouldMenuCameraFocus}
                         heroInspectMode={heroInspectMode}
-                        onHeroInspectClose={() => {
-                            setHeroInspectMode(false);
-                            setHeroInspectCloseToken((prev) => prev + 1);
-                        }}
-                        onHeroEquipSlotClick={(slot) => {
-                            setHeroEquipOpenFilter(slot);
-                            setHeroEquipOpenToken((prev) => prev + 1);
-                        }}
-                        onHeroUnequipSlotClick={(item) => {
-                            unequipItem(item);
-                        }}
-                        onHeroSkillSlotClick={(slotIndex) => {
-                            setHeroSkillSlotOpenIndex(slotIndex);
-                            setHeroSkillSlotOpenToken((prev) => prev + 1);
-                        }}
-                        onHeroItemSlotClick={(slotIndex) => {
-                            setHeroItemSlotOpenIndex(slotIndex);
-                            setHeroItemSlotOpenToken((prev) => prev + 1);
-                        }}
-                        onHeroUnequipItemSlot={(slotIndex) => {
-                            equipItemToSlot(slotIndex, null);
-                        }}
-                        onHeroUnequipSkillSlot={(slotIndex) => {
-                            equipSkillToSlot(slotIndex, null);
-                        }}
+                        onHeroInspectClose={handleHeroInspectClose}
+                        onHeroEquipSlotClick={handleHeroEquipSlotClick}
+                        onHeroUnequipSlotClick={handleHeroUnequipSlotClick}
+                        onHeroSkillSlotClick={handleHeroSkillSlotClick}
+                        onHeroItemSlotClick={handleHeroItemSlotClick}
+                        onHeroUnequipItemSlot={handleHeroUnequipItemSlot}
+                        onHeroUnequipSkillSlot={handleHeroUnequipSkillSlot}
                         isDungeonScene={sceneRegion === 'dungeon' || sceneRegion === 'tower'}
                         showMenuNavigationPortal={resolvedGameState === GameState.TAVERN}
                         menuPortalRegion={sceneRegion === 'tower' ? 'tower' : sceneRegion === 'dungeon' ? 'dungeon' : 'forest'}
                         menuPortalTravelCinematicToken={menuPortalTravelCinematicToken}
+                        bossEntryCinematicToken={bossEntryCinematicToken}
                         onMenuPortalClick={handleOpenPortalTravel}
                         portalInspectMode={portalInspectMode}
                         currentSceneRegion={sceneRegion}
                         dungeonUnlocked={isDungeonUnlocked}
                         towerUnlocked={true}
-                        onPortalInspectClose={() => setPortalInspectMode(false)}
-                        onPortalTravelTo={(region) => {
-                            setPortalInspectMode(false);
-                            handleNavigateSceneRegion(region);
-                        }}
+                        onPortalInspectClose={handlePortalInspectClose}
+                        onPortalTravelTo={handlePortalTravelTo}
                         menuGamepadFocus={resolvedGameState === GameState.TAVERN && !portalInspectMode ? campGamepadFocusForScene : null}
                         renderQualityPreset={battleSettings.renderQualityPreset}
-                        onMenuHeroClick={resolvedGameState === GameState.TAVERN || resolvedGameState === GameState.BATTLE ? handleMenuHeroClick : undefined}
+                        onMenuHeroClick={handleMenuHeroClickStable}
                         lootResult={lootResult}
                         xpIconComponent={xpIconComponent}
                         additionalEnemies={additionalEnemies}
@@ -5493,7 +5461,7 @@ export default function App() {
                         onCancelTargetSelection={handleCancelTargetSelection}
                         mainEnemySlotIndex={mainEnemySlotIndex}
                         initialGroupSize={initialGroupSize}
-                        onHeroNameplateClick={() => setShowHeroDetailModal(true)}
+                        onHeroNameplateClick={handleHeroNameplateClick}
                     />
                     </div>
             </SceneErrorBoundary>
@@ -5694,10 +5662,12 @@ export default function App() {
                             </div>
 
                             <div className="mt-6 w-full max-w-xs">
-                                <div className="h-[3px] w-full rounded-full overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.11)' }}>
+                                <div className="h-[3px] w-full rounded-full overflow-hidden isolate" style={{ backgroundColor: 'rgba(255,255,255,0.11)' }}>
                                     <div
-                                        className="h-full rounded-full"
+                                        className="h-full"
                                         style={{
+                                            width: '100%',
+                                            transformOrigin: 'left center',
                                             background: `linear-gradient(90deg, ${spAccent}, ${spAura})`,
                                             animation: sp.visible ? 'splash-bar 3.0s ease-in-out both' : 'none',
                                             boxShadow: `0 0 8px ${spAura}88`,
@@ -5827,6 +5797,7 @@ export default function App() {
                         missionsUnlockPromptActive={onboardingPhase === 'missions_prompt'}
                         onAcknowledgeMissionsUnlock={() => setOnboardingPhase('missions_unlocked')}
                         autoOpenMissionsToken={openMissionsFromToastToken}
+                        enemyDeathToken={enemyDeathToken}
           />
       )}
 
@@ -5883,7 +5854,6 @@ export default function App() {
             enemy={enemy}
         gameState={resolvedGameState}
             turnState={turnState}
-            logs={logs}
             onAttack={handleAttackWithTargetCheck}
             onDefend={handlePlayerDefenseWithTimeline}
             onChargeImpulse={handleChargeImpulseWithTimeline}
@@ -5907,7 +5877,6 @@ export default function App() {
             onFlee={handleFlee}
             currentNarration={narration}
             shopItems={ALL_ITEMS}
-            floatingTexts={floatingTexts}
             stage={stage}
             dungeonPhase={activeDungeonPhase}
             killCount={killCount}
@@ -5966,6 +5935,7 @@ export default function App() {
                         missionsUnlockPromptActive={onboardingPhase === 'missions_prompt'}
                         onAcknowledgeMissionsUnlock={() => setOnboardingPhase('missions_unlocked')}
                         autoOpenMissionsToken={openMissionsFromToastToken}
+                        enemyDeathToken={enemyDeathToken}
         />
       )}
 

@@ -140,7 +140,7 @@ export const PLAYER_CLASSES: PlayerClassDefinition[] = [
     modelPath: 'game/assets/Characters/Knight/Knight.fbx',
     modelUrl: new URL('../assets/Characters/Knight/Knight.fbx', import.meta.url).href,
     texturePath: 'game/assets/Characters/Knight/knight_texture.png',
-    textureUrl: new URL('../assets/Characters/Knight/knight_texture.png', import.meta.url).href,
+    textureUrl: new URL('../assets/Characters/Knight/knight_texture.webp', import.meta.url).href,
     baseStats: {
       hp: 140,
       maxHp: 140,
@@ -177,7 +177,7 @@ export const PLAYER_CLASSES: PlayerClassDefinition[] = [
     modelPath: 'game/assets/Characters/Barbarian/Barbarian.fbx',
     modelUrl: new URL('../assets/Characters/Barbarian/Barbarian.fbx', import.meta.url).href,
     texturePath: 'game/assets/Characters/Barbarian/barbarian_texture.png',
-    textureUrl: new URL('../assets/Characters/Barbarian/barbarian_texture.png', import.meta.url).href,
+    textureUrl: new URL('../assets/Characters/Barbarian/barbarian_texture.webp', import.meta.url).href,
     baseStats: {
       hp: 140,
       maxHp: 140,
@@ -214,7 +214,7 @@ export const PLAYER_CLASSES: PlayerClassDefinition[] = [
     modelPath: 'game/assets/Characters/Mage/Mage.fbx',
     modelUrl: new URL('../assets/Characters/Mage/Mage.fbx', import.meta.url).href,
     texturePath: 'game/assets/Characters/Mage/mage_texture.png',
-    textureUrl: new URL('../assets/Characters/Mage/mage_texture.png', import.meta.url).href,
+    textureUrl: new URL('../assets/Characters/Mage/mage_texture.webp', import.meta.url).href,
     baseStats: {
       hp: 96,
       maxHp: 96,
@@ -251,7 +251,7 @@ export const PLAYER_CLASSES: PlayerClassDefinition[] = [
     modelPath: 'game/assets/Characters/Ranger/Ranger.fbx',
     modelUrl: new URL('../assets/Characters/Ranger/Ranger.fbx', import.meta.url).href,
     texturePath: 'game/assets/Characters/Ranger/ranger_texture.png',
-    textureUrl: new URL('../assets/Characters/Ranger/ranger_texture.png', import.meta.url).href,
+    textureUrl: new URL('../assets/Characters/Ranger/ranger_texture.webp', import.meta.url).href,
     baseStats: {
       hp: 118,
       maxHp: 118,
@@ -288,7 +288,7 @@ export const PLAYER_CLASSES: PlayerClassDefinition[] = [
     modelPath: 'game/assets/Characters/Rogue/Rogue.fbx',
     modelUrl: new URL('../assets/Characters/Rogue/Rogue.fbx', import.meta.url).href,
     texturePath: 'game/assets/Characters/Rogue/rogue_texture.png',
-    textureUrl: new URL('../assets/Characters/Rogue/rogue_texture.png', import.meta.url).href,
+    textureUrl: new URL('../assets/Characters/Rogue/rogue_texture.webp', import.meta.url).href,
     baseStats: {
       hp: 108,
       maxHp: 108,

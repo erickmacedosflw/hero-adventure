@@ -259,7 +259,7 @@ const createSkeletonAssets = (modelFile: 'Skeleton_Minion.fbx' | 'Skeleton_Rogue
   modelPath: `game/assets/Characters/Monsters/Skeleton/${modelFile}`,
   modelUrl: new URL(`./game/assets/Characters/Monsters/Skeleton/${modelFile}`, import.meta.url).href,
   texturePath: 'game/assets/Characters/Monsters/Skeleton/skeleton_texture.png',
-  textureUrl: new URL('./game/assets/Characters/Monsters/Skeleton/skeleton_texture.png', import.meta.url).href,
+  textureUrl: new URL('./game/assets/Characters/Monsters/Skeleton/skeleton_texture.webp', import.meta.url).href,
   animationDirectory: 'game/assets/Characters/Animations/Rig_Medium',
   animationFiles: [...skeletonAnimationFiles],
   animationUrls: [

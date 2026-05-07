@@ -380,6 +380,7 @@ export const MissionsScreen: React.FC<MissionsScreenProps> = ({
         {/* Mission cards — horizontal (desktop) ou lista vertical (mobile) */}
         {isMobile ? (
           <div
+            data-scrollable
             style={{ overflowY: 'scroll', overflowX: 'hidden', flex: '1 1 0', height: 0, padding: '12px 14px 24px', display: 'flex', flexDirection: 'column', gap: 10, WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain', touchAction: 'pan-y' }}
           >
             {sortedMissions.map(m => (

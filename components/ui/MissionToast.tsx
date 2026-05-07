@@ -166,32 +166,35 @@ export const MissionToast: React.FC<Props> = ({ toast, onOpen }) => {
 
 // Thin amber bar draining from right to left under the toast
 const ProgressDrain: React.FC<{ duration: number; leaving: boolean }> = ({ duration, leaving }) => {
-  const [pct, setPct] = useState(100);
-  const startRef = useRef(Date.now());
+  const fillRef = useRef<HTMLDivElement>(null);
   const rafRef = useRef<number | null>(null);
 
   useEffect(() => {
-    startRef.current = Date.now();
+    const start = Date.now();
     const tick = () => {
-      const elapsed = Date.now() - startRef.current;
-      const remaining = Math.max(0, 100 - (elapsed / duration) * 100);
-      setPct(remaining);
-      if (remaining > 0) rafRef.current = requestAnimationFrame(tick);
+      const elapsed = Date.now() - start;
+      const scaleX = Math.max(0, 1 - elapsed / duration);
+      if (fillRef.current) fillRef.current.style.transform = `scaleX(${scaleX})`;
+      if (scaleX > 0) rafRef.current = requestAnimationFrame(tick);
     };
     rafRef.current = requestAnimationFrame(tick);
     return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
   }, [duration]);
 
   return (
-    <div style={{ height: 3, borderRadius: '0 0 18px 18px', background: 'rgba(255,255,255,0.06)', overflow: 'hidden', marginTop: -1 }}>
-      <div style={{
-        height: '100%',
-        width: `${pct}%`,
-        background: 'linear-gradient(90deg,#b45309,#fbbf24)',
-        transition: 'none',
-        borderRadius: '0 0 0 18px',
-        opacity: leaving ? 0 : 1,
-      }} />
+    <div style={{ height: 3, borderRadius: '0 0 18px 18px', background: 'rgba(255,255,255,0.06)', overflow: 'hidden', marginTop: -1, isolation: 'isolate' }}>
+      <div
+        ref={fillRef}
+        style={{
+          height: '100%',
+          width: '100%',
+          transformOrigin: 'left center',
+          transform: 'scaleX(1)',
+          background: 'linear-gradient(90deg,#b45309,#fbbf24)',
+          borderRadius: '0 0 0 18px',
+          opacity: leaving ? 0 : 1,
+        }}
+      />
     </div>
   );
 };

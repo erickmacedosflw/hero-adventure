@@ -210,7 +210,7 @@ export const Tree = ({ position, scale = 1 }: { position: [number, number, numbe
   </group>
 );
 
-const SKYBOX_FACES = ['px.png', 'nx.png', 'py.png', 'ny.png', 'pz.png', 'nz.png'] as const;
+const SKYBOX_FACES = ['px.webp', 'nx.webp', 'py.webp', 'ny.webp', 'pz.webp', 'nz.webp'] as const;
 
 // Use BASE_URL as prefix so paths are relative (./skybox/…) in the Electron
 // file:// build and absolute (/skybox/…) in the normal web build.
@@ -921,6 +921,7 @@ export const CameraController = ({
   runtimeBattleCamera,
   heroInspectMode = false,
   portalInspectMode = false,
+  bossEntryCinematicToken = 0,
 }: {
   screenShake?: number;
   menuFocus?: boolean;
@@ -929,6 +930,7 @@ export const CameraController = ({
   runtimeBattleCamera?: { fov: number; distance: number; height: number };
   heroInspectMode?: boolean;
   portalInspectMode?: boolean;
+  bossEntryCinematicToken?: number;
 }) => {
   const cameraRef = useRef<THREE.PerspectiveCamera>(null);
   const clockRef = useRef(0);
@@ -983,6 +985,34 @@ export const CameraController = ({
   useEffect(() => {
     portalBlendTargetRef.current = portalInspectMode ? 1 : 0;
   }, [portalInspectMode]);
+
+  // ── Boss entry cinematic ───────────────────────────────────────────────────
+  const bossTokenRef = useRef(0);
+  useEffect(() => {
+    if (bossEntryCinematicToken <= 0) return;
+    if (bossEntryCinematicToken === bossTokenRef.current) return;
+    bossTokenRef.current = bossEntryCinematicToken;
+    const camera = cameraRef.current;
+    if (!camera) return;
+    const battleDistance = isMobile ? 16.2 : 11;
+    const battleHeight = isMobile ? 4.1 : 2.5;
+    // Snap camera to default battle position before animating
+    camera.position.set(0, battleHeight, battleDistance);
+    const startLook = new THREE.Vector3(0, isMobile ? 1.55 : 0.9, 0);
+    cinematicStateRef.current = {
+      active: true,
+      phase: 'zoom-in',
+      elapsed: 0,
+      startPosition: camera.position.clone(),
+      startLook,
+      startFov: camera.fov,
+      // Close-up angle toward enemy side
+      targetPosition: new THREE.Vector3(isMobile ? 2.2 : 1.5, isMobile ? 2.6 : 1.8, isMobile ? 9.5 : 6.5),
+      targetLook: new THREE.Vector3(2.2, 1.0, 0),
+      targetFov: isMobile ? 44 : 38,
+    };
+  }, [bossEntryCinematicToken, isMobile]);
+
   useEffect(() => {
     if (!menuFocus || typeof window === 'undefined') {
       dragActiveRef.current = false;

@@ -1,7 +1,9 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { Html } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
+import gsap from 'gsap';
+import { useGSAP } from '@gsap/react';
 import type { FloatingText, Item, Particle } from '../../types';
 
 const _COIN_URL = new URL('../../game/assets/Icons/Misc/Golden Coin.png', import.meta.url).href;
@@ -18,48 +20,38 @@ export interface LootResultData {
 
 export const WorldLootDisplay = ({ loot, xpIcon, enemyAnchor }: { loot: LootResultData | null; xpIcon?: React.ReactNode; enemyAnchor?: [number, number, number] }) => {
   const groupRef = useRef<THREE.Group>(null);
-  const htmlRef = useRef<HTMLDivElement>(null);
-  const startTimeRef = useRef<number | null>(null);
-  // Cache last-written opacity to avoid a DOM style write every RAF tick when unchanged.
-  const lastOpacityRef = useRef<number>(-1);
-  const DURATION = 3.0;
+  // Three's <Html> renders children via ReactDOM.createRoot().render() — async (concurrent mode).
+  // So htmlRef is null when useGSAP first fires (useLayoutEffect). We use a callback ref +
+  // htmlReady state so useGSAP re-runs once the portal div actually commits to the DOM.
+  const htmlRef = useRef<HTMLDivElement | null>(null);
+  const [htmlReady, setHtmlReady] = useState(false);
+  const htmlCallbackRef = useCallback((el: HTMLDivElement | null) => {
+    htmlRef.current = el;
+    // Always update htmlReady so it toggles false→true on each new mount.
+    // If we only call setHtmlReady(true) and never reset, the second kill finds
+    // htmlReady already true → setHtmlReady(true) is a no-op → useGSAP never
+    // re-fires with htmlRef.current set → loot animation never plays again.
+    setHtmlReady(el !== null);
+  }, []);
 
-  // Reset animation whenever a new loot result appears
-  useEffect(() => {
-    if (loot) {
-      startTimeRef.current = null;
-      lastOpacityRef.current = -1;
-    }
-  }, [loot]);
+  useGSAP(() => {
+    if (!loot || !groupRef.current || !htmlRef.current) return;
 
-  useFrame((state) => {
-    if (!groupRef.current || !loot) return;
-    if (startTimeRef.current === null) startTimeRef.current = state.clock.elapsedTime;
-    const elapsed = state.clock.elapsedTime - startTimeRef.current;
-    const progress = Math.min(1, elapsed / DURATION);
-    const lift = elapsed * 0.22;
     const ax = enemyAnchor?.[0] ?? 2;
     const ay = enemyAnchor?.[1] ?? 0.5;
     const az = enemyAnchor?.[2] ?? 0.15;
-    groupRef.current.position.set(ax, ay + lift, az);
-    let opacity = 1;
-    if (progress < 0.12) {
-      opacity = progress / 0.12;
-    } else if (progress > 0.65) {
-      const t = (progress - 0.65) / 0.35;
-      const s = t * t * (3 - 2 * t);
-      opacity = 1 - s;
-    }
-    if (htmlRef.current) {
-      const clampedOpacity = Math.max(0, opacity);
-      // Round to 3 decimals to avoid spurious DOM writes on floating-point noise.
-      const rounded = Math.round(clampedOpacity * 1000) / 1000;
-      if (rounded !== lastOpacityRef.current) {
-        lastOpacityRef.current = rounded;
-        htmlRef.current.style.opacity = String(rounded);
-      }
-    }
-  });
+
+    groupRef.current.position.set(ax, ay, az);
+    gsap.set(htmlRef.current, { opacity: 0 });
+
+    const tl = gsap.timeline();
+    // Lift the 3D group over 3 s
+    tl.to(groupRef.current.position, { y: ay + 0.66, duration: 3, ease: 'none' }, 0);
+    // Fade in over first 12 % (0.36 s)
+    tl.to(htmlRef.current, { opacity: 1, duration: 0.36, ease: 'power1.out' }, 0);
+    // Fade out from 65 % (1.95 s) to end
+    tl.to(htmlRef.current, { opacity: 0, duration: 1.05, ease: 'power2.in' }, 1.95);
+  }, { dependencies: [loot, htmlReady] });
 
   if (!loot) return null;
 
@@ -92,7 +84,7 @@ export const WorldLootDisplay = ({ loot, xpIcon, enemyAnchor }: { loot: LootResu
   return (
     <group ref={groupRef} position={enemyAnchor ?? [2, 0.5, 0.15]}>
       <Html center sprite distanceFactor={10} zIndexRange={[120, 0]}>
-        <div ref={htmlRef} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px', opacity: 0, pointerEvents: 'none' }}>
+        <div ref={htmlCallbackRef} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px', opacity: 0, pointerEvents: 'none' }}>
           {/* Gold */}
           <div style={rowStyle}>
             <img src={_COIN_URL} style={imgStyle} draggable={false} alt="Ouro" />

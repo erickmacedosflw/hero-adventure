@@ -1,7 +1,16 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { registerSW } from 'virtual:pwa-register';
+import * as THREE from 'three';
+import { computeBoundsTree, disposeBoundsTree, acceleratedRaycast } from 'three-mesh-bvh';
 import App from './App';
+
+// ── three-mesh-bvh global prototype patches ──────────────────────────────
+// Must run before any geometry is loaded. Accelerates raycasting on all
+// BufferGeometry instances (FBX characters, GLTF scenes, etc.) automatically.
+(THREE.BufferGeometry.prototype as any).computeBoundsTree = computeBoundsTree;
+(THREE.BufferGeometry.prototype as any).disposeBoundsTree = disposeBoundsTree;
+THREE.Mesh.prototype.raycast = acceleratedRaycast;
 
 const clearServiceWorkers = () => {
   if (!('serviceWorker' in navigator)) {

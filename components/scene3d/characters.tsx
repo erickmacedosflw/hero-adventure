@@ -48,6 +48,44 @@ export const applyHitFlashToMaterial = (
   standardMaterial.emissiveIntensity = Math.min(0.38, 0.08 + intensity * 0.55);
 };
 
+/**
+ * Injects a `u_flash` uniform into a material via onBeforeCompile.
+ * Returns the uniform object so callers can update `.value` each frame.
+ * Idempotent — safe to call multiple times on the same material.
+ */
+const injectFlashUniform = (material: THREE.Material): { value: number } | null => {
+  if ((material as any).userData?._flashUniform) {
+    return (material as any).userData._flashUniform as { value: number };
+  }
+  // Only patch materials that go through the standard shader pipeline
+  if (
+    !(material instanceof THREE.MeshStandardMaterial) &&
+    !(material instanceof THREE.MeshPhongMaterial) &&
+    !(material instanceof THREE.MeshLambertMaterial)
+  ) {
+    return null;
+  }
+  const uniform: { value: number } = { value: 0 };
+  if (!material.userData) material.userData = {};
+  (material.userData as any)._flashUniform = uniform;
+  const _prev = material.onBeforeCompile.bind(material);
+  material.onBeforeCompile = (shader, renderer) => {
+    _prev(shader, renderer);
+    shader.uniforms.u_flash = uniform;
+    // Inject declaration before output_fragment, mix result toward white
+    shader.fragmentShader = shader.fragmentShader.replace(
+      '#include <output_fragment>',
+      [
+        'uniform float u_flash;',
+        '#include <output_fragment>',
+        'gl_FragColor.rgb = mix(gl_FragColor.rgb, vec3(1.0), clamp(u_flash, 0.0, 1.0) * 0.78);',
+      ].join('\n'),
+    );
+  };
+  material.needsUpdate = true;
+  return uniform;
+};
+
 interface AnimatedClassHeroProps {
   assets: RuntimeHeroAssets;
   animationAssetsOverride?: RuntimeHeroAssets;
@@ -489,6 +527,7 @@ export const EnemyCharacter = ({
   const flashRef = useRef<number>(0);
   const wasHitRef = useRef(false);
   const flashMaterialsRef = useRef<THREE.Material[]>([]);
+  const flashUniformsRef = useRef<Array<{ value: number }>>([]);
   const runtimeEnemyAssets = hasRuntimeFbxAssets(assets) ? assets : null;
   const holdGroundForAction = animationActionOverride === 'item';
   const shouldLungeAttack = isAttacking && !holdGroundForAction;
@@ -498,10 +537,12 @@ export const EnemyCharacter = ({
   const refreshFlashMaterials = React.useCallback(() => {
     if (!group.current) {
       flashMaterialsRef.current = [];
+      flashUniformsRef.current = [];
       return;
     }
 
     const materials: THREE.Material[] = [];
+    const uniforms: Array<{ value: number }> = [];
     group.current.traverse((child: THREE.Object3D) => {
       const mesh = child as THREE.Mesh;
       if (!mesh.isMesh || !mesh.material) {
@@ -511,17 +552,23 @@ export const EnemyCharacter = ({
       if (Array.isArray(mesh.material)) {
         mesh.material.forEach((material) => {
           materials.push(material);
+          const u = injectFlashUniform(material);
+          if (u) uniforms.push(u);
         });
       } else {
         materials.push(mesh.material);
+        const u = injectFlashUniform(mesh.material);
+        if (u) uniforms.push(u);
       }
     });
 
     flashMaterialsRef.current = materials;
+    flashUniformsRef.current = uniforms;
   }, []);
 
   useEffect(() => {
     flashMaterialsRef.current = [];
+    flashUniformsRef.current = [];
     refreshFlashMaterials();
   }, [refreshFlashMaterials, runtimeEnemyAssets]);
 
@@ -582,9 +629,16 @@ export const EnemyCharacter = ({
           refreshFlashMaterials();
         }
 
-        flashMaterialsRef.current.forEach((material) => {
-          applyHitFlashToMaterial(material, flashRef.current > 0.03, flashRef.current * 0.65, '#ffffff');
-        });
+        if (flashUniformsRef.current.length > 0) {
+          const f = flashRef.current * 0.65;
+          flashUniformsRef.current.forEach((u) => { u.value = f; });
+        } else {
+          flashMaterialsRef.current.forEach((material) => {
+            applyHitFlashToMaterial(material, flashRef.current > 0.03, flashRef.current * 0.65, '#ffffff');
+          });
+        }
+      } else if (flashUniformsRef.current.length > 0) {
+        flashUniformsRef.current.forEach((u) => { if (u.value > 0) u.value = 0; });
       }
 
       const breathe = disableAmbientMotion ? 1 : 1 + Math.sin(t * 2.8) * 0.02;
@@ -775,19 +829,26 @@ export const GltfEnemyCharacter = ({
   const flashRef = useRef(0);
   const wasHitRef = useRef(false);
   const flashMaterialsRef = useRef<THREE.Material[]>([]);
+  const flashUniformsRef = useRef<Array<{ value: number }>>([]);
   // Track last applied impulse level to avoid re-parsing the hex color string every frame.
   const lastAppliedImpulseLevelRef = useRef<number>(-1);
 
   const refreshFlashMaterials = React.useCallback(() => {
-    if (!group.current) { flashMaterialsRef.current = []; return; }
+    if (!group.current) { flashMaterialsRef.current = []; flashUniformsRef.current = []; return; }
     const mats: THREE.Material[] = [];
+    const unis: Array<{ value: number }> = [];
     group.current.traverse((child) => {
       const mesh = child as THREE.Mesh;
       if (!mesh.isMesh || !mesh.material) return;
-      if (Array.isArray(mesh.material)) mats.push(...mesh.material);
-      else mats.push(mesh.material);
+      const arr = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+      arr.forEach((m) => {
+        mats.push(m);
+        const u = injectFlashUniform(m);
+        if (u) unis.push(u);
+      });
     });
     flashMaterialsRef.current = mats;
+    flashUniformsRef.current = unis;
   }, []);
 
   const isFlying = bodyType === 'Flying';
@@ -851,9 +912,16 @@ export const GltfEnemyCharacter = ({
 
     if (flashRef.current > 0.003) {
       if (flashMaterialsRef.current.length === 0) refreshFlashMaterials();
-      flashMaterialsRef.current.forEach((m) =>
-        applyHitFlashToMaterial(m, flashRef.current > 0.03, flashRef.current * 0.65),
-      );
+      if (flashUniformsRef.current.length > 0) {
+        const f = flashRef.current * 0.65;
+        flashUniformsRef.current.forEach((u) => { u.value = f; });
+      } else {
+        flashMaterialsRef.current.forEach((m) =>
+          applyHitFlashToMaterial(m, flashRef.current > 0.03, flashRef.current * 0.65),
+        );
+      }
+    } else if (flashUniformsRef.current.length > 0) {
+      flashUniformsRef.current.forEach((u) => { if (u.value > 0) u.value = 0; });
     }
 
     group.current.scale.setScalar(0.6 * (1 + Math.sin(t * 2.4) * 0.012));

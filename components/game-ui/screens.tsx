@@ -1,4 +1,6 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
+import { useGSAP } from '@gsap/react';
+import gsap from 'gsap';
 import { AlertTriangle, Crown, Home, LogOut, Play, Sparkles, Sword, Zap } from 'lucide-react';
 import { ALL_ITEMS } from '../../constants';
 import type { BossVictoryContext, CardRewardOffer, DungeonResult, Item, Player, ProgressionCard } from '../../types';
@@ -43,49 +45,40 @@ export const CardChoiceScreen: React.FC<{
   onSelect: (card: ProgressionCard) => void;
 }> = ({ offer, cards, onSelect }) => {
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [isExiting, setIsExiting] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const isPickingRef = useRef(false);
 
-  const handlePick = (card: ProgressionCard) => {
-    if (selectedId) return;
+  const { contextSafe } = useGSAP(() => {
+    // Entry animations — run once on mount
+    gsap.fromTo(containerRef.current, { opacity: 0 }, { opacity: 1, duration: 0.5, ease: 'power1.out' });
+    gsap.fromTo(panelRef.current, { opacity: 0, scale: 0.92, y: 30 }, { opacity: 1, scale: 1, y: 0, duration: 0.5, ease: 'power2.out' });
+  }, { scope: containerRef });
+
+  const handlePick = contextSafe((card: ProgressionCard) => {
+    if (isPickingRef.current) return;
+    isPickingRef.current = true;
     uiSfx.play('card_select_evolution');
     setSelectedId(card.id);
-    setTimeout(() => {
-      setIsExiting(true);
-      setTimeout(() => onSelect(card), 500);
-    }, 900);
-  };
+
+    const selectedEl = containerRef.current?.querySelector<HTMLElement>(`[data-card-id="${card.id}"]`);
+    const otherEls = containerRef.current?.querySelectorAll<HTMLElement>(`[data-card-id]:not([data-card-id="${card.id}"])`);
+    const tl = gsap.timeline({ onComplete: () => onSelect(card) });
+
+    if (selectedEl) {
+      tl.to(selectedEl, { scale: 1.04, boxShadow: '0 0 40px 8px rgba(250,204,21,0.5)', duration: 0.27, ease: 'power2.out' }, 0);
+      tl.to(selectedEl, { scale: 1.02, boxShadow: '0 0 60px 16px rgba(250,204,21,0.3)', duration: 0.3 }, 0.27);
+      tl.to(selectedEl, { scale: 1.0, boxShadow: '0 0 80px 24px rgba(250,204,21,0)', duration: 0.33, ease: 'power1.in' }, 0.57);
+    }
+    if (otherEls && otherEls.length > 0) {
+      tl.to(otherEls, { opacity: 0.3, scale: 0.95, filter: 'grayscale(0.6)', duration: 0.5, ease: 'power1.out' }, 0.1);
+    }
+    tl.to(containerRef.current, { opacity: 0, duration: 0.5, ease: 'power2.in' }, 0.9);
+  });
 
   return (
-    <div className={`absolute inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 pointer-events-auto ${isExiting ? 'animate-[cardScreenFadeOut_0.5s_ease-in_both]' : 'animate-[cardScreenFadeIn_0.5s_ease-out_both]'}`}>
-      <style>{`
-        @keyframes cardScreenFadeIn {
-          0% { opacity: 0; }
-          100% { opacity: 1; }
-        }
-        @keyframes cardScreenFadeOut {
-          0% { opacity: 1; }
-          100% { opacity: 0; }
-        }
-        @keyframes cardScreenSlideUp {
-          0% { opacity: 0; transform: scale(0.92) translateY(30px); }
-          100% { opacity: 1; transform: scale(1) translateY(0); }
-        }
-        @keyframes cardSelected {
-          0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(250,204,21,0); }
-          30% { transform: scale(1.04); box-shadow: 0 0 40px 8px rgba(250,204,21,0.5); }
-          60% { transform: scale(1.02); box-shadow: 0 0 60px 16px rgba(250,204,21,0.3); }
-          100% { transform: scale(1.0); box-shadow: 0 0 80px 24px rgba(250,204,21,0.0); }
-        }
-        @keyframes cardNotSelected {
-          0% { opacity: 1; transform: scale(1); }
-          100% { opacity: 0.3; transform: scale(0.95); filter: grayscale(0.6); }
-        }
-        @keyframes selectedGlow {
-          0%, 100% { opacity: 0.4; }
-          50% { opacity: 0.8; }
-        }
-      `}</style>
-      <div className="w-full max-w-6xl max-h-[95vh] sm:max-h-none overflow-y-auto rounded-2xl sm:rounded-[28px] border border-[#cfab91] bg-[#f7ecdd] shadow-[0_30px_120px_rgba(107,49,65,0.18)] animate-[cardScreenSlideUp_0.5s_ease-out_both]">
+    <div ref={containerRef} className="absolute inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 pointer-events-auto">
+      <div ref={panelRef} className="w-full max-w-6xl max-h-[95vh] sm:max-h-none overflow-y-auto rounded-2xl sm:rounded-[28px] border border-[#cfab91] bg-[#f7ecdd] shadow-[0_30px_120px_rgba(107,49,65,0.18)]">
         <div className="border-b border-[#dcc0aa] px-4 py-3 sm:px-8 sm:py-6 text-center">
           <div className="inline-flex items-center gap-2 rounded-full border border-[#cfab91] bg-[#f4e5d4] px-3 py-1 sm:px-4 sm:py-1.5 text-[10px] sm:text-xs font-black uppercase tracking-[0.3em] text-[#8d5e29]">
             <Sparkles size={12} /> {selectedId ? 'Carta Selecionada!' : 'Escolha uma carta'}
@@ -104,6 +97,7 @@ export const CardChoiceScreen: React.FC<{
             return (
               <button
                 key={card.id}
+                data-card-id={card.id}
                 onClick={() => handlePick(card)}
                 disabled={!!selectedId}
                 className={`group text-left rounded-[16px] sm:rounded-[20px] border p-3.5 sm:p-6 shadow-sm transition-all duration-200 relative overflow-hidden
@@ -111,14 +105,12 @@ export const CardChoiceScreen: React.FC<{
                   ${!selectedId ? 'hover:-translate-y-1 hover:shadow-xl hover:border-[#c59d82] cursor-pointer' : ''}
                   ${isOther ? 'cursor-default' : ''}
                 `}
-                style={isThis ? { animation: 'cardSelected 0.9s ease-out both' } : isOther ? { animation: 'cardNotSelected 0.5s 0.1s ease-out both' } : undefined}
               >
                 {isThis ? (
                   <div
                     className="absolute inset-0 rounded-[16px] sm:rounded-[20px] pointer-events-none"
                     style={{
                       background: 'radial-gradient(circle at center, rgba(250,204,21,0.25) 0%, transparent 70%)',
-                      animation: 'selectedGlow 1s ease-in-out infinite',
                     }}
                   />
                 ) : null}

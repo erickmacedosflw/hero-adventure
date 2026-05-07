@@ -356,8 +356,8 @@ export const HeroProfileDetailModal: React.FC<{
                     <span style={{ fontSize: 11, fontWeight: 900, letterSpacing: '0.14em', color: res.color }}>{res.label}</span>
                     <span style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.55)' }}>{res.value}<span style={{ fontSize: 10, opacity: 0.65 }}>/{res.max}</span></span>
                   </div>
-                  <div style={{ height: 6, borderRadius: 999, background: 'rgba(255,255,255,0.09)', overflow: 'hidden' }}>
-                    <div style={{ width: `${pct}%`, height: '100%', borderRadius: 999, background: res.gradient, transition: 'width 0.5s ease' }} />
+                  <div style={{ height: 6, borderRadius: 999, background: 'rgba(255,255,255,0.09)', overflow: 'hidden', isolation: 'isolate' }}>
+                    <div style={{ width: '100%', height: '100%', background: res.gradient, transform: `scaleX(${pct / 100})`, transformOrigin: 'left center', transition: 'transform 0.5s ease' }} />
                   </div>
                 </div>
               );
@@ -1009,8 +1009,8 @@ export const HeroInspectCanvas = ({
                   <span style={{ fontSize: '9px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.14em', color: bar.color, opacity: 0.85 }}>{bar.label}</span>
                   <span style={{ fontSize: '12px', fontWeight: 900, color: '#fff', letterSpacing: '0.03em' }}>{bar.cur}<span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.45)', fontWeight: 700 }}>/ {bar.max}</span></span>
                 </div>
-                <div style={{ height: '7px', borderRadius: '99px', background: 'rgba(255,255,255,0.08)', overflow: 'hidden' }}>
-                  <div style={{ height: '100%', width: `${bar.pct}%`, background: bar.grad, borderRadius: '99px', transition: 'width 0.5s' }} />
+                <div style={{ height: '7px', borderRadius: '99px', background: 'rgba(255,255,255,0.08)', overflow: 'hidden', isolation: 'isolate' }}>
+                  <div style={{ height: '100%', width: '100%', background: bar.grad, transform: `scaleX(${bar.pct / 100})`, transformOrigin: 'left center', transition: 'transform 0.5s ease' }} />
                 </div>
               </div>
             ))}
