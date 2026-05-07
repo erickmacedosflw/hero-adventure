@@ -1,12 +1,15 @@
 import React, { useEffect, useMemo } from 'react';
-import { useFBX } from '@react-three/drei';
+import { useLoader } from '@react-three/fiber';
 import * as THREE from 'three';
+import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import { PlayerClassId } from '../../types';
 import { getPlayerClassById } from '../../game/data/classes';
 import {
   RuntimeHeroAssets,
   hasRuntimeFbxAssets,
 } from './animation';
+import { configureFBXLoader } from './gltfLoader';
+import { resolveRuntimeClassAssets } from './developerUtils';
 import {
   analyzeKitbashCompatibility,
   createKitbashAlignmentDiagnostics,
@@ -21,37 +24,6 @@ import type {
   DeveloperKitbashTransform,
 } from './types';
 
-export const resolveRuntimeClassAssets = (classId: PlayerClassId): RuntimeHeroAssets | null => {
-  const assets = getPlayerClassById(classId).assets;
-  return hasRuntimeFbxAssets(assets) ? assets : null;
-};
-
-export const upsertRuntimeDiagnostic = (
-  current: Record<string, DeveloperAnimationRuntimeDiagnostic>,
-  diagnostic: DeveloperAnimationRuntimeDiagnostic,
-) => {
-  const previous = current[diagnostic.previewId];
-
-  if (
-    previous
-    && previous.previewId === diagnostic.previewId
-    && previous.label === diagnostic.label
-    && previous.animationAction === diagnostic.animationAction
-    && previous.targetClipName === diagnostic.targetClipName
-    && previous.automaticClipName === diagnostic.automaticClipName
-    && previous.boundClipCount === diagnostic.boundClipCount
-    && previous.actionStarted === diagnostic.actionStarted
-    && previous.status === diagnostic.status
-  ) {
-    return current;
-  }
-
-  return {
-    ...current,
-    [diagnostic.previewId]: diagnostic,
-  };
-};
-
 export const DeveloperKitbashProbe = ({
   baseAssets,
   donorAssets,
@@ -63,10 +35,10 @@ export const DeveloperKitbashProbe = ({
   slotAssignments?: Partial<Record<DeveloperKitbashSlot, DeveloperKitbashPartSource>>;
   onAnalysisChange?: (analysis: DeveloperKitbashAnalysis | null) => void;
 }) => {
-  const baseModel = useFBX(baseAssets.modelUrl);
-  const donorModel = useFBX(donorAssets.modelUrl);
+  const baseModel = useLoader(FBXLoader, baseAssets.modelUrl, configureFBXLoader) as THREE.Group;
+  const donorModel = useLoader(FBXLoader, donorAssets.modelUrl, configureFBXLoader) as THREE.Group;
   const knightReferenceAssets = getPlayerClassById('knight').assets;
-  const referenceModel = useFBX(hasRuntimeFbxAssets(knightReferenceAssets) ? knightReferenceAssets.modelUrl : baseAssets.modelUrl);
+  const referenceModel = useLoader(FBXLoader, hasRuntimeFbxAssets(knightReferenceAssets) ? knightReferenceAssets.modelUrl : baseAssets.modelUrl, configureFBXLoader) as THREE.Group;
 
   const analysis = useMemo(
     () => analyzeKitbashCompatibility({
@@ -95,17 +67,17 @@ export const DeveloperClassBuilderProbe = ({
   partSelections: Record<DeveloperKitbashMainSlot, PlayerClassId>;
   onTransformsChange?: (transforms: Partial<Record<DeveloperKitbashMainSlot, DeveloperKitbashTransform>>) => void;
 }) => {
-  const baseModel = useFBX(baseAssets.modelUrl);
+  const baseModel = useLoader(FBXLoader, baseAssets.modelUrl, configureFBXLoader) as THREE.Group;
   const knightReferenceAssets = getPlayerClassById('knight').assets;
-  const referenceModel = useFBX(hasRuntimeFbxAssets(knightReferenceAssets) ? knightReferenceAssets.modelUrl : baseAssets.modelUrl);
+  const referenceModel = useLoader(FBXLoader, hasRuntimeFbxAssets(knightReferenceAssets) ? knightReferenceAssets.modelUrl : baseAssets.modelUrl, configureFBXLoader) as THREE.Group;
   const headAssets = resolveRuntimeClassAssets(partSelections.head) ?? baseAssets;
   const torsoAssets = resolveRuntimeClassAssets(partSelections.torso) ?? baseAssets;
   const armsAssets = resolveRuntimeClassAssets(partSelections.arms) ?? baseAssets;
   const legsAssets = resolveRuntimeClassAssets(partSelections.legs) ?? baseAssets;
-  const headModel = useFBX(headAssets.modelUrl);
-  const torsoModel = useFBX(torsoAssets.modelUrl);
-  const armsModel = useFBX(armsAssets.modelUrl);
-  const legsModel = useFBX(legsAssets.modelUrl);
+  const headModel = useLoader(FBXLoader, headAssets.modelUrl, configureFBXLoader) as THREE.Group;
+  const torsoModel = useLoader(FBXLoader, torsoAssets.modelUrl, configureFBXLoader) as THREE.Group;
+  const armsModel = useLoader(FBXLoader, armsAssets.modelUrl, configureFBXLoader) as THREE.Group;
+  const legsModel = useLoader(FBXLoader, legsAssets.modelUrl, configureFBXLoader) as THREE.Group;
 
   const transforms = useMemo(() => {
     const donorModels: Record<DeveloperKitbashMainSlot, THREE.Object3D> = {

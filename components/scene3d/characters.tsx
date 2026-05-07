@@ -1,5 +1,5 @@
 import React, { Suspense, useEffect, useMemo, useRef } from 'react';
-import { ContactShadows, Html, useAnimations, useFBX, useTexture } from '@react-three/drei';
+import { ContactShadows, Html, useAnimations, useTexture } from '@react-three/drei';
 import { useFrame, useLoader } from '@react-three/fiber';
 import * as THREE from 'three';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
@@ -9,7 +9,7 @@ import { GltfMonsterBodyType, PlayerAnimationAction, PlayerClassAssets } from '.
 import { GLTF_BODY_ANIMATION_MAP } from '../../game/data/gltfMonsters';
 import { getPlayerClassById } from '../../game/data/classes';
 import { getEquippedWeaponGrip, getRegisteredWeapon3DByItemId } from '../../game/data/weaponCatalog';
-import { configureGltfLoader } from './gltfLoader';
+import { configureGltfLoader, configureFBXLoader } from './gltfLoader';
 import {
   RuntimeHeroAssets,
   createRigComparisonReport,
@@ -127,15 +127,17 @@ export const AnimatedClassHero = ({
   hiddenPartSlots,
   calibrationOverride,
 }: AnimatedClassHeroProps) => {
-  const sourceModel = useFBX(assets.modelUrl);
+  const sourceModel = useLoader(FBXLoader, assets.modelUrl, configureFBXLoader) as THREE.Group;
   const texture = useTexture(assets.textureUrl);
   const knightReferenceAssets = getPlayerClassById('knight').assets;
   const shouldLoadKnightReference = debugTargetId === 'barbarian';
-  const knightReferenceModel = useFBX(
+  const knightReferenceModel = useLoader(
+    FBXLoader,
     shouldLoadKnightReference && hasRuntimeFbxAssets(knightReferenceAssets)
       ? knightReferenceAssets.modelUrl
       : assets.modelUrl,
-  );
+    configureFBXLoader,
+  ) as THREE.Group;
   const animationAssets = animationAssetsOverride ?? assets;
   const animationMap = animationAssets.animationMap;
   // Use a fixed action for primary bundle selection so it never changes mid-battle.
@@ -146,12 +148,12 @@ export const AnimatedClassHero = ({
     () => selectPrimaryAnimationBundle(animationAssets, 'battle-idle', preferredAnimationBundle),
     [animationAssets, preferredAnimationBundle],
   );
-  const animationSource = useLoader(FBXLoader, primaryAnimationBundle.url) as THREE.Group;
+  const animationSource = useLoader(FBXLoader, primaryAnimationBundle.url, configureFBXLoader) as THREE.Group;
   const secondaryBundles = useMemo(
     () => selectSecondaryAnimationBundles(animationAssets, primaryAnimationBundle.fileName, loadAllAnimationBundles, loadSecondaryAnimationBundles),
     [animationAssets, loadAllAnimationBundles, loadSecondaryAnimationBundles, primaryAnimationBundle.fileName],
   );
-  const secondaryAnimationSources = useLoader(FBXLoader, secondaryBundles.map((bundle) => bundle.url)) as THREE.Group[];
+  const secondaryAnimationSources = useLoader(FBXLoader, secondaryBundles.map((bundle) => bundle.url), configureFBXLoader) as THREE.Group[];
   const evadeDirectionRef = useRef<'left' | 'right'>('left');
   const previousAnimationActionRef = useRef<PlayerAnimationAction>(animationAction);
   const lastDebugKeyRef = useRef('');

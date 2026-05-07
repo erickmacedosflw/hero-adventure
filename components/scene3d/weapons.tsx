@@ -1,7 +1,9 @@
 import React, { useCallback, useMemo, useRef } from 'react';
-import { TransformControls, useFBX, useTexture } from '@react-three/drei';
-import { useFrame } from '@react-three/fiber';
+import { TransformControls, useTexture } from '@react-three/drei';
+import { useFrame, useLoader } from '@react-three/fiber';
 import * as THREE from 'three';
+import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
+import { configureFBXLoader } from './gltfLoader';
 import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import {
   RIGHT_HAND_BONE_CANDIDATES,
@@ -24,7 +26,7 @@ const WeaponAttachmentPreview = ({
   definition: RegisteredWeapon3DDefinition;
   transform: DeveloperWeaponTransformOverride;
 }) => {
-  const model = useFBX(definition.modelUrl);
+  const model = useLoader(FBXLoader, definition.modelUrl, configureFBXLoader) as THREE.Group;
   const texture = useTexture(definition.textureUrl);
 
   const preparedWeapon = useMemo(() => {

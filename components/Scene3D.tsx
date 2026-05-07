@@ -2,7 +2,7 @@
 import { createPortal } from 'react-dom';
 import { Sword, Shield, Zap, Sparkles, FlaskConical, Crosshair, Shirt, Footprints, Layers, RefreshCw, Swords, Wind, Clover, Heart, Info, X, LogOut, User } from 'lucide-react';
 import { Canvas, useFrame, useLoader, useThree } from '@react-three/fiber';
-import { ContactShadows, Html, useAnimations, useFBX, useTexture } from '@react-three/drei';
+import { ContactShadows, Html, useAnimations, useTexture } from '@react-three/drei';
 import { Bloom, DepthOfField, EffectComposer, Vignette } from '@react-three/postprocessing';
 import * as THREE from 'three';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
@@ -35,7 +35,7 @@ import {
   getRenderQualityProfile,
   type RenderQualityPreset,
 } from './scene3d/environment';
-import { configureGltfLoader } from './scene3d/gltfLoader';
+import { configureGltfLoader, configureFBXLoader } from './scene3d/gltfLoader';
 import { ScenarioParticleField } from './scene3d/developer-scenes';
 import {
   AnimatedClassHero,
@@ -85,6 +85,7 @@ import { PortalInspectCanvas } from './scene3d/PortalInspectCanvas';
 import { useBattleVfxStore } from '../game/stores/battleVfxStore';
 import { useBattleGaugeStore } from '../game/stores/battleGaugeStore';
 import { useBattleStatsStore } from '../game/stores/battleStatsStore';
+import { useGameTimeStore } from '../game/stores/gameTimeStore';
 export { ItemPreviewCanvas } from './items/ItemPreviewCanvas';
 export type {
   DeveloperAnimationRuntimeDiagnostic,
@@ -1025,7 +1026,7 @@ const CombatCinematicFX = ({
   const enemyBowProjectileStateRef = useRef<BowProjectileState | null>(null);
   const processedPlayerBowShotTriggerRef = useRef<number>(-1);
   const processedEnemyBowShotTriggerRef = useRef<number>(-1);
-  const bowProjectileModelSource = useFBX(BOW_PROJECTILE_MODEL_URL);
+  const bowProjectileModelSource = useLoader(FBXLoader, BOW_PROJECTILE_MODEL_URL, configureFBXLoader) as THREE.Group;
   const bowProjectileTexture = useTexture(BOW_PROJECTILE_TEXTURE_URL);
   const createBowProjectileMesh = useCallback(() => {
     const projectileClone = bowProjectileModelSource.clone(true);
@@ -3047,11 +3048,9 @@ const BackfaceHullOverlay = ({
     rebuildHulls();
     const refreshDelays = [0, 160, 500, 1100, 2000];
     const timerIds = refreshDelays.map((delay) => window.setTimeout(rebuildHulls, delay));
-    const intervalId = window.setInterval(rebuildHulls, 900);
 
     return () => {
       timerIds.forEach((timerId) => window.clearTimeout(timerId));
-      window.clearInterval(intervalId);
       cleanupHulls();
       scene.remove(hullRootRef.current);
       material.dispose();
@@ -3181,7 +3180,7 @@ const MenuNavigationPortal = ({
   reducedMotion?: boolean;
   forceHighlight?: boolean;
 }) => {
-  const sourcePortal = useFBX(MENU_PORTAL_FBX_URL);
+  const sourcePortal = useLoader(FBXLoader, MENU_PORTAL_FBX_URL, configureFBXLoader) as THREE.Group;
   const [albedoTexture, emissiveTexture, metallicTexture] = useTexture([
     MENU_PORTAL_ALBEDO_URL,
     MENU_PORTAL_EMISSIVE_URL,
@@ -3372,6 +3371,231 @@ const MenuNavigationPortal = ({
       </Html>
     </group>
   );
+};
+
+// Dev-only stats panel using stats.js (FPS / MS / MB). Renders inside the R3F Canvas.
+// Only mounted when import.meta.env.DEV is true — tree-shaken away in production.
+const StatsMonitor = () => {
+  useEffect(() => {
+    let rafId: number;
+    let lastTime = performance.now();
+    let frames = 0;
+    const history: { fps: number; ms: string; mb: string; t: string }[] = [];
+    const MAX_HISTORY = 30;
+
+    const panel = document.createElement('div');
+    panel.style.cssText = [
+      'position:fixed', 'top:0', 'left:0', 'z-index:9999',
+      'background:rgba(0,0,0,0.80)', 'color:#0ff', 'font:bold 11px monospace',
+      'padding:4px 8px', 'pointer-events:auto', 'min-width:110px', 'line-height:1.6',
+      'user-select:none',
+    ].join(';');
+    document.body.appendChild(panel);
+
+    const display = document.createElement('div');
+    display.style.pointerEvents = 'none';
+    panel.appendChild(display);
+
+    const btn = document.createElement('button');
+    btn.textContent = '📋 Coletar 30';
+    btn.style.cssText = [
+      'display:block', 'margin-top:4px', 'width:100%',
+      'background:#0a0a0a', 'color:#0ff', 'border:1px solid #0ff',
+      'font:bold 10px monospace', 'cursor:pointer', 'padding:2px 4px',
+      'pointer-events:auto',
+    ].join(';');
+    btn.title = 'Copia as últimas 30 amostras de FPS/MS para o clipboard e loga no console';
+    panel.appendChild(btn);
+
+    // Profile button — triggers Chrome DevTools CPU profile for 5 seconds
+    const profileBtn = document.createElement('button');
+    profileBtn.textContent = '🔬 LongTask 10s';
+    profileBtn.style.cssText = btn.style.cssText;
+    profileBtn.style.marginTop = '2px';
+    profileBtn.title = 'Observa tarefas longas (>50ms) por 10s e loga no console';
+    panel.appendChild(profileBtn);
+
+    // Histogram: <16ms / 16-33ms / 33-50ms / >50ms
+    const histDiv = document.createElement('div');
+    histDiv.style.cssText = 'margin-top:4px;font-size:9px;color:#aaa;line-height:1.5;pointer-events:none';
+    panel.appendChild(histDiv);
+
+    let hist = { fast: 0, ok: 0, slow: 0, bad: 0 };
+
+    profileBtn.addEventListener('click', () => {
+      if (profileBtn.textContent?.startsWith('⏳')) return;
+      profileBtn.textContent = '⏳ Observando...';
+
+      const tasks: string[] = [];
+
+      // PerformanceLongTasks API — detecta qualquer task JS >50ms automaticamente
+      let observer: PerformanceObserver | null = null;
+      try {
+        observer = new PerformanceObserver((list) => {
+          for (const entry of list.getEntries()) {
+            const dur = entry.duration.toFixed(1);
+            const attr = (entry as any).attribution?.[0];
+            const src = attr?.name ?? attr?.containerName ?? 'unknown';
+            const msg = `⚠ LongTask ${dur}ms — source: ${src}`;
+            tasks.push(msg);
+            console.warn('%c' + msg, 'color:#f90;font-family:monospace');
+          }
+        });
+        observer.observe({ entryTypes: ['longtask'] });
+      } catch {
+        console.warn('[StatsMonitor] PerformanceLongTasks não suportado neste browser.');
+      }
+
+      // Também mede frame-a-frame com performance.mark para ver spikes
+      let markRaf = 0;
+      let prevT = performance.now();
+      const markLoop = () => {
+        const now = performance.now();
+        const ft = now - prevT;
+        if (ft > 50) tasks.push(`🔴 Frame spike ${ft.toFixed(1)}ms @ ${new Date().toTimeString().slice(0,8)}`);
+        prevT = now;
+        markRaf = requestAnimationFrame(markLoop);
+      };
+      markRaf = requestAnimationFrame(markLoop);
+
+      setTimeout(() => {
+        observer?.disconnect();
+        cancelAnimationFrame(markRaf);
+        profileBtn.textContent = tasks.length > 0 ? `⚠ ${tasks.length} tasks` : '✅ Sem spikes';
+        setTimeout(() => { profileBtn.textContent = '🔬 LongTask 10s'; }, 4000);
+
+        const header = `=== LongTask Report (10s) — ${tasks.length} evento(s) ===`;
+        const body = tasks.length > 0 ? tasks.join('\n') : 'Nenhuma task longa detectada.';
+        const full = header + '\n' + body;
+        console.log('%c' + full, 'color:#0ff;font-family:monospace');
+
+        // Copia para clipboard
+        const ta = document.createElement('textarea');
+        ta.value = full;
+        ta.style.cssText = 'position:fixed;opacity:0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }, 10000);
+    });
+
+    btn.addEventListener('click', () => {
+      if (history.length === 0) { btn.textContent = '⚠ sem dados'; return; }
+      const rows = history.slice(-MAX_HISTORY);
+      const avgFps = Math.round(rows.reduce((s, r) => s + r.fps, 0) / rows.length);
+      const avgMs  = (rows.reduce((s, r) => s + parseFloat(r.ms), 0) / rows.length).toFixed(1);
+      const minFps = Math.min(...rows.map(r => r.fps));
+      const maxMs  = Math.max(...rows.map(r => parseFloat(r.ms))).toFixed(1);
+      const header = `=== StatsMonitor — últimas ${rows.length} amostras ===\nMédia FPS: ${avgFps} | Mínimo FPS: ${minFps} | Média MS: ${avgMs} | Pico MS: ${maxMs}\n`;
+      const lines  = rows.map((r, i) => `#${String(i + 1).padStart(2, '0')}  FPS:${String(r.fps).padStart(4)}  MS:${r.ms.padStart(6)}  MB:${r.mb.padStart(6)}  @${r.t}`);
+      const text   = header + lines.join('\n');
+      console.log('%c' + text, 'color:#0ff;font-family:monospace;font-size:11px');
+      // Fallback para HTTP (navigator.clipboard só funciona em HTTPS)
+      const tryExecCopy = (str: string) => {
+        const ta = document.createElement('textarea');
+        ta.value = str;
+        ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0;pointer-events:none';
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        const ok = document.execCommand('copy');
+        document.body.removeChild(ta);
+        return ok;
+      };
+
+      const done = (ok: boolean) => {
+        btn.textContent = ok ? '✅ Copiado!' : '✅ Ver console';
+        setTimeout(() => { btn.textContent = '📋 Coletar 30'; }, 2500);
+      };
+
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(text).then(() => done(true)).catch(() => done(tryExecCopy(text)));
+      } else {
+        done(tryExecCopy(text));
+      }
+    });
+
+    const tick = () => {
+      rafId = requestAnimationFrame(tick);
+      frames++;
+      const now = performance.now();
+      const elapsed = now - lastTime;
+
+      // Per-frame histogram bucket (elapsed since last RAF = approx frame time)
+      const frameMs = elapsed / Math.max(1, frames); // not exact per-frame but good enough between updates
+      if (elapsed < 500) { // only count mid-interval
+        const ft = elapsed / frames;
+        if (ft < 16) hist.fast++; else if (ft < 33) hist.ok++; else if (ft < 50) hist.slow++; else hist.bad++;
+      }
+
+      if (elapsed >= 500) {
+        const fps = Math.round((frames * 1000) / elapsed);
+        const ms = (elapsed / frames).toFixed(1);
+        const mb = (performance as any).memory
+          ? ((performance as any).memory.usedJSHeapSize / 1048576).toFixed(1)
+          : '—';
+        const t = new Date().toTimeString().slice(0, 8);
+        history.push({ fps, ms, mb, t });
+        if (history.length > MAX_HISTORY * 2) history.splice(0, MAX_HISTORY);
+        const total = hist.fast + hist.ok + hist.slow + hist.bad;
+        const fpsColor = fps >= 50 ? '#0f0' : fps >= 30 ? '#ff0' : '#f44';
+        display.innerHTML = `<span style="color:${fpsColor}">FPS: ${fps}</span><br>MS: ${ms}<br>MB: ${mb}`;
+        if (total > 0) {
+          const pct = (n: number) => Math.round((n / total) * 100);
+          histDiv.innerHTML =
+            `<span style="color:#0f0">▪${pct(hist.fast)}%</span> ` +
+            `<span style="color:#ff0">▪${pct(hist.ok)}%</span> ` +
+            `<span style="color:#f90">▪${pct(hist.slow)}%</span> ` +
+            `<span style="color:#f44">▪${pct(hist.bad)}%</span><br>` +
+            `<16 / <33 / <50 / 50+ms`;
+        }
+        hist = { fast: 0, ok: 0, slow: 0, bad: 0 };
+        frames = 0;
+        lastTime = now;
+      }
+    };
+    rafId = requestAnimationFrame(tick);
+
+    return () => {
+      cancelAnimationFrame(rafId);
+      if (panel.parentNode) panel.parentNode.removeChild(panel);
+    };
+  }, []);
+  return null;
+};
+
+/** Throttles the global shadow map so the expensive PCFSoft shadow pass does
+ *  not run on every render frame. At quality mode (1024×1024 PCFSoft) the
+ *  shadow pass costs ~40-60 ms/frame — roughly half the frame budget. Since
+ *  this is a turn-based game, 2 fps shadows are visually indistinguishable.
+ *  Per-character blob shadows from ContactShadows are NOT affected (they use
+ *  their own WebGLRenderTarget and update independently).
+ */
+const ShadowAutoUpdateThrottle: React.FC<{ fps?: number }> = ({ fps = 2 }) => {
+  const { gl } = useThree();
+  const accRef = useRef(0);
+  const minInterval = fps > 0 ? 1 / fps : Infinity;
+
+  useEffect(() => {
+    gl.shadowMap.autoUpdate = false;
+    // Force one immediate shadow render so the scene doesn't start shadowed wrong.
+    gl.shadowMap.needsUpdate = true;
+    return () => {
+      gl.shadowMap.autoUpdate = true;
+      gl.shadowMap.needsUpdate = true;
+    };
+  }, [gl]);
+
+  useFrame((_, delta) => {
+    accRef.current += delta;
+    if (accRef.current >= minInterval) {
+      accRef.current = 0;
+      gl.shadowMap.needsUpdate = true;
+    }
+  });
+
+  return null;
 };
 
 const FpsCap = ({ fps }: { fps: number }) => {
@@ -3755,7 +3979,9 @@ export const GameScene: React.FC<SceneProps> = React.memo((props) => {
   const outlineHeroRef = useRef<THREE.Group>(null);
   const outlineEnemyRef = useRef<THREE.Group>(null);
 
-  const [gameTime, setGameTime] = useState("12:00");
+  // gameTime lives in gameTimeStore — no local state to avoid GameScene re-renders 2×/sec
+  const gameTime = useGameTimeStore((s) => s.gameTime);
+  const setGameTimeInStore = useGameTimeStore((s) => s.setGameTime);
   const [hoveredEnemyId, setHoveredEnemyId] = useState<string | null>(null);
   const [heroItemDetail, setHeroItemDetail] = useState<any | null>(null);
   // Reset cursor and hover state when selection mode ends
@@ -3766,9 +3992,10 @@ export const GameScene: React.FC<SceneProps> = React.memo((props) => {
     }
   }, [props.pendingTargetAction]);
   const handleTimeUpdate = useCallback((time: string) => {
-    setGameTime(time);
+    setGameTimeInStore(time);
+    // onGameTimeUpdate prop kept for external consumers but no longer drives App state
     props.onGameTimeUpdate?.(time);
-  }, [props.onGameTimeUpdate]);
+  }, [setGameTimeInStore, props.onGameTimeUpdate]);
   const renderQualityPreset = props.renderQualityPreset ?? getDefaultRenderQualityPreset();
   const quality = useMemo(() => getRenderQualityProfile(renderQualityPreset), [renderQualityPreset]);
   const isMobileDevice = useMemo(() => getRenderPlatform() === 'mobile', []);
@@ -3830,11 +4057,17 @@ export const GameScene: React.FC<SceneProps> = React.memo((props) => {
   // ContactShadows uses its own WebGLRenderTarget and does NOT depend on this flag.
   const shadowsEnabled = isQualityMode;
   // Electron desktop: capped below 60 to avoid sustained heat/stutter on long sessions.
-  // Mobile quality: 30 FPS to keep iPhone thermals stable under heavier visual passes.
-  // Mobile non-quality: 45 FPS (equilÃƒÂ­brio suavidade/calor).
-  // Desktop web: 30 FPS via demand+invalidate (evita render a 120/144Hz desnecessÃƒÂ¡rio).
+  // Mobile/Electron: use demand+invalidate with FpsCap to save battery/thermals.
+  // Desktop web: use frameloop='always' so the browser vsync handles cadence natively.
+  // demand+invalidate on 120/144Hz monitors creates micro-stutter because
+  // e.g. 45fps / 144Hz = 3.2 frames per render (non-integer) → alternating 3/4 refresh intervals.
   const isElectron = typeof window !== 'undefined' && (window as Window & { electronBridge?: { isElectron: boolean } }).electronBridge?.isElectron === true;
-  const mobileFpsCap = isElectron ? (isQualityMode ? 30 : 45) : (isMobileDevice ? (isQualityMode ? 30 : 45) : 30);
+  // Desktop web: 'always' durante gameplay ativo, 'demand' no menu/loading.
+  // Durante o menu, FBX parsing + remapClipBindings bloqueiam centenas de ms — forçar
+  // render em cada frame nesse período causa spikes de 700ms+. Em demand, o renderer
+  // só roda quando há uma invalidação explícita, libertando a main thread para o loading.
+  const useAlwaysFrameloop = !isMobileDevice && !isElectron && !props.isMenuView;
+  const mobileFpsCap = isElectron ? (isQualityMode ? 30 : 45) : (isMobileDevice ? (isQualityMode ? 30 : 45) : 45);
   const battleContactShadowResolution = useMemo(
     // Mobile non-quality stays capped to avoid texture memory pressure on Safari/iOS.
     () => (isMobileDevice && !isQualityMode) ? Math.min(quality.contactShadowResolution, 48) : (isPerformanceMode ? 48 : quality.contactShadowResolution),
@@ -3929,15 +4162,21 @@ export const GameScene: React.FC<SceneProps> = React.memo((props) => {
         </div>
       )}
 
+      {/* Dev-only FPS monitor — rendered outside Canvas to avoid R3F context issues */}
+      {import.meta.env.DEV && <StatsMonitor />}
+
       <Canvas
         shadows={shadowsEnabled ? { type: shadowMapType } : false}
         dpr={quality.dpr}
         gl={{ antialias: quality.antialias, powerPreference: glPowerPreference }}
         performance={{ min: 0.5 }}
-        frameloop='demand'
+        frameloop={useAlwaysFrameloop ? 'always' : 'demand'}
         style={{ touchAction: 'none' }}
       >
-        {<FpsCap fps={mobileFpsCap} />}
+        {!useAlwaysFrameloop && <FpsCap fps={mobileFpsCap} />}
+        {/* Throttle shadow map to 2 fps — saves ~40-60 ms/frame in quality mode.
+            ContactShadows (per-character) are unaffected and still update normally. */}
+        {shadowsEnabled && <ShadowAutoUpdateThrottle fps={2} />}
         <CameraController
           screenShake={runtimeCameraScreenShake}
           menuFocus={runtimeCameraMenuFocus}
@@ -4591,7 +4830,7 @@ export const GameScene: React.FC<SceneProps> = React.memo((props) => {
             targets={outlineTargets}
             thickness={backfaceOutlineThickness}
             color="#000000"
-            throttleFps={!isQualityMode ? 20 : undefined}
+            throttleFps={isQualityMode ? 30 : 20}
           />
         ) : null}
 

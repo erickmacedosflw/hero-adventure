@@ -4,6 +4,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import type { Item } from '../../types';
 import { getRegisteredWeapon3DByItemId } from '../../game/data/weaponCatalog';
+import { configureFBXLoader } from '../scene3d/gltfLoader';
 
 const ITEM_PREVIEW_MAX_FPS = 30;
 
@@ -764,6 +765,7 @@ const loadRegisteredWeaponPreviewGroup = async (item: Item): Promise<THREE.Group
   }
 
   const loader = new FBXLoader();
+  configureFBXLoader(loader);
   const textureLoader = new THREE.TextureLoader();
   const [sourceModel, texture] = await Promise.all([
     loader.loadAsync(definition.modelUrl),

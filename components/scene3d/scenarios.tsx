@@ -1,7 +1,10 @@
 import React, { useMemo, Suspense } from 'react';
-import { useFBX, useTexture } from '@react-three/drei';
+import { useTexture } from '@react-three/drei';
+import { useLoader } from '@react-three/fiber';
 import * as THREE from 'three';
+import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import type { ScenarioDefinition } from '../../game/data/scenarios';
+import { configureFBXLoader } from './gltfLoader';
 
 const disableRaycast = () => null;
 
@@ -222,18 +225,18 @@ const ForestProps = ({ entries, lowQuality, noShadows = false }: { entries: Prop
   }, [texture]);
 
   // Load all 12 distinct FBX sources (hooks called unconditionally with fixed count)
-  const srcTree1 = useFBX(FOREST_URLS.tree1);
-  const srcTree2 = useFBX(FOREST_URLS.tree2);
-  const srcTree3 = useFBX(FOREST_URLS.tree3);
-  const srcTree4 = useFBX(FOREST_URLS.tree4);
-  const srcBush1 = useFBX(FOREST_URLS.bush1);
-  const srcBush2 = useFBX(FOREST_URLS.bush2);
-  const srcBush3 = useFBX(FOREST_URLS.bush3);
-  const srcRock1 = useFBX(FOREST_URLS.rock1);
-  const srcRock2 = useFBX(FOREST_URLS.rock2);
-  const srcRock3 = useFBX(FOREST_URLS.rock3);
-  const srcGrass1 = useFBX(FOREST_URLS.grass1);
-  const srcGrass2 = useFBX(FOREST_URLS.grass2);
+  const srcTree1 = useLoader(FBXLoader, FOREST_URLS.tree1, configureFBXLoader) as THREE.Group;
+  const srcTree2 = useLoader(FBXLoader, FOREST_URLS.tree2, configureFBXLoader) as THREE.Group;
+  const srcTree3 = useLoader(FBXLoader, FOREST_URLS.tree3, configureFBXLoader) as THREE.Group;
+  const srcTree4 = useLoader(FBXLoader, FOREST_URLS.tree4, configureFBXLoader) as THREE.Group;
+  const srcBush1 = useLoader(FBXLoader, FOREST_URLS.bush1, configureFBXLoader) as THREE.Group;
+  const srcBush2 = useLoader(FBXLoader, FOREST_URLS.bush2, configureFBXLoader) as THREE.Group;
+  const srcBush3 = useLoader(FBXLoader, FOREST_URLS.bush3, configureFBXLoader) as THREE.Group;
+  const srcRock1 = useLoader(FBXLoader, FOREST_URLS.rock1, configureFBXLoader) as THREE.Group;
+  const srcRock2 = useLoader(FBXLoader, FOREST_URLS.rock2, configureFBXLoader) as THREE.Group;
+  const srcRock3 = useLoader(FBXLoader, FOREST_URLS.rock3, configureFBXLoader) as THREE.Group;
+  const srcGrass1 = useLoader(FBXLoader, FOREST_URLS.grass1, configureFBXLoader) as THREE.Group;
+  const srcGrass2 = useLoader(FBXLoader, FOREST_URLS.grass2, configureFBXLoader) as THREE.Group;
 
   const sourceMap: Record<string, THREE.Group> = useMemo(() => ({
     tree1: srcTree1, tree2: srcTree2, tree3: srcTree3, tree4: srcTree4,
@@ -454,23 +457,23 @@ const DungeonProps = () => {
   }, [texture]);
 
   // All 16 hooks called unconditionally and in fixed order
-  const srcFloor       = useFBX(DUNGEON_URLS.floor);
-  const srcWall        = useFBX(DUNGEON_URLS.wall);
-  const srcWallCorner  = useFBX(DUNGEON_URLS.wallCorner);
-  const srcWallBroken  = useFBX(DUNGEON_URLS.wallBroken);
-  const srcWallCracked = useFBX(DUNGEON_URLS.wallCracked);
-  const srcCeiling     = useFBX(DUNGEON_URLS.ceiling);
-  const srcColumn      = useFBX(DUNGEON_URLS.column);
-  const srcTorchWall   = useFBX(DUNGEON_URLS.torchWall);
-  const srcBanner      = useFBX(DUNGEON_URLS.banner);
-  const srcBarrel      = useFBX(DUNGEON_URLS.barrel);
-  const srcBarrelStack = useFBX(DUNGEON_URLS.barrelStack);
-  const srcChest       = useFBX(DUNGEON_URLS.chest);
-  const srcBoxStacked  = useFBX(DUNGEON_URLS.boxStacked);
-  const srcCandle      = useFBX(DUNGEON_URLS.candle);
-  const srcRubble      = useFBX(DUNGEON_URLS.rubble);
-  const srcRubbleHalf  = useFBX(DUNGEON_URLS.rubbleHalf);
-  const srcStairs      = useFBX(DUNGEON_URLS.stairs);
+  const srcFloor       = useLoader(FBXLoader, DUNGEON_URLS.floor,       configureFBXLoader) as THREE.Group;
+  const srcWall        = useLoader(FBXLoader, DUNGEON_URLS.wall,        configureFBXLoader) as THREE.Group;
+  const srcWallCorner  = useLoader(FBXLoader, DUNGEON_URLS.wallCorner,  configureFBXLoader) as THREE.Group;
+  const srcWallBroken  = useLoader(FBXLoader, DUNGEON_URLS.wallBroken,  configureFBXLoader) as THREE.Group;
+  const srcWallCracked = useLoader(FBXLoader, DUNGEON_URLS.wallCracked, configureFBXLoader) as THREE.Group;
+  const srcCeiling     = useLoader(FBXLoader, DUNGEON_URLS.ceiling,     configureFBXLoader) as THREE.Group;
+  const srcColumn      = useLoader(FBXLoader, DUNGEON_URLS.column,      configureFBXLoader) as THREE.Group;
+  const srcTorchWall   = useLoader(FBXLoader, DUNGEON_URLS.torchWall,   configureFBXLoader) as THREE.Group;
+  const srcBanner      = useLoader(FBXLoader, DUNGEON_URLS.banner,      configureFBXLoader) as THREE.Group;
+  const srcBarrel      = useLoader(FBXLoader, DUNGEON_URLS.barrel,      configureFBXLoader) as THREE.Group;
+  const srcBarrelStack = useLoader(FBXLoader, DUNGEON_URLS.barrelStack, configureFBXLoader) as THREE.Group;
+  const srcChest       = useLoader(FBXLoader, DUNGEON_URLS.chest,       configureFBXLoader) as THREE.Group;
+  const srcBoxStacked  = useLoader(FBXLoader, DUNGEON_URLS.boxStacked,  configureFBXLoader) as THREE.Group;
+  const srcCandle      = useLoader(FBXLoader, DUNGEON_URLS.candle,      configureFBXLoader) as THREE.Group;
+  const srcRubble      = useLoader(FBXLoader, DUNGEON_URLS.rubble,      configureFBXLoader) as THREE.Group;
+  const srcRubbleHalf  = useLoader(FBXLoader, DUNGEON_URLS.rubbleHalf,  configureFBXLoader) as THREE.Group;
+  const srcStairs      = useLoader(FBXLoader, DUNGEON_URLS.stairs,      configureFBXLoader) as THREE.Group;
 
   const sourceMap = useMemo<Record<keyof typeof DUNGEON_URLS, THREE.Group>>(() => ({
     floor:       srcFloor,

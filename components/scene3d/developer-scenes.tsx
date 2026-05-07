@@ -1,8 +1,9 @@
 import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame, useLoader, useThree } from '@react-three/fiber';
-import { ContactShadows, Html, OrbitControls, PerspectiveCamera, TransformControls, useAnimations, useFBX, useTexture } from '@react-three/drei';
+import { ContactShadows, Html, OrbitControls, PerspectiveCamera, TransformControls, useAnimations, useTexture } from '@react-three/drei';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { PlayerAnimationAction, PlayerClassAssets, PlayerClassId } from '../../types';
 import { getPlayerClassById } from '../../game/data/classes';
@@ -26,9 +27,9 @@ import {
 import {
   DeveloperClassBuilderProbe,
   DeveloperKitbashProbe,
-  upsertRuntimeDiagnostic,
 } from './developer';
-import { configureGltfLoader } from './gltfLoader';
+import { upsertRuntimeDiagnostic } from './developerUtils';
+import { configureGltfLoader, configureFBXLoader } from './gltfLoader';
 import type {
   DeveloperAnimationRuntimeDiagnostic,
   DeveloperKitbashAnalysis,
@@ -569,7 +570,7 @@ const ScenarioGlbModel = ({ modelUrl }: { modelUrl: string }) => {
 };
 
 const ScenarioFbxModel = ({ modelUrl }: { modelUrl: string }) => {
-  const source = useFBX(modelUrl);
+  const source = useLoader(FBXLoader, modelUrl, configureFBXLoader) as THREE.Group;
 
   const model = useMemo(() => {
     const clone = source.clone(true);
@@ -605,7 +606,7 @@ const ScenarioFbxModel = ({ modelUrl }: { modelUrl: string }) => {
 };
 
 const ScenarioPortalPreviewModel = ({ modelUrl }: { modelUrl: string }) => {
-  const sourcePortal = useFBX(modelUrl);
+  const sourcePortal = useLoader(FBXLoader, modelUrl, configureFBXLoader) as THREE.Group;
   const [albedoTexture, emissiveTexture, metallicTexture] = useTexture([
     MENU_NAVIGATION_PORTAL_ALBEDO_URL,
     MENU_NAVIGATION_PORTAL_EMISSIVE_URL,

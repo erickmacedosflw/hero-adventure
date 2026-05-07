@@ -26,6 +26,7 @@ import gsap from 'gsap';
 import { BattleParticlesOverlay } from './scene3d/BattleParticlesOverlay';
 import { useBattleVfxStore } from '../game/stores/battleVfxStore';
 import { useBattleLogStore } from '../game/stores/battleLogStore';
+import { useGameTimeStore } from '../game/stores/gameTimeStore';
 
 interface GameUIProps {
   player: Player;
@@ -2001,8 +2002,10 @@ export const TavernScreen: React.FC<{
         handleServiceTransition(onShop);
     };
 
-    // -- Clock (uses in-game time from DayNightCycle) ----------------------------
-    const [gtHours, gtMinutes] = gameTime.split(':').map(Number);
+    // -- Clock (uses in-game time from store — avoids prop-driven App re-renders) ----
+    const gameTimeFromStore = useGameTimeStore((s) => s.gameTime);
+    const effectiveGameTime = gameTimeFromStore || gameTime;
+    const [gtHours, gtMinutes] = effectiveGameTime.split(':').map(Number);
     const clockHours = isNaN(gtHours) ? 12 : gtHours;
     const clockMinutes = isNaN(gtMinutes) ? 0 : gtMinutes;
     const clockTimeStr = `${String(clockHours).padStart(2, '0')}:${String(clockMinutes).padStart(2, '0')}`;
@@ -3414,7 +3417,9 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
     const previousResourceRef = useRef(player.classResource.value);
     const showDiamondOnBattleHud = showDiamondHud;
     const isMobile = window.innerWidth < 640;
-    const [bgtHours, bgtMinutes] = (gameTime ?? '12:00').split(':').map(Number);
+    // Read from store so BattleHUD re-renders independently (not via App prop)
+    const battleGameTime = useGameTimeStore((s) => s.gameTime) || (gameTime ?? '12:00');
+    const [bgtHours, bgtMinutes] = battleGameTime.split(':').map(Number);
     const battleClockHours = isNaN(bgtHours) ? 12 : bgtHours;
     const battleClockMinutes = isNaN(bgtMinutes) ? 0 : bgtMinutes;
     const battleClockTimeStr = `${String(battleClockHours).padStart(2, '0')}:${String(battleClockMinutes).padStart(2, '0')}`;

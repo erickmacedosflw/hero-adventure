@@ -1,8 +1,9 @@
 import React, { Suspense, useEffect, useMemo, useRef } from 'react';
-import { ContactShadows, useAnimations, useFBX, useTexture } from '@react-three/drei';
+import { ContactShadows, useAnimations, useTexture } from '@react-three/drei';
 import { useFrame, useLoader } from '@react-three/fiber';
 import * as THREE from 'three';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
+import { configureFBXLoader } from './gltfLoader';
 import { HeroVoxel, CombinedHeroVoxel } from '../Scene3D';
 import { RuntimeHeroAssets, findBestClipName, remapClipBindingsToSkeleton, resolveAutomaticClipName, selectPrimaryAnimationBundle, selectSecondaryAnimationBundles } from './animation';
 import { AnimatedClassHero, EnemyCharacter, applyHitFlashToMaterial } from './characters';
@@ -25,7 +26,7 @@ import type {
   DeveloperMonsterSceneProps,
   DeveloperScenarioComposerSceneProps,
 } from './developer-scenes';
-import { resolveRuntimeClassAssets } from './developer';
+import { resolveRuntimeClassAssets } from './developerUtils';
 import { KITBASH_MAIN_SLOTS, prepareRuntimeHeroModel, rebindPreparedModelToSkeleton } from './kitbash';
 import type {
   DeveloperAnimationRuntimeDiagnostic,
@@ -107,12 +108,12 @@ const ModularClassHeroVoxel = ({
   const torsoAssets = resolveRuntimeClassAssets(partSelections.torso) ?? baseRuntimeAssets;
   const armsAssets = resolveRuntimeClassAssets(partSelections.arms) ?? baseRuntimeAssets;
   const legsAssets = resolveRuntimeClassAssets(partSelections.legs) ?? baseRuntimeAssets;
-  const baseModelSource = useFBX(baseRuntimeAssets.modelUrl);
+  const baseModelSource = useLoader(FBXLoader, baseRuntimeAssets.modelUrl, configureFBXLoader) as THREE.Group;
   const baseTexture = useTexture(baseRuntimeAssets.textureUrl);
-  const headModelSource = useFBX(headAssets.modelUrl);
-  const torsoModelSource = useFBX(torsoAssets.modelUrl);
-  const armsModelSource = useFBX(armsAssets.modelUrl);
-  const legsModelSource = useFBX(legsAssets.modelUrl);
+  const headModelSource = useLoader(FBXLoader, headAssets.modelUrl, configureFBXLoader) as THREE.Group;
+  const torsoModelSource = useLoader(FBXLoader, torsoAssets.modelUrl, configureFBXLoader) as THREE.Group;
+  const armsModelSource = useLoader(FBXLoader, armsAssets.modelUrl, configureFBXLoader) as THREE.Group;
+  const legsModelSource = useLoader(FBXLoader, legsAssets.modelUrl, configureFBXLoader) as THREE.Group;
   const headTexture = useTexture(headAssets.textureUrl);
   const torsoTexture = useTexture(torsoAssets.textureUrl);
   const armsTexture = useTexture(armsAssets.textureUrl);
@@ -122,12 +123,12 @@ const ModularClassHeroVoxel = ({
     () => selectPrimaryAnimationBundle(baseRuntimeAssets, animationAction, preferredAnimationBundle),
     [animationAction, baseRuntimeAssets, preferredAnimationBundle],
   );
-  const animationSource = useLoader(FBXLoader, primaryAnimationBundle.url) as THREE.Group;
+  const animationSource = useLoader(FBXLoader, primaryAnimationBundle.url, configureFBXLoader) as THREE.Group;
   const secondaryBundles = useMemo(
     () => selectSecondaryAnimationBundles(baseRuntimeAssets, primaryAnimationBundle.fileName, loadAllAnimationBundles, loadSecondaryAnimationBundles),
     [baseRuntimeAssets, loadAllAnimationBundles, loadSecondaryAnimationBundles, primaryAnimationBundle.fileName],
   );
-  const secondaryAnimationSources = useLoader(FBXLoader, secondaryBundles.map((bundle) => bundle.url)) as THREE.Group[];
+  const secondaryAnimationSources = useLoader(FBXLoader, secondaryBundles.map((bundle) => bundle.url), configureFBXLoader) as THREE.Group[];
   const evadeDirectionRef = useRef<'left' | 'right'>('left');
   const previousAnimationActionRef = useRef<PlayerAnimationAction>(animationAction);
   const activePlaybackKeyRef = useRef<string | null>(null);

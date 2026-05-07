@@ -14,28 +14,28 @@ const MOBILE_USER_AGENT_PATTERN = /android|iphone|ipad|ipod|mobile/i;
 
 const DESKTOP_PERFORMANCE_PROFILE: RenderQualityProfile = {
   isLowQuality: true,
-  dpr: [0.8, 1],
-  shadowMapSize: 512,
-  starsCount: 260,
-  contactShadowResolution: 56,
+  dpr: [0.5, 0.7],
+  shadowMapSize: 384,
+  starsCount: 140,
+  contactShadowResolution: 44,
   antialias: false,
 };
 
 const DESKTOP_BALANCED_PROFILE: RenderQualityProfile = {
   isLowQuality: false,
-  dpr: [1.0, 1.15],
-  shadowMapSize: 640,
-  starsCount: 580,
+  dpr: [0.75, 0.9],
+  shadowMapSize: 512,
+  starsCount: 460,
   contactShadowResolution: 72,
   antialias: false,
 };
 
 const DESKTOP_QUALITY_PROFILE: RenderQualityProfile = {
   isLowQuality: false,
-  dpr: [1.0, 1.2],
+  dpr: [1.0, 1.0],
   shadowMapSize: 1024,
   starsCount: 760,
-  contactShadowResolution: 80,
+  contactShadowResolution: 100,
   antialias: true,
 };
 
@@ -109,7 +109,7 @@ export const getRenderPlatform = (): RenderPlatform => {
 export const getDefaultRenderQualityPreset = (platform = getRenderPlatform()): RenderQualityPreset => {
   // Electron desktop: always start in quality mode — no thermal/battery limits.
   if (isElectronRuntime()) return 'quality';
-  return platform === 'mobile' ? 'performance' : 'balanced';
+  return 'quality';
 };
 
 export const getRenderPowerPreference = (preset?: RenderQualityPreset): WebGLPowerPreference => {

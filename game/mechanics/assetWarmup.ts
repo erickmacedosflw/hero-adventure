@@ -3,6 +3,7 @@ import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import { TextureLoader } from 'three';
 import { DungeonBossTemplate, DungeonEnemyTemplate, EnemyTemplate, PlayerClassDefinition, PlayerClassId, PlayerClassAssets } from '../../types';
 import { getPlayerClassById } from '../data/classes';
+import { configureFBXLoader } from '../../components/scene3d/gltfLoader';
 
 type RuntimeEnemy = EnemyTemplate | DungeonEnemyTemplate | DungeonBossTemplate;
 type QueueEntry = { kind: 'fbx' | 'texture'; url: string };
@@ -73,7 +74,7 @@ const dedupeQueue = (queue: QueueEntry[]) => {
 const preloadEntry = (entry: QueueEntry) => {
   try {
     if (entry.kind === 'fbx') {
-      useLoader.preload(FBXLoader, entry.url);
+      useLoader.preload(FBXLoader, entry.url, configureFBXLoader);
       return;
     }
 

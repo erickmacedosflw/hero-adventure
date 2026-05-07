@@ -51,6 +51,7 @@ import { getDefaultRenderQualityPreset, type RenderQualityPreset } from './compo
 import { useBattleVfxStore } from './game/stores/battleVfxStore';
 import { useBattleLogStore } from './game/stores/battleLogStore';
 import { useBattleStatsStore } from './game/stores/battleStatsStore';
+import { useGameTimeStore } from './game/stores/gameTimeStore';
 import { GLTF_MONSTER_BESTIARY, getGltfMonsterPoolForStage } from './game/data/gltfMonsters';
 
 const DeveloperConsole = React.lazy(async () => ({
@@ -109,7 +110,7 @@ const LEGACY_WEAPON_ID_MAP: Record<string, string> = {
 };
 const ALL_ITEMS_BY_ID = new Map(ALL_ITEMS.map((item) => [item.id, item]));
 const BATTLE_SETTINGS_STORAGE_KEY = 'hero_adventure_battle_settings_v1';
-const BATTLE_SETTINGS_GRAPHICS_REVISION = 2;
+const BATTLE_SETTINGS_GRAPHICS_REVISION = 3;
 const MENU_BACKGROUND_IMAGE_URL = new URL('./game/assets/Imagens/Menu_Screen.png', import.meta.url).href;
 const MENU_LOGO_IMAGE_URL = new URL('./game/assets/Imagens/Logo_Hero_Tower.png', import.meta.url).href;
 const SAVE_THUMB_FOREST_URL = new URL('./game/assets/Scenario/Florest/cenario_thumbnail_floresta.png', import.meta.url).href;
@@ -176,8 +177,6 @@ const readBattleSettings = (): BattleSettings => {
         const isLegacyGraphicsPreset = typeof parsed.graphicsPresetRevision !== 'number'
             || parsed.graphicsPresetRevision < BATTLE_SETTINGS_GRAPHICS_REVISION;
         const renderQualityPreset = isLegacyGraphicsPreset
-            && storedRenderQualityPreset === 'quality'
-            && defaults.renderQualityPreset !== 'quality'
             ? defaults.renderQualityPreset
             : storedRenderQualityPreset ?? defaults.renderQualityPreset;
 
@@ -1283,7 +1282,11 @@ export default function App() {
     ), []);
 
   // Game Time (from Scene3D day/night cycle)
-  const [gameTime, setGameTime] = useState("12:00");
+  // gameTime moved to gameTimeStore — reading here would re-render App 2×/sec.
+  // Scene3D writes to the store directly; GameUI reads from it.
+  // We keep a stable setter reference so <GameScene onGameTimeUpdate> still works
+  // (e.g. for future external subscribers) without triggering App re-renders.
+  const _setGameTimeInStore = useGameTimeStore((s) => s.setGameTime);
 
   // Animation States
   const [isPlayerAttacking, setIsPlayerAttacking] = useState(false);
@@ -3797,6 +3800,23 @@ export default function App() {
     handleSkillWithTargetCheckRef.current = handleSkillWithTargetCheck;
   handleFleeRef.current     = handleFlee;
 
+  // Refs extras para battleActionsConfig useMemo (handlers sem ref anterior)
+  const handleChargeImpulseRef  = useRef(handleChargeImpulseWithTimeline);
+  const handleUseItemRef        = useRef(handleUseItemWithTimeline);
+  const handleAbsorbImpulseRef  = useRef(handleAbsorbImpulse);
+  handleChargeImpulseRef.current  = handleChargeImpulseWithTimeline;
+  handleUseItemRef.current        = handleUseItemWithTimeline;
+  handleAbsorbImpulseRef.current  = handleAbsorbImpulse;
+
+  // Wrappers estáveis (empty-deps) para battleActionsConfig — evitam nova referência de objeto a cada render
+  const stableBattleOnAttack         = useCallback(() => handleAttackRef2.current(), []);
+  const stableBattleOnDefend         = useCallback((tipoDefesa: import('./types').TipoDefesa) => handleDefenseRef.current(tipoDefesa), []);
+  const stableBattleOnChargeImpulse  = useCallback(() => handleChargeImpulseRef.current(), []);
+  const stableBattleOnAbsorbImpulse  = useCallback(() => handleAbsorbImpulseRef.current(), []);
+  const stableBattleOnSkill          = useCallback((skill: import('./types').Skill) => handleSkillWithTargetCheckRef.current(skill), []);
+  const stableBattleOnUseItem        = useCallback((itemId: string) => handleUseItemRef.current(itemId), []);
+  const stableBattleOnFlee           = useCallback(() => handleFleeRef.current(), []);
+
   const gameStateRef = useRef(gameState);
   const turnStateRef = useRef(turnState);
   gameStateRef.current = gameState;
@@ -4330,30 +4350,39 @@ export default function App() {
     const isFleeUnlocked = onboardingPhase === 'flee_unlocked' || onboardingPhase === 'dungeon_prompt' || onboardingPhase === 'dungeon_unlocked' || onboardingPhase === 'alchemist_prompt' || onboardingPhase === 'alchemist_unlocked';
     const isSkillsActionUnlocked = skillsActionUnlocked;
     // ── Battle actions config (passed to GameScene → BattleActionsHtml via Html3D) ────────
-    const _battleImpulseCapacity = getImpulseCapacityByLevel(player.level);
-    const _battleClassImpulseColor = getPlayerClassById(player.classId).visualProfile.auraColor ?? '#f59e0b';
-    const battleActionsConfig: BattleActionsConfig = {
-      isPlayerTurn: turnState === TurnState.PLAYER_INPUT,
-      showSkillsAction: isSkillsActionUnlocked,
-      showItemsAction: isItemsActionUnlocked,
-      impulseUnlocked: _battleImpulseCapacity > 0,
-      impulseCapacity: _battleImpulseCapacity,
-      impulseReserveColors: [_battleClassImpulseColor, _battleClassImpulseColor, _battleClassImpulseColor],
-      classImpulseBaseColor: _battleClassImpulseColor,
-      absorbGlowColor: player.impulsoAtivo >= 3 ? '#3b82f6' : player.impulsoAtivo === 2 ? '#a855f7' : '#ef4444',
-      usesMagicBasicAttack: shouldUseMagicBasicAttack(player.classId, player.equippedWeapon),
-      usesBowBasicAttack: shouldUseBowBasicAttack(player.classId, player.equippedWeapon),
-      limitBattleActionsToBasics: isFirstBattleActionRestricted,
-      shopItems: ALL_ITEMS,
-      onAttack: handleAttackWithTargetCheck,
-    onDefend: handlePlayerDefenseWithTimeline,
-    onChargeImpulse: handleChargeImpulseWithTimeline,
-      onAbsorbImpulse: handleAbsorbImpulse,
-      onSkill: handleSkillWithTargetCheck,
-    onUseItem: handleUseItemWithTimeline,
-      showFleeAction: isFleeUnlocked && !dungeonRun && !(enemy?.isBoss) && killCount < 10,
-      onFlee: handleFlee,
-    };
+    // ── Battle actions config (memoized — new object ref would break GameScene memo comparator) ──
+    const battleActionsConfig = useMemo<BattleActionsConfig>(() => {
+      const impulseCapacity = getImpulseCapacityByLevel(player.level);
+      const classImpulseColor = getPlayerClassById(player.classId).visualProfile.auraColor ?? '#f59e0b';
+      return {
+        isPlayerTurn: turnState === TurnState.PLAYER_INPUT,
+        showSkillsAction: isSkillsActionUnlocked,
+        showItemsAction: isItemsActionUnlocked,
+        impulseUnlocked: impulseCapacity > 0,
+        impulseCapacity,
+        impulseReserveColors: [classImpulseColor, classImpulseColor, classImpulseColor],
+        classImpulseBaseColor: classImpulseColor,
+        absorbGlowColor: player.impulsoAtivo >= 3 ? '#3b82f6' : player.impulsoAtivo === 2 ? '#a855f7' : '#ef4444',
+        usesMagicBasicAttack: shouldUseMagicBasicAttack(player.classId, player.equippedWeapon),
+        usesBowBasicAttack: shouldUseBowBasicAttack(player.classId, player.equippedWeapon),
+        limitBattleActionsToBasics: false,
+        shopItems: ALL_ITEMS,
+        onAttack: stableBattleOnAttack,
+        onDefend: stableBattleOnDefend,
+        onChargeImpulse: stableBattleOnChargeImpulse,
+        onAbsorbImpulse: stableBattleOnAbsorbImpulse,
+        onSkill: stableBattleOnSkill,
+        onUseItem: stableBattleOnUseItem,
+        showFleeAction: isFleeUnlocked && !dungeonRun && !(enemy?.isBoss) && killCount < 10,
+        onFlee: stableBattleOnFlee,
+      };
+    }, [
+      turnState, isSkillsActionUnlocked, isItemsActionUnlocked,
+      player.level, player.classId, player.equippedWeapon, player.impulsoAtivo,
+      isFleeUnlocked, dungeonRun, enemy?.isBoss, killCount,
+      stableBattleOnAttack, stableBattleOnDefend, stableBattleOnChargeImpulse,
+      stableBattleOnAbsorbImpulse, stableBattleOnSkill, stableBattleOnUseItem, stableBattleOnFlee,
+    ]);
     const isMerchantUnlocked = onboardingPhase === 'merchant_unlocked' || onboardingPhase === 'items_prompt' || onboardingPhase === 'flee_prompt' || onboardingPhase === 'flee_unlocked' || onboardingPhase === 'dungeon_prompt' || onboardingPhase === 'dungeon_unlocked' || onboardingPhase === 'alchemist_prompt' || onboardingPhase === 'alchemist_unlocked';
     const isDungeonUnlocked = onboardingPhase === 'dungeon_prompt' || onboardingPhase === 'dungeon_unlocked' || onboardingPhase === 'alchemist_prompt' || onboardingPhase === 'alchemist_unlocked';
     const isAlchemistUnlocked = onboardingPhase === 'alchemist_unlocked';
@@ -4534,7 +4563,7 @@ export default function App() {
         }
 
         return sceneRegion === 'dungeon' ? 'dungeon' : campAndSelectionTrack;
-    }, [dungeonRun, gameTime, hasConfirmedStartingClass, isBootReady, pathname, resolvedGameState, sceneRegion]);
+    }, [dungeonRun, hasConfirmedStartingClass, isBootReady, pathname, resolvedGameState, sceneRegion]);
 
     const isAudioUnlockingRef = useRef(false);
     useEffect(() => {
@@ -5366,7 +5395,7 @@ export default function App() {
                         enemyScale={enemy?.scale || 1}
                                         enemyName={enemy?.name}
                         turnState={turnState}
-                        onGameTimeUpdate={setGameTime}
+                        onGameTimeUpdate={_setGameTimeInStore}
                                 playerAnimationAction={resolvedGameState === GameState.TAVERN
                                     ? menuHeroAction
                                     : playerAnimationAction === 'defend-hit' || playerAnimationAction === 'evade'
@@ -5773,7 +5802,6 @@ export default function App() {
                         showDiamondHud={hasDiamondHudUnlocked}
                         onTower={handleEnterTower}
                         towerEssence={towerMeta.essence}
-                        gameTime={gameTime}
                         autoOpenHeroInspectToken={openHeroInspectToken}
                         onHeroInspectOpen={() => setHeroInspectMode(true)}
                         onHeroInspectClose={() => setHeroInspectMode(false)}
@@ -5887,7 +5915,6 @@ export default function App() {
                         dungeonRewards={dungeonRun?.rewards ?? null}
             dungeonCleared={dungeonRun?.rewards.clearedMonsters ?? 0}
             dungeonTotal={dungeonRun?.rewards.totalMonsters ?? 30}
-            gameTime={gameTime}
             autoOpenProfileToken={openProfileFromHeroToken}
                         restrictProfileToStatusOnly={isProfileStatusOnly}
                         limitBattleActionsToBasics={isFirstBattleActionRestricted}

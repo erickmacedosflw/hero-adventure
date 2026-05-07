@@ -890,6 +890,7 @@ export const CharacterSheetModal = ({ player, shopItems: _shopItems, onClose, on
                   equippedShieldId={player.equippedShield?.id}
                   transparent
                   enableManualRotate
+                  loadSecondaryAnimationBundles={false}
                 />
               </div>
             </div>

@@ -4,6 +4,7 @@ import { useProgress, useTexture } from '@react-three/drei';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import { DungeonBossTemplate, DungeonEnemyTemplate, EnemyTemplate, PlayerClassDefinition } from '../types';
 import { primeOfflineBootCache } from '../game/mechanics/offlineCachePriming';
+import { configureFBXLoader } from './scene3d/gltfLoader';
 
 const MIN_SPLASH_VISIBILITY_MS = 900;
 const MAX_PRELOAD_WAIT_MS = 14000;
@@ -128,9 +129,9 @@ const buildPreloadManifest = (): PreloadManifest => {
 };
 
 const BootAssetPreloader = ({ manifest }: { manifest: PreloadManifest }) => {
-  useLoader(FBXLoader, manifest.modelUrls);
+  useLoader(FBXLoader, manifest.modelUrls, configureFBXLoader);
   useTexture(manifest.textureUrls);
-  useLoader(FBXLoader, manifest.animationUrls);
+  useLoader(FBXLoader, manifest.animationUrls, configureFBXLoader);
 
   return null;
 };
