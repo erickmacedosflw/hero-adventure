@@ -3,7 +3,16 @@ import ReactDOM from 'react-dom/client';
 import { registerSW } from 'virtual:pwa-register';
 import * as THREE from 'three';
 import { computeBoundsTree, disposeBoundsTree, acceleratedRaycast } from 'three-mesh-bvh';
+import gsap from 'gsap';
 import App from './App';
+
+// ── GSAP global ticker config ─────────────────────────────────────────────
+// Cap GSAP's independent RAF ticker to 30fps so it does not compete with
+// Three.js for the full 16ms frame budget on every animation frame.
+// lagSmoothing(0) prevents GSAP from generating a catch-up burst of tween
+// updates after a tab switch or heavy JS task, which would compound jank.
+gsap.ticker.fps(30);
+gsap.ticker.lagSmoothing(0);
 
 // ── three-mesh-bvh global prototype patches ──────────────────────────────
 // Must run before any geometry is loaded. Accelerates raycasting on all

@@ -4062,12 +4062,19 @@ export const GameScene: React.FC<SceneProps> = React.memo((props) => {
   // demand+invalidate on 120/144Hz monitors creates micro-stutter because
   // e.g. 45fps / 144Hz = 3.2 frames per render (non-integer) → alternating 3/4 refresh intervals.
   const isElectron = typeof window !== 'undefined' && (window as Window & { electronBridge?: { isElectron: boolean } }).electronBridge?.isElectron === true;
-  // Desktop web: 'always' durante gameplay ativo, 'demand' no menu/loading.
-  // Durante o menu, FBX parsing + remapClipBindings bloqueiam centenas de ms — forçar
-  // render em cada frame nesse período causa spikes de 700ms+. Em demand, o renderer
-  // só roda quando há uma invalidação explícita, libertando a main thread para o loading.
-  const useAlwaysFrameloop = !isMobileDevice && !isElectron && !props.isMenuView;
-  const mobileFpsCap = isElectron ? (isQualityMode ? 30 : 45) : (isMobileDevice ? (isQualityMode ? 30 : 45) : 45);
+  // Todos os targets usam demand+invalidate via FpsCap.
+  // Isso desacopla re-renders React (Zustand store updates) do loop de render Three.js:
+  // em 'always', qualquer reconciliação React agenda um render extra além do RAF cap.
+  // Em 'demand', apenas invalidate() explícito do FpsCap agenda renders.
+  const useAlwaysFrameloop = false;
+  // Desktop browser: 60fps para manter responsividade máxima.
+  // Electron desktop: 60fps (sem restrição de bateria).
+  // Mobile quality: 30fps; mobile balanced/perf: 45fps.
+  const mobileFpsCap = isElectron
+    ? 60
+    : isMobileDevice
+      ? (isQualityMode ? 30 : 45)
+      : 60;
   const battleContactShadowResolution = useMemo(
     // Mobile non-quality stays capped to avoid texture memory pressure on Safari/iOS.
     () => (isMobileDevice && !isQualityMode) ? Math.min(quality.contactShadowResolution, 48) : (isPerformanceMode ? 48 : quality.contactShadowResolution),
@@ -4170,10 +4177,10 @@ export const GameScene: React.FC<SceneProps> = React.memo((props) => {
         dpr={quality.dpr}
         gl={{ antialias: quality.antialias, powerPreference: glPowerPreference }}
         performance={{ min: 0.5 }}
-        frameloop={useAlwaysFrameloop ? 'always' : 'demand'}
+        frameloop="demand"
         style={{ touchAction: 'none' }}
       >
-        {!useAlwaysFrameloop && <FpsCap fps={mobileFpsCap} />}
+        <FpsCap fps={mobileFpsCap} />
         {/* Throttle shadow map to 2 fps — saves ~40-60 ms/frame in quality mode.
             ContactShadows (per-character) are unaffected and still update normally. */}
         {shadowsEnabled && <ShadowAutoUpdateThrottle fps={24} />}
