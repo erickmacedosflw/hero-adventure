@@ -93,11 +93,13 @@ interface GameUIProps {
     musicEnabled?: boolean;
     sfxEnabled?: boolean;
     renderQualityPreset?: RenderQualityPreset;
+    showDesktopStatsMonitor?: boolean;
     recommendedRenderQualityPreset?: RenderQualityPreset;
     onUpdateBattleSettings?: (partial: Partial<{
         musicEnabled: boolean;
         sfxEnabled: boolean;
         renderQualityPreset: RenderQualityPreset;
+        showDesktopStatsMonitor: boolean;
     }>) => void;
     onBattleSettingsOpenChange?: (open: boolean) => void;
     onEquipSkillToSlot?: (slotIndex: number, skillId: string | null) => void;
@@ -1238,10 +1240,22 @@ export const TavernScreen: React.FC<{
   missionsUnlockPromptActive?: boolean,
   onAcknowledgeMissionsUnlock?: () => void,
   autoOpenMissionsToken?: number,
-}> = ({ player, killCount, onHunt, onBoss, onDungeon, sceneRegion = 'forest', onNavigateSceneRegion, onShop, onShopFromInventory, onAlchemist, onTower, shopItems, autoOpenConstellationToken = 0, onEquipItem, onUnequipItem, onUseItem, onSellItem, onUnlockTalent, onResetTalents, campIntroOnly = false, restrictProfileToStatusOnly = false, inventoryUnlocked = false, inventoryUnlockPromptActive = false, onAcknowledgeInventoryUnlock, cardsUnlockPromptActive = false, onAcknowledgeCardsUnlock, skillsUnlockPromptActive = false, onAcknowledgeSkillsUnlock, constellationUnlockPromptActive = false, onAcknowledgeConstellationUnlock, constellationRespecUnlockPromptActive = false, onAcknowledgeConstellationRespecUnlock, allowCardsInProfile = false, fleeUnlocked = false, merchantUnlockPromptActive = false, onAcknowledgeMerchantUnlock, dungeonUnlockPromptActive = false, onAcknowledgeDungeonUnlock, alchemistUnlockPromptActive = false, onAcknowledgeAlchemistUnlock, merchantUnlocked = false, dungeonUnlocked = false, alchemistUnlocked = false, showSkillsAction = false, onEquipSkillToSlot, onEquipItemToSlot, autoOpenItemSlotToken = 0, autoOpenItemSlotIndex = 0, autoOpenInventoryToken = 0, autoOpenInventoryFilter = 'all', autoOpenPortalTravelToken = 0, autoOpenProfileToken = 0, showDiamondHud = false, towerEssence = 0, gameTime = '12:00', autoOpenHeroInspectToken = 0, onHeroInspectOpen, onHeroInspectClose, closeHeroInspectToken = 0, autoOpenHeroEquipToken = 0, autoOpenHeroEquipFilter = 'weapon', autoOpenSkillsToken = 0, autoOpenSkillsSlotIndex = 0, portalInspectMode = false, portalTransitioning = false, onPortalInspectOpen, onPortalInspectClose, onGamepadFocusChange, missions = [], missionsUnlocked = false, onOpenMissions, onClaimMissionReward, missionsUnlockPromptActive = false, onAcknowledgeMissionsUnlock, autoOpenMissionsToken = 0 }) => {
+    musicEnabled?: boolean,
+    sfxEnabled?: boolean,
+    renderQualityPreset?: RenderQualityPreset,
+    showDesktopStatsMonitor?: boolean,
+    recommendedRenderQualityPreset?: RenderQualityPreset,
+    onUpdateBattleSettings?: (partial: Partial<{
+            musicEnabled: boolean;
+            sfxEnabled: boolean;
+            renderQualityPreset: RenderQualityPreset;
+            showDesktopStatsMonitor: boolean;
+    }>) => void,
+}> = ({ player, killCount, onHunt, onBoss, onDungeon, sceneRegion = 'forest', onNavigateSceneRegion, onShop, onShopFromInventory, onAlchemist, onTower, shopItems, autoOpenConstellationToken = 0, onEquipItem, onUnequipItem, onUseItem, onSellItem, onUnlockTalent, onResetTalents, campIntroOnly = false, restrictProfileToStatusOnly = false, inventoryUnlocked = false, inventoryUnlockPromptActive = false, onAcknowledgeInventoryUnlock, cardsUnlockPromptActive = false, onAcknowledgeCardsUnlock, skillsUnlockPromptActive = false, onAcknowledgeSkillsUnlock, constellationUnlockPromptActive = false, onAcknowledgeConstellationUnlock, constellationRespecUnlockPromptActive = false, onAcknowledgeConstellationRespecUnlock, allowCardsInProfile = false, fleeUnlocked = false, merchantUnlockPromptActive = false, onAcknowledgeMerchantUnlock, dungeonUnlockPromptActive = false, onAcknowledgeDungeonUnlock, alchemistUnlockPromptActive = false, onAcknowledgeAlchemistUnlock, merchantUnlocked = false, dungeonUnlocked = false, alchemistUnlocked = false, showSkillsAction = false, onEquipSkillToSlot, onEquipItemToSlot, autoOpenItemSlotToken = 0, autoOpenItemSlotIndex = 0, autoOpenInventoryToken = 0, autoOpenInventoryFilter = 'all', autoOpenPortalTravelToken = 0, autoOpenProfileToken = 0, showDiamondHud = false, towerEssence = 0, gameTime = '12:00', autoOpenHeroInspectToken = 0, onHeroInspectOpen, onHeroInspectClose, closeHeroInspectToken = 0, autoOpenHeroEquipToken = 0, autoOpenHeroEquipFilter = 'weapon', autoOpenSkillsToken = 0, autoOpenSkillsSlotIndex = 0, portalInspectMode = false, portalTransitioning = false, onPortalInspectOpen, onPortalInspectClose, onGamepadFocusChange, missions = [], missionsUnlocked = false, onOpenMissions, onClaimMissionReward, missionsUnlockPromptActive = false, onAcknowledgeMissionsUnlock, autoOpenMissionsToken = 0, musicEnabled = true, sfxEnabled = true, renderQualityPreset = 'balanced', showDesktopStatsMonitor = false, recommendedRenderQualityPreset = 'balanced', onUpdateBattleSettings }) => {
   const [showProfile, setShowProfile] = useState(false);
   const [showInventory, setShowInventory] = useState(false);
   const [showSkillsScreen, setShowSkillsScreen] = useState(false);
+    const [showBattleSettings, setShowBattleSettings] = useState(false);
   const [skillsTargetSlotIndex, setSkillsTargetSlotIndex] = useState<number | null>(null);
   const [heroInspectOpen, setHeroInspectOpen] = useState(false);
     const [returnToProfileOnInventoryClose, setReturnToProfileOnInventoryClose] = useState(false);
@@ -1404,6 +1418,31 @@ export const TavernScreen: React.FC<{
             uiSfx.play('modal_open');
             setShowProfile(true);
         }
+    };
+    const openBattleSettingsModal = () => {
+        if (!showBattleSettings) {
+            uiSfx.play('modal_open');
+        }
+        setShowBattleSettings(true);
+    };
+    const closeBattleSettingsModal = () => {
+        if (!showBattleSettings) {
+            return;
+        }
+        setShowBattleSettings(false);
+        uiSfx.play('modal_close');
+    };
+    const toggleMusic = () => {
+        onUpdateBattleSettings?.({ musicEnabled: !musicEnabled });
+    };
+    const toggleSfx = () => {
+        onUpdateBattleSettings?.({ sfxEnabled: !sfxEnabled });
+    };
+    const toggleDesktopStatsMonitor = () => {
+        onUpdateBattleSettings?.({ showDesktopStatsMonitor: !showDesktopStatsMonitor });
+    };
+    const changeRenderPreset = (preset: RenderQualityPreset) => {
+        onUpdateBattleSettings?.({ renderQualityPreset: preset });
     };
     const openSkillsScreenModal = (slotIndex?: number) => {
         uiSfx.play('modal_open');
@@ -1855,7 +1894,7 @@ export const TavernScreen: React.FC<{
         canStartDungeonFromCurrentRegion ? 'dungeon' :
         (canStartTowerFromCurrentRegion && !!onTower) ? 'tower' : null;
     useEffect(() => {
-        const anyModalOpen = showHuntIntroConfirm || showDungeonConfirm || showTowerConfirm || showPortalTravelModal || heroInspectOpen;
+        const anyModalOpen = showHuntIntroConfirm || showDungeonConfirm || showTowerConfirm || showPortalTravelModal || heroInspectOpen || showBattleSettings;
         if (campUiProfile !== 'gamepad' || !activeMainAction || isClosing || anyModalOpen) return;
         const unsub = onAction((action) => {
             if (action !== 'SKILL_1') return;
@@ -1865,7 +1904,7 @@ export const TavernScreen: React.FC<{
         });
         return unsub;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [campUiProfile, activeMainAction, isClosing, showHuntIntroConfirm, showDungeonConfirm, showTowerConfirm, showPortalTravelModal, heroInspectOpen]);
+    }, [campUiProfile, activeMainAction, isClosing, showHuntIntroConfirm, showDungeonConfirm, showTowerConfirm, showPortalTravelModal, heroInspectOpen, showBattleSettings]);
 
     // ── Gamepad: hold A (botão 0) — confirmar modal de batalha ───────────────
     const confirmModalOpen = showHuntIntroConfirm || showDungeonConfirm || showTowerConfirm;
@@ -2077,6 +2116,16 @@ export const TavernScreen: React.FC<{
                         <GameAssetIcon name="sapphire" size={18} />
                         <span ref={essenceDisplayRef}>{towerEssence}</span>
                     </div>
+                    <button
+                        onClick={openBattleSettingsModal}
+                        className="pointer-events-auto inline-flex items-center justify-center rounded-xl border border-white/15 bg-white/8 backdrop-blur-sm px-2.5 py-1.5 shadow-[0_4px_12px_rgba(0,0,0,0.25)] transition-all hover:-translate-y-0.5 hover:scale-105 active:scale-95"
+                        title="Configuracoes"
+                        aria-label="Configuracoes"
+                    >
+                        <span style={{ filter: 'drop-shadow(1px 0 0 rgba(255,255,255,0.95)) drop-shadow(-1px 0 0 rgba(255,255,255,0.95)) drop-shadow(0 1px 0 rgba(255,255,255,0.95)) drop-shadow(0 -1px 0 rgba(255,255,255,0.95)) drop-shadow(0 4px 10px rgba(0,0,0,0.28))' }}>
+                            <GameAssetIcon name="gear" size={22} />
+                        </span>
+                    </button>
                 </div>
 
                 {/* CAMP SIDE-RAIL ─ mochila/skill/merchant/alchemist icons, right side below currency */}
@@ -2500,6 +2549,149 @@ export const TavernScreen: React.FC<{
             />
         );
     })()}
+    <AnimatedModal open={showBattleSettings}>
+        {(isClosing) => (
+            <div
+                className={`absolute inset-0 z-40 flex items-center justify-center pointer-events-auto p-4 ${isClosing ? 'settings-overlay-out' : 'settings-overlay-in'}`}
+                style={{ background: 'rgba(10,4,14,0.60)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}
+                onClick={closeBattleSettingsModal}
+            >
+                <div
+                    className={isClosing ? 'settings-card-out' : 'settings-card-in'}
+                    style={{ width: '100%', maxWidth: 384, overflow: 'hidden', borderRadius: 20, boxShadow: '0 32px 80px rgba(40,10,20,0.55), 0 0 0 1px rgba(220,150,170,0.14)', background: 'linear-gradient(160deg, #2a1525 0%, #1c0e19 100%)', border: '1px solid rgba(220,150,170,0.18)' }}
+                    onClick={(event) => event.stopPropagation()}
+                >
+                    <div style={{ background: 'linear-gradient(135deg, rgba(107,49,65,0.9), rgba(80,30,50,0.9))', borderBottom: '1px solid rgba(220,140,160,0.14)', padding: '18px 20px 16px' }}>
+                        <div className="flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-3">
+                                <div style={{ background: 'rgba(255,255,255,0.10)', borderRadius: 10, padding: 8, border: '1px solid rgba(255,255,255,0.12)' }}>
+                                    <Settings2 size={16} color="#f4c2ce" />
+                                </div>
+                                <div>
+                                    <div className="text-[9px] font-black uppercase tracking-[0.28em]" style={{ color: 'rgba(220,180,190,0.65)' }}>Configuração</div>
+                                    <h3 className="text-base font-black text-white mt-0.5">Batalha</h3>
+                                </div>
+                            </div>
+                            <button
+                                onClick={closeBattleSettingsModal}
+                                className="settings-close-btn"
+                                style={{ borderRadius: 10, border: '1px solid rgba(255,255,255,0.14)', background: 'rgba(255,255,255,0.08)', padding: 7, color: 'rgba(255,255,255,0.7)', transition: 'all 0.15s ease' }}
+                                aria-label="Fechar"
+                            >
+                                <X size={14} />
+                            </button>
+                        </div>
+                    </div>
+
+                    <div style={{ padding: '16px 16px 18px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                            <button
+                                onClick={toggleMusic}
+                                className="settings-toggle-btn"
+                                style={{ borderRadius: 14, border: musicEnabled ? '1px solid rgba(100,200,220,0.35)' : '1px solid rgba(180,100,110,0.28)', background: musicEnabled ? 'rgba(40,140,160,0.18)' : 'rgba(160,50,70,0.14)', padding: '12px 14px', textAlign: 'left', transition: 'all 0.2s ease', cursor: 'pointer' }}
+                            >
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                                    <div style={{ borderRadius: 8, padding: 5, background: musicEnabled ? 'rgba(60,180,210,0.22)' : 'rgba(180,80,90,0.22)', transition: 'background 0.2s' }}>
+                                        {musicEnabled ? <Music2 size={13} color="#6ee7f7" /> : <VolumeX size={13} color="#f87171" />}
+                                    </div>
+                                    <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(220,180,190,0.60)' }}>Música</span>
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                    <span style={{ fontSize: 13, fontWeight: 900, color: musicEnabled ? '#a5f3fc' : '#fca5a5' }}>{musicEnabled ? 'Ligada' : 'Desligada'}</span>
+                                    <div style={{ width: 30, height: 16, borderRadius: 99, background: musicEnabled ? '#0e9cb0' : 'rgba(120,50,60,0.5)', transition: 'background 0.22s', position: 'relative', flexShrink: 0 }}>
+                                        <div style={{ position: 'absolute', top: 2, left: musicEnabled ? 16 : 2, width: 12, height: 12, borderRadius: '50%', background: '#fff', transition: 'left 0.22s cubic-bezier(0.34,1.56,0.64,1)', boxShadow: '0 1px 3px rgba(0,0,0,0.3)' }} />
+                                    </div>
+                                </div>
+                            </button>
+
+                            <button
+                                onClick={toggleSfx}
+                                className="settings-toggle-btn"
+                                style={{ borderRadius: 14, border: sfxEnabled ? '1px solid rgba(100,200,220,0.35)' : '1px solid rgba(180,100,110,0.28)', background: sfxEnabled ? 'rgba(40,140,160,0.18)' : 'rgba(160,50,70,0.14)', padding: '12px 14px', textAlign: 'left', transition: 'all 0.2s ease', cursor: 'pointer' }}
+                            >
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                                    <div style={{ borderRadius: 8, padding: 5, background: sfxEnabled ? 'rgba(60,180,210,0.22)' : 'rgba(180,80,90,0.22)', transition: 'background 0.2s' }}>
+                                        {sfxEnabled ? <Volume2 size={13} color="#6ee7f7" /> : <VolumeX size={13} color="#f87171" />}
+                                    </div>
+                                    <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(220,180,190,0.60)' }}>Efeitos</span>
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                    <span style={{ fontSize: 13, fontWeight: 900, color: sfxEnabled ? '#a5f3fc' : '#fca5a5' }}>{sfxEnabled ? 'Ligados' : 'Desligados'}</span>
+                                    <div style={{ width: 30, height: 16, borderRadius: 99, background: sfxEnabled ? '#0e9cb0' : 'rgba(120,50,60,0.5)', transition: 'background 0.22s', position: 'relative', flexShrink: 0 }}>
+                                        <div style={{ position: 'absolute', top: 2, left: sfxEnabled ? 16 : 2, width: 12, height: 12, borderRadius: '50%', background: '#fff', transition: 'left 0.22s cubic-bezier(0.34,1.56,0.64,1)', boxShadow: '0 1px 3px rgba(0,0,0,0.3)' }} />
+                                    </div>
+                                </div>
+                            </button>
+                        </div>
+
+                        <div style={{ borderRadius: 14, border: '1px solid rgba(220,150,170,0.15)', background: 'rgba(255,255,255,0.04)', padding: '12px 14px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+                                <Gauge size={13} color="rgba(220,170,190,0.70)" />
+                                <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(220,170,190,0.60)' }}>Qualidade Gráfica</span>
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6 }}>
+                                {(['performance', 'balanced', 'quality'] as RenderQualityPreset[]).map((preset) => {
+                                    const selected = renderQualityPreset === preset;
+                                    const icons: Record<RenderQualityPreset, React.ReactNode> = {
+                                        performance: <Zap size={12} color={selected ? '#fff' : 'rgba(200,160,180,0.6)'} />,
+                                        balanced: <Gauge size={12} color={selected ? '#fff' : 'rgba(200,160,180,0.6)'} />,
+                                        quality: <Gem size={12} color={selected ? '#fff' : 'rgba(200,160,180,0.6)'} />,
+                                    };
+                                    return (
+                                        <button
+                                            key={preset}
+                                            onClick={() => changeRenderPreset(preset)}
+                                            className="settings-preset-btn"
+                                            style={{ borderRadius: 10, border: selected ? '1px solid rgba(100,220,240,0.40)' : '1px solid rgba(180,120,140,0.20)', background: selected ? 'linear-gradient(135deg,#0d7a90,#0a5f72)' : 'rgba(255,255,255,0.05)', padding: '8px 4px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, transition: 'all 0.18s cubic-bezier(0.34,1.56,0.64,1)', cursor: 'pointer', transform: selected ? 'scale(1.04)' : 'scale(1)', boxShadow: selected ? '0 4px 16px rgba(14,156,176,0.30)' : 'none' }}
+                                        >
+                                            {icons[preset]}
+                                            <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: '0.10em', textTransform: 'uppercase', color: selected ? '#fff' : 'rgba(200,160,170,0.65)', whiteSpace: 'nowrap' }}>
+                                                {getRenderPresetLabel(preset)}
+                                            </span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                            <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 4 }}>
+                                <Sparkles size={9} color="rgba(180,140,160,0.55)" />
+                                <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(180,140,160,0.55)' }}>
+                                    Recomendado: {getRenderPresetLabel(recommendedRenderQualityPreset)}
+                                </span>
+                            </div>
+                        </div>
+
+                        {import.meta.env.DEV && (
+                            <button
+                                onClick={toggleDesktopStatsMonitor}
+                                className="settings-toggle-btn"
+                                style={{ borderRadius: 14, border: showDesktopStatsMonitor ? '1px solid rgba(100,200,220,0.35)' : '1px solid rgba(180,100,110,0.28)', background: showDesktopStatsMonitor ? 'rgba(40,140,160,0.18)' : 'rgba(255,255,255,0.04)', padding: '12px 14px', textAlign: 'left', transition: 'all 0.2s ease', cursor: 'pointer' }}
+                            >
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                                    <div style={{ borderRadius: 8, padding: 5, background: showDesktopStatsMonitor ? 'rgba(60,180,210,0.22)' : 'rgba(180,80,90,0.22)', transition: 'background 0.2s' }}>
+                                        <Gauge size={13} color={showDesktopStatsMonitor ? '#6ee7f7' : '#fca5a5'} />
+                                    </div>
+                                    <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(220,180,190,0.60)' }}>Monitor FPS Desktop</span>
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                        <span style={{ fontSize: 13, fontWeight: 900, color: showDesktopStatsMonitor ? '#a5f3fc' : '#fca5a5' }}>
+                                            {showDesktopStatsMonitor ? 'Ativado' : 'Oculto'}
+                                        </span>
+                                        <span style={{ fontSize: 10, color: 'rgba(220,180,190,0.58)' }}>
+                                            Exibe o painel de FPS e long tasks no desktop.
+                                        </span>
+                                    </div>
+                                    <div style={{ width: 30, height: 16, borderRadius: 99, background: showDesktopStatsMonitor ? '#0e9cb0' : 'rgba(120,50,60,0.5)', transition: 'background 0.22s', position: 'relative', flexShrink: 0 }}>
+                                        <div style={{ position: 'absolute', top: 2, left: showDesktopStatsMonitor ? 16 : 2, width: 12, height: 12, borderRadius: '50%', background: '#fff', transition: 'left 0.22s cubic-bezier(0.34,1.56,0.64,1)', boxShadow: '0 1px 3px rgba(0,0,0,0.3)' }} />
+                                    </div>
+                                </div>
+                            </button>
+                        )}
+                    </div>
+                </div>
+            </div>
+        )}
+    </AnimatedModal>
     <AnimatedModal open={showProfile}>
         {(isClosing) => (
             <CharacterSheetModal player={player} shopItems={shopItems} onClose={closeProfileModal} onOpenInventory={(initialFilter) => { openInventoryModal(initialFilter ?? 'all', false); }} onUnlockTalent={onUnlockTalent} onResetTalents={onResetTalents} respecUnlockPromptActive={constellationRespecUnlockPromptActive} onAcknowledgeRespecUnlock={onAcknowledgeConstellationRespecUnlock} isClosing={isClosing} restrictToStatusOnly={restrictProfileToStatusOnly} allowInventory={inventoryUnlocked} allowCardsTab={allowCardsInProfile} allowSkillsTab={showSkillsAction} allowConstellationTab={hasConstellationUnlocked} initialTab={profileInitialTab} />
@@ -3379,7 +3571,7 @@ function getPotionBattleBadges(item: Item): BattleBadge[] {
 }
 
 export const BattleHUD: React.FC<GameUIProps> = (props) => {
-    const { player, enemy, turnState, onAttack, onDefend, onChargeImpulse, onAbsorbImpulse, onSkill, onUseItem, enemyIntentPreview = null, onUnlockTalent, onResetTalents, currentNarration, gameState, shopItems, onFlee, onStartBattle, stage, dungeonPhase = 1, killCount, onEquipItem, onUnequipItem, isDungeonRun, dungeonRewards, dungeonCleared = 0, dungeonTotal = 30, gameTime, restrictProfileToStatusOnly = false, limitBattleActionsToBasics = false, inventoryUnlocked = false, inventoryUnlockPromptActive = false, onAcknowledgeInventoryUnlock, cardsUnlockPromptActive = false, onAcknowledgeCardsUnlock, skillsUnlockPromptActive = false, onAcknowledgeSkillsUnlock, impulseUnlockPromptActive = null, onAcknowledgeImpulseUnlock, constellationUnlockPromptActive = false, onAcknowledgeConstellationUnlock, constellationRespecUnlockPromptActive = false, onAcknowledgeConstellationRespecUnlock, allowCardsInProfile = false, fleeUnlocked = false, showItemsAction = false, showSkillsAction = false, itemsUnlockPromptActive = false, onAcknowledgeItemsUnlock, fleeUnlockPromptActive = false, onAcknowledgeFleeUnlock, autoOpenProfileToken = 0, showDiamondHud = false, diamondUnlockPromptActive = false, onAcknowledgeDiamondUnlock, musicEnabled = true, sfxEnabled = true, renderQualityPreset = 'balanced', recommendedRenderQualityPreset = 'balanced', onUpdateBattleSettings, onBattleSettingsOpenChange, onEquipSkillToSlot, towerEssence = 0, sceneRegion = 'forest', additionalEnemies = [], pendingTargetAction = null, onSelectTarget, onCancelTargetSelection, missions = [], missionsUnlocked = false, onClaimMissionReward, missionsUnlockPromptActive = false, onAcknowledgeMissionsUnlock, autoOpenMissionsToken = 0, enemyDeathToken = 0 } = props;
+    const { player, enemy, turnState, onAttack, onDefend, onChargeImpulse, onAbsorbImpulse, onSkill, onUseItem, enemyIntentPreview = null, onUnlockTalent, onResetTalents, currentNarration, gameState, shopItems, onFlee, onStartBattle, stage, dungeonPhase = 1, killCount, onEquipItem, onUnequipItem, isDungeonRun, dungeonRewards, dungeonCleared = 0, dungeonTotal = 30, gameTime, restrictProfileToStatusOnly = false, limitBattleActionsToBasics = false, inventoryUnlocked = false, inventoryUnlockPromptActive = false, onAcknowledgeInventoryUnlock, cardsUnlockPromptActive = false, onAcknowledgeCardsUnlock, skillsUnlockPromptActive = false, onAcknowledgeSkillsUnlock, impulseUnlockPromptActive = null, onAcknowledgeImpulseUnlock, constellationUnlockPromptActive = false, onAcknowledgeConstellationUnlock, constellationRespecUnlockPromptActive = false, onAcknowledgeConstellationRespecUnlock, allowCardsInProfile = false, fleeUnlocked = false, showItemsAction = false, showSkillsAction = false, itemsUnlockPromptActive = false, onAcknowledgeItemsUnlock, fleeUnlockPromptActive = false, onAcknowledgeFleeUnlock, autoOpenProfileToken = 0, showDiamondHud = false, diamondUnlockPromptActive = false, onAcknowledgeDiamondUnlock, musicEnabled = true, sfxEnabled = true, renderQualityPreset = 'balanced', showDesktopStatsMonitor = false, recommendedRenderQualityPreset = 'balanced', onUpdateBattleSettings, onBattleSettingsOpenChange, onEquipSkillToSlot, towerEssence = 0, sceneRegion = 'forest', additionalEnemies = [], pendingTargetAction = null, onSelectTarget, onCancelTargetSelection, missions = [], missionsUnlocked = false, onClaimMissionReward, missionsUnlockPromptActive = false, onAcknowledgeMissionsUnlock, autoOpenMissionsToken = 0, enemyDeathToken = 0 } = props;
   const floatingTexts = useBattleVfxStore((s) => s.floatingTexts) ?? [];
   // Subscribe directly to the battle log store — avoids re-rendering the
   // 5800-line App component when logs change during combat.
@@ -3592,6 +3784,9 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
     };
     const toggleSfx = () => {
         onUpdateBattleSettings?.({ sfxEnabled: !sfxEnabled });
+    };
+    const toggleDesktopStatsMonitor = () => {
+        onUpdateBattleSettings?.({ showDesktopStatsMonitor: !showDesktopStatsMonitor });
     };
     const changeRenderPreset = (preset: RenderQualityPreset) => {
         onUpdateBattleSettings?.({ renderQualityPreset: preset });
@@ -4039,6 +4234,42 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                                   </span>
                               </div>
                           </div>
+
+                          {import.meta.env.DEV && (
+                              <button
+                                  onClick={toggleDesktopStatsMonitor}
+                                  className="settings-toggle-btn"
+                                  style={{
+                                      borderRadius: 14,
+                                      border: showDesktopStatsMonitor ? '1px solid rgba(100,200,220,0.35)' : '1px solid rgba(180,100,110,0.28)',
+                                      background: showDesktopStatsMonitor ? 'rgba(40,140,160,0.18)' : 'rgba(255,255,255,0.04)',
+                                      padding: '12px 14px',
+                                      textAlign: 'left',
+                                      transition: 'all 0.2s ease',
+                                      cursor: 'pointer',
+                                  }}
+                              >
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                                      <div style={{ borderRadius: 8, padding: 5, background: showDesktopStatsMonitor ? 'rgba(60,180,210,0.22)' : 'rgba(180,80,90,0.22)', transition: 'background 0.2s' }}>
+                                          <Gauge size={13} color={showDesktopStatsMonitor ? '#6ee7f7' : '#fca5a5'} />
+                                      </div>
+                                      <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(220,180,190,0.60)' }}>Monitor FPS Desktop</span>
+                                  </div>
+                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                                      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                          <span style={{ fontSize: 13, fontWeight: 900, color: showDesktopStatsMonitor ? '#a5f3fc' : '#fca5a5' }}>
+                                              {showDesktopStatsMonitor ? 'Ativado' : 'Oculto'}
+                                          </span>
+                                          <span style={{ fontSize: 10, color: 'rgba(220,180,190,0.58)' }}>
+                                              Exibe o painel de FPS e long tasks no desktop.
+                                          </span>
+                                      </div>
+                                      <div style={{ width: 30, height: 16, borderRadius: 99, background: showDesktopStatsMonitor ? '#0e9cb0' : 'rgba(120,50,60,0.5)', transition: 'background 0.22s', position: 'relative', flexShrink: 0 }}>
+                                          <div style={{ position: 'absolute', top: 2, left: showDesktopStatsMonitor ? 16 : 2, width: 12, height: 12, borderRadius: '50%', background: '#fff', transition: 'left 0.22s cubic-bezier(0.34,1.56,0.64,1)', boxShadow: '0 1px 3px rgba(0,0,0,0.3)' }} />
+                                      </div>
+                                  </div>
+                              </button>
+                          )}
                       </div>
                   </div>
               </div>

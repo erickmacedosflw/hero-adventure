@@ -142,6 +142,7 @@ interface BattleSettings {
     musicEnabled: boolean;
     sfxEnabled: boolean;
     renderQualityPreset: RenderQualityPreset;
+    showDesktopStatsMonitor: boolean;
     graphicsPresetRevision: number;
 }
 
@@ -149,6 +150,7 @@ const createDefaultBattleSettings = (): BattleSettings => ({
     musicEnabled: true,
     sfxEnabled: true,
     renderQualityPreset: getDefaultRenderQualityPreset(),
+    showDesktopStatsMonitor: false,
     graphicsPresetRevision: BATTLE_SETTINGS_GRAPHICS_REVISION,
 });
 
@@ -184,6 +186,9 @@ const readBattleSettings = (): BattleSettings => {
             musicEnabled: typeof parsed.musicEnabled === 'boolean' ? parsed.musicEnabled : defaults.musicEnabled,
             sfxEnabled: typeof parsed.sfxEnabled === 'boolean' ? parsed.sfxEnabled : defaults.sfxEnabled,
             renderQualityPreset,
+            showDesktopStatsMonitor: typeof parsed.showDesktopStatsMonitor === 'boolean'
+                ? parsed.showDesktopStatsMonitor
+                : defaults.showDesktopStatsMonitor,
             graphicsPresetRevision: BATTLE_SETTINGS_GRAPHICS_REVISION,
         };
     } catch {
@@ -5481,6 +5486,7 @@ export default function App() {
                         onPortalTravelTo={handlePortalTravelTo}
                         menuGamepadFocus={resolvedGameState === GameState.TAVERN && !portalInspectMode ? campGamepadFocusForScene : null}
                         renderQualityPreset={battleSettings.renderQualityPreset}
+                        showDesktopStatsMonitor={battleSettings.showDesktopStatsMonitor}
                         onMenuHeroClick={handleMenuHeroClickStable}
                         lootResult={lootResult}
                         xpIconComponent={xpIconComponent}
@@ -5826,6 +5832,12 @@ export default function App() {
                         onAcknowledgeMissionsUnlock={() => setOnboardingPhase('missions_unlocked')}
                         autoOpenMissionsToken={openMissionsFromToastToken}
                         enemyDeathToken={enemyDeathToken}
+                        musicEnabled={battleSettings.musicEnabled}
+                        sfxEnabled={battleSettings.sfxEnabled}
+                        renderQualityPreset={battleSettings.renderQualityPreset}
+                        showDesktopStatsMonitor={battleSettings.showDesktopStatsMonitor}
+                        recommendedRenderQualityPreset={recommendedRenderQualityPreset}
+                        onUpdateBattleSettings={updateBattleSettings}
           />
       )}
 
@@ -5950,6 +5962,7 @@ export default function App() {
                                                                                                 musicEnabled={battleSettings.musicEnabled}
                                                                                                 sfxEnabled={battleSettings.sfxEnabled}
                                                                                                 renderQualityPreset={battleSettings.renderQualityPreset}
+                                                                                                        showDesktopStatsMonitor={battleSettings.showDesktopStatsMonitor}
                                                                                                 recommendedRenderQualityPreset={recommendedRenderQualityPreset}
                                                                                                 onUpdateBattleSettings={updateBattleSettings}
                                                                                                 onBattleSettingsOpenChange={setIsBattleSettingsModalOpen}

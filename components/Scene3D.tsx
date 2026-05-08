@@ -166,6 +166,7 @@ interface SceneProps {
   activeBattleActorId?: string | null;
   battleActorGauges?: BattleActorGaugeMap; // DEPRECATED: gauges now flow through useBattleGaugeStore. Kept for type compat.
   renderQualityPreset?: RenderQualityPreset;
+  showDesktopStatsMonitor?: boolean;
   heroInspectMode?: boolean;
   onHeroInspectClose?: () => void;
   onHeroEquipSlotClick?: (slot: 'weapon' | 'shield' | 'helmet' | 'armor' | 'legs') => void;
@@ -3385,39 +3386,67 @@ const StatsMonitor = () => {
 
     const panel = document.createElement('div');
     panel.style.cssText = [
-      'position:fixed', 'top:0', 'left:0', 'z-index:9999',
-      'background:rgba(0,0,0,0.80)', 'color:#0ff', 'font:bold 11px monospace',
-      'padding:4px 8px', 'pointer-events:auto', 'min-width:110px', 'line-height:1.6',
-      'user-select:none',
+      'position:fixed', 'left:14px', 'bottom:14px', 'z-index:9999',
+      'display:flex', 'flex-direction:column', 'gap:6px',
+      'min-width:136px', 'max-width:148px',
+      'padding:8px 9px 7px', 'border-radius:14px',
+      'border:1px solid rgba(231,186,119,0.28)',
+      'background:linear-gradient(180deg, rgba(43,22,30,0.94) 0%, rgba(24,11,19,0.92) 100%)',
+      'box-shadow:0 10px 24px rgba(0,0,0,0.34), inset 0 1px 0 rgba(255,234,198,0.06)',
+      'backdrop-filter:blur(10px)', '-webkit-backdrop-filter:blur(10px)',
+      'color:#f8e7cb', 'font:600 10px "Trebuchet MS", Verdana, sans-serif',
+      'line-height:1.25', 'letter-spacing:0.02em', 'user-select:none', 'pointer-events:none',
     ].join(';');
     document.body.appendChild(panel);
 
+    const title = document.createElement('div');
+    title.textContent = 'STATUS';
+    title.style.cssText = [
+      'font-size:9px', 'font-weight:900', 'letter-spacing:0.24em', 'text-transform:uppercase',
+      'color:rgba(245,210,160,0.74)', 'padding-left:1px', 'pointer-events:none',
+    ].join(';');
+    panel.appendChild(title);
+
     const display = document.createElement('div');
-    display.style.pointerEvents = 'none';
+    display.style.cssText = [
+      'display:grid', 'grid-template-columns:repeat(3, minmax(0, 1fr))', 'gap:4px',
+      'pointer-events:none',
+    ].join(';');
     panel.appendChild(display);
 
     const btn = document.createElement('button');
-    btn.textContent = '📋 Coletar 30';
+    btn.textContent = 'Copiar';
     btn.style.cssText = [
-      'display:block', 'margin-top:4px', 'width:100%',
-      'background:#0a0a0a', 'color:#0ff', 'border:1px solid #0ff',
-      'font:bold 10px monospace', 'cursor:pointer', 'padding:2px 4px',
-      'pointer-events:auto',
+      'flex:1 1 0', 'min-width:0', 'height:24px', 'border-radius:9px',
+      'border:1px solid rgba(120,205,210,0.30)',
+      'background:linear-gradient(180deg, rgba(33,94,101,0.28) 0%, rgba(18,48,54,0.24) 100%)',
+      'color:#9de7eb', 'font:800 9px "Trebuchet MS", Verdana, sans-serif', 'letter-spacing:0.08em',
+      'text-transform:uppercase', 'cursor:pointer', 'padding:0 6px', 'pointer-events:auto',
+      'box-shadow:inset 0 1px 0 rgba(255,255,255,0.06)',
     ].join(';');
     btn.title = 'Copia as últimas 30 amostras de FPS/MS para o clipboard e loga no console';
-    panel.appendChild(btn);
 
     // Profile button — triggers Chrome DevTools CPU profile for 5 seconds
     const profileBtn = document.createElement('button');
-    profileBtn.textContent = '🔬 LongTask 10s';
+    profileBtn.textContent = 'Spikes';
     profileBtn.style.cssText = btn.style.cssText;
-    profileBtn.style.marginTop = '2px';
+    profileBtn.style.border = '1px solid rgba(231,186,119,0.26)';
+    profileBtn.style.background = 'linear-gradient(180deg, rgba(112,76,43,0.26) 0%, rgba(57,34,20,0.22) 100%)';
+    profileBtn.style.color = '#f4d19c';
     profileBtn.title = 'Observa tarefas longas (>50ms) por 10s e loga no console';
-    panel.appendChild(profileBtn);
+
+    const controls = document.createElement('div');
+    controls.style.cssText = 'display:flex;gap:5px;pointer-events:none';
+    controls.appendChild(btn);
+    controls.appendChild(profileBtn);
+    panel.appendChild(controls);
 
     // Histogram: <16ms / 16-33ms / 33-50ms / >50ms
     const histDiv = document.createElement('div');
-    histDiv.style.cssText = 'margin-top:4px;font-size:9px;color:#aaa;line-height:1.5;pointer-events:none';
+    histDiv.style.cssText = [
+      'font-size:8px', 'line-height:1.35', 'letter-spacing:0.04em',
+      'color:rgba(228,202,178,0.58)', 'pointer-events:none',
+    ].join(';');
     panel.appendChild(histDiv);
 
     let hist = { fast: 0, ok: 0, slow: 0, bad: 0 };
@@ -3461,8 +3490,8 @@ const StatsMonitor = () => {
       setTimeout(() => {
         observer?.disconnect();
         cancelAnimationFrame(markRaf);
-        profileBtn.textContent = tasks.length > 0 ? `⚠ ${tasks.length} tasks` : '✅ Sem spikes';
-        setTimeout(() => { profileBtn.textContent = '🔬 LongTask 10s'; }, 4000);
+        profileBtn.textContent = tasks.length > 0 ? `${tasks.length} tasks` : 'Limpo';
+        setTimeout(() => { profileBtn.textContent = 'Spikes'; }, 4000);
 
         const header = `=== LongTask Report (10s) — ${tasks.length} evento(s) ===`;
         const body = tasks.length > 0 ? tasks.join('\n') : 'Nenhuma task longa detectada.';
@@ -3481,7 +3510,7 @@ const StatsMonitor = () => {
     });
 
     btn.addEventListener('click', () => {
-      if (history.length === 0) { btn.textContent = '⚠ sem dados'; return; }
+      if (history.length === 0) { btn.textContent = 'Sem'; return; }
       const rows = history.slice(-MAX_HISTORY);
       const avgFps = Math.round(rows.reduce((s, r) => s + r.fps, 0) / rows.length);
       const avgMs  = (rows.reduce((s, r) => s + parseFloat(r.ms), 0) / rows.length).toFixed(1);
@@ -3505,8 +3534,8 @@ const StatsMonitor = () => {
       };
 
       const done = (ok: boolean) => {
-        btn.textContent = ok ? '✅ Copiado!' : '✅ Ver console';
-        setTimeout(() => { btn.textContent = '📋 Coletar 30'; }, 2500);
+        btn.textContent = ok ? 'OK' : 'Log';
+        setTimeout(() => { btn.textContent = 'Copiar'; }, 2500);
       };
 
       if (navigator.clipboard) {
@@ -3539,16 +3568,24 @@ const StatsMonitor = () => {
         history.push({ fps, ms, mb, t });
         if (history.length > MAX_HISTORY * 2) history.splice(0, MAX_HISTORY);
         const total = hist.fast + hist.ok + hist.slow + hist.bad;
-        const fpsColor = fps >= 50 ? '#0f0' : fps >= 30 ? '#ff0' : '#f44';
-        display.innerHTML = `<span style="color:${fpsColor}">FPS: ${fps}</span><br>MS: ${ms}<br>MB: ${mb}`;
+        const fpsColor = fps >= 50 ? '#8ff3b0' : fps >= 30 ? '#f5d27d' : '#ff9588';
+        const msColor = parseFloat(ms) <= 20 ? '#8fe9f0' : parseFloat(ms) <= 33 ? '#f5d27d' : '#ff9588';
+        const mbColor = '#d7c4ff';
+        const cellStyle = 'display:flex;flex-direction:column;gap:2px;padding:5px 6px 4px;border-radius:10px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.06);box-shadow:inset 0 1px 0 rgba(255,255,255,0.04)';
+        const labelStyle = 'font-size:7px;font-weight:900;letter-spacing:0.16em;text-transform:uppercase;color:rgba(245,225,196,0.52)';
+        const valueStyle = 'font-size:13px;font-weight:900;line-height:1';
+        display.innerHTML =
+          `<div style="${cellStyle}"><span style="${labelStyle}">FPS</span><span style="${valueStyle};color:${fpsColor}">${fps}</span></div>` +
+          `<div style="${cellStyle}"><span style="${labelStyle}">MS</span><span style="${valueStyle};color:${msColor}">${ms}</span></div>` +
+          `<div style="${cellStyle}"><span style="${labelStyle}">MB</span><span style="${valueStyle};color:${mbColor}">${mb}</span></div>`;
         if (total > 0) {
           const pct = (n: number) => Math.round((n / total) * 100);
           histDiv.innerHTML =
-            `<span style="color:#0f0">▪${pct(hist.fast)}%</span> ` +
-            `<span style="color:#ff0">▪${pct(hist.ok)}%</span> ` +
-            `<span style="color:#f90">▪${pct(hist.slow)}%</span> ` +
-            `<span style="color:#f44">▪${pct(hist.bad)}%</span><br>` +
-            `<16 / <33 / <50 / 50+ms`;
+            `<span style="color:#8ff3b0">${pct(hist.fast)}%</span> ` +
+            `<span style="color:#f5d27d">${pct(hist.ok)}%</span> ` +
+            `<span style="color:#f0a35d">${pct(hist.slow)}%</span> ` +
+            `<span style="color:#ff9588">${pct(hist.bad)}%</span>` +
+            `<span style="color:rgba(228,202,178,0.42)">  |  <16 <33 <50 50+</span>`;
         }
         hist = { fast: 0, ok: 0, slow: 0, bad: 0 };
         frames = 0;
@@ -3999,6 +4036,9 @@ export const GameScene: React.FC<SceneProps> = React.memo((props) => {
   const renderQualityPreset = props.renderQualityPreset ?? getDefaultRenderQualityPreset();
   const quality = useMemo(() => getRenderQualityProfile(renderQualityPreset), [renderQualityPreset]);
   const isMobileDevice = useMemo(() => getRenderPlatform() === 'mobile', []);
+  const shouldShowDesktopStatsMonitor = import.meta.env.DEV
+    && !isMobileDevice
+    && Boolean(props.showDesktopStatsMonitor);
   const isPerformanceMode = renderQualityPreset === 'performance';
   const isBalancedMode = renderQualityPreset === 'balanced';
   const isQualityMode = renderQualityPreset === 'quality';
@@ -4163,7 +4203,7 @@ export const GameScene: React.FC<SceneProps> = React.memo((props) => {
       )}
 
       {/* Dev-only FPS monitor — rendered outside Canvas to avoid R3F context issues */}
-      {import.meta.env.DEV && <StatsMonitor />}
+      {shouldShowDesktopStatsMonitor && <StatsMonitor />}
 
       <Canvas
         shadows={shadowsEnabled ? { type: shadowMapType } : false}

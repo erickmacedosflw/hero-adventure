@@ -54,36 +54,10 @@ export const applyHitFlashToMaterial = (
  * Idempotent — safe to call multiple times on the same material.
  */
 const injectFlashUniform = (material: THREE.Material): { value: number } | null => {
-  if ((material as any).userData?._flashUniform) {
-    return (material as any).userData._flashUniform as { value: number };
-  }
-  // Only patch materials that go through the standard shader pipeline
-  if (
-    !(material instanceof THREE.MeshStandardMaterial) &&
-    !(material instanceof THREE.MeshPhongMaterial) &&
-    !(material instanceof THREE.MeshLambertMaterial)
-  ) {
-    return null;
-  }
-  const uniform: { value: number } = { value: 0 };
-  if (!material.userData) material.userData = {};
-  (material.userData as any)._flashUniform = uniform;
-  const _prev = material.onBeforeCompile.bind(material);
-  material.onBeforeCompile = (shader, renderer) => {
-    _prev(shader, renderer);
-    shader.uniforms.u_flash = uniform;
-    // Inject declaration before output_fragment, mix result toward white
-    shader.fragmentShader = shader.fragmentShader.replace(
-      '#include <output_fragment>',
-      [
-        'uniform float u_flash;',
-        '#include <output_fragment>',
-        'gl_FragColor.rgb = mix(gl_FragColor.rgb, vec3(1.0), clamp(u_flash, 0.0, 1.0) * 0.78);',
-      ].join('\n'),
-    );
-  };
-  material.needsUpdate = true;
-  return uniform;
+  void material;
+  // Keep hit flash on the emissive fallback path.
+  // Shader mutation here caused desktop stutter during damage reactions.
+  return null;
 };
 
 interface AnimatedClassHeroProps {
