@@ -1,9 +1,9 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
-import { Crosshair, FlaskConical, Heart, Info, LogOut, RefreshCw, Shield, Sparkles, Sword, X, Zap } from 'lucide-react';
+import { Crosshair, FlaskConical, Heart, Info, LogOut, Shield, Sparkles, Sword, X, Zap } from 'lucide-react';
 import { ALL_ITEMS } from '../../constants';
 import { getBattleItemBadges, getBattleMenuSlotCounts, getPaddedBattleSkillIds } from '../battle/battleMenuModels';
-import type { Item, Player, Skill, TipoDefesa } from '../../types';
+import type { Item, Player, Skill } from '../../types';
 
 export interface BattleActionsConfig {
   isPlayerTurn: boolean;
@@ -19,7 +19,7 @@ export interface BattleActionsConfig {
   limitBattleActionsToBasics: boolean;
   shopItems: Item[];
   onAttack: () => void;
-  onDefend: (tipoDefesa: TipoDefesa) => void;
+  onDefend: () => void;
   onChargeImpulse: () => void;
   onAbsorbImpulse: () => void;
   onSkill: (skill: Skill) => void;
@@ -39,7 +39,6 @@ export const BattleActionsHtml: React.FC<{
   const [menuVisible, setMenuVisible] = React.useState(false);
   const [infoPopup, setInfoPopup] = React.useState<{ type: 'skill' | 'item'; id: string } | null>(null);
   const [pressedBtn, setPressedBtn] = React.useState<string | null>(null);
-  const [selectedDefenseType, setSelectedDefenseType] = React.useState<TipoDefesa>('FISICA');
   const [showFleeConfirm, setShowFleeConfirm] = React.useState(false);
   const [fleeModalVisible, setFleeModalVisible] = React.useState(false);
   const [fleeBtnHover, setFleeBtnHover] = React.useState<'cancel' | 'flee' | null>(null);
@@ -71,9 +70,6 @@ export const BattleActionsHtml: React.FC<{
 
   const hasAbsorbed = player.impulsoAtivo > 0;
   const impulseGlowColor = hasAbsorbed ? absorbGlowColor : null;
-  const selectedDefenseMeta = selectedDefenseType === 'FISICA'
-    ? { label: 'DEF FISICA', color: '#f97316', bg: 'rgba(249,115,22,0.18)' }
-    : { label: 'DEF MAGICA', color: '#3b82f6', bg: 'rgba(59,130,246,0.18)' };
 
   React.useEffect(() => {
     if (activeMenu) {
@@ -354,41 +350,7 @@ export const BattleActionsHtml: React.FC<{
 
       {btn('atk', '#f43f5e', !isPlayerTurn, () => { closeMenu(); onAttack(); }, usesMagicBasicAttack ? <Sparkles size={sizing.btnIco} /> : usesBowBasicAttack ? <Crosshair size={sizing.btnIco} /> : <Sword size={sizing.btnIco} />, usesMagicBasicAttack ? 'MAGIA' : 'ATACAR')}
 
-      <div style={{ display: 'flex', gap: isMobile ? '8px' : '4px', width: '100%' }}>
-        <button
-          onClick={() => setSelectedDefenseType((current) => current === 'FISICA' ? 'MAGICA' : 'FISICA')}
-          disabled={!isPlayerTurn}
-          onPointerDown={() => isPlayerTurn && press('def-toggle')}
-          onPointerUp={release}
-          onPointerLeave={release}
-          onPointerCancel={release}
-          aria-label="Alternar tipo de defesa"
-          title="Alternar defesa fisica/magica"
-          style={{
-            width: isMobile ? 50 : 32,
-            flexShrink: 0,
-            borderRadius: sizing.btnR,
-            border: `1.5px solid ${isPlayerTurn ? selectedDefenseMeta.color + '70' : 'rgba(255,255,255,0.10)'}`,
-            background: 'rgba(8,5,22,0.55)',
-            color: isPlayerTurn ? selectedDefenseMeta.color : 'rgba(255,255,255,0.25)',
-            cursor: isPlayerTurn ? 'pointer' : 'default',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            backdropFilter: 'blur(24px)',
-            WebkitBackdropFilter: 'blur(24px)',
-            boxShadow: isPlayerTurn
-              ? `0 0 18px ${selectedDefenseMeta.color}22, 0 4px 16px rgba(0,0,0,0.35)`
-              : '0 4px 12px rgba(0,0,0,0.25)',
-            transform: pressedBtn === 'def-toggle' && isPlayerTurn ? 'scale(0.92)' : 'scale(1)',
-            transition: 'transform 0.13s cubic-bezier(0.34,1.56,0.64,1), border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease',
-            ...font,
-          }}
-        >
-          <RefreshCw size={sizing.btnIco} />
-        </button>
-        {btn('def', selectedDefenseMeta.color, !isPlayerTurn, () => { closeMenu(); onDefend(selectedDefenseType); }, <Shield size={sizing.btnIco} />, selectedDefenseMeta.label, selectedDefenseMeta.color)}
-      </div>
+      {btn('def', '#60a5fa', !isPlayerTurn, () => { closeMenu(); onDefend(); }, <Shield size={sizing.btnIco} />, 'DEFESA')}
 
       {showSkillsAction && !limitBattleActionsToBasics && (() => {
         const skillsColor = '#a855f7';

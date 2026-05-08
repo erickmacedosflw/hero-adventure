@@ -3756,9 +3756,9 @@ export default function App() {
         }
     }, [beginPlayerActionExecution, hasMultipleEnemies]);
 
-    const handlePlayerDefenseWithTimeline = useCallback((tipoDefesa: TipoDefesa) => {
+    const handlePlayerDefenseWithTimeline = useCallback(() => {
         beginPlayerActionExecution();
-        handlePlayerDefense(tipoDefesa);
+        handlePlayerDefense();
     }, [beginPlayerActionExecution, handlePlayerDefense]);
 
     const handleChargeImpulseWithTimeline = useCallback(() => {
@@ -3815,7 +3815,7 @@ export default function App() {
 
   // Wrappers estáveis (empty-deps) para battleActionsConfig — evitam nova referência de objeto a cada render
   const stableBattleOnAttack         = useCallback(() => handleAttackRef2.current(), []);
-  const stableBattleOnDefend         = useCallback((tipoDefesa: import('./types').TipoDefesa) => handleDefenseRef.current(tipoDefesa), []);
+    const stableBattleOnDefend         = useCallback(() => handleDefenseRef.current(), []);
   const stableBattleOnChargeImpulse  = useCallback(() => handleChargeImpulseRef.current(), []);
   const stableBattleOnAbsorbImpulse  = useCallback(() => handleAbsorbImpulseRef.current(), []);
   const stableBattleOnSkill          = useCallback((skill: import('./types').Skill) => handleSkillWithTargetCheckRef.current(skill), []);
@@ -3838,7 +3838,7 @@ export default function App() {
       if (action === 'CONFIRM') {
         handleAttackRef2.current();
       } else if (action === 'BACK') {
-                handleDefenseRef.current('FISICA');
+                                handleDefenseRef.current();
       } else if (action === 'SKILL_1') {
         // Usa o primeiro skill equipado, se disponível
         const skillId = equippedSkillsRef.current?.[0];

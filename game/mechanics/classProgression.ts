@@ -66,6 +66,10 @@ export const getUnlockedTalentNodes = (player: Player): TalentNode[] => (
   getConstellationNodes(player.classId).filter((node) => player.unlockedTalentNodeIds.includes(node.id))
 );
 
+const getUnlockedTrailNodes = (player: Player, trailId: string): TalentNode[] => (
+  getUnlockedTalentNodes(player).filter((node) => node.trailId === trailId)
+);
+
 export const getTalentBonuses = (player: Player): TalentCombatBonuses => {
   const bonuses = emptyBonuses();
 
@@ -109,17 +113,22 @@ export const canUnlockTalentNode = (player: Player, nodeId: string) => {
     return { ok: false as const, reason: 'Nodo ja desbloqueado.' };
   }
 
-  if (player.level < node.requiredLevel) {
-    return { ok: false as const, reason: `Requer nivel ${node.requiredLevel}.` };
-  }
-
   if (player.talentPoints < node.cost) {
     return { ok: false as const, reason: 'Sem pontos de constelacao.' };
   }
 
+  if (node.stage > 1) {
+    const hasPreviousStageUnlocked = getUnlockedTrailNodes(player, node.trailId)
+      .some((unlockedNode) => unlockedNode.stage === node.stage - 1);
+
+    if (!hasPreviousStageUnlocked) {
+      return { ok: false as const, reason: `Libere ao menos 1 nodo da etapa ${node.stage - 1}.` };
+    }
+  }
+
   const missingRequirement = node.prerequisites.find((prerequisiteId) => !player.unlockedTalentNodeIds.includes(prerequisiteId));
   if (missingRequirement) {
-    return { ok: false as const, reason: 'Desbloqueie o nodo anterior desta trilha.' };
+    return { ok: false as const, reason: 'Faltam pre-requisitos deste nodo.' };
   }
 
   return { ok: true as const, node };

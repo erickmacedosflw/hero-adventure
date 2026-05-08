@@ -1,11 +1,12 @@
 ﻿
 import React, { useState, useEffect, useRef } from 'react';
-import { Player, Enemy, EnemyIntentPreview, BattleLog, TurnState, Item, Skill, GameState, FloatingText, Rarity, ProgressionCard, CardRewardOffer, AlchemistCardOffer, AlchemistItemOffer, DungeonResult, DungeonRewards, BossVictoryContext, PendingTargetAction, TipoDefesa, Mission } from '../types';
+import { Player, Enemy, EnemyIntentPreview, BattleLog, TurnState, Item, Skill, GameState, FloatingText, Rarity, ProgressionCard, CardRewardOffer, AlchemistCardOffer, AlchemistItemOffer, DungeonResult, DungeonRewards, BossVictoryContext, PendingTargetAction, Mission } from '../types';
 import { Sword, Shield, Zap, Heart, Coins, ShoppingBag, Skull, Play, Plus, FlaskConical, User, X, Home, LogOut, DollarSign, AlertTriangle, MousePointerClick, Shirt, Footprints, Crown, LayoutGrid, Sparkles, Crosshair, ArrowLeft, Star, Clock, Orbit, Info, RefreshCw, Music2, VolumeX, Volume2, Gauge, Gem, Settings2 } from 'lucide-react';
 import { ItemPreviewThree } from './items/ItemPreviewThree';
 import { GameAssetIcon } from './ui/game-asset-icon';
 import { ItemIcon, getItemPowerLabel } from './ui/game-display';
 import { CharacterSheetModal } from './profile/CharacterSheetModal';
+import { ConstellationEvolutionModal } from './profile/ConstellationEvolutionModal';
 import { InventoryScreen as InventoryModal } from './profile/InventoryScreen';
 import { SkillsScreen as SkillsModal } from './profile/SkillsScreen';
 import { MissionsScreen as MissionsModal } from './profile/MissionsScreen';
@@ -37,7 +38,7 @@ interface GameUIProps {
    *  parent components do not need to subscribe to the logs slice. */
   logs?: BattleLog[];
   onAttack: () => void;
-    onDefend: (tipoDefesa: TipoDefesa) => void;
+        onDefend: () => void;
   onChargeImpulse: () => void;
   onAbsorbImpulse: () => void;
   onSkill: (skill: Skill) => void;
@@ -1255,6 +1256,7 @@ export const TavernScreen: React.FC<{
   const [showProfile, setShowProfile] = useState(false);
   const [showInventory, setShowInventory] = useState(false);
   const [showSkillsScreen, setShowSkillsScreen] = useState(false);
+    const [showConstellationScreen, setShowConstellationScreen] = useState(false);
     const [showBattleSettings, setShowBattleSettings] = useState(false);
   const [skillsTargetSlotIndex, setSkillsTargetSlotIndex] = useState<number | null>(null);
   const [heroInspectOpen, setHeroInspectOpen] = useState(false);
@@ -1419,6 +1421,20 @@ export const TavernScreen: React.FC<{
             setShowProfile(true);
         }
     };
+    const openConstellationModal = () => {
+        setShowProfile(false);
+        if (!showConstellationScreen) {
+            uiSfx.play('modal_open');
+        }
+        setShowConstellationScreen(true);
+    };
+    const closeConstellationModal = () => {
+        if (!showConstellationScreen) {
+            return;
+        }
+        setShowConstellationScreen(false);
+        uiSfx.play('modal_close');
+    };
     const openBattleSettingsModal = () => {
         if (!showBattleSettings) {
             uiSfx.play('modal_open');
@@ -1476,7 +1492,7 @@ export const TavernScreen: React.FC<{
             accent: 'border-[#cfab91] bg-[#f4e5d4] text-[#6b3141] hover:bg-[#e9d7c2]',
             badge: availableConstellationPoints > 0 ? availableConstellationPoints : undefined,
             onClick: () => {
-                openProfileModal('constellation');
+                openConstellationModal();
             },
         }] : []),
         ...((!campIntroOnly || inventoryUnlocked) ? [{
@@ -1633,7 +1649,7 @@ export const TavernScreen: React.FC<{
             return;
         }
 
-        openProfileModal('constellation');
+        openConstellationModal();
     }, [autoOpenConstellationToken]);
     const lastHandledProfileAutoOpenTokenRef = useRef<number>(autoOpenProfileToken);
     useEffect(() => {
@@ -1769,6 +1785,7 @@ export const TavernScreen: React.FC<{
     const sideMenuItems: { id: string; label: string; action: () => void }[] = [
         ...(inventoryUnlocked  ? [{ id: 'inventory', label: 'Mochila',      action: () => openInventoryModal('all') }] : []),
         ...(missionsUnlocked && sceneRegion === 'forest' ? [{ id: 'missions', label: 'Missões', action: () => { uiSfx.play('modal_open'); setShowMissionsScreen(true); } }] : []),
+        ...(hasConstellationUnlocked ? [{ id: 'constellation', label: 'Constelações', action: () => openConstellationModal() }] : []),
         ...(showSkillsAction    ? [{ id: 'skills',    label: 'Habilidades',  action: () => openSkillsScreenModal() }] : []),
         ...(merchantUnlocked && sceneRegion === 'forest' ? [{ id: 'merchant', label: 'Mercador', action: () => handleServiceTransition(onShop) }] : []),
         ...(alchemistUnlocked && sceneRegion === 'dungeon' ? [{ id: 'alchemist', label: 'Alquimista', action: () => handleServiceTransition(onAlchemist) }] : []),
@@ -2221,6 +2238,38 @@ export const TavernScreen: React.FC<{
                                     })(),
                                 },
                                 {
+                                    id: 'constellation',
+                                    visible: hasConstellationUnlocked && !showConstellationScreen,
+                                    jsx: (
+                                        <button
+                                            key="constellation"
+                                            onClick={openConstellationModal}
+                                            className="group flex items-center justify-end gap-2 p-0 bg-transparent border-0"
+                                            onMouseEnter={_srEnter}
+                                            onMouseLeave={_srLeave}
+                                            onMouseDown={_srDown}
+                                            onMouseUp={_srUp}
+                                            title="Constelações"
+                                            aria-label="Constelações"
+                                        >
+                                            <span className="text-white text-[11px] font-black uppercase tracking-[0.1em] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-150" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}>
+                                                Constelações
+                                            </span>
+                                            <div style={{ position: 'relative', width: 48, height: 48, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                                <div data-diamond="1" style={{ position: 'absolute', inset: 5, borderRadius: 7, backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', transform: 'rotate(45deg) scale(1)', background: 'rgba(0,0,0,0.42)', transition: 'transform 0.15s cubic-bezier(0.34,1.56,0.64,1), background 0.15s' }} />
+                                                <div data-iconwrap="1" style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'transform 0.18s cubic-bezier(0.22,1,0.36,1)' }}>
+                                                    <Orbit size={24} color="#c4b5fd" style={{ filter: 'drop-shadow(0 0 10px rgba(196,181,253,0.7))' }} />
+                                                </div>
+                                                {availableConstellationPoints > 0 && (
+                                                    <span style={{ position: 'absolute', top: -2, right: -2, minWidth: 16, height: 16, borderRadius: 99, background: 'linear-gradient(135deg,#4338ca,#a78bfa)', border: '2px solid #fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, fontWeight: 900, color: '#fff', padding: '0 3px', pointerEvents: 'none', zIndex: 2 }}>
+                                                        {availableConstellationPoints}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </button>
+                                    ),
+                                },
+                                {
                                     id: 'skills',
                                     visible: showSkillsAction && !showSkillsScreen,
                                     jsx: (
@@ -2490,7 +2539,7 @@ export const TavernScreen: React.FC<{
     {(() => {
         if (campUiProfile !== 'gamepad') return null;
         if (portalTransitioning) return null;
-        if (showInventory || showProfile || showSkillsScreen) return null;
+        if (showInventory || showProfile || showSkillsScreen || showConstellationScreen) return null;
         if (portalInspectMode) {
             return <GamepadActionLegend showConfirm confirmText="Viajar" showCancel showDPad dPadText="Escolher destino" />;
         }
@@ -2694,7 +2743,7 @@ export const TavernScreen: React.FC<{
     </AnimatedModal>
     <AnimatedModal open={showProfile}>
         {(isClosing) => (
-            <CharacterSheetModal player={player} shopItems={shopItems} onClose={closeProfileModal} onOpenInventory={(initialFilter) => { openInventoryModal(initialFilter ?? 'all', false); }} onUnlockTalent={onUnlockTalent} onResetTalents={onResetTalents} respecUnlockPromptActive={constellationRespecUnlockPromptActive} onAcknowledgeRespecUnlock={onAcknowledgeConstellationRespecUnlock} isClosing={isClosing} restrictToStatusOnly={restrictProfileToStatusOnly} allowInventory={inventoryUnlocked} allowCardsTab={allowCardsInProfile} allowSkillsTab={showSkillsAction} allowConstellationTab={hasConstellationUnlocked} initialTab={profileInitialTab} />
+            <CharacterSheetModal player={player} shopItems={shopItems} onClose={closeProfileModal} onOpenInventory={(initialFilter) => { openInventoryModal(initialFilter ?? 'all', false); }} onUnlockTalent={onUnlockTalent} onResetTalents={onResetTalents} respecUnlockPromptActive={constellationRespecUnlockPromptActive} onAcknowledgeRespecUnlock={onAcknowledgeConstellationRespecUnlock} isClosing={isClosing} restrictToStatusOnly={restrictProfileToStatusOnly} allowInventory={inventoryUnlocked} allowCardsTab={allowCardsInProfile} allowSkillsTab={showSkillsAction} allowConstellationTab={false} initialTab={profileInitialTab} />
         )}
     </AnimatedModal>
     <AnimatedModal open={showInventory}>
@@ -2714,6 +2763,17 @@ export const TavernScreen: React.FC<{
                 onClose={() => { uiSfx.play('modal_close'); setShowMissionsScreen(false); }}
                 isClosing={isClosing}
                 onClaimReward={onClaimMissionReward ?? (() => {})}
+            />
+        )}
+    </AnimatedModal>
+    <AnimatedModal open={showConstellationScreen}>
+        {(isClosing) => (
+            <ConstellationEvolutionModal
+                player={player}
+                onClose={closeConstellationModal}
+                onUnlockTalent={onUnlockTalent}
+                onResetTalents={onResetTalents}
+                isClosing={isClosing}
             />
         )}
     </AnimatedModal>
@@ -2788,11 +2848,11 @@ export const TavernScreen: React.FC<{
                     <Orbit size={64} style={{ color: '#a5b4fc', filter: 'drop-shadow(0 4px 20px rgba(99,102,241,0.85))' }} />
                     <div className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[9px] font-black uppercase tracking-[0.28em] text-indigo-200/80" style={{ background: 'rgba(99,102,241,0.14)', border: '1px solid rgba(99,102,241,0.24)' }}>Novo desbloqueio</div>
                     <h3 className="text-xl font-black text-white text-center leading-tight">Constelação habilitada!</h3>
-                    <p className="text-xs text-white/55 text-center leading-relaxed">Ao subir de nível você ganha pontos de evolução. Agora você pode abrir sua constelação.</p>
+                    <p className="text-xs text-white/55 text-center leading-relaxed">Ao subir de nível você ganha pontos de evolução. Agora você pode abrir o novo mapa de constelações.</p>
                 </div>
                 <div className="px-5 pb-6 pt-1">
                     <div style={{ height: 1, background: 'rgba(99,102,241,0.14)', marginBottom: 14 }} />
-                    <button onClick={() => { setShowConstellationUnlockPrompt(false); onAcknowledgeConstellationUnlock?.(); openProfileModal('constellation'); }}
+                    <button onClick={() => { setShowConstellationUnlockPrompt(false); onAcknowledgeConstellationUnlock?.(); openConstellationModal(); }}
                         className="w-full rounded-xl py-3 font-black text-sm text-white transition-all hover:brightness-110 hover:scale-[1.02] active:scale-95"
                         style={{ background: 'linear-gradient(135deg, #3730a3, #1e1b4b)', border: '1px solid rgba(99,102,241,0.35)', boxShadow: '0 6px 20px rgba(55,48,163,0.45)' }}>
                         Ver constelação
@@ -3577,7 +3637,6 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
   // 5800-line App component when logs change during combat.
   const logs = useBattleLogStore((s) => s.logs);
   const [activeBattleMenu, setActiveBattleMenu] = useState<'skills' | 'items' | null>(null);
-    const [selectedDefenseType, setSelectedDefenseType] = useState<TipoDefesa>('FISICA');
   const [battleInfoPopup, setBattleInfoPopup] = useState<{ type: 'skill' | 'item'; id: string } | null>(null);
   const [showProfile, setShowProfile] = useState(false);
     const [showBattleSettings, setShowBattleSettings] = useState(false);
@@ -3602,6 +3661,10 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
     const [showBattleStats, setShowBattleStats] = useState(false);
     const [showMissionsUnlockPrompt, setShowMissionsUnlockPrompt] = useState(missionsUnlockPromptActive);
     const [showMissionsScreen, setShowMissionsScreen] = useState(false);
+    const [showConstellationScreen, setShowConstellationScreen] = useState(false);
+    const openConstellationModal = () => { uiSfx.play('modal_open'); setShowConstellationScreen(true); };
+    const closeConstellationModal = () => { if (!showConstellationScreen) return; setShowConstellationScreen(false); uiSfx.play('modal_close'); };
+    const availableConstellationPoints = Math.max(0, player.talentPoints);
     const [resourceDelta, setResourceDelta] = useState<number>(0);
     const [resourcePulse, setResourcePulse] = useState<'gain' | 'spend' | null>(null);
     const resourceDeltaTimeoutRef = useRef<number | null>(null);
@@ -3820,9 +3883,6 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                 : classImpulseBaseColor;
     const impulseReserveColors = [classImpulseBaseColor, classImpulseBaseColor, classImpulseBaseColor];
     const buttonsEnergized = player.impulsoAtivo > 0;
-    const selectedDefenseMeta = selectedDefenseType === 'FISICA'
-        ? { label: 'DEF FISICA', color: '#f97316', border: '#c2410c', shadow: '#f97316' }
-        : { label: 'DEF MAGICA', color: '#3b82f6', border: '#1d4ed8', shadow: '#3b82f6' };
     const enemyCardToneClass = enemy?.isBoss
         ? 'border-[3px] border-rose-400/70 bg-rose-950/50 backdrop-blur-md shadow-[0_12px_30px_rgba(190,24,93,0.35)] ring-1 ring-rose-400/30'
         : enemy?.isSubBoss
@@ -4586,11 +4646,24 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
           )}
       </AnimatedModal>
 
+      <AnimatedModal open={showConstellationScreen}>
+          {(isClosing) => (
+              <ConstellationEvolutionModal
+                  player={player}
+                  onClose={closeConstellationModal}
+                  onUnlockTalent={onUnlockTalent}
+                  onResetTalents={onResetTalents}
+                  isClosing={isClosing}
+              />
+          )}
+      </AnimatedModal>
+
       {/* BATTLE SIDE-RAIL — missions icon, right side below top bar */}
-      {missionsUnlocked && !isDungeonRun && sceneRegion === 'forest' && (() => {
+      {(missionsUnlocked || hasConstellationUnlocked) && !isDungeonRun && sceneRegion === 'forest' && (() => {
           const _bDone = missions.filter(m => m.progressoAtual >= m.metaAtual).length;
           return (
           <div className="absolute right-3 sm:right-5 top-44 sm:top-24 z-30 pointer-events-auto flex flex-col items-end gap-3">
+              {missionsUnlocked && (
               <button
                   onClick={() => { uiSfx.play('modal_open'); setShowMissionsScreen(true); }}
                   className="group relative flex items-center justify-end gap-2 p-0 bg-transparent border-0"
@@ -4627,6 +4700,43 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                       )}
                   </div>
               </button>
+              )}
+              {hasConstellationUnlocked && (
+                  <button
+                      onClick={openConstellationModal}
+                      className="group relative flex items-center justify-end gap-2 p-0 bg-transparent border-0"
+                      onMouseEnter={e => { const d = e.currentTarget.querySelector<HTMLElement>('[data-diamond]'); if (d) { d.style.transform = 'rotate(45deg) scale(0.88)'; d.style.background = 'rgba(0,0,0,0.52)'; } const w = e.currentTarget.querySelector<HTMLElement>('[data-iconwrap]'); if (w) w.style.transform = 'scale(1.15)'; }}
+                      onMouseLeave={e => { const d = e.currentTarget.querySelector<HTMLElement>('[data-diamond]'); if (d) { d.style.transform = 'rotate(45deg) scale(1)'; d.style.background = 'rgba(0,0,0,0.42)'; } const w = e.currentTarget.querySelector<HTMLElement>('[data-iconwrap]'); if (w) w.style.transform = 'scale(1)'; }}
+                      onMouseDown={e => { const d = e.currentTarget.querySelector<HTMLElement>('[data-diamond]'); if (d) { d.style.transform = 'rotate(45deg) scale(0.78)'; d.style.background = 'rgba(0,0,0,0.62)'; } const w = e.currentTarget.querySelector<HTMLElement>('[data-iconwrap]'); if (w) w.style.transform = 'scale(1)'; }}
+                      onMouseUp={e => { const d = e.currentTarget.querySelector<HTMLElement>('[data-diamond]'); if (d) { d.style.transform = 'rotate(45deg) scale(0.88)'; d.style.background = 'rgba(0,0,0,0.52)'; } const w = e.currentTarget.querySelector<HTMLElement>('[data-iconwrap]'); if (w) w.style.transform = 'scale(1.15)'; }}
+                      title="Constelações de Evolução"
+                      aria-label="Constelações de Evolução"
+                  >
+                      <span className="text-white text-[11px] font-black uppercase tracking-[0.1em] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-150" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}>
+                          Constelações
+                      </span>
+                      <div style={{ position: 'relative', width: 48, height: 48, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                          <div data-diamond="1" style={{
+                              position: 'absolute',
+                              inset: 5,
+                              borderRadius: 7,
+                              backdropFilter: 'blur(24px)',
+                              WebkitBackdropFilter: 'blur(24px)',
+                              transform: 'rotate(45deg) scale(1)',
+                              background: 'rgba(0,0,0,0.42)',
+                              transition: 'transform 0.15s cubic-bezier(0.34,1.56,0.64,1), background 0.15s',
+                          }} />
+                          <div data-iconwrap="1" style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'transform 0.18s cubic-bezier(0.22,1,0.36,1)' }}>
+                              <Orbit size={26} color="#a5b4fc" style={{ filter: 'drop-shadow(0 2px 6px rgba(99,102,241,0.85))' }} />
+                          </div>
+                          {availableConstellationPoints > 0 && (
+                              <span style={{ position: 'absolute', top: -2, right: -2, minWidth: 16, height: 16, borderRadius: 99, background: 'linear-gradient(135deg,#3730a3,#a5b4fc)', border: '2px solid #fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, fontWeight: 900, color: '#fff', padding: '0 3px', pointerEvents: 'none', zIndex: 2 }}>
+                                  {availableConstellationPoints}
+                              </span>
+                          )}
+                      </div>
+                  </button>
+              )}
           </div>
           );
       })()}
@@ -5292,43 +5402,18 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                           />
                       )}
                       <ActionTile icon={usesMagicBasicAttack ? <Sparkles size={18} /> : (usesBowBasicAttack ? <Crosshair size={18} /> : <Sword size={18} />)} label={usesMagicBasicAttack ? 'MAGIA' : 'ATACAR'} onClick={() => { setActiveBattleMenu(null); onAttack(); }} disabled={!isPlayerTurn} variant="attack" glowColor={impulseButtonGlowColor} glowStrength={24} energized={buttonsEnergized} sparkleColor={currentImpulseFxColor} />
-                      <div className="relative col-span-1">
-                          <button
-                              type="button"
-                              onClick={(event) => {
-                                  event.stopPropagation();
-                                  setSelectedDefenseType((current) => current === 'FISICA' ? 'MAGICA' : 'FISICA');
-                              }}
-                              disabled={!isPlayerTurn}
-                              className="absolute right-1 top-1 z-10 flex h-6 w-6 items-center justify-center rounded-[8px] border text-white transition-transform active:scale-90 disabled:opacity-40 sm:h-7 sm:w-7 sm:rounded-[10px]"
-                              style={{
-                                  background: 'rgba(8,5,22,0.55)',
-                                  backdropFilter: 'blur(24px)',
-                                  WebkitBackdropFilter: 'blur(24px)',
-                                  borderColor: isPlayerTurn ? `${selectedDefenseMeta.color}70` : 'rgba(255,255,255,0.10)',
-                                  boxShadow: isPlayerTurn
-                                      ? `0 0 18px ${selectedDefenseMeta.color}22, 0 4px 16px rgba(0,0,0,0.35)`
-                                      : '0 4px 12px rgba(0,0,0,0.25)',
-                                  color: isPlayerTurn ? selectedDefenseMeta.color : 'rgba(255,255,255,0.25)',
-                              }}
-                              aria-label="Alternar tipo de defesa"
-                              title="Alternar defesa fisica/magica"
-                          >
-                              <RefreshCw size={12} />
-                          </button>
-                          <ActionTile
-                              icon={<Shield size={18} />}
-                              label={selectedDefenseMeta.label}
-                              onClick={() => { setActiveBattleMenu(null); onDefend(selectedDefenseType); }}
-                              disabled={!isPlayerTurn}
-                              variant="defense"
-                              forceStyle={{ backgroundColor: selectedDefenseMeta.color, borderColor: selectedDefenseMeta.border, color: '#ffffff' }}
-                              glowColor={buttonsEnergized ? impulseButtonGlowColor : selectedDefenseMeta.shadow}
-                              glowStrength={24}
-                              energized={buttonsEnergized}
-                              sparkleColor={currentImpulseFxColor}
-                          />
-                      </div>
+                      <ActionTile
+                          icon={<Shield size={18} />}
+                          label="DEFESA"
+                          onClick={() => { setActiveBattleMenu(null); onDefend(); }}
+                          disabled={!isPlayerTurn}
+                          variant="defense"
+                          forceStyle={{ backgroundColor: '#60a5fa', borderColor: '#2563eb', color: '#ffffff' }}
+                          glowColor={buttonsEnergized ? impulseButtonGlowColor : '#60a5fa'}
+                          glowStrength={24}
+                          energized={buttonsEnergized}
+                          sparkleColor={currentImpulseFxColor}
+                      />
                                             {showSkillsAction && (
                                                 <div className="relative col-span-1">
                                                     {activeBattleMenu === 'skills' && (

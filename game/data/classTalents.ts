@@ -3,6 +3,9 @@ import {
   PlayerClassId,
   Skill,
   TalentNode,
+  TalentNodeEffect,
+  TalentNodeShapeVariant,
+  TalentNodeType,
 } from '../../types';
 
 const createNode = ({
@@ -13,27 +16,182 @@ const createNode = ({
   title,
   description,
   tier,
+  stage = tier,
+  nodeType,
+  shapeVariant,
   color,
   icon,
   prerequisites = [],
   effects,
-}: Omit<TalentNode, 'cost' | 'requiredLevel' | 'prerequisites'> & {
+}: Omit<TalentNode, 'cost' | 'requiredLevel' | 'prerequisites' | 'stage' | 'nodeType' | 'shapeVariant'> & {
+  stage?: number;
+  nodeType?: TalentNodeType;
+  shapeVariant?: TalentNodeShapeVariant;
   prerequisites?: string[];
-}) => ({
-  id,
-  classId,
-  trailId,
-  trailName,
-  title,
-  description,
-  tier,
-  cost: Math.max(1, Math.min(3, tier)),
-  requiredLevel: tier * 2 - 1,
-  color,
-  icon,
-  prerequisites,
-  effects,
-});
+}) => {
+  // Inversão de etapa: a constelação cresce de baixo (mais fraco) para cima
+  // (mais forte). Os dados foram autorados com stage 1 = nó mais impactante;
+  // espelhamos em torno da etapa central (4) para que stage 1 vire o nó de
+  // entrada mais simples e stage 7 (topo) seja o nó autoral mais forte.
+  // 8 - 1 = 7, 8 - 4 = 4 (skill permanece no centro), 8 - 7 = 1.
+  const invertedStage = 8 - stage;
+  // Os prerequisites explícitos foram autorados pensando na ordem antiga
+  // (stage 2 dependia do stage 1). Após a inversão essas dependências ficam
+  // invertidas; descartamos os prereqs explícitos e confiamos exclusivamente
+  // no gating por etapa (canUnlockTalentNode já exige ≥1 nó da etapa
+  // anterior na mesma trilha).
+  void prerequisites;
+  return {
+    id,
+    classId,
+    trailId,
+    trailName,
+    title,
+    description,
+    tier,
+    stage: invertedStage,
+    nodeType: nodeType ?? (effects.some((effect) => Boolean(effect.unlockSkillId)) ? 'skill' : tier % 2 === 0 ? 'passive' : 'attribute'),
+    shapeVariant: shapeVariant ?? (effects.some((effect) => Boolean(effect.unlockSkillId)) ? 'star' : tier % 2 === 0 ? 'hex' : 'diamond'),
+    cost: 1,
+    requiredLevel: 0,
+    color,
+    icon,
+    prerequisites: [],
+    effects,
+  };
+};
+
+type FillerSpec = {
+  stage: 3 | 5 | 6 | 7;
+  type: TalentNodeType;
+  shape: TalentNodeShapeVariant;
+  titleSuffix: string;
+  description: string;
+  icon: string;
+  effect: TalentNodeEffect;
+};
+
+// Each constellation trail has its OWN unique pack so no two trails of the
+// same class share fillers. Order per trail:
+//   1=Attribute (existing) | 2=Passive (existing) | 3=Attribute | 4=Skill (existing)
+//   5=Attribute             | 6=Passive            | 7=Attribute
+const TRAIL_FILLER_PACKS: Record<string, [FillerSpec, FillerSpec, FillerSpec, FillerSpec]> = {
+  // ---- KNIGHT ----------------------------------------------------------
+  bastion: [
+    { stage: 3, type: 'attribute', shape: 'diamond', titleSuffix: '— Couraça Antiga', description: '+12 HP máximos.', icon: '♥', effect: { stats: { maxHp: 12, hp: 12 } } },
+    { stage: 5, type: 'attribute', shape: 'diamond', titleSuffix: '— Resolução', description: '+1 DEF.', icon: '🛡', effect: { stats: { def: 1 } } },
+    { stage: 6, type: 'passive',   shape: 'hex',     titleSuffix: '— Postura Pétrea', description: 'Reduz dano recebido em 6%.', icon: '◎', effect: { bonuses: { damageReduction: 0.06 } } },
+    { stage: 7, type: 'attribute', shape: 'diamond', titleSuffix: '— Forja Imperial', description: '+2 DEF.', icon: '⛨', effect: { stats: { def: 2 } } },
+  ],
+  dawn: [
+    { stage: 3, type: 'attribute', shape: 'diamond', titleSuffix: '— Brasa Devota', description: '+14 MP máximos.', icon: '☀', effect: { stats: { maxMp: 14, mp: 14 } } },
+    { stage: 5, type: 'attribute', shape: 'diamond', titleSuffix: '— Bênção Solar', description: '+2 Sorte.', icon: '✧', effect: { stats: { luck: 2 } } },
+    { stage: 6, type: 'passive',   shape: 'hex',     titleSuffix: '— Halo Restaurador', description: '+18% poder de cura.', icon: '✶', effect: { bonuses: { healPower: 0.18 } } },
+    { stage: 7, type: 'attribute', shape: 'diamond', titleSuffix: '— Centelha Divina', description: '+1 Poder Mágico.', icon: '✺', effect: { stats: { magic: 1 } } },
+  ],
+  verdict: [
+    { stage: 3, type: 'attribute', shape: 'diamond', titleSuffix: '— Aço Justo', description: '+1 ATK.', icon: '⚔', effect: { stats: { atk: 1 } } },
+    { stage: 5, type: 'attribute', shape: 'diamond', titleSuffix: '— Olhar Inquisidor', description: '+1 Velocidade e +1 Sorte.', icon: '✦', effect: { stats: { speed: 1, luck: 1 } } },
+    { stage: 6, type: 'passive',   shape: 'hex',     titleSuffix: '— Sentença Final', description: '+6% chance crítica.', icon: '✴', effect: { bonuses: { critChance: 0.06 } } },
+    { stage: 7, type: 'attribute', shape: 'diamond', titleSuffix: '— Lâmina Sagrada', description: '+2 ATK.', icon: '✹', effect: { stats: { atk: 2 } } },
+  ],
+  // ---- BARBARIAN -------------------------------------------------------
+  bloodfury: [
+    { stage: 3, type: 'attribute', shape: 'diamond', titleSuffix: '— Mordida do Lobo', description: '+1 ATK.', icon: '⚔', effect: { stats: { atk: 1 } } },
+    { stage: 5, type: 'attribute', shape: 'diamond', titleSuffix: '— Carne Endurecida', description: '+12 HP máximos.', icon: '♥', effect: { stats: { maxHp: 12, hp: 12 } } },
+    { stage: 6, type: 'passive',   shape: 'hex',     titleSuffix: '— Veia Aberta', description: '+8% roubo de vida.', icon: '🩸', effect: { bonuses: { lifeSteal: 0.08 } } },
+    { stage: 7, type: 'attribute', shape: 'diamond', titleSuffix: '— Marcas de Caçada', description: '+2 Sorte.', icon: '☘', effect: { stats: { luck: 2 } } },
+  ],
+  cataclysm: [
+    { stage: 3, type: 'attribute', shape: 'diamond', titleSuffix: '— Couro Tribal', description: '+18 HP máximos.', icon: '♥', effect: { stats: { maxHp: 18, hp: 18 } } },
+    { stage: 5, type: 'attribute', shape: 'diamond', titleSuffix: '— Garra Selvagem', description: '+1 ATK.', icon: '⚔', effect: { stats: { atk: 1 } } },
+    { stage: 6, type: 'passive',   shape: 'hex',     titleSuffix: '— Marreta Brutal', description: '+10% dano físico.', icon: '☄', effect: { bonuses: { physicalDamage: 0.10 } } },
+    { stage: 7, type: 'attribute', shape: 'diamond', titleSuffix: '— Império de Ossos', description: '+2 ATK.', icon: '✹', effect: { stats: { atk: 2 } } },
+  ],
+  warcry: [
+    { stage: 3, type: 'attribute', shape: 'diamond', titleSuffix: '— Pele Curtida', description: '+1 DEF.', icon: '🛡', effect: { stats: { def: 1 } } },
+    { stage: 5, type: 'attribute', shape: 'diamond', titleSuffix: '— Pulso de Guerra', description: '+14 HP máximos.', icon: '♥', effect: { stats: { maxHp: 14, hp: 14 } } },
+    { stage: 6, type: 'passive',   shape: 'hex',     titleSuffix: '— Resistência Selvagem', description: 'Reduz dano recebido em 5%.', icon: '◎', effect: { bonuses: { damageReduction: 0.05 } } },
+    { stage: 7, type: 'attribute', shape: 'diamond', titleSuffix: '— Berro Resoluto', description: '+1 DEF e +1 Defesa Mágica.', icon: '⛨', effect: { stats: { def: 1, magicDef: 1 } } },
+  ],
+  // ---- MAGE ------------------------------------------------------------
+  pyre: [
+    { stage: 3, type: 'attribute', shape: 'diamond', titleSuffix: '— Tocha Brasa', description: '+1 Poder Mágico.', icon: '🔥', effect: { stats: { magic: 1 } } },
+    { stage: 5, type: 'attribute', shape: 'diamond', titleSuffix: '— Reserva Cinza', description: '+12 MP máximos.', icon: '◈', effect: { stats: { maxMp: 12, mp: 12 } } },
+    { stage: 6, type: 'passive',   shape: 'hex',     titleSuffix: '— Sopro Ígneo', description: '+10% dano mágico.', icon: '✺', effect: { bonuses: { magicDamage: 0.10 } } },
+    { stage: 7, type: 'attribute', shape: 'diamond', titleSuffix: '— Coroa de Fogo', description: '+2 Poder Mágico.', icon: '✦', effect: { stats: { magic: 2 } } },
+  ],
+  frost: [
+    { stage: 3, type: 'attribute', shape: 'diamond', titleSuffix: '— Cristal Polar', description: '+2 Sorte.', icon: '❄', effect: { stats: { luck: 2 } } },
+    { stage: 5, type: 'attribute', shape: 'diamond', titleSuffix: '— Andar de Geada', description: '+1 Velocidade.', icon: '➶', effect: { stats: { speed: 1 } } },
+    { stage: 6, type: 'passive',   shape: 'hex',     titleSuffix: '— Lente de Gelo', description: '+6% chance crítica.', icon: '✶', effect: { bonuses: { critChance: 0.06 } } },
+    { stage: 7, type: 'attribute', shape: 'diamond', titleSuffix: '— Núcleo Glacial', description: '+1 Poder Mágico.', icon: '✺', effect: { stats: { magic: 1 } } },
+  ],
+  astral: [
+    { stage: 3, type: 'attribute', shape: 'diamond', titleSuffix: '— Vasilha Astral', description: '+14 MP máximos.', icon: '◈', effect: { stats: { maxMp: 14, mp: 14 } } },
+    { stage: 5, type: 'attribute', shape: 'diamond', titleSuffix: '— Manto Estelar', description: '+1 Defesa Mágica.', icon: '🛡', effect: { stats: { magicDef: 1 } } },
+    { stage: 6, type: 'passive',   shape: 'hex',     titleSuffix: '— Bênção Sideral', description: '+18% poder de cura.', icon: '✶', effect: { bonuses: { healPower: 0.18 } } },
+    { stage: 7, type: 'attribute', shape: 'diamond', titleSuffix: '— Coroa de Estrelas', description: '+2 Defesa Mágica.', icon: '✺', effect: { stats: { magicDef: 2 } } },
+  ],
+  // ---- RANGER ----------------------------------------------------------
+  gale: [
+    { stage: 3, type: 'attribute', shape: 'diamond', titleSuffix: '— Pés de Vento', description: '+1 Velocidade.', icon: '➶', effect: { stats: { speed: 1 } } },
+    { stage: 5, type: 'attribute', shape: 'diamond', titleSuffix: '— Mira Aguçada', description: '+1 Sorte.', icon: '✧', effect: { stats: { luck: 1 } } },
+    { stage: 6, type: 'passive',   shape: 'hex',     titleSuffix: '— Olho do Vento', description: '+6% chance crítica.', icon: '✦', effect: { bonuses: { critChance: 0.06 } } },
+    { stage: 7, type: 'attribute', shape: 'diamond', titleSuffix: '— Tempestade Suave', description: '+2 Velocidade.', icon: '✹', effect: { stats: { speed: 2 } } },
+  ],
+  briar: [
+    { stage: 3, type: 'attribute', shape: 'diamond', titleSuffix: '— Farpa Travada', description: '+1 ATK.', icon: '🌿', effect: { stats: { atk: 1 } } },
+    { stage: 5, type: 'attribute', shape: 'diamond', titleSuffix: '— Couraça Vegetal', description: '+10 HP máximos.', icon: '♥', effect: { stats: { maxHp: 10, hp: 10 } } },
+    { stage: 6, type: 'passive',   shape: 'hex',     titleSuffix: '— Hera Implacável', description: '+10% dano físico.', icon: '✣', effect: { bonuses: { physicalDamage: 0.10 } } },
+    { stage: 7, type: 'attribute', shape: 'diamond', titleSuffix: '— Coração de Carvalho', description: '+1 ATK e +1 DEF.', icon: '⛨', effect: { stats: { atk: 1, def: 1 } } },
+  ],
+  wilds: [
+    { stage: 3, type: 'attribute', shape: 'diamond', titleSuffix: '— Folha Restauradora', description: '+12 HP e +12 MP máximos.', icon: '✿', effect: { stats: { maxHp: 12, hp: 12, maxMp: 12, mp: 12 } } },
+    { stage: 5, type: 'attribute', shape: 'diamond', titleSuffix: '— Casca Sagrada', description: '+1 Defesa Mágica.', icon: '🛡', effect: { stats: { magicDef: 1 } } },
+    { stage: 6, type: 'passive',   shape: 'hex',     titleSuffix: '— Sopro da Mata', description: '+18% poder de cura.', icon: '❋', effect: { bonuses: { healPower: 0.18 } } },
+    { stage: 7, type: 'attribute', shape: 'diamond', titleSuffix: '— Sintonia Selvagem', description: '+2 Sorte.', icon: '✶', effect: { stats: { luck: 2 } } },
+  ],
+  // ---- ROGUE -----------------------------------------------------------
+  night: [
+    { stage: 3, type: 'attribute', shape: 'diamond', titleSuffix: '— Sussurro do Breu', description: '+2 Sorte.', icon: '☘', effect: { stats: { luck: 2 } } },
+    { stage: 5, type: 'attribute', shape: 'diamond', titleSuffix: '— Pisada Felina', description: '+1 Velocidade.', icon: '➶', effect: { stats: { speed: 1 } } },
+    { stage: 6, type: 'passive',   shape: 'hex',     titleSuffix: '— Veredito Sombrio', description: '+10% dano em alvos marcados.', icon: '✹', effect: { bonuses: { markedDamage: 0.10 } } },
+    { stage: 7, type: 'attribute', shape: 'diamond', titleSuffix: '— Punhal da Noite', description: '+1 ATK.', icon: '🗡', effect: { stats: { atk: 1 } } },
+  ],
+  crimson: [
+    { stage: 3, type: 'attribute', shape: 'diamond', titleSuffix: '— Estoque Carmim', description: '+1 ATK.', icon: '🗡', effect: { stats: { atk: 1 } } },
+    { stage: 5, type: 'attribute', shape: 'diamond', titleSuffix: '— Veia da Caçada', description: '+1 Sorte.', icon: '☘', effect: { stats: { luck: 1 } } },
+    { stage: 6, type: 'passive',   shape: 'hex',     titleSuffix: '— Sede Eterna', description: '+8% roubo de vida.', icon: '🩸', effect: { bonuses: { lifeSteal: 0.08 } } },
+    { stage: 7, type: 'attribute', shape: 'diamond', titleSuffix: '— Anel de Sangue', description: '+2 ATK.', icon: '⚔', effect: { stats: { atk: 2 } } },
+  ],
+  moon: [
+    { stage: 3, type: 'attribute', shape: 'diamond', titleSuffix: '— Cálice Lunar', description: '+12 MP máximos.', icon: '☾', effect: { stats: { maxMp: 12, mp: 12 } } },
+    { stage: 5, type: 'attribute', shape: 'diamond', titleSuffix: '— Brilho Pálido', description: '+1 Poder Mágico.', icon: '✺', effect: { stats: { magic: 1 } } },
+    { stage: 6, type: 'passive',   shape: 'hex',     titleSuffix: '— Eclipse Cortante', description: '+15% dano crítico.', icon: '✶', effect: { bonuses: { critDamage: 0.15 } } },
+    { stage: 7, type: 'attribute', shape: 'diamond', titleSuffix: '— Coroa Crescente', description: '+1 Poder Mágico e +1 Sorte.', icon: '✦', effect: { stats: { magic: 1, luck: 1 } } },
+  ],
+};
+
+const buildFillers = (classId: PlayerClassId, trailId: string, trailName: string, color: string): TalentNode[] => {
+  const pack = TRAIL_FILLER_PACKS[trailId];
+  if (!pack) return [];
+  return pack.map((spec) => createNode({
+    id: `${classId}_${trailId}_s${spec.stage}`,
+    classId,
+    trailId,
+    trailName,
+    title: `${trailName} ${spec.titleSuffix}`,
+    description: spec.description,
+    tier: spec.stage,
+    stage: spec.stage,
+    nodeType: spec.type,
+    shapeVariant: spec.shape,
+    color,
+    icon: spec.icon,
+    effects: [spec.effect],
+  }));
+};
 
 export const CONSTELLATION_SKILLS: Skill[] = [
   {
@@ -307,7 +465,7 @@ export const CONSTELLATION_SKILLS: Skill[] = [
 export const CLASS_CONSTELLATIONS: ClassConstellationDefinition[] = [
   {
     classId: 'knight',
-    name: 'Constelacao do Knight',
+    name: 'Constelação do Cavaleiro',
     subtitle: 'Linhas de muralha, aurora e sentenca sagrada.',
     resource: { type: 'valor', name: 'Valor', color: '#60a5fa', max: 6 },
     trails: [
@@ -320,7 +478,8 @@ export const CLASS_CONSTELLATIONS: ClassConstellationDefinition[] = [
         nodes: [
           createNode({ id: 'knight_bastion_1', classId: 'knight', trailId: 'bastion', trailName: 'Bastiao', title: 'Muralha Viva', description: '+18 HP maximos e +1 Valor por ataque.', tier: 1, color: '#60a5fa', icon: '🛡', effects: [{ stats: { maxHp: 18, hp: 18 }, bonuses: { resourceOnAttack: 1 } }] }),
           createNode({ id: 'knight_bastion_2', classId: 'knight', trailId: 'bastion', trailName: 'Bastiao', title: 'Aco Sereno', description: '+2 DEF e reduz mais dano ao defender.', tier: 2, color: '#60a5fa', icon: '⛨', prerequisites: ['knight_bastion_1'], effects: [{ stats: { def: 2 }, bonuses: { defendMitigation: 0.15, damageReduction: 0.05 } }] }),
-          createNode({ id: 'knight_bastion_3', classId: 'knight', trailId: 'bastion', trailName: 'Bastiao', title: 'Impacto de Aegis', description: 'Libera uma habilidade de escudo que consome Valor.', tier: 3, color: '#60a5fa', icon: '✦', prerequisites: ['knight_bastion_2'], effects: [{ unlockSkillId: 'skl_knight_aegis_crash' }, { bonuses: { resourceCap: 1 } }] }),
+          createNode({ id: 'knight_bastion_3', classId: 'knight', trailId: 'bastion', trailName: 'Bastiao', title: 'Impacto de Aegis', description: 'Libera uma habilidade de escudo que consome Valor.', tier: 3, stage: 4, nodeType: 'skill', shapeVariant: 'star', color: '#60a5fa', icon: '✦', effects: [{ unlockSkillId: 'skl_knight_aegis_crash' }, { bonuses: { resourceCap: 1 } }] }),
+          ...buildFillers('knight', 'bastion', 'Bastiao', '#60a5fa'),
         ],
       },
       {
@@ -332,7 +491,8 @@ export const CLASS_CONSTELLATIONS: ClassConstellationDefinition[] = [
         nodes: [
           createNode({ id: 'knight_dawn_1', classId: 'knight', trailId: 'dawn', trailName: 'Aurora', title: 'Brasa Solene', description: '+14 MP maximos e melhora curas.', tier: 1, color: '#f59e0b', icon: '☀', effects: [{ stats: { maxMp: 14, mp: 14 }, bonuses: { healPower: 0.15 } }] }),
           createNode({ id: 'knight_dawn_2', classId: 'knight', trailId: 'dawn', trailName: 'Aurora', title: 'Juramento Radiante', description: 'Defender gera mais mana e inicia batalhas com Valor.', tier: 2, color: '#f59e0b', icon: '✧', prerequisites: ['knight_dawn_1'], effects: [{ bonuses: { manaOnDefend: 4, resourceStart: 1 } }] }),
-          createNode({ id: 'knight_dawn_3', classId: 'knight', trailId: 'dawn', trailName: 'Aurora', title: 'Voto Solar', description: 'Libera uma cura defensiva banhada em luz dourada.', tier: 3, color: '#f59e0b', icon: '✶', prerequisites: ['knight_dawn_2'], effects: [{ unlockSkillId: 'skl_knight_solar_vow' }, { bonuses: { healPower: 0.1 } }] }),
+          createNode({ id: 'knight_dawn_3', classId: 'knight', trailId: 'dawn', trailName: 'Aurora', title: 'Voto Solar', description: 'Libera uma cura defensiva banhada em luz dourada.', tier: 3, stage: 4, nodeType: 'skill', shapeVariant: 'star', color: '#f59e0b', icon: '✶', effects: [{ unlockSkillId: 'skl_knight_solar_vow' }, { bonuses: { healPower: 0.1 } }] }),
+          ...buildFillers('knight', 'dawn', 'Aurora', '#f59e0b'),
         ],
       },
       {
@@ -344,14 +504,15 @@ export const CLASS_CONSTELLATIONS: ClassConstellationDefinition[] = [
         nodes: [
           createNode({ id: 'knight_verdict_1', classId: 'knight', trailId: 'verdict', trailName: 'Veredito', title: 'Selo do Juiz', description: '+2 ATK e mais dano em inimigos marcados.', tier: 1, color: '#fb7185', icon: '⚔', effects: [{ stats: { atk: 2 }, bonuses: { markedDamage: 0.18 } }] }),
           createNode({ id: 'knight_verdict_2', classId: 'knight', trailId: 'verdict', trailName: 'Veredito', title: 'Golpe Exemplar', description: 'Acertos criticos atingem mais forte.', tier: 2, color: '#fb7185', icon: '✴', prerequisites: ['knight_verdict_1'], effects: [{ bonuses: { critChance: 0.05, critDamage: 0.2 } }] }),
-          createNode({ id: 'knight_verdict_3', classId: 'knight', trailId: 'verdict', trailName: 'Veredito', title: 'Arco do Julgamento', description: 'Libera um castigo sagrado de alvo unico.', tier: 3, color: '#fb7185', icon: '✹', prerequisites: ['knight_verdict_2'], effects: [{ unlockSkillId: 'skl_knight_judgement_arc' }] }),
+          createNode({ id: 'knight_verdict_3', classId: 'knight', trailId: 'verdict', trailName: 'Veredito', title: 'Arco do Julgamento', description: 'Libera um castigo sagrado de alvo unico.', tier: 3, stage: 4, nodeType: 'skill', shapeVariant: 'star', color: '#fb7185', icon: '✹', effects: [{ unlockSkillId: 'skl_knight_judgement_arc' }] }),
+          ...buildFillers('knight', 'verdict', 'Veredito', '#fb7185'),
         ],
       },
     ],
   },
   {
     classId: 'barbarian',
-    name: 'Constelacao do Barbarian',
+    name: 'Constelação do Bárbaro',
     subtitle: 'Trilhas de sangue, colapso e brado de guerra.',
     resource: { type: 'rage', name: 'Furia', color: '#f97316', max: 7 },
     trails: [
@@ -364,7 +525,8 @@ export const CLASS_CONSTELLATIONS: ClassConstellationDefinition[] = [
         nodes: [
           createNode({ id: 'barbarian_bloodfury_1', classId: 'barbarian', trailId: 'bloodfury', trailName: 'Sangue', title: 'Pulso Predador', description: '+2 ATK e roubo de vida em ataques.', tier: 1, color: '#ef4444', icon: '🩸', effects: [{ stats: { atk: 2 }, bonuses: { lifeSteal: 0.08 } }] }),
           createNode({ id: 'barbarian_bloodfury_2', classId: 'barbarian', trailId: 'bloodfury', trailName: 'Sangue', title: 'Cheiro de Ferro', description: 'Aumenta dano de sangramento.', tier: 2, color: '#ef4444', icon: '☇', prerequisites: ['barbarian_bloodfury_1'], effects: [{ bonuses: { bleedDamage: 0.3, physicalDamage: 0.08 } }] }),
-          createNode({ id: 'barbarian_bloodfury_3', classId: 'barbarian', trailId: 'bloodfury', trailName: 'Sangue', title: 'Uivo Esfacelante', description: 'Libera uma investida que aplica sangramento.', tier: 3, color: '#ef4444', icon: '✦', prerequisites: ['barbarian_bloodfury_2'], effects: [{ unlockSkillId: 'skl_barbarian_rending_howl' }] }),
+          createNode({ id: 'barbarian_bloodfury_3', classId: 'barbarian', trailId: 'bloodfury', trailName: 'Sangue', title: 'Uivo Esfacelante', description: 'Libera uma investida que aplica sangramento.', tier: 3, stage: 4, nodeType: 'skill', shapeVariant: 'star', color: '#ef4444', icon: '✦', effects: [{ unlockSkillId: 'skl_barbarian_rending_howl' }] }),
+          ...buildFillers('barbarian', 'bloodfury', 'Sangue', '#ef4444'),
         ],
       },
       {
@@ -376,7 +538,8 @@ export const CLASS_CONSTELLATIONS: ClassConstellationDefinition[] = [
         nodes: [
           createNode({ id: 'barbarian_cataclysm_1', classId: 'barbarian', trailId: 'cataclysm', trailName: 'Cataclismo', title: 'Impacto Tribal', description: '+20 HP maximos e mais Furia por ataque.', tier: 1, color: '#f97316', icon: '🔥', effects: [{ stats: { maxHp: 20, hp: 20 }, bonuses: { resourceOnAttack: 2 } }] }),
           createNode({ id: 'barbarian_cataclysm_2', classId: 'barbarian', trailId: 'cataclysm', trailName: 'Cataclismo', title: 'Ruptura do Solo', description: 'Aumenta dano fisico e capacidade maxima de Furia.', tier: 2, color: '#f97316', icon: '⟡', prerequisites: ['barbarian_cataclysm_1'], effects: [{ bonuses: { physicalDamage: 0.12, resourceCap: 2 } }] }),
-          createNode({ id: 'barbarian_cataclysm_3', classId: 'barbarian', trailId: 'cataclysm', trailName: 'Cataclismo', title: 'Malho Meteoro', description: 'Libera um finalizador que consome toda a Furia.', tier: 3, color: '#f97316', icon: '☄', prerequisites: ['barbarian_cataclysm_2'], effects: [{ unlockSkillId: 'skl_barbarian_meteor_maul' }] }),
+          createNode({ id: 'barbarian_cataclysm_3', classId: 'barbarian', trailId: 'cataclysm', trailName: 'Cataclismo', title: 'Malho Meteoro', description: 'Libera um finalizador que consome toda a Furia.', tier: 3, stage: 4, nodeType: 'skill', shapeVariant: 'star', color: '#f97316', icon: '☄', effects: [{ unlockSkillId: 'skl_barbarian_meteor_maul' }] }),
+          ...buildFillers('barbarian', 'cataclysm', 'Cataclismo', '#f97316'),
         ],
       },
       {
@@ -388,14 +551,15 @@ export const CLASS_CONSTELLATIONS: ClassConstellationDefinition[] = [
         nodes: [
           createNode({ id: 'barbarian_warcry_1', classId: 'barbarian', trailId: 'warcry', trailName: 'Brado', title: 'Peito Aberto', description: '+1 DEF e menos dano recebido.', tier: 1, color: '#facc15', icon: '🪖', effects: [{ stats: { def: 1 }, bonuses: { damageReduction: 0.06 } }] }),
           createNode({ id: 'barbarian_warcry_2', classId: 'barbarian', trailId: 'warcry', trailName: 'Brado', title: 'Eco de Retaliação', description: 'Ao defender, ha chance de contra-atacar.', tier: 2, color: '#facc15', icon: '⚡', prerequisites: ['barbarian_warcry_1'], effects: [{ bonuses: { counterOnDefendChance: 0.35, manaOnDefend: 3 } }] }),
-          createNode({ id: 'barbarian_warcry_3', classId: 'barbarian', trailId: 'warcry', trailName: 'Brado', title: 'Clamor de Guerra', description: 'Libera um rugido que cura e turbina o ataque.', tier: 3, color: '#facc15', icon: '✶', prerequisites: ['barbarian_warcry_2'], effects: [{ unlockSkillId: 'skl_barbarian_war_cry' }] }),
+          createNode({ id: 'barbarian_warcry_3', classId: 'barbarian', trailId: 'warcry', trailName: 'Brado', title: 'Clamor de Guerra', description: 'Libera um rugido que cura e turbina o ataque.', tier: 3, stage: 4, nodeType: 'skill', shapeVariant: 'star', color: '#facc15', icon: '✶', effects: [{ unlockSkillId: 'skl_barbarian_war_cry' }] }),
+          ...buildFillers('barbarian', 'warcry', 'Brado', '#facc15'),
         ],
       },
     ],
   },
   {
     classId: 'mage',
-    name: 'Constelacao do Mage',
+    name: 'Constelação do Mago',
     subtitle: 'Piras, gelo profundo e orbitas astrais.',
     resource: { type: 'arcane', name: 'Arcano', color: '#a78bfa', max: 8 },
     trails: [
@@ -408,7 +572,8 @@ export const CLASS_CONSTELLATIONS: ClassConstellationDefinition[] = [
         nodes: [
           createNode({ id: 'mage_pyre_1', classId: 'mage', trailId: 'pyre', trailName: 'Pira', title: 'Cinza Viva', description: '+16 MP maximos e mais dano magico.', tier: 1, color: '#fb7185', icon: '🔥', effects: [{ stats: { maxMp: 16, mp: 16 }, bonuses: { magicDamage: 0.1 } }] }),
           createNode({ id: 'mage_pyre_2', classId: 'mage', trailId: 'pyre', trailName: 'Pira', title: 'Combustao Guiada', description: 'Queimadura e efeitos magicos causam mais estrago.', tier: 2, color: '#fb7185', icon: '✹', prerequisites: ['mage_pyre_1'], effects: [{ bonuses: { burnDamage: 0.35, statusPotency: 0.15 } }] }),
-          createNode({ id: 'mage_pyre_3', classId: 'mage', trailId: 'pyre', trailName: 'Pira', title: 'Surto Cinzabrasa', description: 'Libera uma explosao de fogo de alto impacto.', tier: 3, color: '#fb7185', icon: '✦', prerequisites: ['mage_pyre_2'], effects: [{ unlockSkillId: 'skl_mage_cinder_burst' }] }),
+          createNode({ id: 'mage_pyre_3', classId: 'mage', trailId: 'pyre', trailName: 'Pira', title: 'Surto Cinzabrasa', description: 'Libera uma explosao de fogo de alto impacto.', tier: 3, stage: 4, nodeType: 'skill', shapeVariant: 'star', color: '#fb7185', icon: '✦', effects: [{ unlockSkillId: 'skl_mage_cinder_burst' }] }),
+          ...buildFillers('mage', 'pyre', 'Pira', '#fb7185'),
         ],
       },
       {
@@ -420,7 +585,8 @@ export const CLASS_CONSTELLATIONS: ClassConstellationDefinition[] = [
         nodes: [
           createNode({ id: 'mage_frost_1', classId: 'mage', trailId: 'frost', trailName: 'Geada', title: 'Lente Fria', description: '+2 sorte e mais chance critica.', tier: 1, color: '#38bdf8', icon: '❄', effects: [{ stats: { luck: 2 }, bonuses: { critChance: 0.08 } }] }),
           createNode({ id: 'mage_frost_2', classId: 'mage', trailId: 'frost', trailName: 'Geada', title: 'Cristal de Mira', description: 'Inimigos marcados sofrem mais dano magico.', tier: 2, color: '#38bdf8', icon: '✧', prerequisites: ['mage_frost_1'], effects: [{ bonuses: { markedDamage: 0.2, magicDamage: 0.08 } }] }),
-          createNode({ id: 'mage_frost_3', classId: 'mage', trailId: 'frost', trailName: 'Geada', title: 'Zero Absoluto', description: 'Libera um pico glacial que fixa a marca arcana.', tier: 3, color: '#38bdf8', icon: '✺', prerequisites: ['mage_frost_2'], effects: [{ unlockSkillId: 'skl_mage_absolute_zero' }] }),
+          createNode({ id: 'mage_frost_3', classId: 'mage', trailId: 'frost', trailName: 'Geada', title: 'Zero Absoluto', description: 'Libera um pico glacial que fixa a marca arcana.', tier: 3, stage: 4, nodeType: 'skill', shapeVariant: 'star', color: '#38bdf8', icon: '✺', effects: [{ unlockSkillId: 'skl_mage_absolute_zero' }] }),
+          ...buildFillers('mage', 'frost', 'Geada', '#38bdf8'),
         ],
       },
       {
@@ -432,14 +598,15 @@ export const CLASS_CONSTELLATIONS: ClassConstellationDefinition[] = [
         nodes: [
           createNode({ id: 'mage_astral_1', classId: 'mage', trailId: 'astral', trailName: 'Astral', title: 'Orbe Interior', description: '+18 MP maximos e mais Arcano por skill.', tier: 1, color: '#a78bfa', icon: '✺', effects: [{ stats: { maxMp: 18, mp: 18 }, bonuses: { resourceOnSkill: 2 } }] }),
           createNode({ id: 'mage_astral_2', classId: 'mage', trailId: 'astral', trailName: 'Astral', title: 'Mar de Estrelas', description: 'Curas ficam mais fortes e a reserva arcana cresce.', tier: 2, color: '#a78bfa', icon: '☄', prerequisites: ['mage_astral_1'], effects: [{ bonuses: { healPower: 0.18, resourceCap: 2, resourceStart: 2 } }] }),
-          createNode({ id: 'mage_astral_3', classId: 'mage', trailId: 'astral', trailName: 'Astral', title: 'Poço Estelar', description: 'Libera um feixe curativo alimentado por mana estelar.', tier: 3, color: '#a78bfa', icon: '✶', prerequisites: ['mage_astral_2'], effects: [{ unlockSkillId: 'skl_mage_starwell' }] }),
+          createNode({ id: 'mage_astral_3', classId: 'mage', trailId: 'astral', trailName: 'Astral', title: 'Poço Estelar', description: 'Libera um feixe curativo alimentado por mana estelar.', tier: 3, stage: 4, nodeType: 'skill', shapeVariant: 'star', color: '#a78bfa', icon: '✶', effects: [{ unlockSkillId: 'skl_mage_starwell' }] }),
+          ...buildFillers('mage', 'astral', 'Astral', '#a78bfa'),
         ],
       },
     ],
   },
   {
     classId: 'ranger',
-    name: 'Constelacao do Ranger',
+    name: 'Constelação do Arqueiro',
     subtitle: 'Vento, espinhos e pulso da mata.',
     resource: { type: 'focus', name: 'Foco', color: '#22c55e', max: 6 },
     trails: [
@@ -452,7 +619,8 @@ export const CLASS_CONSTELLATIONS: ClassConstellationDefinition[] = [
         nodes: [
           createNode({ id: 'ranger_gale_1', classId: 'ranger', trailId: 'gale', trailName: 'Vendaval', title: 'Passo Leve', description: '+2 velocidade e mais chance critica.', tier: 1, color: '#22c55e', icon: '➶', effects: [{ stats: { speed: 2 }, bonuses: { critChance: 0.05 } }] }),
           createNode({ id: 'ranger_gale_2', classId: 'ranger', trailId: 'gale', trailName: 'Vendaval', title: 'Rastro do Caçador', description: 'Ataques geram Foco e ampliam dano em marcados.', tier: 2, color: '#22c55e', icon: '✧', prerequisites: ['ranger_gale_1'], effects: [{ bonuses: { resourceOnAttack: 1, markedDamage: 0.22 } }] }),
-          createNode({ id: 'ranger_gale_3', classId: 'ranger', trailId: 'gale', trailName: 'Vendaval', title: 'Disparo de Gale', description: 'Libera um disparo de abertura com marca precisa.', tier: 3, color: '#22c55e', icon: '✦', prerequisites: ['ranger_gale_2'], effects: [{ unlockSkillId: 'skl_ranger_gale_shot' }] }),
+          createNode({ id: 'ranger_gale_3', classId: 'ranger', trailId: 'gale', trailName: 'Vendaval', title: 'Disparo de Gale', description: 'Libera um disparo de abertura com marca precisa.', tier: 3, stage: 4, nodeType: 'skill', shapeVariant: 'star', color: '#22c55e', icon: '✦', effects: [{ unlockSkillId: 'skl_ranger_gale_shot' }] }),
+          ...buildFillers('ranger', 'gale', 'Vendaval', '#22c55e'),
         ],
       },
       {
@@ -464,7 +632,8 @@ export const CLASS_CONSTELLATIONS: ClassConstellationDefinition[] = [
         nodes: [
           createNode({ id: 'ranger_briar_1', classId: 'ranger', trailId: 'briar', trailName: 'Espinhal', title: 'Farpas Verdes', description: '+2 ATK e mais dano fisico.', tier: 1, color: '#84cc16', icon: '🌿', effects: [{ stats: { atk: 2 }, bonuses: { physicalDamage: 0.08 } }] }),
           createNode({ id: 'ranger_briar_2', classId: 'ranger', trailId: 'briar', trailName: 'Espinhal', title: 'Laço de Vinhas', description: 'Sangramentos causam mais dano e duram melhor.', tier: 2, color: '#84cc16', icon: '✣', prerequisites: ['ranger_briar_1'], effects: [{ bonuses: { bleedDamage: 0.28, statusPotency: 0.12 } }] }),
-          createNode({ id: 'ranger_briar_3', classId: 'ranger', trailId: 'briar', trailName: 'Espinhal', title: 'Saraivada de Espinhos', description: 'Libera uma rajada perfurante da floresta.', tier: 3, color: '#84cc16', icon: '✹', prerequisites: ['ranger_briar_2'], effects: [{ unlockSkillId: 'skl_ranger_briar_volley' }] }),
+          createNode({ id: 'ranger_briar_3', classId: 'ranger', trailId: 'briar', trailName: 'Espinhal', title: 'Saraivada de Espinhos', description: 'Libera uma rajada perfurante da floresta.', tier: 3, stage: 4, nodeType: 'skill', shapeVariant: 'star', color: '#84cc16', icon: '✹', effects: [{ unlockSkillId: 'skl_ranger_briar_volley' }] }),
+          ...buildFillers('ranger', 'briar', 'Espinhal', '#84cc16'),
         ],
       },
       {
@@ -476,14 +645,15 @@ export const CLASS_CONSTELLATIONS: ClassConstellationDefinition[] = [
         nodes: [
           createNode({ id: 'ranger_wilds_1', classId: 'ranger', trailId: 'wilds', trailName: 'Senda Viva', title: 'Respirar a Mata', description: '+16 HP maximos e +14 MP maximos.', tier: 1, color: '#14b8a6', icon: '✿', effects: [{ stats: { maxHp: 16, hp: 16, maxMp: 14, mp: 14 } }] }),
           createNode({ id: 'ranger_wilds_2', classId: 'ranger', trailId: 'wilds', trailName: 'Senda Viva', title: 'Pulso Natural', description: 'Skills geram mais Foco e curas ficam melhores.', tier: 2, color: '#14b8a6', icon: '❋', prerequisites: ['ranger_wilds_1'], effects: [{ bonuses: { resourceOnSkill: 1, healPower: 0.16, manaOnHit: 2 } }] }),
-          createNode({ id: 'ranger_wilds_3', classId: 'ranger', trailId: 'wilds', trailName: 'Senda Viva', title: 'Florescer Verdejante', description: 'Libera um respiro curativo da mata.', tier: 3, color: '#14b8a6', icon: '✶', prerequisites: ['ranger_wilds_2'], effects: [{ unlockSkillId: 'skl_ranger_verdant_bloom' }] }),
+          createNode({ id: 'ranger_wilds_3', classId: 'ranger', trailId: 'wilds', trailName: 'Senda Viva', title: 'Florescer Verdejante', description: 'Libera um respiro curativo da mata.', tier: 3, stage: 4, nodeType: 'skill', shapeVariant: 'star', color: '#14b8a6', icon: '✶', effects: [{ unlockSkillId: 'skl_ranger_verdant_bloom' }] }),
+          ...buildFillers('ranger', 'wilds', 'Senda Viva', '#14b8a6'),
         ],
       },
     ],
   },
   {
     classId: 'rogue',
-    name: 'Constelacao do Rogue',
+    name: 'Constelação do Ladino',
     subtitle: 'Noite, carmesim e lua quebrada.',
     resource: { type: 'shadow', name: 'Sombra', color: '#c084fc', max: 6 },
     trails: [
@@ -496,7 +666,8 @@ export const CLASS_CONSTELLATIONS: ClassConstellationDefinition[] = [
         nodes: [
           createNode({ id: 'rogue_night_1', classId: 'rogue', trailId: 'night', trailName: 'Noite', title: 'Passo Velado', description: '+2 velocidade e +2 sorte.', tier: 1, color: '#818cf8', icon: '☾', effects: [{ stats: { speed: 2, luck: 2 } }] }),
           createNode({ id: 'rogue_night_2', classId: 'rogue', trailId: 'night', trailName: 'Noite', title: 'Olho no Breu', description: 'Criticos e dano em marcados aumentam.', tier: 2, color: '#818cf8', icon: '✧', prerequisites: ['rogue_night_1'], effects: [{ bonuses: { critChance: 0.06, markedDamage: 0.24 } }] }),
-          createNode({ id: 'rogue_night_3', classId: 'rogue', trailId: 'night', trailName: 'Noite', title: 'Estoque Noturno', description: 'Libera uma estocada que marca a presa.', tier: 3, color: '#818cf8', icon: '✦', prerequisites: ['rogue_night_2'], effects: [{ unlockSkillId: 'skl_rogue_night_lunge' }] }),
+          createNode({ id: 'rogue_night_3', classId: 'rogue', trailId: 'night', trailName: 'Noite', title: 'Estoque Noturno', description: 'Libera uma estocada que marca a presa.', tier: 3, stage: 4, nodeType: 'skill', shapeVariant: 'star', color: '#818cf8', icon: '✦', effects: [{ unlockSkillId: 'skl_rogue_night_lunge' }] }),
+          ...buildFillers('rogue', 'night', 'Noite', '#818cf8'),
         ],
       },
       {
@@ -508,7 +679,8 @@ export const CLASS_CONSTELLATIONS: ClassConstellationDefinition[] = [
         nodes: [
           createNode({ id: 'rogue_crimson_1', classId: 'rogue', trailId: 'crimson', trailName: 'Carmesim', title: 'Lamina Rubra', description: '+2 ATK e roubo de vida com skills.', tier: 1, color: '#f43f5e', icon: '🗡', effects: [{ stats: { atk: 2 }, bonuses: { lifeSteal: 0.1 } }] }),
           createNode({ id: 'rogue_crimson_2', classId: 'rogue', trailId: 'crimson', trailName: 'Carmesim', title: 'Fio Repetido', description: 'Sangramentos ficam mais fortes.', tier: 2, color: '#f43f5e', icon: '✣', prerequisites: ['rogue_crimson_1'], effects: [{ bonuses: { bleedDamage: 0.32, physicalDamage: 0.08 } }] }),
-          createNode({ id: 'rogue_crimson_3', classId: 'rogue', trailId: 'crimson', trailName: 'Carmesim', title: 'Danca Carmesim', description: 'Libera uma sequencia de cortes velozes.', tier: 3, color: '#f43f5e', icon: '✹', prerequisites: ['rogue_crimson_2'], effects: [{ unlockSkillId: 'skl_rogue_crimson_dance' }] }),
+          createNode({ id: 'rogue_crimson_3', classId: 'rogue', trailId: 'crimson', trailName: 'Carmesim', title: 'Danca Carmesim', description: 'Libera uma sequencia de cortes velozes.', tier: 3, stage: 4, nodeType: 'skill', shapeVariant: 'star', color: '#f43f5e', icon: '✹', effects: [{ unlockSkillId: 'skl_rogue_crimson_dance' }] }),
+          ...buildFillers('rogue', 'crimson', 'Carmesim', '#f43f5e'),
         ],
       },
       {
@@ -520,7 +692,8 @@ export const CLASS_CONSTELLATIONS: ClassConstellationDefinition[] = [
         nodes: [
           createNode({ id: 'rogue_moon_1', classId: 'rogue', trailId: 'moon', trailName: 'Lua Partida', title: 'Vigilia Lunar', description: '+14 MP maximos e gera Sombra com skills.', tier: 1, color: '#c084fc', icon: '✺', effects: [{ stats: { maxMp: 14, mp: 14 }, bonuses: { resourceOnSkill: 2 } }] }),
           createNode({ id: 'rogue_moon_2', classId: 'rogue', trailId: 'moon', trailName: 'Lua Partida', title: 'Estilhaço Frio', description: 'Dano magico e dano critico aumentam.', tier: 2, color: '#c084fc', icon: '✶', prerequisites: ['rogue_moon_1'], effects: [{ bonuses: { magicDamage: 0.12, critDamage: 0.22, resourceCap: 1 } }] }),
-          createNode({ id: 'rogue_moon_3', classId: 'rogue', trailId: 'moon', trailName: 'Lua Partida', title: 'Fragmento Lunar', description: 'Libera um projétil sombrio de alta pressao.', tier: 3, color: '#c084fc', icon: '☄', prerequisites: ['rogue_moon_2'], effects: [{ unlockSkillId: 'skl_rogue_moon_shard' }] }),
+          createNode({ id: 'rogue_moon_3', classId: 'rogue', trailId: 'moon', trailName: 'Lua Partida', title: 'Fragmento Lunar', description: 'Libera um projétil sombrio de alta pressao.', tier: 3, stage: 4, nodeType: 'skill', shapeVariant: 'star', color: '#c084fc', icon: '☄', effects: [{ unlockSkillId: 'skl_rogue_moon_shard' }] }),
+          ...buildFillers('rogue', 'moon', 'Lua Partida', '#c084fc'),
         ],
       },
     ],

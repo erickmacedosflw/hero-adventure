@@ -412,6 +412,9 @@ export interface TalentNodeEffect {
   unlockSkillId?: string;
 }
 
+export type TalentNodeType = 'attribute' | 'passive' | 'skill';
+export type TalentNodeShapeVariant = 'diamond' | 'hex' | 'star';
+
 export interface TalentNode {
   id: string;
   classId: PlayerClassId;
@@ -420,6 +423,9 @@ export interface TalentNode {
   title: string;
   description: string;
   tier: number;
+  stage: number;
+  nodeType: TalentNodeType;
+  shapeVariant: TalentNodeShapeVariant;
   cost: number;
   requiredLevel: number;
   color: string;
@@ -600,6 +606,7 @@ export interface Player {
     counterChanceBoostTurns: number;
     perfectGuardTurns: number;
     impulseDefenseBoostTurns: number;
+    impulseDefenseLevel: number;
     guaranteedCounterTurns: number;
     skillEmpowerTurns: number;
   };

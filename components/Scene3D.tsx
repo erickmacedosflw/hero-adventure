@@ -2429,12 +2429,13 @@ export const HeroVoxel = ({ classId = 'knight', playerAnimationAction = 'idle', 
   const defendImpulseLevel = useMemo(() => {
     if (!playerState?.buffs) return 0;
     if ((playerState.buffs.guaranteedCounterTurns ?? 0) > 0) return 3;
-    if ((playerState.buffs.perfectGuardTurns ?? 0) > 0) return 2;
+    if ((playerState.buffs.perfectGuardTurns ?? 0) > 0) return 3;
+    if ((playerState.buffs.impulseDefenseLevel ?? 0) > 0) return playerState.buffs.impulseDefenseLevel;
     if ((playerState.buffs.impulseDefenseBoostTurns ?? 0) > 0) return 1;
     return 0;
   }, [playerState?.buffs]);
   const defendImpulseColor = defendImpulseLevel >= 3 ? '#7dd3fc' : defendImpulseLevel === 2 ? '#a855f7' : '#ef4444';
-  const showMagicDefenseOrb = Boolean(isDefending) && defenseType === 'MAGICA';
+  const showMagicDefenseOrb = Boolean(isDefending);
 
   const refreshFlashMaterials = useCallback(() => {
     if (!group.current) {

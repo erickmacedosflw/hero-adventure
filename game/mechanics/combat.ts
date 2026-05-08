@@ -25,6 +25,10 @@ interface CalculateDamageInput {
   defenderDefenseIgnoreRatio?: number;
   forceCrit?: boolean;
   disableCrit?: boolean;
+  baseDefenseRatio?: number;
+  defendingDefenseRatio?: number;
+  perfectDefense?: boolean;
+  minimumDefendingDamageRatio?: number;
 }
 
 export interface DamageResult {
@@ -58,6 +62,7 @@ export const createEmptyBuffState = (): Player['buffs'] => ({
   counterChanceBoostTurns: 0,
   perfectGuardTurns: 0,
   impulseDefenseBoostTurns: 0,
+  impulseDefenseLevel: 0,
   guaranteedCounterTurns: 0,
   skillEmpowerTurns: 0,
 });
@@ -71,7 +76,12 @@ export const consumeTurnBuffs = (buffs: Player['buffs']): Player['buffs'] => {
   if (nextBuffs.perfectEvadeTurns > 0) nextBuffs.perfectEvadeTurns--;
   if (nextBuffs.doubleAttackTurns > 0) nextBuffs.doubleAttackTurns--;
   if (nextBuffs.perfectGuardTurns > 0) nextBuffs.perfectGuardTurns--;
-  if (nextBuffs.impulseDefenseBoostTurns > 0) nextBuffs.impulseDefenseBoostTurns--;
+  if (nextBuffs.impulseDefenseBoostTurns > 0) {
+    nextBuffs.impulseDefenseBoostTurns--;
+    if (nextBuffs.impulseDefenseBoostTurns <= 0) {
+      nextBuffs.impulseDefenseLevel = 0;
+    }
+  }
   if (nextBuffs.guaranteedCounterTurns > 0) nextBuffs.guaranteedCounterTurns--;
   if (nextBuffs.skillEmpowerTurns > 0) nextBuffs.skillEmpowerTurns--;
   if (nextBuffs.counterChanceBoostTurns > 0) {
@@ -133,12 +143,22 @@ export const calculateDamage = ({
   defenderDefenseIgnoreRatio = 0,
   forceCrit = false,
   disableCrit = false,
+  baseDefenseRatio = 0.3,
+  defendingDefenseRatio,
+  perfectDefense = false,
+  minimumDefendingDamageRatio = 0,
 }: CalculateDamageInput): DamageResult => {
   let finalAtk = attackerAtk;
   let finalDef = defenderDef;
   const activeDefenseApplies = defenderIsDefending && (
     !requireDefenseTypeMatch || defenseTypeMatchesAttackKind(defenderDefenseType, attackKind)
   );
+  const normalizedBaseDefenseRatio = Math.max(0, Math.min(1, baseDefenseRatio));
+  const normalizedDefendingDefenseRatio = Math.max(
+    0,
+    Math.min(1, defendingDefenseRatio ?? normalizedBaseDefenseRatio),
+  );
+  const normalizedMinimumDefendingDamageRatio = Math.max(0, Math.min(1, minimumDefendingDamageRatio));
 
   if (applyAttackBuff && attackerBuffs && attackerBuffs.atkTurns > 0) {
     finalAtk *= (1 + attackerBuffs.atkMod);
@@ -170,7 +190,22 @@ export const calculateDamage = ({
     };
   }
 
-  const base = Math.max(1, finalAtk - (finalDef * 0.3));
+  if (perfectDefense) {
+    return {
+      damage: 0,
+      isCrit: false,
+      evaded: false,
+    };
+  }
+
+  const effectiveDefenseRatio = activeDefenseApplies
+    ? normalizedDefendingDefenseRatio
+    : normalizedBaseDefenseRatio;
+  const defendedBase = Math.max(1, finalAtk - (finalDef * effectiveDefenseRatio));
+  const minimumDefendedBase = Math.max(1, finalAtk * normalizedMinimumDefendingDamageRatio);
+  const base = activeDefenseApplies
+    ? Math.min(defendedBase, minimumDefendedBase)
+    : defendedBase;
   const variance = Math.random() * 0.2 + 0.9;
   const critChance = Math.max(0.02, Math.min(0.45, 0.04 + (luck * 0.012) + critChanceBonus));
   const isCrit = !disableCrit && (forceCrit || Math.random() < critChance);
