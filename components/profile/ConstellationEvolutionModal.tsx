@@ -891,6 +891,8 @@ export const ConstellationEvolutionModal: React.FC<ConstellationEvolutionModalPr
                 backdropFilter: 'blur(28px) saturate(140%)',
                 WebkitBackdropFilter: 'blur(28px) saturate(140%)',
                 animation: `${isClosing ? 'constellationBackdropOut' : 'constellationBackdropIn'} 0.22s ease-out both`,
+                // Force pointer events on: parent BattleHUD has pointer-events:none
+                pointerEvents: 'auto',
             }}
             onClick={onClose}
         >

@@ -4541,7 +4541,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                   </div>
                   <div className="px-5 pb-6 pt-1">
                       <div style={{ height: 1, background: 'rgba(99,102,241,0.14)', marginBottom: 14 }} />
-                      <button onClick={() => { setShowConstellationUnlockPrompt(false); onAcknowledgeConstellationUnlock?.(); openProfileModal('constellation'); }}
+                      <button onClick={() => { setShowConstellationUnlockPrompt(false); onAcknowledgeConstellationUnlock?.(); openConstellationModal(); }}
                           className="w-full rounded-xl py-3 font-black text-sm text-white transition-all hover:brightness-110 hover:scale-[1.02] active:scale-95"
                           style={{ background: 'linear-gradient(135deg, #3730a3, #1e1b4b)', border: '1px solid rgba(99,102,241,0.35)', boxShadow: '0 6px 20px rgba(55,48,163,0.45)' }}>
                           Ver constelação
