@@ -111,10 +111,15 @@ export const BattleSkillMenu: React.FC<BattleSkillMenuProps> = ({
                       width: '44px', height: '44px', flexShrink: 0,
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       color: isEmpty ? 'rgba(255,255,255,0.20)' : typeColor,
-                      filter: skill ? 'drop-shadow(0.5px 0 0 rgba(255,255,255,0.7)) drop-shadow(-0.5px 0 0 rgba(255,255,255,0.7)) drop-shadow(0 0.5px 0 rgba(255,255,255,0.7)) drop-shadow(0 -0.5px 0 rgba(255,255,255,0.7))' : undefined,
+                      filter: skill && !skill.icon ? 'drop-shadow(0.5px 0 0 rgba(255,255,255,0.7)) drop-shadow(-0.5px 0 0 rgba(255,255,255,0.7)) drop-shadow(0 0.5px 0 rgba(255,255,255,0.7)) drop-shadow(0 -0.5px 0 rgba(255,255,255,0.7))' : undefined,
                     }}
                   >
-                    {skill ? TypeIcon : <Sparkles size={22} />}
+                    {skill
+                      ? skill.icon
+                        ? <img src={skill.icon} style={{ width: 44, height: 44, objectFit: 'cover', borderRadius: 8 }} alt="" />
+                        : TypeIcon
+                      : <Sparkles size={22} />
+                    }
                   </div>
                   <div style={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
                     <div style={{ fontSize: '6px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.18em', color: 'rgba(255,255,255,0.32)', lineHeight: 1 }}>Slot {index + 1}</div>

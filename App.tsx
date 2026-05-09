@@ -284,6 +284,11 @@ const normalizeSavedPlayerForCurrentBuild = (source: Player): Player => {
         xpToNext: normalizedXpToNext,
         impulso: Math.max(0, Math.min(maxImpulse, source.impulso ?? 0)),
         impulsoAtivo: Math.max(0, Math.min(maxImpulse, source.impulsoAtivo ?? 0)),
+        skills: (source.skills ?? []).map(savedSkill => {
+            const catalog = SKILLS.find(s => s.id === savedSkill.id);
+            if (catalog?.icon && !savedSkill.icon) return { ...savedSkill, icon: catalog.icon };
+            return savedSkill;
+        }),
         equippedSkillIds: (() => {
             const ids = Array.isArray((source as any).equippedSkillIds) ? (source as any).equippedSkillIds : [];
             const maxSkills = getClassSlots(source.classId).skills;
@@ -3355,6 +3360,7 @@ export default function App() {
       addLog(canLeaveFreely ? 'Saiu da batalha sem custo, recuperou toda a vida e reiniciou a fase.' : `Fugiu! Perdeu ${lostGold} Ouro, recuperou toda a vida e voltou ao inicio da fase.`, "info");
       setGameState(GameState.TAVERN);
       setEnemy(null);
+      setAdditionalEnemies([]);
   }
 
   const respawnAtCamp = () => {
@@ -3392,6 +3398,7 @@ export default function App() {
           statusEffects: [],
       }));
       setEnemy(null);
+      setAdditionalEnemies([]);
       setKillCount(0);
       useBattleLogStore.getState().clearLogs();
       setTurnState(TurnState.PLAYER_INPUT);
@@ -5743,6 +5750,8 @@ export default function App() {
                 setShopReturnToInventory(false);
                 setOpenInventoryFromShopToken(0);
                 setOpenInventoryFromShopFilter('all');
+                setHeroInspectMode(false);
+                setHeroInspectCloseToken((prev) => prev + 1);
                 if (hasUnlockedMusic) {
                     uiSfx.play('modal_open');
                 }
@@ -5751,6 +5760,8 @@ export default function App() {
             onShopFromInventory={(filter) => {
                 setShopReturnToInventory(true);
                 setShopReturnInventoryFilter(filter);
+                setHeroInspectMode(false);
+                setHeroInspectCloseToken((prev) => prev + 1);
                 if (hasUnlockedMusic) {
                     uiSfx.play('modal_open');
                 }

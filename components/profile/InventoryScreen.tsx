@@ -105,6 +105,18 @@ const getRarityLabelColor = (rarity: Item['rarity']) => {
   return 'text-amber-400';
 };
 
+const RARITY_COLOR: Record<string, string> = {
+  bronze: '#c49a5a',
+  silver: '#94a3b8',
+  gold:   '#fbbf24',
+};
+
+const RARITY_CARD_BG: Record<string, string> = {
+  bronze: 'linear-gradient(160deg, rgba(110,62,12,0.75) 0%, rgba(58,30,6,0.88) 100%)',
+  silver: 'linear-gradient(160deg, rgba(44,54,90,0.75) 0%, rgba(22,30,56,0.88) 100%)',
+  gold:   'linear-gradient(160deg, rgba(115,78,6,0.75) 0%, rgba(64,40,3,0.88) 100%)',
+};
+
 // ── Effect card helpers ───────────────────────────────────────────────────────
 
 type EffectCard = { id: string; label: string; value: string; icon: React.ReactNode; tone: string; panel: string };
@@ -195,7 +207,6 @@ const InventoryCard: React.FC<{
   isSelected: boolean;
   isEquipped: boolean;
   onClick: () => void;
-  onEquipToggle?: (item: Item) => void;
   isBattleContext: boolean;
   inSlotIndex?: number;
   isPicking?: boolean;
@@ -204,139 +215,77 @@ const InventoryCard: React.FC<{
   isGpFocused?: boolean;
   gpFocusRef?: React.Ref<HTMLButtonElement>;
   gpHoldXProgress?: number;
-}> = ({ item, quantity, player, isSelected, isEquipped, onClick, onEquipToggle, isBattleContext, inSlotIndex, isPicking, isMultiSelectMode, isMultiSelected, isGpFocused, gpFocusRef, gpHoldXProgress }) => {
+}> = ({ item, quantity, player, isSelected, isEquipped, onClick, inSlotIndex, isPicking, isMultiSelectMode, isMultiSelected, isGpFocused, gpFocusRef, gpHoldXProgress }) => {
   const trend = getEquipmentComparisonTrend(player, item);
-  const isEquipCard = isEquipmentType(item.type);
-  const effectCards = getItemEffectCards(item);
-  const statCards = effectCards.filter((e) => e.label !== 'TURNOS' && e.label !== 'ESPECIAL' && e.label !== 'CRAFT');
   const isInSlot = inSlotIndex !== undefined && inSlotIndex >= 0;
+
+  const rarityCardBg = RARITY_CARD_BG[item.rarity] ?? RARITY_CARD_BG['bronze'];
+  const rarityColor  = RARITY_COLOR[item.rarity] ?? RARITY_COLOR['bronze'];
 
   return (
     <button
       ref={gpFocusRef}
       onClick={onClick}
-      className={`relative shrink-0 w-[130px] flex flex-col rounded-[20px] border-2 ${
-        isMultiSelectMode
-          ? isMultiSelected ? 'border-emerald-400' : 'border-white/20'
-          : isPicking ? 'border-amber-400/60' : getRarityBorder(item.rarity)
-      } bg-white/8 backdrop-blur-md p-3 text-left transition-all duration-200 hover:-translate-y-1 active:scale-95 ${getRarityGlow(item.rarity)} ${
+      style={{ background: rarityCardBg, border: isEquipped ? '1.5px solid rgba(52,211,153,0.7)' : `1.5px solid ${rarityColor}44`, boxShadow: isEquipped ? '0 0 10px rgba(52,211,153,0.25)' : undefined }}
+      className={`relative shrink-0 w-[90px] flex flex-col rounded-[16px] backdrop-blur-md p-2.5 text-left transition-all duration-200 active:scale-95 ${
+        isMultiSelectMode ? (isMultiSelected ? 'ring-2 ring-emerald-400' : 'opacity-70') : ''
+      } ${
         isGpFocused
           ? 'ring-[3px] ring-white/90 shadow-[0_0_28px_rgba(255,255,255,0.40)] -translate-y-2 scale-[1.06]'
-          : isSelected && !isMultiSelectMode ? 'ring-2 ring-white/30 shadow-[0_0_20px_rgba(255,255,255,0.15)]' : 'opacity-85 hover:opacity-100'
+          : isSelected && !isMultiSelectMode
+            ? 'ring-2 ring-white/40 shadow-[0_0_16px_rgba(255,255,255,0.12)]'
+            : 'opacity-90 hover:opacity-100 hover:-translate-y-0.5'
       }`}
     >
-      {/* Hold-X progress fill on whole card */}
+      {/* Hold-X progress fill */}
       {(gpHoldXProgress ?? 0) > 0 && (
         <span style={{ position: 'absolute', inset: 0, background: (isEquipped && !isPicking) ? 'rgba(245,158,11,0.18)' : 'rgba(16,185,129,0.18)', transform: `scaleX(${gpHoldXProgress ?? 0})`, transformOrigin: 'left', borderRadius: 'inherit', pointerEvents: 'none', zIndex: 2 }} />
       )}
+
       {/* Multi-select overlay */}
       {isMultiSelectMode && (
-        <div className={`absolute inset-0 rounded-[18px] pointer-events-none transition-all duration-150 ${
-          isMultiSelected ? 'bg-emerald-500/20 ring-2 ring-emerald-400/60' : 'bg-black/10'
-        }`}>
-          <div className={`absolute top-2 left-2 flex h-5 w-5 items-center justify-center rounded-full border-2 transition-all ${
-            isMultiSelected ? 'border-emerald-400 bg-emerald-400' : 'border-white/40 bg-black/50'
-          }`}>
-            {isMultiSelected && <CheckCircle2 size={14} className="text-black" />}
+        <div className={`absolute inset-0 rounded-[14px] pointer-events-none transition-all duration-150 ${isMultiSelected ? 'bg-emerald-500/20' : 'bg-black/10'}`}>
+          <div className={`absolute top-1.5 right-1.5 flex h-4 w-4 items-center justify-center rounded-full border-2 transition-all ${isMultiSelected ? 'border-emerald-400 bg-emerald-400' : 'border-white/40 bg-black/50'}`}>
+            {isMultiSelected && <CheckCircle2 size={10} className="text-black" />}
           </div>
         </div>
       )}
-      {/* Hold-X progress bar removed — moved into equip button below */}
 
-      {/* Quantity badge */}
-      <span className="absolute right-2 top-2 z-10 rounded-full border border-white/20 bg-black/60 px-1.5 py-0.5 text-[9px] font-black text-white">
-        x{quantity}
-      </span>
-
-      {/* Slot badge — top-left (potion in a slot) */}
-      {isInSlot && !isPicking && (
-        <span className="absolute left-2 top-2 z-10 rounded-full border border-amber-400/50 bg-amber-500/25 px-1.5 py-0.5 text-[8px] font-black text-amber-300 uppercase tracking-widest">S{(inSlotIndex ?? 0) + 1}</span>
-      )}
-
-      {/* Trend badge — equipment only (not equipped), top-left */}
-      {!isInSlot && trend && !isEquipped && !isPicking && (
-        <span className={`absolute left-2 top-2 z-10 inline-flex h-5 w-5 items-center justify-center rounded-full border border-white/20 ${trend === 'up' ? 'bg-emerald-500/80 text-white' : trend === 'down' ? 'bg-rose-500/80 text-white' : 'bg-amber-500/80 text-white'}`}>
-          {trend === 'up' ? <ArrowUp size={10} /> : trend === 'down' ? <ArrowDown size={10} /> : <span className="text-[10px] leading-none font-black">—</span>}
+      {/* Quantity badge — top-left, white pill with × prefix (hidden for qty 1) */}
+      {quantity > 1 && (
+        <span className="absolute left-1.5 top-1.5 z-10 inline-flex min-w-[20px] h-5 items-center justify-center rounded-full bg-white border border-black/10 px-1 text-[9px] font-black text-black leading-none shadow-sm">
+          ×{quantity}
         </span>
       )}
 
-      {/* Equipped badge — top-left */}
-      {isEquipped && !isInSlot && !isPicking && (
-        <span className="absolute left-2 top-2 z-10 rounded-full border border-emerald-400/40 bg-emerald-500/20 px-1.5 py-0.5 text-[8px] font-black text-emerald-400 uppercase tracking-widest">E</span>
+      {/* Trend badge — top-right, equipment only (hidden when equal) */}
+      {!isInSlot && trend && trend !== 'equal' && !isEquipped && !isPicking && !isMultiSelectMode && (
+        <span className={`absolute right-1.5 top-1.5 z-10 flex h-4 w-4 items-center justify-center rounded-full ${trend === 'up' ? 'bg-emerald-500/90' : 'bg-rose-500/90'}`}>
+          {trend === 'up' ? <ArrowUp size={9} className="text-white" /> : <ArrowDown size={9} className="text-white" />}
+        </span>
+      )}
+
+      {/* Equipped badge — bottom full-width strip */}
+      {isEquipped && !isInSlot && !isPicking && !isMultiSelectMode && (
+        <span className="absolute bottom-0 inset-x-0 z-10 flex items-center justify-center gap-0.5 rounded-b-[14px] bg-emerald-500/90 py-[3px] text-[7px] font-black uppercase tracking-wide text-white leading-none">
+          <CheckCircle2 size={7} className="text-white shrink-0" /> Equipado
+        </span>
+      )}
+
+      {/* Slot badge — top-right */}
+      {isInSlot && !isPicking && (
+        <span className="absolute right-1 top-1 z-10 rounded-full border border-amber-400/50 bg-amber-500/25 px-1 text-[7px] font-black text-amber-300 uppercase">S{(inSlotIndex ?? 0) + 1}</span>
       )}
 
       {/* Icon */}
-      <div className="mx-auto mt-3 flex h-14 w-14 items-center justify-center">
-        <ItemIcon item={item} emojiClassName="text-[38px] leading-none [text-shadow:0_2px_0_#fff,0_-2px_0_#fff,2px_0_0_#fff,-2px_0_0_#fff,0_0_10px_rgba(255,255,255,0.4)]" />
+      <div className="mx-auto mt-4 flex h-10 w-10 items-center justify-center">
+        <ItemIcon item={item} emojiClassName="text-[32px] leading-none [text-shadow:0_2px_0_rgba(255,255,255,0.5),0_-2px_0_rgba(255,255,255,0.5),2px_0_0_rgba(255,255,255,0.5),-2px_0_0_rgba(255,255,255,0.5)]" />
       </div>
 
       {/* Name */}
-      <div className="mt-2 text-center text-[11px] font-black leading-tight text-white line-clamp-2 min-h-[2rem]">
+      <div className="mt-1.5 text-center text-[10px] font-black leading-tight text-white line-clamp-2 min-h-[2rem]">
         {item.name}
       </div>
-
-      {/* Rarity label */}
-      <div className={`mt-1 text-center text-[9px] font-black uppercase tracking-widest ${getRarityLabelColor(item.rarity)}`}>
-        {getRarityLabel(item.rarity)}
-      </div>
-
-      {/* Stat badges */}
-      {statCards.length > 0 && (
-        <div className="mt-1.5 flex flex-wrap justify-center gap-1">
-          {statCards.slice(0, 2).map((s) => (
-            <span key={s.id} className={`inline-flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[9px] font-black ${s.panel} ${s.tone}`}>
-              {React.isValidElement(s.icon) ? React.cloneElement(s.icon as React.ReactElement<{ size?: number }>, { size: 10 }) : s.icon}
-              {s.value}
-            </span>
-          ))}
-        </div>
-      )}
-
-      {/* Picking mode badge — potion only */}
-      {isPicking && item.type === 'potion' && (
-        <div className="mt-2 inline-flex w-full items-center justify-center gap-1 rounded-lg border border-emerald-500/40 bg-emerald-500/20 px-2 py-1 text-[10px] font-black uppercase tracking-[0.1em] text-emerald-300 pointer-events-none">
-          <FlaskConical size={10} />
-          <span>Equipar</span>
-        </div>
-      )}
-
-      {/* Equip/Unequip inline button — equipment only, camp only, not picking */}
-      {!isPicking && isEquipCard && !isBattleContext && onEquipToggle && (() => {
-        const holdPct = gpHoldXProgress ?? 0;
-        const isHolding = holdPct > 0;
-        return (
-          <div
-            role="button"
-            tabIndex={0}
-            onClick={(e) => { e.stopPropagation(); onEquipToggle(item); }}
-            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); onEquipToggle(item); } }}
-            style={{ position: 'relative', overflow: 'hidden' }}
-            className={`mt-2 inline-flex w-full items-center justify-center gap-1 rounded-lg border px-2 py-1.5 text-[10px] font-black uppercase tracking-[0.1em] transition-all hover:-translate-y-0.5 active:scale-95 cursor-pointer ${
-              isHolding
-                ? (isEquipped ? 'border-amber-400 bg-amber-500/40 text-amber-200' : 'border-emerald-400 bg-emerald-500/40 text-emerald-200')
-                : (isEquipped ? 'border-amber-500/40 bg-amber-500/20 text-amber-300' : 'border-emerald-500/40 bg-emerald-500/20 text-emerald-300')
-            }`}
-          >
-            {/* Hold fill */}
-            {isHolding && (
-              <span style={{
-                position: 'absolute', inset: 0,
-                background: isEquipped ? 'rgba(245,158,11,0.35)' : 'rgba(16,185,129,0.35)',
-                transform: `scaleX(${holdPct})`,
-                transformOrigin: 'left',
-                borderRadius: 'inherit',
-                pointerEvents: 'none',
-              }} />
-            )}
-            <Shield size={10} style={{ position: 'relative', zIndex: 1 }} />
-            <span style={{ position: 'relative', zIndex: 1 }}>
-              {isHolding
-                ? (holdPct < 1 ? '...' : (isEquipped ? '✓ Desequip.' : '✓ Equipado!'))
-                : (isEquipped ? 'Desequipar' : 'Equipar')}
-            </span>
-          </div>
-        );
-      })()}
     </button>
   );
 };
@@ -1003,6 +952,8 @@ export const InventoryScreen = ({
     || player.equippedShield?.id === item.id
   );
 
+  const RARITY_ORDER: Record<string, number> = { bronze: 0, silver: 1, gold: 2 };
+
   const filteredItems = useMemo(() => {
     const filtered = inventoryItems.filter(({ item }) => {
       if (filter === 'equipment') {
@@ -1015,16 +966,24 @@ export const InventoryScreen = ({
     });
     if (filter === 'equipment') {
       filtered.sort((a, b) => {
+        // Primary: rarity bronze→silver→gold
+        const rd = (RARITY_ORDER[a.item.rarity] ?? 0) - (RARITY_ORDER[b.item.rarity] ?? 0);
+        if (rd !== 0) return rd;
+        // Secondary: equipment type order
         const ai = EQUIPMENT_TYPE_ORDER.indexOf(a.item.type as Item['type']);
         const bi = EQUIPMENT_TYPE_ORDER.indexOf(b.item.type as Item['type']);
         return ai - bi;
       });
+    } else {
+      // Potions and materials: sort by rarity ascending
+      filtered.sort((a, b) => (RARITY_ORDER[a.item.rarity] ?? 0) - (RARITY_ORDER[b.item.rarity] ?? 0));
     }
     // No modo seleção de venda: ocultar equipamentos já equipados no herói
     if (selectionMode) {
       return filtered.filter(({ item }) => !isItemEquipped(item));
     }
     return filtered;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filter, inventoryItems, equipmentSubFilter, slottedItemIds, selectionMode]);
 
   const totalItems = inventoryItems.reduce((s, e) => s + e.quantity, 0);
@@ -1416,48 +1375,24 @@ export const InventoryScreen = ({
     }).length;
 
   return (
-    <div className={`absolute inset-0 z-[80] flex flex-col overflow-hidden pointer-events-auto backdrop-blur-md ${overlayFade}`}>
-
-      {/* TOP AREA — slight dark tint, bag image bottom-center, click to close */}
+    <div
+      className={`absolute inset-0 z-[80] flex items-end justify-center pointer-events-auto ${overlayFade}`}
+      style={{ backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', background: 'rgba(0,0,0,0.12)' }}
+      onClick={onClose}
+    >
+      {/* BOTTOM SHEET */}
       <div
-        className="relative flex-1 min-h-0 flex items-start justify-end p-4 cursor-pointer bg-black/30"
-        onClick={onClose}
+        className={`relative w-full sm:max-w-2xl flex flex-col border-t border-white/10 rounded-t-[24px] sm:rounded-t-[28px] max-h-[65dvh] ${panelSlide}`}
+        style={{ background: 'rgba(8,8,18,0.78)', backdropFilter: 'blur(32px)', WebkitBackdropFilter: 'blur(32px)' }}
+        onClick={(e) => e.stopPropagation()}
       >
-        <button
-          onClick={(e) => { e.stopPropagation(); onClose(); }}
-          className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-black/50 backdrop-blur-sm px-3 py-2 text-xs font-black uppercase tracking-widest text-white/70 hover:bg-black/70 hover:text-white transition-all active:scale-95"
-        >
-          <ArrowLeft size={14} /> Fechar
-        </button>
-
-        {/* Bag image — fixed-size container keeps layout stable across filter changes */}
-        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[440px] md:w-[560px] h-[64vh] md:h-[70vh] max-h-[480px] md:max-h-[580px] pointer-events-none select-none">
-          <img
-            key={bagAnimKey.current}
-            src={BAG_IMAGE[equipmentSubFilter ?? filter]}
-            alt=""
-            className="absolute bottom-0 left-1/2 h-full w-auto object-contain object-bottom"
-            style={{
-              transform: 'translateX(-50%)',
-              filter:
-                'drop-shadow(0 2px 8px rgba(0,0,0,0.95)) ' +
-                'drop-shadow(0 8px 28px rgba(0,0,0,0.80)) ' +
-                'drop-shadow(0 18px 56px rgba(0,0,0,0.55))',
-              animation: shaking
-                ? 'bag-shake 0.2s ease-in-out'
-                : (!mounted
-                  ? 'bag-appear 0.38s cubic-bezier(0.22,1,0.36,1)'
-                  : 'none'),
-            }}
-          />
+        {/* Drag handle */}
+        <div className="flex justify-center pt-3 pb-0.5 shrink-0">
+          <div className="w-10 h-1 rounded-full bg-white/25" />
         </div>
-      </div>
 
-      {/* BOTTOM PANEL */}
-      <div className={`shrink-0 flex flex-col bg-black/75 backdrop-blur-xl border-t border-white/8 ${panelSlide}`}>
-
-        {/* Header row: icon + title + count + gold */}
-        <div className="flex items-center justify-between gap-3 px-4 pt-2 pb-0">
+        {/* Header row */}
+        <div className="flex items-center justify-between gap-3 px-4 pb-2 shrink-0">
           <div className="flex items-center gap-2">
             <GameAssetIcon name="bag" size={18} />
             <span className="text-sm font-black uppercase tracking-[0.18em] text-white">Mochila</span>
@@ -1483,10 +1418,6 @@ export const InventoryScreen = ({
                 </button>
               )
             )}
-            <div className="inline-flex items-center gap-1.5 rounded-xl border border-amber-400/30 bg-amber-400/10 px-3 py-1.5 text-sm font-black text-amber-300">
-              <GameAssetIcon name="coin" size={16} />
-              {player.gold}
-            </div>
           </div>
         </div>
 
@@ -1497,7 +1428,7 @@ export const InventoryScreen = ({
           const hasCurrentItem = !!currentSlotItemId;
           const currentSlotItemObj = hasCurrentItem ? shopItems.find(it => it.id === currentSlotItemId) : null;
           return (
-            <div className="mx-4 mt-2 flex items-center gap-2 rounded-xl border border-amber-400/30 bg-amber-500/10 px-3 py-2">
+            <div className="mx-4 mb-2 flex items-center gap-2 rounded-xl border border-amber-400/30 bg-amber-500/10 px-3 py-2 shrink-0">
               <FlaskConical size={13} className="shrink-0 text-amber-300" />
               <div className="flex-1 min-w-0">
                 <span className="text-[11px] font-black text-amber-200">
@@ -1518,7 +1449,6 @@ export const InventoryScreen = ({
                   onClick={() => { if (onEquipItemToSlot && targetItemSlotIndex !== null) { onEquipItemToSlot(targetItemSlotIndex, null); } }}
                   className="shrink-0 relative overflow-hidden inline-flex items-center gap-1.5 rounded-lg border border-amber-400/30 bg-amber-500/15 px-2 py-1 text-[10px] font-black uppercase tracking-widest text-amber-300 hover:bg-amber-500/25 active:scale-95"
                 >
-                  {/* hold-Y fill */}
                   {gpHoldYProgress > 0 && (
                     <span className="absolute inset-0 bg-amber-500/35 origin-left rounded-[inherit] pointer-events-none" style={{ transform: `scaleX(${gpHoldYProgress})` }} />
                   )}
@@ -1532,9 +1462,151 @@ export const InventoryScreen = ({
           );
         })()}
 
-        {/* Filter tabs — or locked sub-type header when opened from equipment slot */}
+        {/* INLINE ITEM DETAIL PANE */}
+        {activeEntry && !selectionMode && (
+          <div
+            className={`shrink-0 mx-3 mb-2 rounded-[18px] overflow-hidden ${detailClosing ? 'inv-detail-out' : 'inv-detail-in'}`}
+            style={{ border: `1px solid ${RARITY_COLOR[activeEntry.item.rarity]}55`, background: 'rgba(6,6,16,0.90)' }}
+          >
+            <div className="flex">
+              {/* LEFT: rarity icon card */}
+              <div
+                className="relative shrink-0 w-[96px] flex flex-col items-center justify-between py-2.5 px-2 overflow-hidden"
+                style={{ background: RARITY_CARD_BG[activeEntry.item.rarity] }}
+              >
+                {/* top glow line */}
+                <div className="absolute top-0 inset-x-0 h-[2px] rounded-t-[18px]" style={{ background: `linear-gradient(90deg, transparent, ${RARITY_COLOR[activeEntry.item.rarity]}99, transparent)` }} />
+                {/* Rarity badge */}
+                <span
+                  className="w-full text-center text-[8px] font-black uppercase tracking-widest py-0.5 rounded-md leading-tight"
+                  style={{ color: RARITY_COLOR[activeEntry.item.rarity], background: `${RARITY_COLOR[activeEntry.item.rarity]}28` }}
+                >
+                  {getRarityLabel(activeEntry.item.rarity)}
+                </span>
+                {/* Icon with shadow cast on card */}
+                <div className="relative flex items-center justify-center my-2" style={{ width: 68, height: 68 }}>
+                  {/* shadow blob — mimics item shadow on card surface */}
+                  <div
+                    className="absolute bottom-0 left-1/2 -translate-x-1/2 rounded-full"
+                    style={{
+                      width: 52, height: 14,
+                      background: RARITY_COLOR[activeEntry.item.rarity],
+                      filter: 'blur(10px)',
+                      opacity: 0.55,
+                    }}
+                  />
+                  <div className="relative z-10 flex items-center justify-center" style={{ width: 60, height: 60 }}>
+                    <ItemIcon
+                      item={activeEntry.item}
+                      emojiClassName="text-[52px] leading-none select-none [filter:drop-shadow(0_6px_10px_rgba(0,0,0,0.8))]"
+                      imgClassName="w-[56px] h-[56px] object-contain [filter:drop-shadow(0_6px_14px_rgba(0,0,0,0.85))]"
+                    />
+                  </div>
+                </div>
+                {/* Quantity */}
+                {activeEntry.quantity > 1 ? (
+                  <span className="text-[9px] font-black" style={{ color: `${RARITY_COLOR[activeEntry.item.rarity]}cc` }}>×{activeEntry.quantity}</span>
+                ) : <div className="h-3" />}
+              </div>
+
+              {/* RIGHT: info */}
+              <div className="flex-1 min-w-0 flex flex-col px-3 pt-2.5 pb-3 gap-1.5 relative">
+                {/* Close */}
+                <button
+                  onClick={closeDetail}
+                  className="absolute top-2 right-2 flex h-6 w-6 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white/40 hover:bg-white/15 active:scale-90 transition-all"
+                >
+                  <span className="text-xs font-black leading-none">✕</span>
+                </button>
+
+                {/* Badges */}
+                <div className="flex items-center gap-1.5 flex-wrap pr-7">
+                  {isItemEquipped(activeEntry.item) && (
+                    <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2 py-0.5 text-[9px] font-black text-emerald-400">Equipado</span>
+                  )}
+                  {(() => {
+                    const t2 = getEquipmentComparisonTrend(player, activeEntry.item);
+                    if (!t2 || t2 === 'equal' || isItemEquipped(activeEntry.item)) return null;
+                    return (
+                      <span className={`inline-flex items-center gap-0.5 rounded-full border px-2 py-0.5 text-[9px] font-black ${t2 === 'up' ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-400' : 'border-rose-400/30 bg-rose-400/10 text-rose-400'}`}>
+                        {t2 === 'up' ? <ArrowUp size={10} /> : <ArrowDown size={10} />}
+                        {t2 === 'up' ? 'Melhora' : 'Piora'}
+                      </span>
+                    );
+                  })()}
+                </div>
+
+                {/* Name + description */}
+                <h3 className="text-[15px] font-black text-white leading-tight line-clamp-2">{activeEntry.item.name}</h3>
+                <p className="text-[10px] text-white/45 line-clamp-2 leading-snug">{activeEntry.item.description}</p>
+
+                {/* Effects */}
+                {(() => {
+                  const eff = getItemEffectCards(activeEntry.item);
+                  if (eff.length === 0) return null;
+                  return (
+                    <div className="flex flex-wrap gap-1">
+                      {eff.map((e) => (
+                        <span key={e.id} className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-black ${e.panel} ${e.tone}`}>
+                          {React.isValidElement(e.icon) ? React.cloneElement(e.icon as React.ReactElement<{ size?: number }>, { size: 10 }) : e.icon}
+                          {e.label} {e.value}
+                        </span>
+                      ))}
+                    </div>
+                  );
+                })()}
+
+                {/* Action buttons */}
+                <div className="flex flex-wrap gap-1.5 mt-auto pt-0.5">
+                  {isPicking && activeEntry.item.type === 'potion' && onEquipItemToSlot && targetItemSlotIndex != null && (
+                    <button
+                      onClick={() => { onEquipItemToSlot(targetItemSlotIndex!, activeEntry.item.id); closeDetail(); onClose(); }}
+                      className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl border border-emerald-500/50 bg-emerald-600/80 px-3 py-2 text-xs font-black uppercase tracking-widest text-white hover:bg-emerald-500 active:scale-95 transition-all"
+                    >
+                      <FlaskConical size={12} /> Slot {(targetItemSlotIndex ?? 0) + 1}
+                    </button>
+                  )}
+                  {!isBattleContext && isEquipmentType(activeEntry.item.type) && !isItemEquipped(activeEntry.item) && !isPicking && (
+                    <button
+                      onClick={() => { onEquip(activeEntry.item); closeDetail(); onClose(); }}
+                      className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl border border-emerald-500/50 bg-emerald-600/80 px-3 py-2 text-xs font-black uppercase tracking-widest text-white hover:bg-emerald-500 active:scale-95 transition-all"
+                    >
+                      <Shield size={12} /> Equipar
+                    </button>
+                  )}
+                  {!isBattleContext && isEquipmentType(activeEntry.item.type) && isItemEquipped(activeEntry.item) && !isPicking && (
+                    <button
+                      onClick={() => { onUnequip(activeEntry.item); closeDetail(); }}
+                      className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl border border-amber-500/50 bg-amber-600/80 px-3 py-2 text-xs font-black uppercase tracking-widest text-white hover:bg-amber-500 active:scale-95 transition-all"
+                    >
+                      <Shield size={12} /> Desequipar
+                    </button>
+                  )}
+                  {isBattleContext && activeEntry.item.type === 'potion' && (
+                    <button
+                      onClick={() => { onUse(activeEntry.item.id); closeDetail(); }}
+                      className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl border border-sky-500/50 bg-sky-600/80 px-3 py-2 text-xs font-black uppercase tracking-widest text-white hover:bg-sky-500 active:scale-95 transition-all"
+                    >
+                      <FlaskConical size={12} /> Usar
+                    </button>
+                  )}
+                  {inShopContext && onSell && !isPicking && (player.inventory[activeEntry.item.id] ?? 0) > 0 && (
+                    <button
+                      onClick={() => handleSellFromDetail(activeEntry.item)}
+                      className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-amber-500/50 bg-amber-600/80 px-3 py-2 text-xs font-black uppercase tracking-widest text-white hover:bg-amber-500 active:scale-95 transition-all"
+                    >
+                      <GameAssetIcon name="coin" size={12} /> Vender
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Filter tabs — or locked sub-type header */}
         {equipmentSubFilter ? (
-          <div className="flex items-center gap-2 px-4 py-2">
+          <div className="flex items-center gap-2 px-4 py-2 shrink-0">
             <div className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/15 px-3.5 py-1.5 text-[11px] font-black uppercase tracking-widest text-white shadow-[0_0_10px_rgba(255,255,255,0.08)]">
               <ItemTypeIcon type={equipmentSubFilter} size={13} />
               <ItemTypeLabel type={equipmentSubFilter} />
@@ -1542,7 +1614,7 @@ export const InventoryScreen = ({
             <span className="text-[10px] text-white/30 font-black">— selecione para equipar</span>
           </div>
         ) : (
-          <div className="flex items-center gap-3 px-4 pt-1.5 pb-0">
+          <div className="flex items-center gap-3 px-4 pt-1.5 pb-0 shrink-0">
             {FILTERS.filter(entry => !isPicking || entry.id === 'potion').map((entry) => {
               const active = filter === entry.id;
               const count = filterItemCount(entry.id);
@@ -1566,7 +1638,7 @@ export const InventoryScreen = ({
 
         {/* Active filter label */}
         {!equipmentSubFilter && (
-          <div className="px-4 pb-1">
+          <div className="px-4 pb-1 shrink-0">
             <span className="text-[10px] font-black uppercase tracking-widest text-white/55">
               {FILTERS.find(f => f.id === filter)?.label ?? ''}
             </span>
@@ -1574,7 +1646,11 @@ export const InventoryScreen = ({
         )}
 
         {/* Items horizontal scroll */}
-        <div className={`flex items-start gap-3 overflow-x-auto px-4 no-scrollbar min-h-[180px] transition-all duration-200 ${selectionMode ? 'pb-20' : 'pb-3'}`} data-scrollable style={{ isolation: 'isolate' }}>
+        <div
+          className="flex items-start gap-3 overflow-x-auto px-4 inv-scroll shrink-0 pb-3 transition-all duration-200"
+          data-scrollable
+          style={{ isolation: 'isolate' }}
+        >
           {filteredItems.length === 0 ? (
             <div className="flex w-full items-center justify-center rounded-[20px] border border-dashed border-white/10 bg-white/3 px-6 py-8 text-sm text-white/30">
               Nenhum item nesta categoria.
@@ -1595,7 +1671,6 @@ export const InventoryScreen = ({
                       ? () => toggleSelectItem(item)
                       : () => openDetail(item)
                   }
-                  onEquipToggle={selectionMode ? undefined : handleEquipToggle}
                   isBattleContext={isBattleContext}
                   inSlotIndex={getItemSlotIndex(item.id)}
                   isPicking={isPicking && item.type === 'potion'}
@@ -1612,12 +1687,11 @@ export const InventoryScreen = ({
           )}
         </div>
 
-        {/* GAMEPAD LEGEND — inline, abaixo da lista */}
+        {/* GAMEPAD LEGEND */}
         {!activeEntry && !selectionMode && (() => {
           const focusedItem = filteredItems[gpIdx]?.item;
           const focusedIsEquip = !!focusedItem && isEquipmentType(focusedItem.type) && !isBattleContext && !isPicking;
           const focusedIsPickingPotion = isPicking && !!focusedItem && focusedItem.type === 'potion';
-          // No modo picking: Y segurando remove; X segurando equipa
           const currentSlotHasItem = isPicking && targetItemSlotIndex !== null && !!equippedItemSlots[targetItemSlotIndex]?.itemId;
           return (
             <GamepadActionLegend
@@ -1636,51 +1710,42 @@ export const InventoryScreen = ({
             />
           );
         })()}
+
+        {/* SELECTION MODE bar */}
+        {selectionMode && (
+          <div className="px-4 pb-3 pt-2 shrink-0">
+            <div className="flex gap-2">
+              <button
+                onClick={exitSelectionMode}
+                className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-xs font-black uppercase tracking-widest text-white/60 hover:bg-white/10 active:scale-95 transition-all"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={openBatchSell}
+                disabled={selectedIds.size === 0}
+                className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl border border-emerald-500/60 bg-emerald-600 px-4 py-3 text-sm font-black uppercase tracking-widest text-white hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed active:scale-95 transition-all"
+              >
+                <GameAssetIcon name="coin" size={18} />
+                {selectedIds.size > 0 ? `Vender ${selectedIds.size} item${selectedIds.size > 1 ? 's' : ''}` : 'Selecione itens'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Safe area bottom */}
+        <div className="safe-bottom shrink-0" />
       </div>
 
-      {/* ITEM DETAIL MODAL */}
-      {activeEntry && !selectionMode && (
-        <ItemDetailModal
-          item={activeEntry.item}
-          quantity={activeEntry.quantity}
+      {/* SELL QUANTITY MODAL */}
+      {sellingItem && (
+        <SellQuantityModal
+          item={sellingItem}
           player={player}
-          closing={detailClosing}
-          onClose={closeDetail}
-          onEquip={onEquip}
-          onUnequip={onUnequip}
-          onUse={onUse}
-          onSell={onSell ? (item, qty) => { onSell(item, qty); closeDetail(); } : undefined}
-          isEquipped={isItemEquipped(activeEntry.item)}
-          isBattleContext={isBattleContext}
-          inShopContext={inShopContext}
-          onGamepadAction={handleDetailGamepadConfirm}
-          isPicking={isPicking}
-          targetItemSlotIndex={targetItemSlotIndex}
-          onEquipItemToSlot={onEquipItemToSlot}
-          equippedItemSlots={equippedItemSlots}
+          closing={sellClosing}
+          onClose={closeSellModal}
+          onConfirm={handleConfirmSell}
         />
-      )}
-
-      {/* SELECTION MODE floating bar */}
-      {selectionMode && (
-        <div className="absolute bottom-0 left-0 right-0 z-[85] px-4 pb-4 pt-3 bg-gradient-to-t from-black/90 to-transparent pointer-events-none">
-          <div className="pointer-events-auto flex gap-2">
-            <button
-              onClick={exitSelectionMode}
-              className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-xs font-black uppercase tracking-widest text-white/60 hover:bg-white/10 active:scale-95 transition-all"
-            >
-              Cancelar
-            </button>
-            <button
-              onClick={openBatchSell}
-              disabled={selectedIds.size === 0}
-              className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl border border-emerald-500/60 bg-emerald-600 px-4 py-3 text-sm font-black uppercase tracking-widest text-white hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed active:scale-95 transition-all"
-            >
-              <GameAssetIcon name="coin" size={18} />
-              {selectedIds.size > 0 ? `Vender ${selectedIds.size} item${selectedIds.size > 1 ? 's' : ''}` : 'Selecione itens'}
-            </button>
-          </div>
-        </div>
       )}
 
       {/* BATCH SELL MODAL */}
@@ -1693,8 +1758,6 @@ export const InventoryScreen = ({
           onClose={() => setBatchSellOpen(false)}
         />
       )}
-
-
     </div>
   );
 };

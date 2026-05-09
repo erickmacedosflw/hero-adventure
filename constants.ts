@@ -184,7 +184,7 @@ export const ALCHEMIST_ITEM_OFFERS: AlchemistItemOffer[] = [
 ];
 
 const BASE_SKILLS: Skill[] = [
-  { id: 'skl_1', name: 'Corte Voxel', cost: 0, damageMult: 1.5, minLevel: 1, description: 'Golpe físico preciso. 8 MP', manaCost: 8, type: 'physical' },
+  { id: 'skl_1', name: 'Corte Voxel', cost: 0, damageMult: 1.5, minLevel: 1, description: 'Golpe físico preciso. 8 MP', manaCost: 8, type: 'physical', icon: 'game/assets/Icons/Habilidades/Icones/1.png' },
   {
     id: 'skl_2',
     name: 'Luz Sagrada',
@@ -199,6 +199,7 @@ const BASE_SKILLS: Skill[] = [
     animacaoExecucaoCor: '#fff476',
     animacaoImpacto: SPRITE_ANIMATION_IDS.execAuraVida1,
     animacaoImpactoAlvo: 'self',
+    icon: 'game/assets/Icons/Habilidades/Icones/2.png',
   },
   {
     id: 'skl_3',
@@ -214,15 +215,16 @@ const BASE_SKILLS: Skill[] = [
     animacaoExecucaoCor: '#ff8f45',
     animacaoImpacto: SPRITE_ANIMATION_IDS.execFire,
     animacaoImpactoAlvo: 'target',
+    icon: 'game/assets/Icons/Habilidades/Icones/3.png',
   },
-  { id: 'skl_4', name: 'Lâmina do Dragão', cost: 0, damageMult: 3.5, minLevel: 8, description: 'Investida lendária devastadora. 45 MP', manaCost: 45, type: 'physical' },
-  { id: 'skl_5', name: 'Tempestade Arcana', cost: 0, damageMult: 2.8, minLevel: 4, description: 'Explosão violeta que estilhaça o alvo. 24 MP', manaCost: 24, type: 'magic' },
-  { id: 'skl_6', name: 'Quebraterra', cost: 0, damageMult: 2.9, minLevel: 5, description: 'Golpe bruto que faz a arena tremer. 26 MP', manaCost: 26, type: 'physical' },
-  { id: 'skl_7', name: 'Nova Glacial', cost: 0, damageMult: 2.6, minLevel: 6, description: 'Rajada gelida de impacto concentrado. 28 MP', manaCost: 28, type: 'magic' },
-  { id: 'skl_8', name: 'Cura Astral', cost: 0, damageMult: 0.65, minLevel: 6, description: 'Cura 65% da vida maxima. 30 MP', manaCost: 30, type: 'heal' },
-  { id: 'skl_9', name: 'Lança Sombria', cost: 0, damageMult: 3.2, minLevel: 7, description: 'Perfuração sombria com rastro espectral. 34 MP', manaCost: 34, type: 'physical' },
-  { id: 'skl_10', name: 'Julgamento Solar', cost: 0, damageMult: 4.1, minLevel: 9, description: 'Coluna sagrada de luz esmagadora. 52 MP', manaCost: 52, type: 'magic' },
-  { id: 'skl_11', name: 'Muralha Instintiva', cost: 0, damageMult: 0, minLevel: 10, description: 'Ativa defesa automatica por 3 turnos. 15 MP', manaCost: 15, type: 'heal', source: 'card' },
+  { id: 'skl_4', name: 'Lâmina do Dragão', cost: 0, damageMult: 3.5, minLevel: 8, description: 'Investida lendária devastadora. 45 MP', manaCost: 45, type: 'physical', icon: 'game/assets/Icons/Habilidades/Icones/4.png' },
+  { id: 'skl_5', name: 'Tempestade Arcana', cost: 0, damageMult: 2.8, minLevel: 4, description: 'Explosão violeta que estilhaça o alvo. 24 MP', manaCost: 24, type: 'magic', icon: 'game/assets/Icons/Habilidades/Icones/5.png' },
+  { id: 'skl_6', name: 'Quebraterra', cost: 0, damageMult: 2.9, minLevel: 5, description: 'Golpe bruto que faz a arena tremer. 26 MP', manaCost: 26, type: 'physical', icon: 'game/assets/Icons/Habilidades/Icones/6.png' },
+  { id: 'skl_7', name: 'Nova Glacial', cost: 0, damageMult: 2.6, minLevel: 6, description: 'Rajada gelida de impacto concentrado. 28 MP', manaCost: 28, type: 'magic', icon: 'game/assets/Icons/Habilidades/Icones/26.png' },
+  { id: 'skl_8', name: 'Cura Astral', cost: 0, damageMult: 0.65, minLevel: 6, description: 'Cura 65% da vida maxima. 30 MP', manaCost: 30, type: 'heal', icon: 'game/assets/Icons/Habilidades/Icones/8.png' },
+  { id: 'skl_9', name: 'Lança Sombria', cost: 0, damageMult: 3.2, minLevel: 7, description: 'Perfuração sombria com rastro espectral. 34 MP', manaCost: 34, type: 'physical', icon: 'game/assets/Icons/Habilidades/Icones/9.png' },
+  { id: 'skl_10', name: 'Julgamento Solar', cost: 0, damageMult: 4.1, minLevel: 9, description: 'Coluna sagrada de luz esmagadora. 52 MP', manaCost: 52, type: 'magic', icon: 'game/assets/Icons/Habilidades/Icones/10.png' },
+  { id: 'skl_11', name: 'Muralha Instintiva', cost: 0, damageMult: 0, minLevel: 10, description: 'Ativa defesa automatica por 3 turnos. 15 MP', manaCost: 15, type: 'heal', source: 'card', icon: 'game/assets/Icons/Habilidades/Icones/11.png' },
 ];
 
 export const SKILLS: Skill[] = [...BASE_SKILLS, ...CONSTELLATION_SKILLS];

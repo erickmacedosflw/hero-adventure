@@ -391,6 +391,7 @@ export interface Skill {
   type: 'physical' | 'magic' | 'heal';
   classId?: PlayerClassId;
   source?: 'base' | 'card' | 'constellation';
+  icon?: string;
   visualTheme?: SkillVisualTheme;
   trailId?: string;
   trailColor?: string;

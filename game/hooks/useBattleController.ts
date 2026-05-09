@@ -984,7 +984,7 @@ export const useBattleController = ({
         skillEmpowerTurns: grantEmpowerTurns > 0 ? Math.max(prev.buffs.skillEmpowerTurns, grantEmpowerTurns) : prev.buffs.skillEmpowerTurns,
       },
     }));
-    spawnFloatingText(skill.name.toUpperCase(), 'player', 'skill');
+    spawnFloatingText(skill.name.toUpperCase(), 'player', 'skill', undefined, skill.icon);
     if (activeImpulse > 0) {
       spawnFloatingText(`IMPULSO ${activeImpulse}`, 'player', 'buff', activeImpulse >= 3 ? '#3b82f6' : activeImpulse === 2 ? '#a855f7' : '#ef4444');
     }

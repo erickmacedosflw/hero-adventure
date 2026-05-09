@@ -1,20 +1,15 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ArrowLeft } from 'lucide-react';
 import type { Mission } from '../../types';
 
 const BOOK_IMAGE_URL = new URL('../../game/assets/Icons/Missoes/Book_missoes.png', import.meta.url).href;
 const COIN_URL       = new URL('../../game/assets/Icons/Misc/Golden Coin.png', import.meta.url).href;
+const GEM_URL        = new URL('../../game/assets/Icons/Ore & Gem/Emerald.png', import.meta.url).href;
 
-// -- Inject keyframes --------------------------------------------------------
+// -- Keyframes ---------------------------------------------------------------
 if (typeof document !== 'undefined') {
-  let s = document.getElementById('missions-anim-style-v2') as HTMLStyleElement | null;
-  if (!s) { s = document.createElement('style'); s.id = 'missions-anim-style-v2'; document.head.appendChild(s); }
+  let s = document.getElementById('missions-anim-style-v3') as HTMLStyleElement | null;
+  if (!s) { s = document.createElement('style'); s.id = 'missions-anim-style-v3'; document.head.appendChild(s); }
   s.textContent = `
-    @keyframes missions-book-appear {
-      0%   { opacity: 0; transform: translateX(-50%) translateY(40px) scale(0.88); }
-      60%  { opacity: 1; transform: translateX(-50%) translateY(-6px) scale(1.02); }
-      100% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
-    }
     @keyframes msn-claim-flash {
       0%   { opacity: 0; }
       30%  { opacity: 0.55; }
@@ -51,7 +46,7 @@ const formatDesc = (template: string, meta: number): React.ReactNode => {
     <>
       {parts.map((part, i) =>
         /^\d+$/.test(part)
-          ? <span key={i} style={{ color: '#fbbf24', fontWeight: 900, fontSize: '1.08em', letterSpacing: '-0.01em' }}>{part}</span>
+          ? <span key={i} style={{ color: '#fbbf24', fontWeight: 900 }}>{part}</span>
           : part
       )}
     </>
@@ -59,58 +54,47 @@ const formatDesc = (template: string, meta: number): React.ReactNode => {
 };
 
 // -- Coin burst overlay ------------------------------------------------------
-const CoinBurst: React.FC<{ reward: number }> = ({ reward }) => {
-  const coins = [
-    { x: -18, delay: 0 },
-    { x: 0,   delay: 60 },
-    { x: 18,  delay: 120 },
-  ];
-  return (
-    <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 10 }}>
-      {/* Flash overlay */}
-      <div style={{
-        position: 'absolute', inset: 0, borderRadius: 20,
-        background: 'radial-gradient(ellipse at 50% 80%, rgba(251,191,36,0.55) 0%, transparent 70%)',
-        animation: 'msn-claim-flash 0.55s ease-out forwards',
-      }} />
-      {/* Floating reward number */}
-      <div style={{
-        position: 'absolute', left: '50%', bottom: '56px',
-        transform: 'translateX(-50%)',
-        fontSize: 20, fontWeight: 900, color: '#fcd34d',
-        textShadow: '0 0 12px rgba(251,191,36,0.90)',
-        whiteSpace: 'nowrap',
-        animation: 'msn-reward-float 0.7s cubic-bezier(0.22,1,0.36,1) forwards',
-        fontFamily: "'Segoe UI',system-ui,sans-serif",
-      }}>
-        +{reward} ✦
-      </div>
-      {/* Flying coins */}
-      {coins.map((c, i) => (
-        <div key={i} style={{
-          position: 'absolute', bottom: 52, left: `calc(50% + ${c.x}px)`,
-          transform: 'translateX(-50%)',
-          animation: `msn-coin-fly 0.65s cubic-bezier(0.22,1,0.36,1) ${c.delay}ms forwards`,
-        }}>
-          <img src={COIN_URL} alt="" style={{ width: 18, height: 18, objectFit: 'contain' }} />
-        </div>
-      ))}
+// -- Coin burst overlay ------------------------------------------------------
+const CoinBurst: React.FC<{ reward: number }> = ({ reward }) => (
+  <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 20, borderRadius: 'inherit', overflow: 'hidden' }}>
+    <div style={{
+      position: 'absolute', inset: 0,
+      background: 'radial-gradient(ellipse at 50% 80%, rgba(251,191,36,0.45) 0%, transparent 70%)',
+      animation: 'msn-claim-flash 0.55s ease-out forwards',
+    }} />
+    <div style={{
+      position: 'absolute', left: '50%', top: '25%',
+      transform: 'translateX(-50%)',
+      fontSize: 18, fontWeight: 900, color: '#fcd34d',
+      textShadow: '0 0 12px rgba(251,191,36,0.90)',
+      whiteSpace: 'nowrap',
+      animation: 'msn-reward-float 0.7s cubic-bezier(0.22,1,0.36,1) forwards',
+    }}>
+      +{reward} ✦
     </div>
-  );
-};
+    {[-16, 0, 16].map((x, i) => (
+      <div key={i} style={{
+        position: 'absolute', bottom: 12, left: `calc(50% + ${x}px)`,
+        transform: 'translateX(-50%)',
+        animation: `msn-coin-fly 0.65s cubic-bezier(0.22,1,0.36,1) ${i * 60}ms forwards`,
+      }}>
+        <img src={COIN_URL} alt="" style={{ width: 16, height: 16, objectFit: 'contain' }} />
+      </div>
+    ))}
+  </div>
+);
 
 // -- Mission Card ------------------------------------------------------------
+// -- Mission Card (horizontal strip) -----------------------------------------
 const MissionCard: React.FC<{ mission: Mission; onClaim: () => void }> = ({ mission, onClaim }) => {
-  const isFixed    = mission.metaIncrement === 0;
-  const isComplete = mission.progressoAtual >= mission.metaAtual;
+  const isFixed     = mission.metaIncrement === 0;
+  const isComplete  = mission.progressoAtual >= mission.metaAtual;
   const progressPct = Math.min(100, (mission.progressoAtual / mission.metaAtual) * 100);
 
-  const [hovered,  setHovered]  = useState(false);
   const [claiming, setClaiming] = useState(false);
   const [levelPop, setLevelPop] = useState(false);
   const prevNivel = useRef(mission.nivelAtual);
 
-  // Detect level-up from parent re-render → trigger badge pop
   useEffect(() => {
     if (mission.nivelAtual !== prevNivel.current) {
       prevNivel.current = mission.nivelAtual;
@@ -123,153 +107,98 @@ const MissionCard: React.FC<{ mission: Mission; onClaim: () => void }> = ({ miss
   const handleClaim = () => {
     if (!isComplete || claiming) return;
     setClaiming(true);
-    // After flash animation, call real claim
-    setTimeout(() => {
-      onClaim();
-      setClaiming(false);
-    }, 480);
+    setTimeout(() => { onClaim(); setClaiming(false); }, 480);
   };
 
   return (
-    <div
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        borderRadius: 20,
-        border: isComplete
-          ? '1.5px solid rgba(180,120,20,0.55)'
-          : isFixed
-            ? '1.5px solid rgba(139,90,43,0.35)'
-            : '1.5px solid rgba(255,255,255,0.10)',
-        background: isComplete
-          ? 'rgba(120,72,8,0.18)'
-          : 'rgba(255,255,255,0.06)',
-        backdropFilter: 'blur(20px)',
-        WebkitBackdropFilter: 'blur(20px)',
-        padding: 0,
-        display: 'flex',
-        flexDirection: 'column',
-        height: '100%',
-        boxSizing: 'border-box' as const,
-        overflow: 'hidden',
-        position: 'relative',
-        // Hover lift + glow
-        transform: hovered ? 'translateY(-4px) scale(1.015)' : 'translateY(0) scale(1)',
-        transition: 'transform 0.22s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.22s ease',
-        boxShadow: hovered
-          ? (isComplete
-            ? '0 16px 40px rgba(217,119,6,0.35), 0 0 0 1.5px rgba(251,191,36,0.50), inset 0 1px 0 rgba(255,220,100,0.15)'
-            : '0 12px 32px rgba(0,0,0,0.55), 0 0 0 1px rgba(180,120,60,0.25)')
-          : (isComplete
-            ? '0 8px 32px rgba(180,120,8,0.20), inset 0 1px 0 rgba(255,220,100,0.10)'
-            : '0 4px 20px rgba(0,0,0,0.45), inset 0 1px 0 rgba(180,120,60,0.08)'),
-      }}
-    >
-      {/* Claim burst overlay */}
+    <div style={{
+      position: 'relative',
+      borderRadius: 16,
+      border: isComplete
+        ? '1.5px solid rgba(180,120,20,0.60)'
+        : '1.5px solid rgba(255,255,255,0.08)',
+      background: isComplete ? 'rgba(120,72,8,0.22)' : 'rgba(255,255,255,0.05)',
+      display: 'flex', alignItems: 'center',
+      overflow: 'hidden', flexShrink: 0,
+    }}>
       {claiming && <CoinBurst reward={mission.recompensaAtual} />}
 
-      {/* Card top accent bar */}
+      {/* Top accent line */}
+      {isComplete && (
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: 'linear-gradient(90deg, transparent, #d97706, #fbbf24, #d97706, transparent)' }} />
+      )}
+
+      {/* LEFT — coin + reward */}
       <div style={{
-        height: 3,
-        background: isComplete
-          ? 'linear-gradient(90deg, #92400e, #d97706, #fbbf24, #d97706, #92400e)'
-          : isFixed
-            ? 'linear-gradient(90deg, rgba(180,100,30,0.70), rgba(120,65,18,0.30))'
-            : 'linear-gradient(90deg, rgba(120,72,30,0.55), rgba(80,45,15,0.20))',
-        flexShrink: 0,
-      }} />
+        flexShrink: 0, width: 60,
+        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+        gap: 4, padding: '14px 0',
+        borderRight: '1px solid rgba(255,255,255,0.07)',
+      }}>
+        <img
+          src={COIN_URL} alt=""
+          style={{
+            width: 28, height: 28, objectFit: 'contain',
+            animation: levelPop ? 'msn-badge-pop 0.45s cubic-bezier(0.34,1.56,0.64,1) forwards' : 'none',
+          }}
+        />
+        <span style={{ fontSize: 13, fontWeight: 900, color: '#fcd34d', lineHeight: 1 }}>
+          {mission.recompensaAtual}
+        </span>
+      </div>
 
-      <div style={{ padding: '8px 11px 10px', display: 'flex', flexDirection: 'column', gap: 7, flex: 1 }}>
-
-        {/* Top row: badge + reward */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+      {/* CENTER — title + progress */}
+      <div style={{ flex: 1, minWidth: 0, padding: '12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           {isFixed ? (
-            <span style={{
-              display: 'inline-flex', alignItems: 'center', gap: 3,
-              borderRadius: 99, border: '1px solid rgba(251,191,36,0.40)',
-              background: 'rgba(251,191,36,0.12)',
-              padding: '2px 7px',
-              fontSize: 8, fontWeight: 900, textTransform: 'uppercase' as const,
-              letterSpacing: '0.14em', color: '#fcd34d', lineHeight: 1.4,
-            }}>
-              ∞ Recorrente
-            </span>
+            <span style={{ fontSize: 8, fontWeight: 900, textTransform: 'uppercase' as const, letterSpacing: '0.12em', color: '#fcd34d', opacity: 0.7 }}>∞ Recorrente</span>
           ) : (
-            <span
-              key={mission.nivelAtual}
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: 3,
-                borderRadius: 99, border: '1px solid rgba(253,230,138,0.35)',
-                background: 'rgba(253,230,138,0.10)',
-                padding: '2px 7px',
-                fontSize: 8, fontWeight: 900, textTransform: 'uppercase' as const,
-                letterSpacing: '0.14em', color: 'rgba(253,230,138,0.70)', lineHeight: 1.4,
-                animation: levelPop ? 'msn-badge-pop 0.45s cubic-bezier(0.34,1.56,0.64,1) forwards' : 'none',
-              }}>
-              Desafio <span style={{ fontSize: 9, color: '#fde68a', fontWeight: 900, letterSpacing: 0 }}>{mission.nivelAtual}</span>
+            <span key={mission.nivelAtual} style={{ fontSize: 8, fontWeight: 900, textTransform: 'uppercase' as const, letterSpacing: '0.12em', color: 'rgba(253,230,138,0.65)' }}>
+              Desafio {mission.nivelAtual}
             </span>
           )}
-
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
-            <img src={COIN_URL} alt="" style={{ width: 18, height: 18, objectFit: 'contain', filter: 'drop-shadow(0.5px 0 0 #fff) drop-shadow(-0.5px 0 0 #fff) drop-shadow(0 0.5px 0 #fff) drop-shadow(0 -0.5px 0 #fff)' }} />
-            <span style={{ fontSize: 14, fontWeight: 900, color: '#fcd34d', letterSpacing: '-0.01em' }}>{mission.recompensaAtual}</span>
-          </div>
         </div>
-
-        {/* Description */}
-        <p style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.88)', lineHeight: 1.5, margin: 0, flex: 1 }}>
+        <p style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.88)', lineHeight: 1.4, margin: 0 }}>
           {formatDesc(mission.descricao, mission.metaAtual)}
         </p>
-
-        {/* Progress */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: 9, fontWeight: 800, textTransform: 'uppercase' as const, letterSpacing: '0.20em', color: 'rgba(255,255,255,0.30)' }}>
-              Progresso
-            </span>
-            <span style={{ fontSize: 11, fontWeight: 900, color: isComplete ? '#fcd34d' : 'rgba(255,255,255,0.45)', fontVariantNumeric: 'tabular-nums' }}>
-              {mission.progressoAtual}<span style={{ opacity: 0.5 }}>/{mission.metaAtual}</span>
-            </span>
-          </div>
-          <div style={{ height: 6, borderRadius: 99, background: 'rgba(255,255,255,0.08)', overflow: 'hidden', position: 'relative' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <div style={{ height: 5, borderRadius: 99, background: 'rgba(255,255,255,0.08)', overflow: 'hidden', position: 'relative' }}>
             <div style={{
               position: 'absolute', inset: 0, right: `${100 - progressPct}%`,
               borderRadius: 99,
-              background: 'linear-gradient(90deg, #b45309, #d97706, #fbbf24)',
-              boxShadow: progressPct > 0 ? '0 0 10px rgba(251,191,36,0.55)' : 'none',
+              background: isComplete
+                ? 'linear-gradient(90deg, #b45309, #d97706, #fbbf24)'
+                : 'linear-gradient(90deg, #78716c, #a8a29e)',
+              boxShadow: isComplete && progressPct > 0 ? '0 0 8px rgba(251,191,36,0.55)' : 'none',
               transition: 'right 0.5s ease',
             }} />
           </div>
+          <span style={{ fontSize: 9, fontWeight: 800, color: isComplete ? '#fcd34d' : 'rgba(255,255,255,0.35)', fontVariantNumeric: 'tabular-nums' as const }}>
+            {mission.progressoAtual}/{mission.metaAtual}
+          </span>
         </div>
+      </div>
 
-        {/* Claim button */}
+      {/* RIGHT — button */}
+      <div style={{ flexShrink: 0, padding: '0 10px 0 0' }}>
         <button
           onClick={handleClaim}
           disabled={!isComplete || claiming}
           style={{
-            width: '100%', borderRadius: 12,
-            padding: '8px 0',
-            fontSize: 11, fontWeight: 900, letterSpacing: '0.06em', textTransform: 'uppercase' as const,
+            borderRadius: 10, padding: '9px 14px',
+            fontSize: 10, fontWeight: 900, letterSpacing: '0.06em', textTransform: 'uppercase' as const,
             border: 'none',
             background: isComplete
               ? 'linear-gradient(135deg, #b45309 0%, #d97706 50%, #fbbf24 100%)'
-              : 'rgba(255,255,255,0.06)',
-            color: isComplete ? '#fff' : 'rgba(255,255,255,0.22)',
+              : 'rgba(255,255,255,0.07)',
+            color: isComplete ? '#fff' : 'rgba(255,255,255,0.28)',
             cursor: isComplete && !claiming ? 'pointer' : 'not-allowed',
-            boxShadow: isComplete ? '0 6px 22px rgba(217,119,6,0.40), inset 0 1px 0 rgba(255,255,255,0.25)' : 'none',
-            transition: 'all 0.2s, transform 0.15s',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+            boxShadow: isComplete ? '0 4px 16px rgba(217,119,6,0.40)' : 'none',
+            whiteSpace: 'nowrap' as const, minWidth: 82,
             animation: claiming ? 'msn-btn-press 0.25s ease forwards' : 'none',
-            // Hover effect on button
-            ...(hovered && isComplete && !claiming ? { filter: 'brightness(1.12)' } : {}),
           }}
         >
-          {isComplete ? (
-            <>
-              <img src={COIN_URL} alt="" style={{ width: 15, height: 15, objectFit: 'contain', filter: 'drop-shadow(0.5px 0 0 #fff) drop-shadow(-0.5px 0 0 #fff) drop-shadow(0 0.5px 0 #fff) drop-shadow(0 -0.5px 0 #fff)' }} />
-              {claiming ? 'Resgatando...' : `Resgatar ${mission.recompensaAtual}`}
-            </>
-          ) : 'Em progresso'}
+          {isComplete ? (claiming ? 'Resgatando…' : 'Resgatar') : 'Em Progresso'}
         </button>
       </div>
     </div>
@@ -291,14 +220,7 @@ export const MissionsScreen: React.FC<MissionsScreenProps> = ({
   onClaimReward,
 }) => {
   const [mounted, setMounted] = useState(false);
-  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 640);
   useEffect(() => { const t = window.setTimeout(() => setMounted(true), 10); return () => window.clearTimeout(t); }, []);
-  useEffect(() => {
-    const mq = window.matchMedia('(max-width: 639px)');
-    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
-    mq.addEventListener('change', handler);
-    return () => mq.removeEventListener('change', handler);
-  }, []);
 
   const panelSlide = isClosing
     ? 'translate-y-full transition-transform duration-[220ms] ease-in'
@@ -306,102 +228,70 @@ export const MissionsScreen: React.FC<MissionsScreenProps> = ({
       ? 'translate-y-0 transition-transform duration-[320ms] ease-out'
       : 'translate-y-full';
 
-  const overlayFade = isClosing ? 'opacity-0 transition-opacity duration-[220ms]' : 'opacity-100';
-  const font: React.CSSProperties = { fontFamily: "'Segoe UI',system-ui,sans-serif" };
+  const overlayFade = isClosing
+    ? 'opacity-0 transition-opacity duration-[220ms]'
+    : 'opacity-100';
 
   const completedCount = missions.filter(m => m.progressoAtual >= m.metaAtual).length;
 
-  const sortedMissions = missions;
+  const sorted = [...missions].sort((a, b) => {
+    const ac = a.progressoAtual >= a.metaAtual ? 0 : 1;
+    const bc = b.progressoAtual >= b.metaAtual ? 0 : 1;
+    return ac - bc;
+  });
 
   return (
-    <div className={`absolute inset-0 z-[80] flex flex-col pointer-events-auto backdrop-blur-md ${isMobile ? panelSlide : `overflow-hidden ${overlayFade}`}`}
-      style={isMobile ? { touchAction: 'pan-y' } : undefined}>
-
-      {/* Top click-to-close area with book image — oculto no mobile */}
-      {!isMobile && (
-        <div
-          className="relative flex-1 min-h-0 flex items-start justify-end p-4 cursor-pointer bg-black/30"
-          onClick={onClose}
-        >
-          <button
-            onClick={(e) => { e.stopPropagation(); onClose(); }}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-black/50 backdrop-blur-sm px-3 py-2 text-xs font-black uppercase tracking-widest text-white/70 hover:bg-black/70 hover:text-white transition-all active:scale-95"
-            style={font}
-          >
-            <ArrowLeft size={14} /> Fechar
-          </button>
-
-          <div className="absolute bottom-[6%] left-1/2 -translate-x-1/2 w-[260px] md:w-[310px] h-[36vh] md:h-[40vh] max-h-[260px] md:max-h-[290px] pointer-events-none select-none">
-            <img
-              src={BOOK_IMAGE_URL}
-              alt=""
-              className="absolute bottom-0 left-1/2 h-full w-auto object-contain object-bottom"
-              style={{
-                transform: 'translateX(-50%)',
-                filter:
-                  'drop-shadow(0 2px 8px rgba(0,0,0,0.95)) ' +
-                  'drop-shadow(0 8px 28px rgba(0,0,0,0.80)) ' +
-                  'drop-shadow(0 18px 56px rgba(0,0,0,0.55))',
-                animation: mounted ? 'none' : 'missions-book-appear 0.38s cubic-bezier(0.22,1,0.36,1)',
-              }}
-            />
-          </div>
-        </div>
-      )}
-
-      {/* Bottom panel — dark glass */}
+    <div
+      className={`absolute inset-0 z-[80] flex items-end justify-center pointer-events-auto ${overlayFade}`}
+      style={{ backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', background: 'rgba(0,0,0,0.12)' }}
+      onClick={onClose}
+    >
+      {/* BOTTOM SHEET */}
       <div
-        className={`flex flex-col bg-black/75 backdrop-blur-xl border-t border-white/8 ${isMobile ? 'flex-1 overflow-hidden' : `shrink-0 ${panelSlide}`}`}
-        style={{ ...(isMobile ? {} : { maxHeight: '72vh', minHeight: 320 }), ...font }}
+        className={`relative w-full sm:max-w-2xl flex flex-col border-t border-white/10 rounded-t-[24px] sm:rounded-t-[28px] max-h-[65dvh] ${panelSlide}`}
+        style={{ background: 'rgba(8,8,18,0.82)', backdropFilter: 'blur(32px)', WebkitBackdropFilter: 'blur(32px)' }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 18px 10px', borderBottom: '1px solid rgba(255,255,255,0.08)', flexShrink: 0 }}>
-          <img src={BOOK_IMAGE_URL} alt="" style={{ width: 36, height: 36, objectFit: 'contain', flexShrink: 0, filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.7))' }} />
-          <div style={{ minWidth: 0, flex: 1 }}>
-            <div style={{ fontSize: 16, fontWeight: 900, color: '#fff', lineHeight: 1.1 }}>Diário de Missões</div>
-            <div style={{ fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.45)', marginTop: 2 }}>
-              {completedCount > 0
-                ? `${completedCount} missão${completedCount > 1 ? 'ões' : ''} pronta${completedCount > 1 ? 's' : ''} para resgatar`
-                : 'Complete missões de caça e ganhe ouro'}
-            </div>
-          </div>
-          {isMobile && (
-            <button
-              onClick={onClose}
-              className="inline-flex items-center gap-1 rounded-xl border border-white/10 bg-white/8 px-3 py-2 text-xs font-black uppercase tracking-widest text-white/60 active:scale-95"
-              style={font}
-            >
-              <ArrowLeft size={13} /> Fechar
-            </button>
-          )}
+        {/* Drag handle */}
+        <div className="flex justify-center pt-3 pb-0.5 shrink-0">
+          <div className="w-10 h-1 rounded-full bg-white/25" />
         </div>
 
-        {/* Mission cards — horizontal (desktop) ou lista vertical (mobile) */}
-        {isMobile ? (
-          <div
-            data-scrollable
-            style={{ overflowY: 'scroll', overflowX: 'hidden', flex: '1 1 0', height: 0, padding: '12px 14px 24px', display: 'flex', flexDirection: 'column', gap: 10, WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain', touchAction: 'pan-y' }}
-          >
-            {sortedMissions.map(m => (
-              <div key={m.id} style={{ width: '100%', flexShrink: 0 }}>
-                <MissionCard mission={m} onClaim={() => onClaimReward(m.id)} />
-              </div>
-            ))}
+        {/* Header */}
+        <div className="flex items-center justify-between gap-3 px-4 pb-3 shrink-0">
+          <div className="flex items-center gap-2">
+            <img src={BOOK_IMAGE_URL} alt="" style={{ width: 22, height: 22, objectFit: 'contain', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.7))' }} />
+            <span className="text-sm font-black uppercase tracking-[0.18em] text-white">Missões</span>
+            {completedCount > 0 && (
+              <span
+                className="rounded-full px-2 py-0.5 text-[10px] font-black text-white"
+                style={{ background: 'linear-gradient(135deg,#b45309,#fbbf24)', boxShadow: '0 0 8px rgba(251,191,36,0.5)' }}
+              >
+                {completedCount} pronta{completedCount > 1 ? 's' : ''}
+              </span>
+            )}
           </div>
-        ) : (
-          <div
-            style={{ overflowX: 'auto', overflowY: 'hidden', flex: 1, minHeight: 0, padding: '14px 14px 18px', display: 'flex', flexDirection: 'row', gap: 12, alignItems: 'stretch', scrollSnapType: 'x proximity', WebkitOverflowScrolling: 'touch', touchAction: 'pan-x', overscrollBehaviorX: 'contain' as any }}
-            onTouchStart={(e) => e.stopPropagation()}
-            onTouchMove={(e) => e.stopPropagation()}
+          <button
+            onClick={onClose}
+            className="flex h-7 w-7 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white/50 hover:bg-white/15 active:scale-90 transition-all"
           >
-            {sortedMissions.map(m => (
-              <div key={m.id} style={{ scrollSnapAlign: 'start', flexShrink: 0, width: 180 }}>
-                <MissionCard mission={m} onClaim={() => onClaimReward(m.id)} />
-              </div>
-            ))}
-          </div>
-        )}
+            <span className="text-xs font-black leading-none">✕</span>
+          </button>
+        </div>
+
+        {/* Mission list */}
+        <div
+          className="flex flex-col gap-2.5 overflow-y-auto px-3 pb-4 shop-scroll"
+          data-scrollable
+          style={{ WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain', touchAction: 'pan-y' }}
+        >
+          {sorted.map(m => (
+            <MissionCard key={m.id} mission={m} onClaim={() => onClaimReward(m.id)} />
+          ))}
+        </div>
+
+        {/* Safe area */}
+        <div className="safe-bottom shrink-0" />
       </div>
     </div>
   );

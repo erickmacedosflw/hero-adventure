@@ -228,26 +228,8 @@ export function GamepadActionLegend({ extras, showCancel = true, showConfirm = t
     return () => _decrementInline();
   }, [inline]);
 
-  // For inline mode: always render the container to keep panel height stable during mount animation.
-  // Content is invisible when no gamepad connected.
   if (inline) {
-    if (!hasGamepad) {
-      return (
-        <div style={{
-          display:       'flex',
-          alignItems:    'center',
-          gap:           10,
-          padding:       '6px 14px 8px',
-          background:    'rgba(0,0,0,0.45)',
-          borderTop:     '1px solid rgba(255,255,255,0.07)',
-          pointerEvents: 'none',
-          userSelect:    'none',
-          flexShrink:    0,
-          visibility:    'hidden',
-          minHeight:     34,
-        }} />
-      );
-    }
+    if (!hasGamepad) return null;
 
     const cfg = BRAND_BUTTONS[gamepadBrand] ?? BRAND_BUTTONS.generic;
     const controls: React.ReactNode[] = [];

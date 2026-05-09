@@ -1010,11 +1010,16 @@ const CharacterSheet = ({ player, shopItems, onClose, onOpenInventory }: { playe
                  {player.skills.length > 0 ? (
                    player.skills.map(skill => (
                      <div key={skill.id} className="bg-slate-800 p-3 rounded-lg border border-slate-700 hover:border-purple-500/50 transition-colors group">
-                        <div className="flex justify-between items-start mb-1">
-                           <span className="font-bold text-white text-sm group-hover:text-purple-300 transition-colors">{skill.name}</span>
-                           <span className="text-[9px] bg-blue-900/40 text-blue-300 px-2 py-0.5 rounded border border-blue-500/30 font-mono font-bold">
-                              {skill.manaCost} MP
-                           </span>
+                        <div className="flex items-start gap-2.5 mb-1">
+                           {skill.icon && (
+                             <img src={skill.icon} style={{ width: 32, height: 32, objectFit: 'cover', borderRadius: 6, flexShrink: 0 }} alt="" />
+                           )}
+                           <div className="flex-1 min-w-0 flex justify-between items-start">
+                             <span className="font-bold text-white text-sm group-hover:text-purple-300 transition-colors">{skill.name}</span>
+                             <span className="text-[9px] bg-blue-900/40 text-blue-300 px-2 py-0.5 rounded border border-blue-500/30 font-mono font-bold ml-2 shrink-0">
+                               {skill.manaCost} MP
+                             </span>
+                           </div>
                         </div>
                         <p className="text-[10px] text-slate-400 leading-tight">{skill.description}</p>
                      </div>
@@ -2147,7 +2152,7 @@ export const TavernScreen: React.FC<{
 
                 {/* CAMP SIDE-RAIL ─ mochila/skill/merchant/alchemist icons, right side below currency */}
                 {!heroInspectOpen && !portalInspectMode && !portalTransitioning && (inventoryUnlocked || showSkillsAction || (missionsUnlocked && sceneRegion === 'forest') || (merchantUnlocked && sceneRegion === 'forest') || (alchemistUnlocked && sceneRegion === 'dungeon')) && (
-                    <div className="absolute right-3 sm:right-5 top-[4.5rem] sm:top-24 z-10 pointer-events-auto flex flex-col items-end gap-3">
+                    <div className="absolute right-3 sm:right-5 top-[4.5rem] sm:top-24 z-10 pointer-events-auto hidden md:flex flex-col items-end gap-3">
                         {(() => {
                             // Losango com fundo preto/blur atrás do ícone
                             const SideIconFrame = ({ children }: { children: React.ReactNode }) => (
@@ -2258,7 +2263,7 @@ export const TavernScreen: React.FC<{
                                             <div style={{ position: 'relative', width: 48, height: 48, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                                                 <div data-diamond="1" style={{ position: 'absolute', inset: 5, borderRadius: 7, backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', transform: 'rotate(45deg) scale(1)', background: 'rgba(0,0,0,0.42)', transition: 'transform 0.15s cubic-bezier(0.34,1.56,0.64,1), background 0.15s' }} />
                                                 <div data-iconwrap="1" style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'transform 0.18s cubic-bezier(0.22,1,0.36,1)' }}>
-                                                    <Orbit size={24} color="#c4b5fd" style={{ filter: 'drop-shadow(0 0 10px rgba(196,181,253,0.7))' }} />
+                                                    <img src="game/assets/Icons/Menu/Icone_Constelacao.png" alt="" style={{ width: 36, height: 36, objectFit: 'contain', filter: 'drop-shadow(1.5px 0 0 rgba(255,255,255,0.85)) drop-shadow(-1.5px 0 0 rgba(255,255,255,0.85)) drop-shadow(0 1.5px 0 rgba(255,255,255,0.85)) drop-shadow(0 -1.5px 0 rgba(255,255,255,0.85))' }} />
                                                 </div>
                                                 {availableConstellationPoints > 0 && (
                                                     <span style={{ position: 'absolute', top: -2, right: -2, minWidth: 16, height: 16, borderRadius: 99, background: 'linear-gradient(135deg,#4338ca,#a78bfa)', border: '2px solid #fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, fontWeight: 900, color: '#fff', padding: '0 3px', pointerEvents: 'none', zIndex: 2 }}>
@@ -2378,6 +2383,125 @@ export const TavernScreen: React.FC<{
                     </div>
                 )}
 
+                {/* MOBILE BOTTOM NAV ─ same items as side-rail, shown only on < md screens */}
+                {!heroInspectOpen && !portalInspectMode && !portalTransitioning && (inventoryUnlocked || showSkillsAction || (missionsUnlocked && sceneRegion === 'forest') || (merchantUnlocked && sceneRegion === 'forest') || (alchemistUnlocked && sceneRegion === 'dungeon')) && (
+                    <div
+                        className="mobile-bottom-nav fixed bottom-0 inset-x-0 z-[55] md:hidden flex items-stretch justify-between pointer-events-auto"
+                        style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
+                    >
+                        {/* LEFT GROUP — utility buttons */}
+                        <div className="flex items-stretch">
+                            {inventoryUnlocked && (
+                                <button
+                                    onClick={() => openInventoryModal('all')}
+                                    className="flex flex-col items-center justify-center gap-1.5 py-3 px-2 active:scale-90 transition-transform"
+                                    aria-label="Mochila"
+                                >
+                                    <img src={ICONE_MOCHILA_URL} alt="" style={{ width: 48, height: 48, objectFit: 'contain', filter: showInventory ? 'drop-shadow(0 0 10px rgba(255,255,255,1)) drop-shadow(0 0 4px rgba(255,255,255,0.9))' : 'drop-shadow(1.5px 0 0 rgba(255,255,255,0.8)) drop-shadow(-1.5px 0 0 rgba(255,255,255,0.8)) drop-shadow(0 1.5px 0 rgba(255,255,255,0.8)) drop-shadow(0 -1.5px 0 rgba(255,255,255,0.8))' }} />
+                                    <span className={`text-[9px] font-black uppercase tracking-widest ${showInventory ? 'text-white' : 'text-white/50'}`}>Mochila</span>
+                                </button>
+                            )}
+                            {missionsUnlocked && sceneRegion === 'forest' && (() => {
+                                const mDone = (missions ?? []).filter(m => m.progressoAtual >= m.metaAtual).length;
+                                return (
+                                    <button
+                                        onClick={() => { uiSfx.play('modal_open'); setShowMissionsScreen(true); }}
+                                        className="relative flex flex-col items-center justify-center gap-1.5 py-3 px-2 active:scale-90 transition-transform"
+                                        aria-label="Missões"
+                                    >
+                                        <img src={BOOK_MISSOES_URL} alt="" style={{ width: 48, height: 48, objectFit: 'contain', filter: showMissionsScreen ? 'drop-shadow(0 0 10px rgba(255,255,255,1)) drop-shadow(0 0 4px rgba(255,255,255,0.9))' : 'drop-shadow(1.5px 0 0 rgba(255,255,255,0.8)) drop-shadow(-1.5px 0 0 rgba(255,255,255,0.8)) drop-shadow(0 1.5px 0 rgba(255,255,255,0.8)) drop-shadow(0 -1.5px 0 rgba(255,255,255,0.8))' }} />
+                                        {mDone > 0 && <span style={{ position: 'absolute', top: 8, right: '50%', transform: 'translateX(14px)', minWidth: 16, height: 16, borderRadius: 99, background: 'linear-gradient(135deg,#b45309,#fbbf24)', border: '2px solid rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, fontWeight: 900, color: '#fff', padding: '0 3px', pointerEvents: 'none' }}>{mDone}</span>}
+                                        <span className={`text-[9px] font-black uppercase tracking-widest ${showMissionsScreen ? 'text-white' : 'text-white/50'}`}>Missões</span>
+                                    </button>
+                                );
+                            })()}
+                            {hasConstellationUnlocked && (
+                                <button
+                                    onClick={openConstellationModal}
+                                    className="relative flex flex-col items-center justify-center gap-1.5 py-3 px-2 active:scale-90 transition-transform"
+                                    aria-label="Constelações"
+                                >
+                                    <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 48, height: 48 }}>
+                                        <img src="game/assets/Icons/Menu/Icone_Constelacao.png" alt="" style={{ width: 44, height: 44, objectFit: 'contain', filter: showConstellationScreen ? 'drop-shadow(0 0 10px rgba(255,255,255,1)) drop-shadow(0 0 4px rgba(255,255,255,0.9))' : 'drop-shadow(1.5px 0 0 rgba(255,255,255,0.8)) drop-shadow(-1.5px 0 0 rgba(255,255,255,0.8)) drop-shadow(0 1.5px 0 rgba(255,255,255,0.8)) drop-shadow(0 -1.5px 0 rgba(255,255,255,0.8))' }} />
+                                    </span>
+                                    {availableConstellationPoints > 0 && <span style={{ position: 'absolute', top: 8, right: '50%', transform: 'translateX(14px)', minWidth: 16, height: 16, borderRadius: 99, background: 'linear-gradient(135deg,#4338ca,#a78bfa)', border: '2px solid rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, fontWeight: 900, color: '#fff', padding: '0 3px', pointerEvents: 'none' }}>{availableConstellationPoints}</span>}
+                                    <span className={`text-[9px] font-black uppercase tracking-widest ${showConstellationScreen ? 'text-white' : 'text-white/50'}`}>Constel.</span>
+                                </button>
+                            )}
+                            {showSkillsAction && (
+                                <button
+                                    onClick={() => openSkillsScreenModal()}
+                                    className="flex flex-col items-center justify-center gap-1.5 py-3 px-2 active:scale-90 transition-transform"
+                                    aria-label="Habilidades"
+                                >
+                                    <img src={BOOK_HABILIDADES_URL} alt="" style={{ width: 48, height: 48, objectFit: 'contain', filter: showSkillsScreen ? 'drop-shadow(0 0 10px rgba(255,255,255,1)) drop-shadow(0 0 4px rgba(255,255,255,0.9))' : 'drop-shadow(1.5px 0 0 rgba(255,255,255,0.8)) drop-shadow(-1.5px 0 0 rgba(255,255,255,0.8)) drop-shadow(0 1.5px 0 rgba(255,255,255,0.8)) drop-shadow(0 -1.5px 0 rgba(255,255,255,0.8))' }} />
+                                    <span className={`text-[9px] font-black uppercase tracking-widest ${showSkillsScreen ? 'text-white' : 'text-white/50'}`}>Skills</span>
+                                </button>
+                            )}
+                            {merchantUnlocked && sceneRegion === 'forest' && (
+                                <button
+                                    onClick={onShop}
+                                    className="flex flex-col items-center justify-center gap-1.5 py-3 px-2 active:scale-90 transition-transform"
+                                    aria-label="Mercador"
+                                >
+                                    <img src={ICONE_MERCADOR_URL} alt="" style={{ width: 48, height: 48, objectFit: 'contain', filter: 'drop-shadow(1.5px 0 0 rgba(255,255,255,0.8)) drop-shadow(-1.5px 0 0 rgba(255,255,255,0.8)) drop-shadow(0 1.5px 0 rgba(255,255,255,0.8)) drop-shadow(0 -1.5px 0 rgba(255,255,255,0.8))' }} />
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-white/50">Mercador</span>
+                                </button>
+                            )}
+                            {alchemistUnlocked && sceneRegion === 'dungeon' && (
+                                <button
+                                    onClick={onAlchemist}
+                                    className="flex flex-col items-center justify-center gap-1.5 py-3 px-2 active:scale-90 transition-transform"
+                                    aria-label="Alquimista"
+                                >
+                                    <img src={ICONE_ALQUIMISTA_URL} alt="" style={{ width: 48, height: 48, objectFit: 'contain', filter: 'drop-shadow(1.5px 0 0 rgba(255,255,255,0.8)) drop-shadow(-1.5px 0 0 rgba(255,255,255,0.8)) drop-shadow(0 1.5px 0 rgba(255,255,255,0.8)) drop-shadow(0 -1.5px 0 rgba(255,255,255,0.8))' }} />
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-white/50">Alquim.</span>
+                                </button>
+                            )}
+                        </div>
+
+                        {/* RIGHT GROUP — action buttons always anchored to the right */}
+                        <div className="flex items-stretch">
+                            {canStartHuntFromCurrentRegion && (
+                                <button
+                                    onClick={() => handleMenuTransition('hunt')}
+                                    className="flex flex-col items-center justify-center gap-1.5 py-3 px-2 active:scale-90 transition-transform"
+                                    aria-label="Caçar"
+                                >
+                                    <span style={{ display:'flex', alignItems:'center', justifyContent:'center', width:48, height:48, borderRadius:14, background:'linear-gradient(145deg,#c2622a,#9c3d14)', border:'1.5px solid rgba(251,146,60,0.7)', boxShadow:'0 0 12px rgba(251,146,60,0.5)' }}>
+                                        <Sword size={22} style={{ color:'#fb923c', filter:'drop-shadow(0 0 6px rgba(251,146,60,0.9))' }} />
+                                    </span>
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-white/70">Caçar</span>
+                                </button>
+                            )}
+                            {canStartDungeonFromCurrentRegion && (
+                                <button
+                                    onClick={() => handleMenuTransition('dungeon')}
+                                    className="flex flex-col items-center justify-center gap-1.5 py-3 px-2 active:scale-90 transition-transform"
+                                    aria-label="Dungeon"
+                                >
+                                    <span style={{ display:'flex', alignItems:'center', justifyContent:'center', width:48, height:48, borderRadius:14, background:'linear-gradient(145deg,#1a7aab,#0e4a72)', border:'1.5px solid rgba(56,189,248,0.65)', boxShadow:'0 0 12px rgba(56,189,248,0.45)' }}>
+                                        <Crosshair size={22} style={{ color:'#38bdf8', filter:'drop-shadow(0 0 6px rgba(56,189,248,0.9))' }} />
+                                    </span>
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-white/70">Dungeon</span>
+                                </button>
+                            )}
+                            {canStartTowerFromCurrentRegion && onTower && (
+                                <button
+                                    onClick={() => setShowTowerConfirm(true)}
+                                    className="flex flex-col items-center justify-center gap-1.5 py-3 px-2 active:scale-90 transition-transform"
+                                    aria-label="Torre"
+                                >
+                                    <span style={{ display:'flex', alignItems:'center', justifyContent:'center', width:48, height:48, borderRadius:14, background:'linear-gradient(145deg,#6b31b8,#44167a)', border:'1.5px solid rgba(167,139,250,0.7)', boxShadow:'0 0 12px rgba(167,139,250,0.5)' }}>
+                                        <Crown size={22} style={{ color:'#a78bfa', filter:'drop-shadow(0 0 6px rgba(167,139,250,0.9))' }} />
+                                    </span>
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-white/70">Torre</span>
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                )}
+
                 {!heroInspectOpen && !showPortalTravelModal && (
                 <section
                     className="absolute left-1/2 -translate-x-1/2 sm:bottom-6 w-[min(94vw,380px)] sm:w-[min(96vw,900px)] pointer-events-none transition-[opacity,transform] duration-500 ease-out"
@@ -2396,7 +2520,7 @@ export const TavernScreen: React.FC<{
                         ].filter(Boolean).length;
                         const mobileCols = mobileActions >= 3 ? 'grid-cols-3' : mobileActions === 2 ? 'grid-cols-2' : 'grid-cols-1';
                         return (
-                        <div className={`grid ${mobileCols} gap-1.5 pointer-events-auto mb-2 sm:hidden`}>
+                        <div className={`hidden`}>
                             {canStartHuntFromCurrentRegion && (
                                 <button
                                     onClick={() => handleMenuTransition('hunt')}
@@ -2845,7 +2969,7 @@ export const TavernScreen: React.FC<{
         <div className="absolute inset-0 z-50 flex items-end sm:items-center justify-center pointer-events-auto p-4 pb-6 rpg-modal-overlay-in" style={{ background: 'rgba(0,0,0,0.55)' }}>
             <div className="w-full max-w-sm rounded-[24px] overflow-hidden shadow-[0_32px_80px_rgba(0,0,0,0.7)] rpg-modal-panel-in" style={{ background: 'rgba(4,3,16,0.65)', backdropFilter: 'blur(28px)', WebkitBackdropFilter: 'blur(28px)', border: '1px solid rgba(99,102,241,0.28)' }} onClick={e => e.stopPropagation()}>
                 <div className="flex flex-col items-center gap-3.5 px-6 pt-8 pb-4">
-                    <Orbit size={64} style={{ color: '#a5b4fc', filter: 'drop-shadow(0 4px 20px rgba(99,102,241,0.85))' }} />
+                    <img src="game/assets/Icons/Menu/Icone_Constelacao.png" alt="" style={{ width: 72, height: 72, objectFit: 'contain', filter: 'drop-shadow(0 4px 20px rgba(99,102,241,0.85))' }} />
                     <div className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[9px] font-black uppercase tracking-[0.28em] text-indigo-200/80" style={{ background: 'rgba(99,102,241,0.14)', border: '1px solid rgba(99,102,241,0.24)' }}>Novo desbloqueio</div>
                     <h3 className="text-xl font-black text-white text-center leading-tight">Constelação habilitada!</h3>
                     <p className="text-xs text-white/55 text-center leading-relaxed">Ao subir de nível você ganha pontos de evolução. Agora você pode abrir o novo mapa de constelações.</p>
@@ -3597,11 +3721,13 @@ export const ShopScreen: React.FC<{ player: Player, items: Item[], huntStage: nu
     return (
       <>
         <ShopMenuScreen player={player} items={items} huntStage={huntStage} onBuy={onBuy} onSell={onSell} onEquip={onEquip} onLeave={onLeave} onOpenInventory={() => setShowShopInventory(true)} inventoryOpen={showShopInventory} />
-        {showShopInventory && (
-          <div className="absolute inset-0 z-50">
-            <InventoryModal player={player} shopItems={items} onClose={() => setShowShopInventory(false)} onEquip={onEquip} onUnequip={onUnequip} onUse={onUse ?? (() => {})} onSell={onSell} isBattleContext={false} inShopContext={true} />
-          </div>
-        )}
+        <AnimatedModal open={showShopInventory}>
+          {(isClosing) => (
+            <div className="absolute inset-0 z-[80]">
+              <InventoryModal player={player} shopItems={items} onClose={() => setShowShopInventory(false)} onEquip={onEquip} onUnequip={onUnequip} onUse={onUse ?? (() => {})} onSell={onSell} isBattleContext={false} inShopContext={true} isClosing={isClosing} />
+            </div>
+          )}
+        </AnimatedModal>
       </>
     );
 };
@@ -4727,7 +4853,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                               transition: 'transform 0.15s cubic-bezier(0.34,1.56,0.64,1), background 0.15s',
                           }} />
                           <div data-iconwrap="1" style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'transform 0.18s cubic-bezier(0.22,1,0.36,1)' }}>
-                              <Orbit size={26} color="#a5b4fc" style={{ filter: 'drop-shadow(0 2px 6px rgba(99,102,241,0.85))' }} />
+                              <img src="game/assets/Icons/Menu/Icone_Constelacao.png" alt="" style={{ width: 36, height: 36, objectFit: 'contain', filter: 'drop-shadow(1.5px 0 0 rgba(255,255,255,0.85)) drop-shadow(-1.5px 0 0 rgba(255,255,255,0.85)) drop-shadow(0 1.5px 0 rgba(255,255,255,0.85)) drop-shadow(0 -1.5px 0 rgba(255,255,255,0.85))' }} />
                           </div>
                           {availableConstellationPoints > 0 && (
                               <span style={{ position: 'absolute', top: -2, right: -2, minWidth: 16, height: 16, borderRadius: 99, background: 'linear-gradient(135deg,#3730a3,#a5b4fc)', border: '2px solid #fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, fontWeight: 900, color: '#fff', padding: '0 3px', pointerEvents: 'none', zIndex: 2 }}>
@@ -5455,6 +5581,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                                                                             const typeBg   = skill?.type === 'physical' ? 'rgba(248,113,113,0.14)' : skill?.type === 'magic' ? 'rgba(196,181,253,0.14)' : 'rgba(134,239,172,0.14)';
                                                                             const typeLabel = skill?.type === 'physical' ? 'Físico' : skill?.type === 'magic' ? 'Magia' : 'Cura';
                                                                             const TypeIcon = skill?.type === 'physical' ? <Sword size={28} /> : skill?.type === 'magic' ? <Sparkles size={28} /> : <Heart size={28} />;
+                                                                            const skillIconSrc = skill ? (skill.icon ?? SKILLS.find(s => s.id === skill.id)?.icon) : undefined;
                                                                             const requiredResource = skill?.resourceEffect?.cost ?? 0;
                                                                             const hasResource = player.classResource.value >= requiredResource;
                                                                             const effectiveManaCost = skill ? (player.impulsoAtivo >= 1 ? Math.max(1, Math.floor(skill.manaCost * 0.7)) : skill.manaCost) : 0;
@@ -5485,12 +5612,18 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                                                                                     }}>
                                                                                     {/* Icon */}
                                                                                     <div style={{
-                                                                                        width: '44px', height: '44px', flexShrink: 0,
+                                                                                        width: '58px', height: '58px', flexShrink: 0,
+                                                                                        borderRadius: '10px',
+                                                                                        overflow: 'hidden',
                                                                                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                                                                                         color: isEmpty ? 'rgba(255,255,255,0.20)' : typeColor,
-                                                                                        filter: skill ? 'drop-shadow(0.5px 0 0 rgba(255,255,255,0.7)) drop-shadow(-0.5px 0 0 rgba(255,255,255,0.7)) drop-shadow(0 0.5px 0 rgba(255,255,255,0.7)) drop-shadow(0 -0.5px 0 rgba(255,255,255,0.7))' : undefined,
+                                                                                        filter: skill && !skillIconSrc ? 'drop-shadow(0.5px 0 0 rgba(255,255,255,0.7)) drop-shadow(-0.5px 0 0 rgba(255,255,255,0.7)) drop-shadow(0 0.5px 0 rgba(255,255,255,0.7)) drop-shadow(0 -0.5px 0 rgba(255,255,255,0.7))' : undefined,
                                                                                     }}>
-                                                                                        {skill ? TypeIcon : <Sparkles size={22} />}
+                                                                                        {skill
+                                                                                            ? (skillIconSrc
+                                                                                                ? <img src={skillIconSrc} style={{ width: 58, height: 58, objectFit: 'cover' }} alt="" />
+                                                                                                : TypeIcon)
+                                                                                            : <Sparkles size={22} />}
                                                                                     </div>
                                                                                     {/* Text + badges */}
                                                                                     <div style={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>

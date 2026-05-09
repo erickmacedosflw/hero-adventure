@@ -1,7 +1,7 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { Crosshair, FlaskConical, Heart, Info, LogOut, Shield, Sparkles, Sword, X, Zap } from 'lucide-react';
-import { ALL_ITEMS } from '../../constants';
+import { ALL_ITEMS, SKILLS } from '../../constants';
 import { getBattleItemBadges, getBattleMenuSlotCounts, getPaddedBattleSkillIds } from '../battle/battleMenuModels';
 import type { Item, Player, Skill } from '../../types';
 
@@ -184,6 +184,7 @@ export const BattleActionsHtml: React.FC<{
         const typeBg = skill?.type === 'physical' ? 'rgba(248,113,113,0.16)' : skill?.type === 'magic' ? 'rgba(196,181,253,0.16)' : 'rgba(134,239,172,0.16)';
         const typeLabel = skill?.type === 'physical' ? 'Físico' : skill?.type === 'magic' ? 'Magia' : 'Cura';
         const TypeIcon = skill?.type === 'physical' ? <Sword size={13} /> : skill?.type === 'magic' ? <Sparkles size={13} /> : <Heart size={13} />;
+        const skillIconSrc = skill ? (skill.icon ?? SKILLS.find(s => s.id === skill.id)?.icon) : undefined;
         const resourceCost = skill?.resourceEffect?.cost ?? 0;
         const hasResource = player.classResource.value >= resourceCost;
         const manaCost = skill ? (player.impulsoAtivo >= 1 ? Math.max(1, Math.floor(skill.manaCost * 0.7)) : skill.manaCost) : 0;
@@ -204,7 +205,7 @@ export const BattleActionsHtml: React.FC<{
                 disabled={!canCast}
                 style={{ display: 'flex', alignItems: 'center', gap: '9px', borderRadius: '10px', border: isEmpty ? '1px solid rgba(255,255,255,0.09)' : canCast ? `1.5px solid ${typeColor}55` : '1px solid rgba(255,255,255,0.09)', background: isEmpty ? 'rgba(0,0,0,0.18)' : canCast ? typeBg : 'rgba(0,0,0,0.28)', padding: '7px 10px', flex: 1, minWidth: 0, cursor: canCast ? 'pointer' : 'default', textAlign: 'left', opacity: !isEmpty && !canCast ? 0.5 : 1, ...font }}
               >
-                <div style={{ width: rowIconSize, height: rowIconSize, flexShrink: 0, borderRadius: 7, border: isEmpty ? '1px solid rgba(255,255,255,0.10)' : `1.5px solid ${typeColor}55`, background: isEmpty ? 'rgba(0,0,0,0.25)' : `${typeColor}22`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: isEmpty ? 'rgba(255,255,255,0.20)' : typeColor }}>{skill ? TypeIcon : <Sparkles size={12} />}</div>
+                <div style={{ width: rowIconSize, height: rowIconSize, flexShrink: 0, borderRadius: 7, border: isEmpty ? '1px solid rgba(255,255,255,0.10)' : `1.5px solid ${typeColor}55`, background: isEmpty ? 'rgba(0,0,0,0.25)' : `${typeColor}22`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: isEmpty ? 'rgba(255,255,255,0.20)' : typeColor, overflow: 'hidden' }}>{skill ? (skillIconSrc ? <img src={skillIconSrc} style={{ width: rowIconSize, height: rowIconSize, objectFit: 'cover' }} alt="" /> : TypeIcon) : <Sparkles size={12} />}</div>
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <div style={{ fontSize: rowSlotFont, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.18em', color: 'rgba(255,255,255,0.35)', lineHeight: 1 }}>Slot {index + 1}</div>
                   <div style={{ fontSize: rowNameFont, fontWeight: 900, color: skill ? '#fff' : 'rgba(255,255,255,0.30)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.3 }}>{skill ? skill.name : 'Vazio'}</div>

@@ -20,7 +20,7 @@ import {
 import { useThree } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
 
-import { ALL_ITEMS, getClassSlots } from '../../constants';
+import { ALL_ITEMS, SKILLS, getClassSlots } from '../../constants';
 import { getPlayerClassById } from '../../game/data/classes';
 import { getEquipmentBonuses } from '../../game/mechanics/equipmentBonuses';
 import { hasModalLayer, onAction, pushInputLayer } from '../../game/mechanics/inputManager';
@@ -139,8 +139,8 @@ const SkillInfoModal: React.FC<{
         }}
       >
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, padding: '18px 18px 12px', background: `linear-gradient(135deg, ${typeColor}10, transparent)` }}>
-          <div style={{ width: 50, height: 50, flexShrink: 0, borderRadius: 13, background: typeBg, border: `1.5px solid ${typeBorder}`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: typeColor }}>
-            {TypeIcon}
+          <div style={{ width: 50, height: 50, flexShrink: 0, borderRadius: 13, background: typeBg, border: `1.5px solid ${typeBorder}`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: typeColor, overflow: 'hidden' }}>
+            {skill?.icon ? <img src={skill.icon} style={{ width: 50, height: 50, objectFit: 'cover' }} alt="" /> : TypeIcon}
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' as const, alignItems: 'center', marginBottom: 4 }}>
@@ -1158,13 +1158,14 @@ export const HeroInspectCanvas = ({
                       const typeBg = skill?.type === 'physical' ? 'rgba(248,113,113,0.14)' : skill?.type === 'magic' ? 'rgba(196,181,253,0.14)' : 'rgba(134,239,172,0.14)';
                       const typeLabel = skill?.type === 'physical' ? 'F\u00EDsico' : skill?.type === 'magic' ? 'Magia' : 'Cura';
                       const TypeIcon = skill?.type === 'physical' ? <Sword size={22} /> : skill?.type === 'magic' ? <Sparkles size={22} /> : <Heart size={22} />;
+                      const skillIconSrc = skill ? (skill.icon ?? SKILLS.find(s => s.id === skill.id)?.icon) : undefined;
                       const isGpSkillSel = inspectUiProfile === 'gamepad' && isSkillsTab && inSlotMode && skillSlotIdx === i;
                       return (
                         <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
                           <div style={{ display: 'flex', alignItems: 'stretch', gap: '3px', width: '100%', overflow: 'hidden' }}>
                             <button onClick={(e) => { e.stopPropagation(); onSkillSlotClick?.(i); }} style={{ display: 'flex', alignItems: 'center', gap: '8px', borderRadius: '11px', border: isGpSkillSel ? '2px solid rgba(167,139,250,0.7)' : skill ? `1.5px solid ${typeColor}55` : '1px solid rgba(255,255,255,0.09)', background: isGpSkillSel ? 'rgba(167,139,250,0.15)' : skill ? typeBg : 'rgba(0,0,0,0.18)', padding: '7px 9px', boxSizing: 'border-box', flex: 1, minWidth: 0, cursor: 'pointer', textAlign: 'left', boxShadow: isGpSkillSel ? '0 0 0 3px rgba(167,139,250,0.18)' : skill ? `0 0 10px ${typeColor}18` : 'none', transition: 'border 0.18s, background 0.18s, box-shadow 0.18s', position: 'relative', overflow: 'hidden' }}>
                               {isGpSkillSel && gpHoldXSkill > 0 && <span style={{ position: 'absolute', inset: 0, borderRadius: 11, background: 'rgba(167,139,250,0.30)', transform: `scaleX(${gpHoldXSkill})`, transformOrigin: 'left', pointerEvents: 'none' }} />}
-                              <div style={{ width: '36px', height: '36px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: skill ? typeColor : 'rgba(255,255,255,0.20)', filter: skill ? 'drop-shadow(0.5px 0 0 rgba(255,255,255,0.7)) drop-shadow(-0.5px 0 0 rgba(255,255,255,0.7)) drop-shadow(0 0.5px 0 rgba(255,255,255,0.7)) drop-shadow(0 -0.5px 0 rgba(255,255,255,0.7))' : undefined, position: 'relative', zIndex: 1 }}>{skill ? TypeIcon : <Sparkles size={16} />}</div>
+                              <div style={{ width: '36px', height: '36px', flexShrink: 0, borderRadius: '7px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', color: skill ? typeColor : 'rgba(255,255,255,0.20)', filter: skill && !skillIconSrc ? 'drop-shadow(0.5px 0 0 rgba(255,255,255,0.7)) drop-shadow(-0.5px 0 0 rgba(255,255,255,0.7)) drop-shadow(0 0.5px 0 rgba(255,255,255,0.7)) drop-shadow(0 -0.5px 0 rgba(255,255,255,0.7))' : undefined, position: 'relative', zIndex: 1 }}>{skill ? (skillIconSrc ? <img src={skillIconSrc} style={{ width: 36, height: 36, objectFit: 'cover' }} alt="" /> : TypeIcon) : <Sparkles size={16} />}</div>
                               <div style={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column', gap: '3px', position: 'relative', zIndex: 1 }}>
                                 <InspectSlotLabel>Slot {i + 1}</InspectSlotLabel>
                                 <div style={{ fontSize: '10px', fontWeight: 900, color: skill ? '#fff' : 'rgba(255,255,255,0.30)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.2 }}>{isGpSkillSel && !!skill && gpHoldXSkill > 0 ? (gpHoldXSkill < 1 ? 'Segure...' : '\u2713 Removido!') : (skill ? skill.name : 'Vazio')}</div>

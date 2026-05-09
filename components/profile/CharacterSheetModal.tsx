@@ -650,7 +650,7 @@ export const CharacterSheetModal = ({ player, shopItems: _shopItems, onClose, on
     { id: 'overview', label: 'Status', icon: <GameAssetIcon name="heart" size={20} /> },
     { id: 'cards', label: 'Cartas', icon: <GameAssetIcon name="scroll" size={20} /> },
     { id: 'skills', label: 'Habilidades', icon: <GameAssetIcon name="bookAlt" size={20} /> },
-    { id: 'constellation', label: 'Constelacao', icon: <Orbit size={18} /> },
+    { id: 'constellation', label: 'Constelacao', icon: <img src="game/assets/Icons/Menu/Icone_Constelacao.png" alt="Constelacao" style={{ width: 22, height: 22, objectFit: 'contain', filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.6))' }} /> },
   ];
   const visibleTabs = profileTabs.filter((tab) => {
     if (tab.id === 'overview') return true;
@@ -967,8 +967,8 @@ export const CharacterSheetModal = ({ player, shopItems: _shopItems, onClose, on
                     const hasResourceCost = consumeAllResource || resourceCost > 0;
                     return (
                     <article key={skill.id} className="flex items-start gap-4 rounded-[20px] border p-4 shadow-sm" style={{ borderColor: `${skillTone}80`, backgroundColor: `${skillTone}16` }}>
-                      <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border" style={{ borderColor: `${skillTone}99`, backgroundColor: `${skillTone}24`, color: skillTone }}>
-                        <Sparkles size={28} />
+                      <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border overflow-hidden" style={{ borderColor: `${skillTone}99`, backgroundColor: `${skillTone}24`, color: skillTone }}>
+                        {skill.icon ? <img src={skill.icon} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" /> : <Sparkles size={28} />}
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">

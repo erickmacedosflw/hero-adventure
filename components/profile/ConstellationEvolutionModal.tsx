@@ -410,6 +410,10 @@ export const ConstellationEvolutionModal: React.FC<ConstellationEvolutionModalPr
         if (nodeType === 'passive') {
             return <Zap size={size} color={color} strokeWidth={2.4} />;
         }
+        const skillIcon = skillIdsByNode.get(node.id)?.icon;
+        if (skillIcon) {
+            return <img src={skillIcon} style={{ width: size, height: size, objectFit: 'cover', borderRadius: 4 }} alt="" />;
+        }
         return <Sparkles size={size} color={color} strokeWidth={2.4} />;
     };
 
@@ -464,20 +468,32 @@ export const ConstellationEvolutionModal: React.FC<ConstellationEvolutionModalPr
                         strokeDasharray="4 3"
                     />
                 )}
-                <NodeShape variant={variant} size={size} fill={fill} stroke={stroke} strokeWidth={2.2} />
-                <foreignObject x={0} y={0} width={size} height={size} style={{ pointerEvents: 'none' }}>
-                    <div
-                        style={{
-                            width: size,
-                            height: size,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                        }}
-                    >
-                        {iconNode}
-                    </div>
-                </foreignObject>
+                {(nodeType === 'skill' && skillIdsByNode.get(node.id)?.icon) ? (
+                    <>
+                        <defs>
+                            <clipPath id={`skill-clip-${node.id}`}>
+                                <rect x={2} y={2} width={size - 4} height={size - 4} rx={Math.round((size - 4) * 0.24)} />
+                            </clipPath>
+                        </defs>
+                        <rect x={2} y={2} width={size - 4} height={size - 4} rx={Math.round((size - 4) * 0.24)} fill={fill} />
+                        <image
+                            href={skillIdsByNode.get(node.id)!.icon!}
+                            x={2} y={2} width={size - 4} height={size - 4}
+                            clipPath={`url(#skill-clip-${node.id})`}
+                            preserveAspectRatio="xMidYMid slice"
+                        />
+                        <rect x={2} y={2} width={size - 4} height={size - 4} rx={Math.round((size - 4) * 0.24)} fill="none" stroke="white" strokeWidth={2.5} strokeOpacity={isUnlocked ? 0.9 : 0.45} />
+                    </>
+                ) : (
+                    <>
+                        <NodeShape variant={variant} size={size} fill={fill} stroke={stroke} strokeWidth={2.2} />
+                        <foreignObject x={0} y={0} width={size} height={size} style={{ pointerEvents: 'none' }}>
+                            <div style={{ width: size, height: size, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                {iconNode}
+                            </div>
+                        </foreignObject>
+                    </>
+                )}
             </g>
         );
     };
@@ -639,15 +655,18 @@ export const ConstellationEvolutionModal: React.FC<ConstellationEvolutionModalPr
                                 background: isUnlocked
                                     ? `linear-gradient(140deg, ${trail.color}cc, ${trail.color}55)`
                                     : `linear-gradient(140deg, ${trail.color}33, rgba(255,255,255,0.04))`,
-                                border: `1.5px solid ${trail.color}88`,
+                                border: (nodeType === 'skill' && skill?.icon) ? '2px solid rgba(255,255,255,0.88)' : `1.5px solid ${trail.color}88`,
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
                                 flexShrink: 0,
+                                overflow: 'hidden',
                                 boxShadow: nodeType === 'skill' ? `0 0 22px ${trail.color}66` : 'none',
                             }}
                         >
-                            {renderNodeIcon(node, nodeType === 'skill' ? 36 : 32, isUnlocked ? '#ffffff' : '#e2e8f0')}
+                            {(nodeType === 'skill' && skill?.icon)
+                                ? <img src={skill.icon} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
+                                : renderNodeIcon(node, 32, isUnlocked ? '#ffffff' : '#e2e8f0')}
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
                             <div
@@ -885,24 +904,21 @@ export const ConstellationEvolutionModal: React.FC<ConstellationEvolutionModalPr
 
     return (
         <div
-            className="fixed inset-0 z-[210] flex items-center justify-center p-4 sm:p-6"
+            className="fixed inset-0 z-[210] flex items-end sm:items-center justify-center pointer-events-auto sm:p-4"
             style={{
                 background: 'rgba(4,6,14,0.72)',
                 backdropFilter: 'blur(28px) saturate(140%)',
                 WebkitBackdropFilter: 'blur(28px) saturate(140%)',
                 animation: `${isClosing ? 'constellationBackdropOut' : 'constellationBackdropIn'} 0.22s ease-out both`,
-                // Force pointer events on: parent BattleHUD has pointer-events:none
                 pointerEvents: 'auto',
             }}
             onClick={onClose}
         >
             <div
                 onClick={(e) => e.stopPropagation()}
+                className={`constellation-panel${isClosing ? ' constellation-panel--closing' : ''}`}
                 style={{
                     width: '100%',
-                    maxWidth: 1080,
-                    maxHeight: '94vh',
-                    borderRadius: 22,
                     overflow: 'hidden',
                     position: 'relative',
                     background: `radial-gradient(circle at 18% 12%, ${classColor}33, transparent 55%), radial-gradient(circle at 82% 90%, ${classTertiary}26, transparent 55%), linear-gradient(160deg, rgba(14,17,28,0.97), rgba(8,10,18,0.97))`,
@@ -910,8 +926,6 @@ export const ConstellationEvolutionModal: React.FC<ConstellationEvolutionModalPr
                     boxShadow: `0 30px 90px rgba(0,0,0,0.7), 0 0 0 1px ${classColor}22 inset`,
                     display: 'flex',
                     flexDirection: 'column',
-                    animation: `${isClosing ? 'constellationModalOut' : 'constellationModalIn'} 0.28s cubic-bezier(0.22,1,0.36,1) both`,
-                    transformOrigin: 'center center',
                 }}
             >
                 <style>{`
@@ -976,7 +990,20 @@ export const ConstellationEvolutionModal: React.FC<ConstellationEvolutionModalPr
                     .constellation-pop { animation: constellationFadeIn 0.22s cubic-bezier(0.22,1,0.36,1); }
                     .constellation-unlock-btn:not(:disabled):hover { transform: translateY(-1px); filter: brightness(1.08); }
                     .constellation-unlock-btn:not(:disabled):active { transform: translateY(0) scale(0.98); }
+                    /* ── responsive shell: bottom-sheet (mobile) / centered modal (desktop) ── */
+                    .constellation-panel { border-radius: 24px 24px 0 0; max-height: 88dvh; animation: constellationSheetIn 0.36s cubic-bezier(0.22,1,0.36,1) both; }
+                    .constellation-panel--closing { animation: constellationSheetOut 0.28s cubic-bezier(0.4,0,1,1) both; }
+                    @keyframes constellationSheetIn { from { transform: translateY(100%); } to { transform: translateY(0); } }
+                    @keyframes constellationSheetOut { from { transform: translateY(0); } to { transform: translateY(100%); } }
+                    @media (min-width: 640px) {
+                        .constellation-panel { border-radius: 22px; max-height: 92dvh; max-width: 1100px; animation: constellationModalIn 0.28s cubic-bezier(0.22,1,0.36,1) both; }
+                        .constellation-panel--closing { animation: constellationModalOut 0.28s cubic-bezier(0.22,1,0.36,1) both; }
+                    }
                 `}</style>
+                {/* Drag handle — mobile only */}
+                <div className="flex justify-center pt-3 pb-0.5 shrink-0 sm:hidden">
+                    <div className="w-10 h-1 rounded-full bg-white/25" />
+                </div>
                 {/* Header */}
                 <div
                     style={{
@@ -997,10 +1024,11 @@ export const ConstellationEvolutionModal: React.FC<ConstellationEvolutionModalPr
                             alignItems: 'center',
                             justifyContent: 'center',
                             background: `linear-gradient(140deg, ${classColor}55, ${classTertiary}33)`,
-                            border: `1.5px solid ${classColor}aa`,
+                            border: '2px solid rgba(255,255,255,0.85)',
+                            boxShadow: '0 0 12px rgba(255,255,255,0.18)',
                         }}
                     >
-                        <Orbit size={26} color={classColor} strokeWidth={2.2} />
+                        <img src="game/assets/Icons/Menu/Icone_Constelacao.png" alt="Constelacao" style={{ width: 34, height: 34, objectFit: 'contain', filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.7))' }} />
                     </div>
                     <div style={{ flex: 1, minWidth: 200 }}>
                         <div
@@ -1221,7 +1249,7 @@ export const ConstellationEvolutionModal: React.FC<ConstellationEvolutionModalPr
                             position: 'relative',
                             width: '100%',
                             maxWidth: 880,
-                            height: 'min(72vh, 720px)',
+                            height: 'min(60dvh, 680px)',
                             overflow: 'hidden',
                             borderRadius: 16,
                             background: 'radial-gradient(ellipse at 50% 100%, rgba(99,102,241,0.06), transparent 60%)',

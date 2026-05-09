@@ -329,12 +329,12 @@ const WorldFloatingText = ({
           ref={textRef}
           className={`px-1 text-center font-black whitespace-nowrap leading-none ${tone} ${textSize} select-none flex items-center justify-center`}
           style={{
-            WebkitTextStroke: (type === 'item' && text.iconImage) ? undefined : '4px rgba(255,255,255,1)',
+            WebkitTextStroke: ((type === 'item' || type === 'skill') && text.iconImage) ? undefined : '4px rgba(255,255,255,1)',
             paintOrder: 'stroke fill',
             opacity: 0.94,
             transition: 'opacity 80ms linear, transform 80ms linear',
             ...customToneStyle,
-            ...(type === 'item' && text.iconImage ? undefined : itemOutlineStyle),
+            ...((type === 'item' || type === 'skill') && text.iconImage ? undefined : itemOutlineStyle),
           }}
         >
           {type === 'item' && text.iconImage
@@ -344,7 +344,27 @@ const WorldFloatingText = ({
                   <img src={text.iconImage} draggable={false} alt={text.text} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain' }} />
                 </span>
               )
-            : text.text}
+            : type === 'skill' && text.iconImage
+              ? (
+                  <>
+                    <style>{`@keyframes _skillIconPop { from { transform: scale(0.5); opacity: 0; } 60% { transform: scale(1.08); opacity: 1; } to { transform: scale(1); opacity: 1; } }`}</style>
+                    <span style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: 72,
+                      height: 72,
+                      borderRadius: 14,
+                      border: '3px solid rgba(255,255,255,0.95)',
+                      overflow: 'hidden',
+                      boxShadow: '0 0 18px rgba(200,160,255,0.55), 0 3px 10px rgba(0,0,0,0.5)',
+                      animation: '_skillIconPop 0.30s cubic-bezier(0.34,1.56,0.64,1) both',
+                    }}>
+                      <img src={text.iconImage} draggable={false} alt={text.text} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    </span>
+                  </>
+                )
+              : text.text}
         </div>
       </Html>
     </group>

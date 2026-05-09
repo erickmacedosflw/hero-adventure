@@ -1,4 +1,4 @@
-﻿import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Sword, Shield, Zap, Sparkles, FlaskConical, Crosshair, Shirt, Footprints, Layers, RefreshCw, Swords, Wind, Clover, Heart, Info, X, LogOut, User } from 'lucide-react';
 import { Canvas, useFrame, useLoader, useThree } from '@react-three/fiber';
@@ -4793,7 +4793,7 @@ export const GameScene: React.FC<SceneProps> = React.memo((props) => {
         })()}
 
         {/* Ã¢â€â‚¬Ã¢â€â‚¬ Hero nameplate Ã¢â‚¬â€ floats above the hero 3D model Ã¢â€â‚¬Ã¢â€â‚¬ */}
-        {!props.isMenuView && props.playerState && (
+        {!props.isMenuView && !!props.battleActionsConfig && props.playerState && (
           <Html
             position={isDungeonRun && activeScenarioConfig
               ? [dungeonHeroBasePosition[0], dungeonHeroBasePosition[1] + 3.2, dungeonHeroBasePosition[2] + 0.5]

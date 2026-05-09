@@ -211,6 +211,7 @@ export const CONSTELLATION_SKILLS: Skill[] = [
     statusEffect: { kind: 'marked', chance: 1, duration: 2, potency: 0.18 },
     resourceEffect: { cost: 2, bonusDamagePerPoint: 0.08 },
     resourceLabel: 'Valor',
+    icon: 'game/assets/Icons/Habilidades/Icones/12.png',
   },
   {
     id: 'skl_knight_solar_vow',
@@ -229,6 +230,7 @@ export const CONSTELLATION_SKILLS: Skill[] = [
     buffEffect: { target: 'player', kind: 'def', modifier: 0.3, duration: 2 },
     resourceEffect: { gain: 2 },
     resourceLabel: 'Valor',
+    icon: 'game/assets/Icons/Habilidades/Icones/13.png',
   },
   {
     id: 'skl_knight_judgement_arc',
@@ -247,6 +249,7 @@ export const CONSTELLATION_SKILLS: Skill[] = [
     statusEffect: { kind: 'marked', chance: 1, duration: 3, potency: 0.22 },
     resourceEffect: { cost: 3, bonusDamagePerPoint: 0.06 },
     resourceLabel: 'Valor',
+    icon: 'game/assets/Icons/Habilidades/Icones/14.png',
   },
   {
     id: 'skl_barbarian_rending_howl',
@@ -265,6 +268,7 @@ export const CONSTELLATION_SKILLS: Skill[] = [
     statusEffect: { kind: 'bleed', chance: 1, duration: 3, potency: 0.16 },
     resourceEffect: { gain: 3 },
     resourceLabel: 'Furia',
+    icon: 'game/assets/Icons/Habilidades/Icones/15.png',
   },
   {
     id: 'skl_barbarian_meteor_maul',
@@ -282,6 +286,7 @@ export const CONSTELLATION_SKILLS: Skill[] = [
     trailColor: '#f97316',
     resourceEffect: { cost: 3, consumeAll: true, bonusDamagePerPoint: 0.1 },
     resourceLabel: 'Furia',
+    icon: 'game/assets/Icons/Habilidades/Icones/16.png',
   },
   {
     id: 'skl_barbarian_war_cry',
@@ -300,6 +305,7 @@ export const CONSTELLATION_SKILLS: Skill[] = [
     buffEffect: { target: 'player', kind: 'atk', modifier: 0.35, duration: 2 },
     resourceEffect: { gain: 2 },
     resourceLabel: 'Furia',
+    icon: 'game/assets/Icons/Habilidades/Icones/17.png',
   },
   {
     id: 'skl_mage_cinder_burst',
@@ -318,6 +324,7 @@ export const CONSTELLATION_SKILLS: Skill[] = [
     statusEffect: { kind: 'burn', chance: 1, duration: 3, potency: 0.14 },
     resourceEffect: { gain: 2 },
     resourceLabel: 'Arcano',
+    icon: 'game/assets/Icons/Habilidades/Icones/18.png',
   },
   {
     id: 'skl_mage_absolute_zero',
@@ -336,6 +343,7 @@ export const CONSTELLATION_SKILLS: Skill[] = [
     statusEffect: { kind: 'marked', chance: 1, duration: 2, potency: 0.24 },
     resourceEffect: { cost: 2, bonusDamagePerPoint: 0.08 },
     resourceLabel: 'Arcano',
+    icon: 'game/assets/Icons/Habilidades/Icones/7.png',
   },
   {
     id: 'skl_mage_starwell',
@@ -353,6 +361,7 @@ export const CONSTELLATION_SKILLS: Skill[] = [
     trailColor: '#a78bfa',
     resourceEffect: { gain: 4 },
     resourceLabel: 'Arcano',
+    icon: 'game/assets/Icons/Habilidades/Icones/20.png',
   },
   {
     id: 'skl_ranger_gale_shot',
@@ -371,6 +380,7 @@ export const CONSTELLATION_SKILLS: Skill[] = [
     statusEffect: { kind: 'marked', chance: 1, duration: 2, potency: 0.18 },
     resourceEffect: { gain: 2 },
     resourceLabel: 'Foco',
+    icon: 'game/assets/Icons/Habilidades/Icones/21.png',
   },
   {
     id: 'skl_ranger_briar_volley',
@@ -389,6 +399,7 @@ export const CONSTELLATION_SKILLS: Skill[] = [
     statusEffect: { kind: 'bleed', chance: 1, duration: 3, potency: 0.14 },
     resourceEffect: { cost: 2, bonusDamagePerPoint: 0.07 },
     resourceLabel: 'Foco',
+    icon: 'game/assets/Icons/Habilidades/Icones/22.png',
   },
   {
     id: 'skl_ranger_verdant_bloom',
@@ -406,6 +417,7 @@ export const CONSTELLATION_SKILLS: Skill[] = [
     trailColor: '#14b8a6',
     resourceEffect: { gain: 4 },
     resourceLabel: 'Foco',
+    icon: 'game/assets/Icons/Habilidades/Icones/23.png',
   },
   {
     id: 'skl_rogue_night_lunge',
@@ -424,6 +436,7 @@ export const CONSTELLATION_SKILLS: Skill[] = [
     statusEffect: { kind: 'marked', chance: 1, duration: 2, potency: 0.22 },
     resourceEffect: { gain: 2 },
     resourceLabel: 'Sombra',
+    icon: 'game/assets/Icons/Habilidades/Icones/24.png',
   },
   {
     id: 'skl_rogue_crimson_dance',
@@ -442,6 +455,7 @@ export const CONSTELLATION_SKILLS: Skill[] = [
     statusEffect: { kind: 'bleed', chance: 1, duration: 3, potency: 0.15 },
     resourceEffect: { cost: 2, bonusDamagePerPoint: 0.08 },
     resourceLabel: 'Sombra',
+    icon: 'game/assets/Icons/Habilidades/Icones/25.png',
   },
   {
     id: 'skl_rogue_moon_shard',
@@ -459,6 +473,7 @@ export const CONSTELLATION_SKILLS: Skill[] = [
     trailColor: '#c084fc',
     resourceEffect: { cost: 3, bonusDamagePerPoint: 0.09 },
     resourceLabel: 'Sombra',
+    icon: 'game/assets/Icons/Habilidades/Icones/31.png',
   },
 ];
 

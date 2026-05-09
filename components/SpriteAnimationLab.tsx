@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
@@ -536,20 +536,24 @@ const Stage: React.FC<{
       </mesh>
 
       {previewReference === 'hero' && hero ? (
-        <group position={[0, -1, 0]} rotation={[0, 0.35, 0]}>
-          <AnimatedClassHero assets={hero} animationAction="battle-idle" hasWeapon={false} previewLoopAllActions />
-        </group>
+        <Suspense fallback={null}>
+          <group position={[0, -1, 0]} rotation={[0, 0.35, 0]}>
+            <AnimatedClassHero assets={hero} animationAction="battle-idle" hasWeapon={false} previewLoopAllActions />
+          </group>
+        </Suspense>
       ) : null}
 
       {previewReference === 'enemy' ? (
-        <EnemyCharacter
-          assets={enemyAssets}
-          scale={enemy.scale ?? 1.05}
-          attackStyle={enemy.attackStyle ?? 'unarmed'}
-          animationActionOverride="battle-idle"
-          originPosition={[0, -1, 0]}
-          baseRotationY={-Math.PI - 0.35}
-        />
+        <Suspense fallback={null}>
+          <EnemyCharacter
+            assets={enemyAssets}
+            scale={enemy.scale ?? 1.05}
+            attackStyle={enemy.attackStyle ?? 'unarmed'}
+            animationActionOverride="battle-idle"
+            originPosition={[0, -1, 0]}
+            baseRotationY={-Math.PI - 0.35}
+          />
+        </Suspense>
       ) : null}
 
       {tracks.filter((t) => t.enabled).map((track) => {
