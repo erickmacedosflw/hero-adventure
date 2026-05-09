@@ -26,6 +26,8 @@ import { useGSAP } from '@gsap/react';
 import gsap from 'gsap';
 import { BattleParticlesOverlay } from './scene3d/BattleParticlesOverlay';
 import { useBattleVfxStore } from '../game/stores/battleVfxStore';
+
+const CONSTELLATION_ICON_URL = new URL('../game/assets/Icons/Menu/Icone_Constelacao.png', import.meta.url).href;
 import { useBattleLogStore } from '../game/stores/battleLogStore';
 import { useGameTimeStore } from '../game/stores/gameTimeStore';
 
@@ -2263,7 +2265,7 @@ export const TavernScreen: React.FC<{
                                             <div style={{ position: 'relative', width: 48, height: 48, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                                                 <div data-diamond="1" style={{ position: 'absolute', inset: 5, borderRadius: 7, backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', transform: 'rotate(45deg) scale(1)', background: 'rgba(0,0,0,0.42)', transition: 'transform 0.15s cubic-bezier(0.34,1.56,0.64,1), background 0.15s' }} />
                                                 <div data-iconwrap="1" style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'transform 0.18s cubic-bezier(0.22,1,0.36,1)' }}>
-                                                    <img src="game/assets/Icons/Menu/Icone_Constelacao.png" alt="" style={{ width: 36, height: 36, objectFit: 'contain', filter: 'drop-shadow(1.5px 0 0 rgba(255,255,255,0.85)) drop-shadow(-1.5px 0 0 rgba(255,255,255,0.85)) drop-shadow(0 1.5px 0 rgba(255,255,255,0.85)) drop-shadow(0 -1.5px 0 rgba(255,255,255,0.85))' }} />
+                                                    <img src={CONSTELLATION_ICON_URL} alt="" style={{ width: 36, height: 36, objectFit: 'contain', filter: 'drop-shadow(1.5px 0 0 rgba(255,255,255,0.85)) drop-shadow(-1.5px 0 0 rgba(255,255,255,0.85)) drop-shadow(0 1.5px 0 rgba(255,255,255,0.85)) drop-shadow(0 -1.5px 0 rgba(255,255,255,0.85))' }} />
                                                 </div>
                                                 {availableConstellationPoints > 0 && (
                                                     <span style={{ position: 'absolute', top: -2, right: -2, minWidth: 16, height: 16, borderRadius: 99, background: 'linear-gradient(135deg,#4338ca,#a78bfa)', border: '2px solid #fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, fontWeight: 900, color: '#fff', padding: '0 3px', pointerEvents: 'none', zIndex: 2 }}>
@@ -2422,7 +2424,7 @@ export const TavernScreen: React.FC<{
                                     aria-label="Constelações"
                                 >
                                     <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 48, height: 48 }}>
-                                        <img src="game/assets/Icons/Menu/Icone_Constelacao.png" alt="" style={{ width: 44, height: 44, objectFit: 'contain', filter: showConstellationScreen ? 'drop-shadow(0 0 10px rgba(255,255,255,1)) drop-shadow(0 0 4px rgba(255,255,255,0.9))' : 'drop-shadow(1.5px 0 0 rgba(255,255,255,0.8)) drop-shadow(-1.5px 0 0 rgba(255,255,255,0.8)) drop-shadow(0 1.5px 0 rgba(255,255,255,0.8)) drop-shadow(0 -1.5px 0 rgba(255,255,255,0.8))' }} />
+                                        <img src={CONSTELLATION_ICON_URL} alt="" style={{ width: 44, height: 44, objectFit: 'contain', filter: showConstellationScreen ? 'drop-shadow(0 0 10px rgba(255,255,255,1)) drop-shadow(0 0 4px rgba(255,255,255,0.9))' : 'drop-shadow(1.5px 0 0 rgba(255,255,255,0.8)) drop-shadow(-1.5px 0 0 rgba(255,255,255,0.8)) drop-shadow(0 1.5px 0 rgba(255,255,255,0.8)) drop-shadow(0 -1.5px 0 rgba(255,255,255,0.8))' }} />
                                     </span>
                                     {availableConstellationPoints > 0 && <span style={{ position: 'absolute', top: 8, right: '50%', transform: 'translateX(14px)', minWidth: 16, height: 16, borderRadius: 99, background: 'linear-gradient(135deg,#4338ca,#a78bfa)', border: '2px solid rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, fontWeight: 900, color: '#fff', padding: '0 3px', pointerEvents: 'none' }}>{availableConstellationPoints}</span>}
                                     <span className={`text-[9px] font-black uppercase tracking-widest ${showConstellationScreen ? 'text-white' : 'text-white/50'}`}>Constel.</span>
@@ -2969,7 +2971,7 @@ export const TavernScreen: React.FC<{
         <div className="absolute inset-0 z-50 flex items-end sm:items-center justify-center pointer-events-auto p-4 pb-6 rpg-modal-overlay-in" style={{ background: 'rgba(0,0,0,0.55)' }}>
             <div className="w-full max-w-sm rounded-[24px] overflow-hidden shadow-[0_32px_80px_rgba(0,0,0,0.7)] rpg-modal-panel-in" style={{ background: 'rgba(4,3,16,0.65)', backdropFilter: 'blur(28px)', WebkitBackdropFilter: 'blur(28px)', border: '1px solid rgba(99,102,241,0.28)' }} onClick={e => e.stopPropagation()}>
                 <div className="flex flex-col items-center gap-3.5 px-6 pt-8 pb-4">
-                    <img src="game/assets/Icons/Menu/Icone_Constelacao.png" alt="" style={{ width: 72, height: 72, objectFit: 'contain', filter: 'drop-shadow(0 4px 20px rgba(99,102,241,0.85))' }} />
+                    <img src={CONSTELLATION_ICON_URL} alt="" style={{ width: 72, height: 72, objectFit: 'contain', filter: 'drop-shadow(0 4px 20px rgba(99,102,241,0.85))' }} />
                     <div className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[9px] font-black uppercase tracking-[0.28em] text-indigo-200/80" style={{ background: 'rgba(99,102,241,0.14)', border: '1px solid rgba(99,102,241,0.24)' }}>Novo desbloqueio</div>
                     <h3 className="text-xl font-black text-white text-center leading-tight">Constelação habilitada!</h3>
                     <p className="text-xs text-white/55 text-center leading-relaxed">Ao subir de nível você ganha pontos de evolução. Agora você pode abrir o novo mapa de constelações.</p>
@@ -4853,7 +4855,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                               transition: 'transform 0.15s cubic-bezier(0.34,1.56,0.64,1), background 0.15s',
                           }} />
                           <div data-iconwrap="1" style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'transform 0.18s cubic-bezier(0.22,1,0.36,1)' }}>
-                              <img src="game/assets/Icons/Menu/Icone_Constelacao.png" alt="" style={{ width: 36, height: 36, objectFit: 'contain', filter: 'drop-shadow(1.5px 0 0 rgba(255,255,255,0.85)) drop-shadow(-1.5px 0 0 rgba(255,255,255,0.85)) drop-shadow(0 1.5px 0 rgba(255,255,255,0.85)) drop-shadow(0 -1.5px 0 rgba(255,255,255,0.85))' }} />
+                              <img src={CONSTELLATION_ICON_URL} alt="" style={{ width: 36, height: 36, objectFit: 'contain', filter: 'drop-shadow(1.5px 0 0 rgba(255,255,255,0.85)) drop-shadow(-1.5px 0 0 rgba(255,255,255,0.85)) drop-shadow(0 1.5px 0 rgba(255,255,255,0.85)) drop-shadow(0 -1.5px 0 rgba(255,255,255,0.85))' }} />
                           </div>
                           {availableConstellationPoints > 0 && (
                               <span style={{ position: 'absolute', top: -2, right: -2, minWidth: 16, height: 16, borderRadius: 99, background: 'linear-gradient(135deg,#3730a3,#a5b4fc)', border: '2px solid #fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, fontWeight: 900, color: '#fff', padding: '0 3px', pointerEvents: 'none', zIndex: 2 }}>

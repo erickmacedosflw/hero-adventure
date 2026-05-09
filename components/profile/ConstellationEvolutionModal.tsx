@@ -17,6 +17,8 @@ import { getConstellationByClassId, CONSTELLATION_SKILLS } from '../../game/data
 import { canUnlockTalentNode } from '../../game/mechanics/classProgression';
 import type { ClassTalentTrail, Player, Skill, TalentNode, TalentNodeEffect } from '../../types';
 
+const CONSTELLATION_ICON_URL = new URL('../../game/assets/Icons/Menu/Icone_Constelacao.png', import.meta.url).href;
+
 interface ConstellationEvolutionModalProps {
     player: Player;
     onClose: () => void;
@@ -1028,7 +1030,7 @@ export const ConstellationEvolutionModal: React.FC<ConstellationEvolutionModalPr
                             boxShadow: '0 0 12px rgba(255,255,255,0.18)',
                         }}
                     >
-                        <img src="game/assets/Icons/Menu/Icone_Constelacao.png" alt="Constelacao" style={{ width: 34, height: 34, objectFit: 'contain', filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.7))' }} />
+                        <img src={CONSTELLATION_ICON_URL} alt="Constelacao" style={{ width: 34, height: 34, objectFit: 'contain', filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.7))' }} />
                     </div>
                     <div style={{ flex: 1, minWidth: 200 }}>
                         <div

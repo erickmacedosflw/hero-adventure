@@ -14,6 +14,8 @@ import { getCardEffectPreview, getRarityColor, getRarityLabel, ItemIcon, ItemTyp
 import { RpgMenuSectionTitle, RpgMenuShell, RpgMenuTab } from '../ui/rpg-menu-shell';
 import { ScrollArea } from '../ui/scroll-area';
 
+const CONSTELLATION_ICON_URL = new URL('../../game/assets/Icons/Menu/Icone_Constelacao.png', import.meta.url).href;
+
 type CharacterSheetModalProps = {
   player: Player;
   shopItems: Item[];
@@ -650,7 +652,7 @@ export const CharacterSheetModal = ({ player, shopItems: _shopItems, onClose, on
     { id: 'overview', label: 'Status', icon: <GameAssetIcon name="heart" size={20} /> },
     { id: 'cards', label: 'Cartas', icon: <GameAssetIcon name="scroll" size={20} /> },
     { id: 'skills', label: 'Habilidades', icon: <GameAssetIcon name="bookAlt" size={20} /> },
-    { id: 'constellation', label: 'Constelacao', icon: <img src="game/assets/Icons/Menu/Icone_Constelacao.png" alt="Constelacao" style={{ width: 22, height: 22, objectFit: 'contain', filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.6))' }} /> },
+    { id: 'constellation', label: 'Constelacao', icon: <img src={CONSTELLATION_ICON_URL} alt="Constelacao" style={{ width: 22, height: 22, objectFit: 'contain', filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.6))' }} /> },
   ];
   const visibleTabs = profileTabs.filter((tab) => {
     if (tab.id === 'overview') return true;
