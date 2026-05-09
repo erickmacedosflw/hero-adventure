@@ -9,6 +9,7 @@ import { useInputMode } from '../../game/hooks/useInputMode';
 import { uiSfx } from '../../game/audio/uiSfx';
 import { GamepadActionLegend } from '../ui/GamepadActionLegend';
 
+const BANNER_MOCHILA_URL = new URL('../../game/assets/Imagens/Banner_Mochila.png', import.meta.url).href;
 const BAG_POTION_URL = new URL('../../game/assets/Mochila/Mochila_Aberta_Consumiveis.png', import.meta.url).href;
 const BAG_EQUIPMENT_URL = new URL('../../game/assets/Mochila/Mochila_Aberta_Equipamentos.png', import.meta.url).href;
 const BAG_MATERIAL_URL = new URL('../../game/assets/Mochila/Mochila_Aberta_Materiais.png', import.meta.url).href;
@@ -1376,48 +1377,50 @@ export const InventoryScreen = ({
 
   return (
     <div
-      className={`absolute inset-0 z-[80] flex items-end justify-center pointer-events-auto ${overlayFade}`}
-      style={{ backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', background: 'rgba(0,0,0,0.12)' }}
+      className={`absolute inset-0 z-[80] flex items-end lg:items-center justify-center pointer-events-auto ${overlayFade}`}
+      style={{ backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', background: 'rgba(0,0,0,0.45)' }}
       onClick={onClose}
     >
       {/* BOTTOM SHEET */}
       <div
-        className={`relative w-full sm:max-w-2xl flex flex-col border-t border-white/10 rounded-t-[24px] sm:rounded-t-[28px] max-h-[65dvh] ${panelSlide}`}
-        style={{ background: 'rgba(8,8,18,0.78)', backdropFilter: 'blur(32px)', WebkitBackdropFilter: 'blur(32px)' }}
+        className={`relative w-full sm:max-w-2xl lg:w-[640px] lg:max-w-none flex flex-col border-t lg:border border-white/10 rounded-t-[24px] sm:rounded-t-[28px] lg:rounded-[24px] max-h-[65dvh] lg:max-h-[82dvh] ${panelSlide}`}
+        style={{ background: 'rgba(8,8,18,0.88)', backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)' }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Drag handle */}
-        <div className="flex justify-center pt-3 pb-0.5 shrink-0">
-          <div className="w-10 h-1 rounded-full bg-white/25" />
-        </div>
-
-        {/* Header row */}
-        <div className="flex items-center justify-between gap-3 px-4 pb-2 shrink-0">
-          <div className="flex items-center gap-2">
-            <GameAssetIcon name="bag" size={18} />
-            <span className="text-sm font-black uppercase tracking-[0.18em] text-white">Mochila</span>
-            <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-black text-white/50">
-              {totalItems} itens
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
+        {/* ── BANNER HEADER ── */}
+        <div className="relative shrink-0 rounded-t-[24px] sm:rounded-t-[28px] overflow-hidden" style={{ height: 148 }}>
+          <div className="absolute inset-0" style={{ backgroundImage: `url(${BANNER_MOCHILA_URL})`, backgroundSize: 'cover', backgroundPosition: 'center 30%' }} />
+          <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(4,4,14,0.45) 0%, rgba(4,4,14,0.72) 100%)' }} />
+          <div className="absolute bottom-0 inset-x-0 h-16" style={{ background: 'linear-gradient(0deg, rgba(8,8,18,0.92) 0%, transparent 100%)' }} />
+          {/* Drag handle — only on mobile */}
+          <div className="absolute top-2.5 left-1/2 -translate-x-1/2 w-10 h-1 rounded-full bg-white/25 lg:hidden" />
+          {/* Selection mode / sell controls — top right */}
+          <div className="absolute top-4 right-4 flex items-center gap-2">
             {inShopContext && onSell && !isPicking && (
               selectionMode ? (
                 <button
                   onClick={exitSelectionMode}
-                  className="rounded-xl border border-white/20 bg-white/5 px-2.5 py-1.5 text-[10px] font-black uppercase tracking-widest text-white/60 hover:bg-white/10 active:scale-95 transition-all"
+                  className="rounded-xl border border-white/15 bg-black/50 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-white/80 hover:bg-black/70 active:scale-95"
                 >
                   Cancelar
                 </button>
               ) : (
                 <button
                   onClick={() => setSelectionMode(true)}
-                  className="inline-flex items-center gap-1 rounded-xl border border-emerald-400/40 bg-emerald-500/10 px-2.5 py-1.5 text-[10px] font-black uppercase tracking-widest text-emerald-400 hover:bg-emerald-500/20 active:scale-95 transition-all"
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-400/40 bg-black/50 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-emerald-400 hover:bg-black/70 active:scale-95"
                 >
                   <CheckCircle2 size={12} /> Selecionar
                 </button>
               )
             )}
+          </div>
+          {/* Title */}
+          <div className="absolute bottom-3 left-4 flex items-center gap-2">
+            <GameAssetIcon name="bag" size={20} />
+            <span className="text-base font-black uppercase tracking-[0.18em] text-white drop-shadow-md">Mochila</span>
+            <span className="rounded-full border border-white/15 bg-black/40 px-2 py-0.5 text-[10px] font-black text-white/60">
+              {totalItems} itens
+            </span>
           </div>
         </div>
 
@@ -1647,7 +1650,7 @@ export const InventoryScreen = ({
 
         {/* Items horizontal scroll */}
         <div
-          className="flex items-start gap-3 overflow-x-auto px-4 inv-scroll shrink-0 pb-3 transition-all duration-200"
+          className="flex items-start gap-3 overflow-x-auto px-4 inv-scroll shrink-0 pb-3 transition-all duration-200 lg:grid lg:grid-cols-6 lg:overflow-x-hidden lg:overflow-y-auto lg:flex-1 lg:min-h-0 lg:pb-4 lg:pt-1"
           data-scrollable
           style={{ isolation: 'isolate' }}
         >
@@ -1733,8 +1736,8 @@ export const InventoryScreen = ({
           </div>
         )}
 
-        {/* Safe area bottom */}
-        <div className="safe-bottom shrink-0" />
+        {/* Safe area bottom — only on mobile */}
+        <div className="safe-bottom shrink-0 lg:hidden" />
       </div>
 
       {/* SELL QUANTITY MODAL */}

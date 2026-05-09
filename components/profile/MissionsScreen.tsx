@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import type { Mission } from '../../types';
 
 const BOOK_IMAGE_URL = new URL('../../game/assets/Icons/Missoes/Book_missoes.png', import.meta.url).href;
+const BANNER_MISSIONS_URL = new URL('../../game/assets/Imagens/Banner_Missoes.png', import.meta.url).href;
 const COIN_URL       = new URL('../../game/assets/Icons/Misc/Golden Coin.png', import.meta.url).href;
 const GEM_URL        = new URL('../../game/assets/Icons/Ore & Gem/Emerald.png', import.meta.url).href;
 
@@ -240,26 +241,40 @@ export const MissionsScreen: React.FC<MissionsScreenProps> = ({
 
   return (
     <div
-      className={`absolute inset-0 z-[80] flex items-end justify-center pointer-events-auto ${overlayFade}`}
-      style={{ backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', background: 'rgba(0,0,0,0.12)' }}
+      className={`absolute inset-0 z-[80] flex items-end lg:items-center justify-center pointer-events-auto ${overlayFade}`}
+      style={{ backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', background: 'rgba(0,0,0,0.45)' }}
       onClick={onClose}
     >
       {/* BOTTOM SHEET */}
       <div
-        className={`relative w-full sm:max-w-2xl flex flex-col border-t border-white/10 rounded-t-[24px] sm:rounded-t-[28px] max-h-[65dvh] ${panelSlide}`}
-        style={{ background: 'rgba(8,8,18,0.82)', backdropFilter: 'blur(32px)', WebkitBackdropFilter: 'blur(32px)' }}
+        className={`relative w-full sm:max-w-2xl lg:w-[560px] lg:max-w-none flex flex-col border-t lg:border border-white/10 rounded-t-[24px] sm:rounded-t-[28px] lg:rounded-[24px] max-h-[65dvh] lg:max-h-[80dvh] ${panelSlide}`}
+        style={{ background: 'rgba(8,8,18,0.82)', backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)' }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Drag handle */}
-        <div className="flex justify-center pt-3 pb-0.5 shrink-0">
-          <div className="w-10 h-1 rounded-full bg-white/25" />
-        </div>
-
-        {/* Header */}
-        <div className="flex items-center justify-between gap-3 px-4 pb-3 shrink-0">
-          <div className="flex items-center gap-2">
-            <img src={BOOK_IMAGE_URL} alt="" style={{ width: 22, height: 22, objectFit: 'contain', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.7))' }} />
-            <span className="text-sm font-black uppercase tracking-[0.18em] text-white">Missões</span>
+        {/* ── BANNER HEADER ── */}
+        <div className="relative shrink-0 rounded-t-[24px] sm:rounded-t-[28px] overflow-hidden" style={{ height: 148 }}>
+          {/* BG image */}
+          <div className="absolute inset-0"
+            style={{ backgroundImage: `url(${BANNER_MISSIONS_URL})`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
+          {/* Dark overlay */}
+          <div className="absolute inset-0"
+            style={{ background: 'linear-gradient(180deg, rgba(4,4,14,0.45) 0%, rgba(4,4,14,0.72) 100%)' }} />
+          {/* Bottom fade to panel */}
+          <div className="absolute bottom-0 inset-x-0 h-16"
+            style={{ background: 'linear-gradient(0deg, rgba(8,8,18,0.82) 0%, transparent 100%)' }} />
+          {/* Drag handle pill — mobile only */}
+          <div className="absolute top-2.5 left-1/2 -translate-x-1/2 w-10 h-1 rounded-full bg-white/25 lg:hidden" />
+          {/* Close button */}
+          <button
+            onClick={onClose}
+            className="absolute top-4 right-4 flex h-7 w-7 items-center justify-center rounded-full border border-white/15 bg-black/50 text-white/70 hover:bg-black/70 active:scale-90 transition-all"
+          >
+            <span className="text-xs font-black leading-none">✕</span>
+          </button>
+          {/* Title row — bottom-left */}
+          <div className="absolute bottom-3 left-4 flex items-center gap-2">
+            <img src={BOOK_IMAGE_URL} alt="" style={{ width: 22, height: 22, objectFit: 'contain', filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.9))' }} />
+            <span className="text-sm font-black uppercase tracking-[0.18em] text-white drop-shadow-md">Missões</span>
             {completedCount > 0 && (
               <span
                 className="rounded-full px-2 py-0.5 text-[10px] font-black text-white"
@@ -269,12 +284,6 @@ export const MissionsScreen: React.FC<MissionsScreenProps> = ({
               </span>
             )}
           </div>
-          <button
-            onClick={onClose}
-            className="flex h-7 w-7 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white/50 hover:bg-white/15 active:scale-90 transition-all"
-          >
-            <span className="text-xs font-black leading-none">✕</span>
-          </button>
         </div>
 
         {/* Mission list */}
@@ -288,8 +297,8 @@ export const MissionsScreen: React.FC<MissionsScreenProps> = ({
           ))}
         </div>
 
-        {/* Safe area */}
-        <div className="safe-bottom shrink-0" />
+        {/* Safe area — mobile only */}
+        <div className="safe-bottom shrink-0 lg:hidden" />
       </div>
     </div>
   );

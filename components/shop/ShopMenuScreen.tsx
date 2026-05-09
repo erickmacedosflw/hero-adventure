@@ -419,14 +419,14 @@ export const ShopMenuScreen: React.FC<ShopMenuScreenProps> = ({
 
   return (
     <div
-      className={`absolute inset-0 z-[70] flex items-end justify-center pointer-events-auto ${overlayFade}`}
-      style={{ background: 'rgba(4,4,12,0.55)', backdropFilter: 'blur(6px)' }}
+      className={`absolute inset-0 z-[70] flex items-end lg:items-center justify-center pointer-events-auto ${overlayFade}`}
+      style={{ background: 'rgba(4,4,12,0.72)' }}
       onClick={handleLeave}
     >
       {/* Sheet */}
       <div
-        className={`w-full sm:max-w-2xl flex flex-col border-t border-white/10 rounded-t-[24px] max-h-[82dvh] ${panelSlide}`}
-        style={{ background: 'rgba(8,8,18,0.92)', backdropFilter: 'blur(32px)' }}
+        className={`w-full sm:max-w-2xl lg:w-[640px] lg:max-w-none flex flex-col border-t lg:border border-white/10 rounded-t-[24px] lg:rounded-[24px] max-h-[82dvh] ${panelSlide}`}
+        style={{ background: 'rgba(8,8,18,0.88)', backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)' }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* ── BANNER HEADER ── */}
@@ -434,7 +434,7 @@ export const ShopMenuScreen: React.FC<ShopMenuScreenProps> = ({
           <div className="absolute inset-0" style={{ backgroundImage: `url(${MERCHANT_BG_URL})`, backgroundSize: 'cover', backgroundPosition: 'center 30%' }} />
           <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(4,4,14,0.45) 0%, rgba(4,4,14,0.72) 100%)' }} />
           <div className="absolute bottom-0 inset-x-0 h-16" style={{ background: 'linear-gradient(0deg, rgba(8,8,18,0.95) 0%, transparent 100%)' }} />
-          <div className="absolute top-2.5 left-1/2 -translate-x-1/2 w-10 h-1 rounded-full bg-white/25" />
+          <div className="absolute top-2.5 left-1/2 -translate-x-1/2 w-10 h-1 rounded-full bg-white/25 lg:hidden" />
           {/* Back button */}
           <button
             onClick={handleLeave}
@@ -661,7 +661,7 @@ export const ShopMenuScreen: React.FC<ShopMenuScreenProps> = ({
           showSkill2={!!onOpenInventory}
           skill2Text="Mochila"
         />
-        <div style={{ height: 'max(0.5rem, env(safe-area-inset-bottom))' }} />
+        <div className="lg:hidden" style={{ height: 'max(0.5rem, env(safe-area-inset-bottom))' }} />
       </div>
 
       {/* EQUIP PROMPT */}

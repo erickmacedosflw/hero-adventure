@@ -173,7 +173,7 @@ const OfferDetailModal: React.FC<{
     return (
       <div
         className={`absolute inset-0 z-50 flex items-end sm:items-center justify-center p-3 sm:p-6 bg-black/70 backdrop-blur-sm ${overlayClass}`}
-        onClick={onClose}
+        onClick={(e) => { e.stopPropagation(); onClose(); }}
       >
         <div
           className={`w-full max-w-lg max-h-[92vh] flex flex-col rounded-[28px] border border-white/10 bg-[#0d1117] shadow-[0_32px_80px_rgba(0,0,0,0.7)] overflow-hidden ${panelClass}`}
@@ -280,7 +280,7 @@ const OfferDetailModal: React.FC<{
   return (
     <div
       className={`absolute inset-0 z-50 flex items-end sm:items-center justify-center p-3 sm:p-6 bg-black/70 backdrop-blur-sm ${overlayClass}`}
-      onClick={onClose}
+      onClick={(e) => { e.stopPropagation(); onClose(); }}
     >
       <div
         className={`w-full max-w-lg max-h-[92vh] flex flex-col rounded-[28px] border border-white/10 bg-[#0d1117] shadow-[0_32px_80px_rgba(0,0,0,0.7)] overflow-hidden ${panelClass}`}
@@ -475,19 +475,22 @@ export const AlchemistScreen: React.FC<{
   onBuyItem: (offer: AlchemistItemOffer) => void;
   onLeave: () => void;
 }> = ({ player, offers, itemOffers, onBuyCard, onBuyItem, onLeave }) => {
+  const SHEET_CLOSE_MS = 280;
   const MODAL_CLOSE_MS = 180;
   type Tab = 'card' | 'item';
   const [mounted, setMounted] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
   useEffect(() => {
-    if (!document.getElementById('shop-anim-style')) {
-      const s = document.createElement('style');
-      s.id = 'shop-anim-style';
-      s.textContent = '@keyframes avatar-fade-in{0%{opacity:0}100%{opacity:1}}';
-      document.head.appendChild(s);
-    }
     const t = window.setTimeout(() => setMounted(true), 20);
     return () => window.clearTimeout(t);
   }, []);
+
+  const handleLeave = () => {
+    if (isClosing) return;
+    setIsClosing(true);
+    setTimeout(() => onLeave(), SHEET_CLOSE_MS);
+  };
+
   const [tab, setTab] = useState<Tab>(offers.length > 0 ? 'card' : 'item');
   const [activeOffer, setActiveOffer] = useState<ActiveOffer | null>(null);
   const [modalClosing, setModalClosing] = useState(false);
@@ -501,11 +504,7 @@ export const AlchemistScreen: React.FC<{
 
   useEffect(() => () => { if (closeTimerRef.current) window.clearTimeout(closeTimerRef.current); }, []);
 
-  const openOffer = (offer: ActiveOffer) => {
-    setModalClosing(false);
-    setActiveOffer(offer);
-  };
-
+  const openOffer = (offer: ActiveOffer) => { setModalClosing(false); setActiveOffer(offer); };
   const closeOffer = () => {
     if (!activeOffer || modalClosing) return;
     setModalClosing(true);
@@ -524,56 +523,49 @@ export const AlchemistScreen: React.FC<{
     { id: 'item', label: 'Relíquias', count: itemOffers.length },
   ];
 
+  const panelSlide = isClosing
+    ? 'translate-y-full transition-transform duration-[280ms] ease-in'
+    : mounted ? 'translate-y-0 transition-transform duration-[320ms] ease-out' : 'translate-y-full';
+  const overlayFade = isClosing ? 'opacity-0 transition-opacity duration-[280ms]' : 'opacity-100';
+
   return (
-    <div className="absolute inset-0 flex flex-col overflow-hidden">
-      {/* Background image */}
+    <div
+      className={`absolute inset-0 z-[70] flex items-end lg:items-center justify-center pointer-events-auto ${overlayFade}`}
+      style={{ background: 'rgba(4,4,12,0.72)' }}
+      onClick={handleLeave}
+    >
+      {/* Sheet */}
       <div
-        className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-        style={{ backgroundImage: `url(${ALCHEMIST_BG_URL})` }}
-      />
-      <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/30 to-black/80" />
-
-      {/* Alchemist avatar — hidden for now */}
-      {false && <img
-        src={ALCHEMIST_AVATAR_URL}
-        alt=""
-        className="absolute bottom-[34%] md:bottom-[18%] left-1/2 -translate-x-1/2 z-[5] h-[90vh] md:h-[72vh] max-h-[640px] md:max-h-[480px] w-auto object-contain object-bottom pointer-events-none select-none"
-        style={{
-          filter:
-            'drop-shadow(0 2px 6px rgba(0,0,0,0.9)) ' +
-            'drop-shadow(0 8px 24px rgba(0,0,0,0.75)) ' +
-            'drop-shadow(0 20px 60px rgba(0,0,0,0.55))',
-          animation: mounted ? 'none' : 'avatar-fade-in 0.5s ease-out forwards',
-        }}
-      />}
-
-      {/* TOP BAR */}
-      <header className="relative z-10 shrink-0 flex items-center justify-between gap-3 px-4 py-3 bg-black/50 backdrop-blur-sm border-b border-white/8">
-        <button
-          onClick={onLeave}
-          className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-black uppercase tracking-widest text-white/70 hover:bg-white/10 hover:text-white transition-all active:scale-95"
-        >
-          <ArrowLeft size={14} /> Voltar
-        </button>
-
-        <div className="flex items-center gap-2">
-          <FlaskConical size={17} className="text-cyan-400 shrink-0" />
-          <span className="text-base font-black uppercase tracking-[0.18em] text-white">Alquimista</span>
+        className={`w-full sm:max-w-2xl lg:w-[600px] lg:max-w-none flex flex-col border-t lg:border border-white/10 rounded-t-[24px] lg:rounded-[24px] max-h-[82dvh] ${panelSlide}`}
+        style={{ background: 'rgba(8,8,18,0.96)', backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* ── BANNER HEADER ── */}
+        <div className="relative shrink-0 rounded-t-[24px] overflow-hidden" style={{ height: 148 }}>
+          <div className="absolute inset-0" style={{ backgroundImage: `url(${ALCHEMIST_BG_URL})`, backgroundSize: 'cover', backgroundPosition: 'center 30%' }} />
+          <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(4,4,14,0.45) 0%, rgba(4,4,14,0.72) 100%)' }} />
+          <div className="absolute bottom-0 inset-x-0 h-16" style={{ background: 'linear-gradient(0deg, rgba(8,8,18,0.95) 0%, transparent 100%)' }} />
+          {/* Drag handle — mobile only */}
+          <div className="absolute top-2.5 left-1/2 -translate-x-1/2 w-10 h-1 rounded-full bg-white/25 lg:hidden" />
+          {/* Back button */}
+          <button
+            onClick={handleLeave}
+            className="absolute top-4 left-4 inline-flex items-center gap-1.5 rounded-xl border border-white/15 bg-black/50 px-3 py-2 text-xs font-black uppercase tracking-widest text-white/80 hover:bg-black/70 active:scale-95"
+          >
+            <ArrowLeft size={14} /> Voltar
+          </button>
+          {/* Diamond badge */}
+          <div className="absolute top-4 right-4 inline-flex items-center gap-1.5 rounded-xl border border-cyan-400/30 bg-black/50 px-3 py-2 text-sm font-black text-cyan-300">
+            <GameAssetIcon name="diamond" size={20} />{player.diamonds}
+          </div>
+          {/* Title */}
+          <div className="absolute bottom-3 left-4 flex items-center gap-2">
+            <FlaskConical size={20} className="text-cyan-300" style={{ filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.9))' }} />
+            <span className="text-base font-black uppercase tracking-[0.18em] text-white drop-shadow-md">Alquimista</span>
+          </div>
         </div>
 
-        <div className="inline-flex items-center gap-1.5 rounded-xl border border-cyan-400/30 bg-cyan-400/10 px-3 py-2 text-sm font-black text-cyan-300">
-          <GameAssetIcon name="diamond" size={20} />
-          {player.diamonds}
-        </div>
-      </header>
-
-      {/* Spacer — background shows through here */}
-      <div className="relative z-0 flex-1 min-h-0" />
-
-      {/* BOTTOM PANEL */}
-      <div className={`relative z-10 shrink-0 flex flex-col bg-black/65 backdrop-blur-xl border-t border-white/8 transition-transform duration-[320ms] ease-out ${mounted ? 'translate-y-0' : 'translate-y-full'}`}>
-
-        {/* Tab filter row — icon only */}
+        {/* Tab row */}
         <div className="flex items-center gap-3 px-4 pt-3 pb-2">
           {TABS.map((entry) => {
             const active = tab === entry.id;
@@ -592,17 +584,13 @@ export const AlchemistScreen: React.FC<{
               </button>
             );
           })}
-        </div>
-
-        {/* Active tab label */}
-        <div className="px-4 pb-2">
-          <span className="text-[10px] font-black uppercase tracking-widest text-white/55">
+          <span className="ml-2 text-[10px] font-black uppercase tracking-widest text-white/55">
             {TABS.find(t => t.id === tab)?.label ?? ''}
           </span>
         </div>
 
-        {/* Cards horizontal scroll */}
-        <div className="flex items-stretch gap-3 overflow-x-auto px-4 pb-4 no-scrollbar min-h-[220px]" data-scrollable>
+        {/* Cards scroll (mobile) / grid (desktop) */}
+        <div className="flex items-stretch gap-3 overflow-x-auto px-4 pb-4 no-scrollbar min-h-[220px] lg:grid lg:grid-cols-4 lg:items-start lg:overflow-x-hidden lg:overflow-y-auto lg:flex-1 lg:min-h-0 lg:pb-4" data-scrollable>
           {tab === 'card' ? (
             offers.length === 0 ? (
               <div className="flex w-full items-center justify-center rounded-[20px] border border-dashed border-white/10 bg-white/3 px-6 py-8 text-sm text-white/30">
@@ -638,7 +626,7 @@ export const AlchemistScreen: React.FC<{
           )}
         </div>
 
-        {/* Gamepad legend — inline, base do painel */}
+        {/* Gamepad legend */}
         <GamepadActionLegend
           inline
           showConfirm

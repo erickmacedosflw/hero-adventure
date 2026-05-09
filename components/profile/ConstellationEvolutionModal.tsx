@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
     Heart,
     Orbit,
@@ -18,6 +18,7 @@ import { canUnlockTalentNode } from '../../game/mechanics/classProgression';
 import type { ClassTalentTrail, Player, Skill, TalentNode, TalentNodeEffect } from '../../types';
 
 const CONSTELLATION_ICON_URL = new URL('../../game/assets/Icons/Menu/Icone_Constelacao.png', import.meta.url).href;
+const BANNER_CONSTELLATION_URL = new URL('../../game/assets/Imagens/Banner_Constelacao.png', import.meta.url).href;
 
 interface ConstellationEvolutionModalProps {
     player: Player;
@@ -59,9 +60,9 @@ const NODE_TYPE_LABELS: Record<NonNullable<TalentNode['nodeType']>, string> = {
 };
 
 const NODE_SIZE_BY_TYPE: Record<NonNullable<TalentNode['nodeType']>, number> = {
-    attribute: 38,
-    passive: 42,
-    skill: 56,
+    attribute: 50,
+    passive: 56,
+    skill: 70,
 };
 
 const LOCKED_FILL = 'rgba(140,150,165,0.18)';
@@ -263,7 +264,7 @@ export const ConstellationEvolutionModal: React.FC<ConstellationEvolutionModalPr
     // ---- zoom & pan state ----
     const MIN_SCALE = 0.6;
     const MAX_SCALE = 3.0;
-    const INITIAL_VIEW = { x: 0, y: -260, scale: 2.0 };
+    const INITIAL_VIEW = { x: 0, y: -120, scale: 1.2 };
     const [view, setView] = useState(INITIAL_VIEW);
     const canvasRef = useRef<HTMLDivElement | null>(null);
     const dragStateRef = useRef<{ pointerId: number; startX: number; startY: number; viewX: number; viewY: number; moved: boolean } | null>(null);
@@ -289,7 +290,8 @@ export const ConstellationEvolutionModal: React.FC<ConstellationEvolutionModalPr
     const resetView = () => setView(INITIAL_VIEW);
     void resetView;
 
-    const onWheel = (e: React.WheelEvent<HTMLDivElement>) => {
+    const onWheelNative = useRef<((e: WheelEvent) => void) | null>(null);
+    onWheelNative.current = (e: WheelEvent) => {
         e.preventDefault();
         const rect = canvasRef.current?.getBoundingClientRect();
         if (!rect) return;
@@ -297,6 +299,14 @@ export const ConstellationEvolutionModal: React.FC<ConstellationEvolutionModalPr
         const fy = e.clientY - rect.top - rect.height / 2;
         zoomBy(e.deltaY < 0 ? 1.12 : 1 / 1.12, fx, fy);
     };
+
+    useEffect(() => {
+        const el = canvasRef.current;
+        if (!el) return;
+        const handler = (e: WheelEvent) => onWheelNative.current?.(e);
+        el.addEventListener('wheel', handler, { passive: false });
+        return () => el.removeEventListener('wheel', handler);
+    }, []);
 
     const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
         if (!canvasRef.current) return;
@@ -432,7 +442,7 @@ export const ConstellationEvolutionModal: React.FC<ConstellationEvolutionModalPr
         const stroke = isUnlocked ? '#ffffff' : isAvailable ? 'rgba(255,255,255,0.7)' : LOCKED_STROKE;
         const iconColor = isUnlocked ? '#ffffff' : isAvailable ? '#e2e8f0' : LOCKED_ICON;
 
-        const iconNode = renderNodeIcon(node, Math.round(size * (nodeType === 'skill' ? 0.55 : 0.5)), iconColor);
+        const iconNode = renderNodeIcon(node, Math.round(size * (nodeType === 'skill' ? 0.44 : 0.38)), iconColor);
 
         return (
             <g
@@ -906,7 +916,7 @@ export const ConstellationEvolutionModal: React.FC<ConstellationEvolutionModalPr
 
     return (
         <div
-            className="fixed inset-0 z-[210] flex items-end sm:items-center justify-center pointer-events-auto sm:p-4"
+            className="fixed inset-0 z-[210] flex items-end lg:items-center justify-center pointer-events-auto lg:p-4"
             style={{
                 background: 'rgba(4,6,14,0.72)',
                 backdropFilter: 'blur(28px) saturate(140%)',
@@ -923,9 +933,11 @@ export const ConstellationEvolutionModal: React.FC<ConstellationEvolutionModalPr
                     width: '100%',
                     overflow: 'hidden',
                     position: 'relative',
-                    background: `radial-gradient(circle at 18% 12%, ${classColor}33, transparent 55%), radial-gradient(circle at 82% 90%, ${classTertiary}26, transparent 55%), linear-gradient(160deg, rgba(14,17,28,0.97), rgba(8,10,18,0.97))`,
-                    border: `1.5px solid ${classColor}55`,
-                    boxShadow: `0 30px 90px rgba(0,0,0,0.7), 0 0 0 1px ${classColor}22 inset`,
+                    background: `radial-gradient(circle at 18% 12%, ${classColor}18, transparent 50%), radial-gradient(circle at 82% 90%, ${classTertiary}12, transparent 50%), linear-gradient(160deg, rgba(14,17,28,0.45), rgba(8,10,18,0.50))`,
+                    backdropFilter: 'blur(18px)',
+                    WebkitBackdropFilter: 'blur(18px)',
+                    border: `1.5px solid ${classColor}44`,
+                    boxShadow: `0 30px 90px rgba(0,0,0,0.55), 0 0 0 1px ${classColor}18 inset`,
                     display: 'flex',
                     flexDirection: 'column',
                 }}
@@ -992,101 +1004,204 @@ export const ConstellationEvolutionModal: React.FC<ConstellationEvolutionModalPr
                     .constellation-pop { animation: constellationFadeIn 0.22s cubic-bezier(0.22,1,0.36,1); }
                     .constellation-unlock-btn:not(:disabled):hover { transform: translateY(-1px); filter: brightness(1.08); }
                     .constellation-unlock-btn:not(:disabled):active { transform: translateY(0) scale(0.98); }
+                    @keyframes constNebulaPulse { 0%,100% { opacity:0.72; } 50% { opacity:1; } }
+                    .cst-canvas-nebula { animation: constNebulaPulse 8s ease-in-out infinite; }
+                    @keyframes constStarTwinkle { 0%,100% { opacity:1; } 50% { opacity:0.45; } }
+                    .cst-canvas-stars::before {
+                        content:'';
+                        position:absolute; inset:0; border-radius:inherit; pointer-events:none;
+                        background-image:
+                            radial-gradient(circle at 8% 14%, rgba(255,255,255,0.92) 1.2px, transparent 2.3px),
+                            radial-gradient(circle at 74% 21%, rgba(255,255,255,0.88) 1.1px, transparent 2.1px),
+                            radial-gradient(circle at 41% 7%,  rgba(255,255,255,0.95) 1.3px, transparent 2.5px),
+                            radial-gradient(circle at 87% 64%, rgba(255,255,255,0.85) 1.0px, transparent 1.9px),
+                            radial-gradient(circle at 23% 77%, rgba(255,255,255,0.90) 1.2px, transparent 2.3px),
+                            radial-gradient(circle at 55% 47%, rgba(220,225,255,0.88) 1.1px, transparent 2.1px),
+                            radial-gradient(circle at 36% 31%, rgba(255,255,255,0.82) 1.0px, transparent 1.9px),
+                            radial-gradient(circle at 63% 88%, rgba(255,255,255,0.86) 1.1px, transparent 2.1px),
+                            radial-gradient(circle at 16% 36%, rgba(255,255,255,0.72) 0.8px, transparent 1.7px),
+                            radial-gradient(circle at 31% 54%, rgba(255,255,255,0.68) 0.7px, transparent 1.5px),
+                            radial-gradient(circle at 49% 71%, rgba(200,210,255,0.70) 0.7px, transparent 1.5px),
+                            radial-gradient(circle at 66% 16%, rgba(255,255,255,0.75) 0.8px, transparent 1.7px),
+                            radial-gradient(circle at 81% 41%, rgba(255,255,255,0.65) 0.7px, transparent 1.5px),
+                            radial-gradient(circle at 93% 29%, rgba(255,255,255,0.70) 0.8px, transparent 1.7px),
+                            radial-gradient(circle at 9%  56%, rgba(255,255,255,0.68) 0.7px, transparent 1.5px),
+                            radial-gradient(circle at 26% 16%, rgba(255,250,220,0.72) 0.8px, transparent 1.7px),
+                            radial-gradient(circle at 53% 91%, rgba(255,255,255,0.62) 0.6px, transparent 1.3px),
+                            radial-gradient(circle at 79% 79%, rgba(220,225,255,0.68) 0.7px, transparent 1.5px),
+                            radial-gradient(circle at 13% 89%, rgba(255,255,255,0.62) 0.7px, transparent 1.5px),
+                            radial-gradient(circle at 69% 56%, rgba(255,255,255,0.70) 0.7px, transparent 1.5px),
+                            radial-gradient(circle at 46% 23%, rgba(255,255,255,0.66) 0.6px, transparent 1.3px),
+                            radial-gradient(circle at 91% 83%, rgba(255,255,255,0.60) 0.7px, transparent 1.5px),
+                            radial-gradient(circle at 4%  31%, rgba(255,255,255,0.65) 0.6px, transparent 1.3px),
+                            radial-gradient(circle at 19% 61%, rgba(255,255,255,0.45) 0.5px, transparent 1.0px),
+                            radial-gradient(circle at 33% 41%, rgba(255,255,255,0.42) 0.5px, transparent 1.0px),
+                            radial-gradient(circle at 59% 26%, rgba(255,255,255,0.48) 0.5px, transparent 1.0px),
+                            radial-gradient(circle at 71% 69%, rgba(200,210,255,0.45) 0.5px, transparent 1.0px),
+                            radial-gradient(circle at 86% 13%, rgba(255,255,255,0.50) 0.5px, transparent 1.0px),
+                            radial-gradient(circle at 41% 86%, rgba(255,255,255,0.40) 0.5px, transparent 1.0px),
+                            radial-gradient(circle at 11% 73%, rgba(255,255,255,0.44) 0.5px, transparent 1.0px),
+                            radial-gradient(circle at 61% 43%, rgba(255,255,255,0.46) 0.5px, transparent 1.0px),
+                            radial-gradient(circle at 29% 93%, rgba(255,255,255,0.38) 0.5px, transparent 1.0px),
+                            radial-gradient(circle at 96% 56%, rgba(255,255,255,0.42) 0.5px, transparent 1.0px),
+                            radial-gradient(circle at 21% 29%, rgba(255,255,255,0.44) 0.5px, transparent 1.0px),
+                            radial-gradient(circle at 51% 61%, rgba(210,220,255,0.40) 0.5px, transparent 1.0px),
+                            radial-gradient(circle at 73% 36%, rgba(255,255,255,0.45) 0.5px, transparent 1.0px),
+                            radial-gradient(circle at 39% 49%, rgba(255,255,255,0.42) 0.5px, transparent 1.0px),
+                            radial-gradient(circle at 83% 86%, rgba(255,255,255,0.38) 0.5px, transparent 1.0px),
+                            radial-gradient(circle at 7%  43%, rgba(255,255,255,0.44) 0.5px, transparent 1.0px),
+                            radial-gradient(circle at 23% 11%, rgba(255,255,255,0.30) 0.4px, transparent 0.8px),
+                            radial-gradient(circle at 37% 66%, rgba(255,255,255,0.28) 0.4px, transparent 0.8px),
+                            radial-gradient(circle at 56% 16%, rgba(255,255,255,0.32) 0.4px, transparent 0.8px),
+                            radial-gradient(circle at 76% 49%, rgba(255,255,255,0.28) 0.4px, transparent 0.8px),
+                            radial-gradient(circle at 91% 11%, rgba(255,255,255,0.30) 0.4px, transparent 0.8px),
+                            radial-gradient(circle at 6%  26%, rgba(255,255,255,0.26) 0.4px, transparent 0.8px),
+                            radial-gradient(circle at 46% 96%, rgba(255,255,255,0.28) 0.4px, transparent 0.8px),
+                            radial-gradient(circle at 81% 63%, rgba(255,255,255,0.30) 0.4px, transparent 0.8px),
+                            radial-gradient(circle at 15% 41%, rgba(255,255,255,0.26) 0.4px, transparent 0.8px),
+                            radial-gradient(circle at 63% 31%, rgba(220,225,255,0.28) 0.4px, transparent 0.8px),
+                            radial-gradient(circle at 29% 76%, rgba(255,255,255,0.26) 0.4px, transparent 0.8px),
+                            radial-gradient(circle at 96% 36%, rgba(255,255,255,0.30) 0.4px, transparent 0.8px),
+                            radial-gradient(circle at 43% 16%, rgba(255,255,255,0.28) 0.4px, transparent 0.8px);
+                    }
+                    .cst-canvas-stars::after {
+                        content:'';
+                        position:absolute; inset:0; border-radius:inherit; pointer-events:none;
+                        background-image:
+                            radial-gradient(circle at 8% 14%, rgba(255,255,255,0.92) 1.2px, transparent 2.3px),
+                            radial-gradient(circle at 41% 7%,  rgba(255,255,255,0.95) 1.3px, transparent 2.5px),
+                            radial-gradient(circle at 55% 47%, rgba(220,225,255,0.88) 1.1px, transparent 2.1px),
+                            radial-gradient(circle at 66% 16%, rgba(255,255,255,0.75) 0.8px, transparent 1.7px),
+                            radial-gradient(circle at 31% 54%, rgba(255,255,255,0.68) 0.7px, transparent 1.5px),
+                            radial-gradient(circle at 79% 79%, rgba(220,225,255,0.68) 0.7px, transparent 1.5px),
+                            radial-gradient(circle at 86% 13%, rgba(255,255,255,0.50) 0.5px, transparent 1.0px),
+                            radial-gradient(circle at 73% 36%, rgba(255,255,255,0.45) 0.5px, transparent 1.0px);
+                        animation: constStarTwinkle 3.5s ease-in-out infinite;
+                        animation-delay: -1.8s;
+                    }
                     /* ── responsive shell: bottom-sheet (mobile) / centered modal (desktop) ── */
-                    .constellation-panel { border-radius: 24px 24px 0 0; max-height: 88dvh; animation: constellationSheetIn 0.36s cubic-bezier(0.22,1,0.36,1) both; }
+                    .constellation-panel { border-radius: 24px 24px 0 0; height: 88dvh; max-height: 88dvh; animation: constellationSheetIn 0.36s cubic-bezier(0.22,1,0.36,1) both; }
                     .constellation-panel--closing { animation: constellationSheetOut 0.28s cubic-bezier(0.4,0,1,1) both; }
                     @keyframes constellationSheetIn { from { transform: translateY(100%); } to { transform: translateY(0); } }
                     @keyframes constellationSheetOut { from { transform: translateY(0); } to { transform: translateY(100%); } }
-                    @media (min-width: 640px) {
-                        .constellation-panel { border-radius: 22px; max-height: 92dvh; max-width: 1100px; animation: constellationModalIn 0.28s cubic-bezier(0.22,1,0.36,1) both; }
+                    @media (min-width: 1024px) {
+                        .constellation-panel { border-radius: 22px; height: 90dvh; max-height: 90dvh; max-width: 640px; width: 100%; animation: constellationModalIn 0.28s cubic-bezier(0.22,1,0.36,1) both; }
                         .constellation-panel--closing { animation: constellationModalOut 0.28s cubic-bezier(0.22,1,0.36,1) both; }
                     }
                 `}</style>
-                {/* Drag handle — mobile only */}
-                <div className="flex justify-center pt-3 pb-0.5 shrink-0 sm:hidden">
-                    <div className="w-10 h-1 rounded-full bg-white/25" />
-                </div>
-                {/* Header */}
-                <div
-                    style={{
-                        padding: '18px 64px 16px 22px',
-                        borderBottom: `1px solid ${classColor}22`,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 16,
-                        flexWrap: 'wrap',
-                    }}
-                >
-                    <div
+                {/* ── BANNER HEADER ── */}
+                <div className="relative shrink-0 rounded-t-[24px] sm:rounded-t-[22px] overflow-hidden" style={{ height: 148 }}>
+                    {/* BG image */}
+                    <div className="absolute inset-0"
+                        style={{ backgroundImage: `url(${BANNER_CONSTELLATION_URL})`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
+                    {/* Dark overlay */}
+                    <div className="absolute inset-0"
+                        style={{ background: 'linear-gradient(180deg, rgba(4,4,14,0.55) 0%, rgba(4,4,14,0.78) 100%)' }} />
+                    {/* Bottom fade to panel */}
+                    <div className="absolute bottom-0 inset-x-0 h-16"
+                        style={{ background: 'linear-gradient(0deg, rgba(10,12,22,0.95) 0%, transparent 100%)' }} />
+                    {/* Drag handle — mobile only */}
+                    <div className="absolute top-2.5 left-1/2 -translate-x-1/2 w-10 h-1 rounded-full bg-white/25 lg:hidden" />
+                    {/* Close button */}
+                    <button
+                        onClick={onClose}
+                        aria-label="Fechar"
                         style={{
-                            width: 46,
-                            height: 46,
-                            borderRadius: 14,
+                            position: 'absolute',
+                            top: 12,
+                            right: 12,
+                            zIndex: 30,
+                            width: 38,
+                            height: 38,
+                            borderRadius: 10,
+                            border: '1px solid rgba(255,255,255,0.18)',
+                            background: 'rgba(10,12,22,0.6)',
+                            backdropFilter: 'blur(8px)',
+                            WebkitBackdropFilter: 'blur(8px)',
+                            color: '#e2e8f0',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            background: `linear-gradient(140deg, ${classColor}55, ${classTertiary}33)`,
-                            border: '2px solid rgba(255,255,255,0.85)',
-                            boxShadow: '0 0 12px rgba(255,255,255,0.18)',
+                            cursor: 'pointer',
+                            boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
                         }}
                     >
-                        <img src={CONSTELLATION_ICON_URL} alt="Constelacao" style={{ width: 34, height: 34, objectFit: 'contain', filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.7))' }} />
-                    </div>
-                    <div style={{ flex: 1, minWidth: 200 }}>
+                        <X size={18} />
+                    </button>
+                    {/* Title row — bottom-left */}
+                    <div style={{ position: 'absolute', bottom: 12, left: 18, display: 'flex', alignItems: 'center', gap: 10 }}>
                         <div
                             style={{
-                                fontSize: 11,
-                                fontWeight: 800,
-                                letterSpacing: 1.6,
-                                textTransform: 'uppercase',
-                                color: '#94a3b8',
-                                marginBottom: 4,
-                            }}
-                        >
-                            Constelações de Evolução
-                        </div>
-                        <div
-                            style={{
-                                fontSize: 22,
-                                fontWeight: 900,
-                                color: classColor,
-                                letterSpacing: 0.4,
-                                textShadow: `0 2px 14px ${classColor}66`,
-                                lineHeight: 1.1,
-                            }}
-                        >
-                            {constellation.name}
-                        </div>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <div
-                            style={{
-                                padding: '8px 14px',
+                                width: 36,
+                                height: 36,
                                 borderRadius: 10,
-                                background: 'rgba(255,255,255,0.05)',
-                                border: '1px solid rgba(255,255,255,0.1)',
                                 display: 'flex',
                                 alignItems: 'center',
-                                gap: 8,
+                                justifyContent: 'center',
+                                background: `linear-gradient(140deg, ${classColor}55, ${classTertiary}33)`,
+                                border: '1.5px solid rgba(255,255,255,0.7)',
+                                boxShadow: '0 0 10px rgba(255,255,255,0.15)',
                             }}
                         >
-                            <Sparkles size={16} color={classColor} />
-                            <div>
-                                <div
-                                    style={{
-                                        fontSize: 9,
-                                        letterSpacing: 1.2,
-                                        textTransform: 'uppercase',
-                                        color: '#94a3b8',
-                                        fontWeight: 800,
-                                    }}
-                                >
-                                    Pontos
-                                </div>
-                                <div style={{ fontSize: 16, fontWeight: 900, color: '#f8fafc', lineHeight: 1 }}>
-                                    {availablePoints}
-                                </div>
+                            <img src={CONSTELLATION_ICON_URL} alt="Constelacao" style={{ width: 26, height: 26, objectFit: 'contain', filter: 'drop-shadow(0 1px 4px rgba(0,0,0,0.8))' }} />
+                        </div>
+                        <div>
+                            <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1.4, textTransform: 'uppercase', color: 'rgba(148,163,184,0.9)', lineHeight: 1, marginBottom: 3 }}>
+                                Constelações de Evolução
                             </div>
+                            <div style={{ fontSize: 18, fontWeight: 900, color: classColor, letterSpacing: 0.4, textShadow: `0 2px 10px ${classColor}66`, lineHeight: 1.1 }}>
+                                {constellation.name}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Points & reset bar */}
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    padding: '8px 14px',
+                    borderBottom: `1px solid ${classColor}22`,
+                    flexShrink: 0,
+                    flexWrap: 'wrap',
+                    rowGap: 6,
+                }}>
+                    {/* Left: constellation name badge + progress */}
+                    <div style={{ flex: '1 1 auto', display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                        <div style={{
+                            padding: '3px 10px',
+                            borderRadius: 8,
+                            background: `${classColor}1e`,
+                            border: `1px solid ${classColor}44`,
+                            fontSize: 11,
+                            fontWeight: 800,
+                            letterSpacing: 0.8,
+                            color: classColor,
+                            whiteSpace: 'nowrap',
+                            textShadow: `0 0 8px ${classColor}55`,
+                            flexShrink: 0,
+                        }}>
+                            {constellation.name}
+                        </div>
+                        <div style={{ fontSize: 10.5, fontWeight: 700, color: '#475569', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {totalUnlocked} / {totalNodes} desbloqueados
+                        </div>
+                    </div>
+                    {/* Right: points counter + reset button */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                        <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 6,
+                            padding: '5px 11px',
+                            borderRadius: 8,
+                            background: 'rgba(255,255,255,0.05)',
+                            border: '1px solid rgba(255,255,255,0.1)',
+                        }}>
+                            <Sparkles size={13} color={classColor} />
+                            <div style={{ fontSize: 9, letterSpacing: 1.2, textTransform: 'uppercase', color: '#94a3b8', fontWeight: 800, lineHeight: 1 }}>Pts</div>
+                            <div style={{ fontSize: 16, fontWeight: 900, color: '#f8fafc', lineHeight: 1 }}>{availablePoints}</div>
                         </div>
                         <button
                             onClick={() => {
@@ -1102,14 +1217,12 @@ export const ConstellationEvolutionModal: React.FC<ConstellationEvolutionModalPr
                             }}
                             disabled={totalUnlocked === 0}
                             style={{
-                                padding: '8px 12px',
-                                borderRadius: 10,
+                                padding: '7px 12px',
+                                borderRadius: 8,
                                 border: `1px solid ${confirmReset ? '#f87171aa' : 'rgba(255,255,255,0.12)'}`,
-                                background: confirmReset
-                                    ? 'rgba(248,113,113,0.15)'
-                                    : 'rgba(255,255,255,0.04)',
+                                background: confirmReset ? 'rgba(248,113,113,0.15)' : 'rgba(255,255,255,0.04)',
                                 color: confirmReset ? '#fca5a5' : '#cbd5e1',
-                                fontSize: 11.5,
+                                fontSize: 11,
                                 fontWeight: 800,
                                 letterSpacing: 0.4,
                                 textTransform: 'uppercase',
@@ -1118,6 +1231,7 @@ export const ConstellationEvolutionModal: React.FC<ConstellationEvolutionModalPr
                                 gap: 6,
                                 cursor: totalUnlocked === 0 ? 'not-allowed' : 'pointer',
                                 opacity: totalUnlocked === 0 ? 0.5 : 1,
+                                whiteSpace: 'nowrap',
                             }}
                         >
                             <RefreshCw size={13} />
@@ -1126,141 +1240,76 @@ export const ConstellationEvolutionModal: React.FC<ConstellationEvolutionModalPr
                     </div>
                 </div>
 
-                {/* Close button: pinned to the modal's top-right corner so it
-                    stays visible on mobile even when the header wraps. */}
-                <button
-                    onClick={onClose}
-                    aria-label="Fechar"
-                    style={{
-                        position: 'absolute',
-                        top: 12,
-                        right: 12,
-                        zIndex: 30,
-                        width: 38,
-                        height: 38,
-                        borderRadius: 10,
-                        border: '1px solid rgba(255,255,255,0.18)',
-                        background: 'rgba(10,12,22,0.7)',
-                        backdropFilter: 'blur(8px)',
-                        WebkitBackdropFilter: 'blur(8px)',
-                        color: '#e2e8f0',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        cursor: 'pointer',
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
-                    }}
-                >
-                    <X size={18} />
-                </button>
-
-                {/* Body: tree canvas */}
+                {/* Body: tree canvas — fills all remaining space */}
                 <div
                     style={{
                         flex: 1,
-                        overflow: 'auto',
-                        padding: '14px 18px 22px',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
+                        overflow: 'hidden',
                         position: 'relative',
+                        minHeight: 0,
                     }}
                 >
-                    {/* trail name pills */}
-                    <div
-                        style={{
-                            display: 'flex',
-                            gap: 8,
-                            marginBottom: 8,
-                            flexWrap: 'wrap',
-                            justifyContent: 'center',
-                        }}
-                    >
-                        {trails.map((trail) => {
-                            const count = trail.nodes.filter((n) => unlockedSet.has(n.id)).length;
-                            return (
-                                <div
-                                    key={trail.id}
-                                    style={{
-                                        padding: '6px 12px',
-                                        borderRadius: 99,
-                                        background: `${trail.color}1f`,
-                                        border: `1px solid ${trail.color}55`,
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: 8,
-                                    }}
-                                >
-                                    <span
-                                        style={{
-                                            width: 8,
-                                            height: 8,
-                                            borderRadius: 99,
-                                            background: trail.color,
-                                            boxShadow: `0 0 10px ${trail.color}`,
-                                        }}
-                                    />
-                                    <span
-                                        style={{
-                                            fontSize: 11.5,
-                                            fontWeight: 800,
-                                            color: '#e2e8f0',
-                                            letterSpacing: 0.3,
-                                        }}
-                                    >
-                                        {trail.name}
-                                    </span>
-                                    <span
-                                        style={{
-                                            fontSize: 10.5,
-                                            fontWeight: 700,
-                                            color: trail.color,
-                                            opacity: 0.9,
-                                        }}
-                                    >
-                                        {count}/{trail.nodes.length}
-                                    </span>
-                                </div>
-                            );
-                        })}
-                    </div>
-
-                    {/* progress */}
-                    <div
-                        style={{
-                            fontSize: 11,
-                            fontWeight: 700,
-                            color: '#94a3b8',
-                            letterSpacing: 1,
-                            textTransform: 'uppercase',
-                            marginBottom: 10,
-                        }}
-                    >
-                        {totalUnlocked} / {totalNodes} nós liberados
-                    </div>
-
                     {/* SVG tree (zoom + pan) */}
                     <div
                         ref={canvasRef}
-                        onWheel={onWheel}
+                        className="cst-canvas-stars"
                         onPointerDown={onPointerDown}
                         onPointerMove={onPointerMove}
                         onPointerUp={onPointerUp}
                         onPointerCancel={onPointerUp}
                         style={{
-                            position: 'relative',
+                            position: 'absolute',
+                            inset: 0,
                             width: '100%',
-                            maxWidth: 880,
-                            height: 'min(60dvh, 680px)',
+                            height: '100%',
                             overflow: 'hidden',
-                            borderRadius: 16,
-                            background: 'radial-gradient(ellipse at 50% 100%, rgba(99,102,241,0.06), transparent 60%)',
+                            borderRadius: '0 0 24px 24px',
+                            background: `radial-gradient(ellipse at 28% 60%, ${classColor}1a 0%, transparent 50%), radial-gradient(ellipse at 75% 30%, ${classTertiary}14 0%, transparent 45%), radial-gradient(ellipse at 50% 100%, rgba(99,102,241,0.08), transparent 60%), linear-gradient(160deg, #04030e 0%, #060415 40%, #03020a 100%)`,
                             border: '1px solid rgba(255,255,255,0.06)',
                             cursor: dragStateRef.current?.moved ? 'grabbing' : 'grab',
                             touchAction: 'none',
                             userSelect: 'none',
                         }}
                     >
+                        {/* ── Trail pills + total overlay ── */}
+                        <div style={{
+                            position: 'absolute',
+                            top: 10,
+                            left: 0,
+                            right: 0,
+                            zIndex: 10,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            gap: 6,
+                            pointerEvents: 'none',
+                        }}>
+                            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'center', padding: '0 12px' }}>
+                                {trails.map((trail) => {
+                                    const count = trail.nodes.filter((n) => unlockedSet.has(n.id)).length;
+                                    return (
+                                        <div key={trail.id} style={{
+                                            padding: '4px 10px',
+                                            borderRadius: 99,
+                                            background: `${trail.color}22`,
+                                            border: `1px solid ${trail.color}55`,
+                                            backdropFilter: 'blur(6px)',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: 6,
+                                        }}>
+                                            <span style={{ width: 7, height: 7, borderRadius: 99, background: trail.color, boxShadow: `0 0 8px ${trail.color}`, flexShrink: 0 }} />
+                                            <span style={{ fontSize: 11, fontWeight: 800, color: '#e2e8f0', letterSpacing: 0.2 }}>{trail.name}</span>
+                                            <span style={{ fontSize: 10, fontWeight: 700, color: trail.color }}>{count}/{trail.nodes.length}</span>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                            <div style={{ fontSize: 10, fontWeight: 700, color: '#64748b', letterSpacing: 1, textTransform: 'uppercase' }}>
+                                {totalUnlocked} / {totalNodes} nós liberados
+                            </div>
+                        </div>
+
                         <div
                             style={{
                                 position: 'absolute',

@@ -5469,7 +5469,7 @@ export default function App() {
                         battleTimelineState={battleTimelineState}
                         activeBattleActorId={activeBattleActorId}
                         battleActionsConfig={resolvedGameState === GameState.BATTLE ? battleActionsConfig : undefined}
-                        isMenuView={resolvedGameState === GameState.TAVERN}
+                        isMenuView={resolvedGameState === GameState.TAVERN || resolvedGameState === GameState.SHOP || resolvedGameState === GameState.ALCHEMIST}
                         menuCameraFocus={shouldMenuCameraFocus}
                         heroInspectMode={heroInspectMode}
                         onHeroInspectClose={handleHeroInspectClose}
@@ -5480,7 +5480,7 @@ export default function App() {
                         onHeroUnequipItemSlot={handleHeroUnequipItemSlot}
                         onHeroUnequipSkillSlot={handleHeroUnequipSkillSlot}
                         isDungeonScene={sceneRegion === 'dungeon' || sceneRegion === 'tower'}
-                        showMenuNavigationPortal={resolvedGameState === GameState.TAVERN}
+                        showMenuNavigationPortal={resolvedGameState === GameState.TAVERN || resolvedGameState === GameState.SHOP || resolvedGameState === GameState.ALCHEMIST}
                         menuPortalRegion={sceneRegion === 'tower' ? 'tower' : sceneRegion === 'dungeon' ? 'dungeon' : 'forest'}
                         menuPortalTravelCinematicToken={menuPortalTravelCinematicToken}
                         bossEntryCinematicToken={bossEntryCinematicToken}
