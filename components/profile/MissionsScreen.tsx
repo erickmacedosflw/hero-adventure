@@ -166,10 +166,8 @@ const MissionCard: React.FC<{ mission: Mission; onClaim: () => void }> = ({ miss
             <div style={{
               position: 'absolute', inset: 0, right: `${100 - progressPct}%`,
               borderRadius: 99,
-              background: isComplete
-                ? 'linear-gradient(90deg, #b45309, #d97706, #fbbf24)'
-                : 'linear-gradient(90deg, #78716c, #a8a29e)',
-              boxShadow: isComplete && progressPct > 0 ? '0 0 8px rgba(251,191,36,0.55)' : 'none',
+              background: 'linear-gradient(90deg, #b45309, #d97706, #fbbf24)',
+              boxShadow: progressPct > 0 ? '0 0 8px rgba(251,191,36,0.55)' : 'none',
               transition: 'right 0.5s ease',
             }} />
           </div>
