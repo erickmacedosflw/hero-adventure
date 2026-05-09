@@ -2152,6 +2152,32 @@ export const TavernScreen: React.FC<{
                     </button>
                 </div>
 
+                {/* CAMP SIDE-RAIL (MOBILE) ─ missões apenas, visível só em mobile */}
+                {!heroInspectOpen && !portalInspectMode && !portalTransitioning && missionsUnlocked && sceneRegion === 'forest' && (() => {
+                    const _mDoneMob = (missions ?? []).filter(m => m.progressoAtual >= m.metaAtual).length;
+                    return (
+                    <div className="absolute right-3 top-[4.5rem] z-10 pointer-events-auto md:hidden flex flex-col items-end gap-3">
+                        <button
+                            onClick={() => { uiSfx.play('modal_open'); setShowMissionsScreen(true); }}
+                            className="group relative flex items-center justify-end gap-2 p-0 bg-transparent border-0 active:scale-90 transition-transform"
+                            aria-label="Diário de Missões"
+                        >
+                            <div style={{ position: 'relative', width: 48, height: 48, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                <div data-diamond="1" style={{ position: 'absolute', inset: 5, borderRadius: 7, backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', transform: 'rotate(45deg) scale(1)', background: 'rgba(0,0,0,0.42)' }} />
+                                <div data-iconwrap="1" style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <img src={BOOK_MISSOES_URL} alt="" style={{ width: 44, height: 44, objectFit: 'contain', filter: showMissionsScreen ? 'drop-shadow(0 0 10px rgba(255,255,255,1)) drop-shadow(0 0 4px rgba(255,255,255,0.9))' : 'drop-shadow(1.5px 0 0 rgba(255,255,255,0.85)) drop-shadow(-1.5px 0 0 rgba(255,255,255,0.85)) drop-shadow(0 1.5px 0 rgba(255,255,255,0.85)) drop-shadow(0 -1.5px 0 rgba(255,255,255,0.85))' }} />
+                                </div>
+                                {_mDoneMob > 0 && (
+                                    <span style={{ position: 'absolute', top: -2, right: -2, minWidth: 16, height: 16, borderRadius: 99, background: 'linear-gradient(135deg,#b45309,#fbbf24)', border: '2px solid #fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, fontWeight: 900, color: '#fff', padding: '0 3px', pointerEvents: 'none', zIndex: 2 }}>
+                                        {_mDoneMob}
+                                    </span>
+                                )}
+                            </div>
+                        </button>
+                    </div>
+                    );
+                })()}
+
                 {/* CAMP SIDE-RAIL ─ mochila/skill/merchant/alchemist icons, right side below currency */}
                 {!heroInspectOpen && !portalInspectMode && !portalTransitioning && (inventoryUnlocked || showSkillsAction || (missionsUnlocked && sceneRegion === 'forest') || (merchantUnlocked && sceneRegion === 'forest') || (alchemistUnlocked && sceneRegion === 'dungeon')) && (
                     <div className="absolute right-3 sm:right-5 top-[4.5rem] sm:top-24 z-10 pointer-events-auto hidden md:flex flex-col items-end gap-3">
@@ -2386,7 +2412,7 @@ export const TavernScreen: React.FC<{
                 )}
 
                 {/* MOBILE BOTTOM NAV ─ same items as side-rail, shown only on < md screens */}
-                {!heroInspectOpen && !portalInspectMode && !portalTransitioning && (inventoryUnlocked || showSkillsAction || (missionsUnlocked && sceneRegion === 'forest') || (merchantUnlocked && sceneRegion === 'forest') || (alchemistUnlocked && sceneRegion === 'dungeon')) && (
+                {!heroInspectOpen && !portalInspectMode && !portalTransitioning && (inventoryUnlocked || showSkillsAction || (merchantUnlocked && sceneRegion === 'forest') || (alchemistUnlocked && sceneRegion === 'dungeon')) && (
                     <div
                         className="mobile-bottom-nav fixed bottom-0 inset-x-0 z-[55] md:hidden flex items-stretch justify-between pointer-events-auto"
                         style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
@@ -2403,20 +2429,7 @@ export const TavernScreen: React.FC<{
                                     <span className={`text-[9px] font-black uppercase tracking-widest ${showInventory ? 'text-white' : 'text-white/50'}`}>Mochila</span>
                                 </button>
                             )}
-                            {missionsUnlocked && sceneRegion === 'forest' && (() => {
-                                const mDone = (missions ?? []).filter(m => m.progressoAtual >= m.metaAtual).length;
-                                return (
-                                    <button
-                                        onClick={() => { uiSfx.play('modal_open'); setShowMissionsScreen(true); }}
-                                        className="relative flex flex-col items-center justify-center gap-1.5 py-3 px-2 active:scale-90 transition-transform"
-                                        aria-label="Missões"
-                                    >
-                                        <img src={BOOK_MISSOES_URL} alt="" style={{ width: 48, height: 48, objectFit: 'contain', filter: showMissionsScreen ? 'drop-shadow(0 0 10px rgba(255,255,255,1)) drop-shadow(0 0 4px rgba(255,255,255,0.9))' : 'drop-shadow(1.5px 0 0 rgba(255,255,255,0.8)) drop-shadow(-1.5px 0 0 rgba(255,255,255,0.8)) drop-shadow(0 1.5px 0 rgba(255,255,255,0.8)) drop-shadow(0 -1.5px 0 rgba(255,255,255,0.8))' }} />
-                                        {mDone > 0 && <span style={{ position: 'absolute', top: 8, right: '50%', transform: 'translateX(14px)', minWidth: 16, height: 16, borderRadius: 99, background: 'linear-gradient(135deg,#b45309,#fbbf24)', border: '2px solid rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, fontWeight: 900, color: '#fff', padding: '0 3px', pointerEvents: 'none' }}>{mDone}</span>}
-                                        <span className={`text-[9px] font-black uppercase tracking-widest ${showMissionsScreen ? 'text-white' : 'text-white/50'}`}>Missões</span>
-                                    </button>
-                                );
-                            })()}
+
                             {hasConstellationUnlocked && (
                                 <button
                                     onClick={openConstellationModal}
