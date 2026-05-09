@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     Heart,
     Orbit,
@@ -266,28 +266,46 @@ export const ConstellationEvolutionModal: React.FC<ConstellationEvolutionModalPr
     const MAX_SCALE = 3.0;
     const INITIAL_VIEW = { x: 0, y: -120, scale: 1.2 };
     const [view, setView] = useState(INITIAL_VIEW);
+    // viewRef: live mirror updated every frame during gestures — no React re-renders during movement
+    const viewRef = useRef(INITIAL_VIEW);
     const canvasRef = useRef<HTMLDivElement | null>(null);
+    // contentRef: inner transformable div — transform applied directly to DOM during gestures
+    const contentRef = useRef<HTMLDivElement | null>(null);
     const dragStateRef = useRef<{ pointerId: number; startX: number; startY: number; viewX: number; viewY: number; moved: boolean } | null>(null);
     const pinchStateRef = useRef<{ pointers: Map<number, { x: number; y: number }>; startDistance: number; startScale: number } | null>(null);
     const justDraggedRef = useRef(false);
 
     const clampScale = (s: number) => Math.min(MAX_SCALE, Math.max(MIN_SCALE, s));
 
-    const zoomBy = (factor: number, focusX?: number, focusY?: number) => {
-        setView((prev) => {
-            const next = clampScale(prev.scale * factor);
-            const ratio = next / prev.scale;
-            const fx = focusX ?? 0;
-            const fy = focusY ?? 0;
-            return {
-                x: fx - (fx - prev.x) * ratio,
-                y: fy - (fy - prev.y) * ratio,
-                scale: next,
-            };
-        });
-    };
+    // Apply CSS transform directly to DOM — bypasses React reconciler for smooth 60fps gestures
+    const applyTransform = useCallback((v: { x: number; y: number; scale: number }, transition = 'none') => {
+        if (!contentRef.current) return;
+        contentRef.current.style.transform = `translate(${v.x}px, ${v.y}px) scale(${v.scale})`;
+        contentRef.current.style.transition = transition;
+    }, []);
 
-    const resetView = () => setView(INITIAL_VIEW);
+    const zoomBy = useCallback((factor: number, focusX?: number, focusY?: number) => {
+        const prev = viewRef.current;
+        const next = clampScale(prev.scale * factor);
+        const ratio = next / prev.scale;
+        const fx = focusX ?? 0;
+        const fy = focusY ?? 0;
+        const newView = {
+            x: fx - (fx - prev.x) * ratio,
+            y: fy - (fy - prev.y) * ratio,
+            scale: next,
+        };
+        viewRef.current = newView;
+        applyTransform(newView);
+        setView(newView);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [applyTransform]);
+
+    const resetView = useCallback(() => {
+        viewRef.current = INITIAL_VIEW;
+        applyTransform(INITIAL_VIEW, 'transform 0.35s cubic-bezier(0.22,1,0.36,1)');
+        setView(INITIAL_VIEW);
+    }, [applyTransform]);
     void resetView;
 
     const onWheelNative = useRef<((e: WheelEvent) => void) | null>(null);
@@ -327,17 +345,19 @@ export const ConstellationEvolutionModal: React.FC<ConstellationEvolutionModalPr
                     [e.pointerId, b],
                 ]),
                 startDistance: dist,
-                startScale: view.scale,
+                startScale: viewRef.current.scale,
             };
             dragStateRef.current = null;
             return;
         }
+        // Disable transition immediately when finger touches down
+        if (contentRef.current) contentRef.current.style.transition = 'none';
         dragStateRef.current = {
             pointerId: e.pointerId,
             startX: e.clientX,
             startY: e.clientY,
-            viewX: view.x,
-            viewY: view.y,
+            viewX: viewRef.current.x,
+            viewY: viewRef.current.y,
             moved: false,
         };
     };
@@ -350,7 +370,10 @@ export const ConstellationEvolutionModal: React.FC<ConstellationEvolutionModalPr
                 const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
                 const factor = dist / pinchStateRef.current.startDistance;
                 const newScale = clampScale(pinchStateRef.current.startScale * factor);
-                setView((prev) => ({ ...prev, scale: newScale }));
+                // Direct DOM update — no React re-render during pinch
+                const newView = { ...viewRef.current, scale: newScale };
+                viewRef.current = newView;
+                applyTransform(newView);
             }
             return;
         }
@@ -361,19 +384,25 @@ export const ConstellationEvolutionModal: React.FC<ConstellationEvolutionModalPr
         if (Math.abs(dx) + Math.abs(dy) > 4) {
             drag.moved = true;
             // Capture pointer once movement starts so subsequent moves keep
-            // flowing even if cursor leaves the canvas. Children won't be
-            // receiving clicks during a drag anyway, which is what we want.
+            // flowing even if cursor leaves the canvas.
             if (canvasRef.current && !canvasRef.current.hasPointerCapture(e.pointerId)) {
                 try { canvasRef.current.setPointerCapture(e.pointerId); } catch { /* noop */ }
             }
-            setView({ x: drag.viewX + dx, y: drag.viewY + dy, scale: view.scale });
+            // Direct DOM update — zero React re-renders during pan
+            const newView = { x: drag.viewX + dx, y: drag.viewY + dy, scale: viewRef.current.scale };
+            viewRef.current = newView;
+            applyTransform(newView);
         }
     };
 
     const onPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
         if (pinchStateRef.current) {
             pinchStateRef.current.pointers.delete(e.pointerId);
-            if (pinchStateRef.current.pointers.size < 2) pinchStateRef.current = null;
+            if (pinchStateRef.current.pointers.size < 2) {
+                pinchStateRef.current = null;
+                // Commit final pinch state to React (single re-render at gesture end)
+                setView({ ...viewRef.current });
+            }
         }
         if (dragStateRef.current && dragStateRef.current.pointerId === e.pointerId) {
             if (dragStateRef.current.moved) {
@@ -381,6 +410,8 @@ export const ConstellationEvolutionModal: React.FC<ConstellationEvolutionModalPr
                 window.setTimeout(() => { justDraggedRef.current = false; }, 80);
             }
             dragStateRef.current = null;
+            // Commit final pan state to React (single re-render at gesture end)
+            setView({ ...viewRef.current });
         }
         if (canvasRef.current && canvasRef.current.hasPointerCapture(e.pointerId)) {
             try { canvasRef.current.releasePointerCapture(e.pointerId); } catch { /* noop */ }
@@ -1311,12 +1342,13 @@ export const ConstellationEvolutionModal: React.FC<ConstellationEvolutionModalPr
                         </div>
 
                         <div
+                            ref={contentRef}
                             style={{
                                 position: 'absolute',
                                 inset: 0,
                                 transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})`,
                                 transformOrigin: '50% 50%',
-                                transition: dragStateRef.current ? 'none' : 'transform 0.2s cubic-bezier(0.22,1,0.36,1)',
+                                willChange: 'transform',
                             }}
                         >
                     <svg
