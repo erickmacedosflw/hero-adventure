@@ -44,17 +44,31 @@ export const createNormalizedBoneLookup = (boneNames: string[]): Map<string, str
 export const remapClipBindingsToSkeleton = ({
   clips,
   targetModel,
+  customBoneMap = {},
 }: {
   clips: THREE.AnimationClip[];
   targetModel: THREE.Object3D;
+  /** Manual overrides: original source bone name → original target bone name. Takes priority over auto-normalized lookup. */
+  customBoneMap?: Record<string, string>;
 }): THREE.AnimationClip[] => {
   const targetBoneLookup = createNormalizedBoneLookup(collectBoneNames(targetModel));
+
+  // Build a normalized lookup from the custom map so track names (which may
+  // differ in case / separators) are matched the same way as auto-mapping.
+  const customNormalizedLookup = new Map<string, string>();
+  Object.entries(customBoneMap).forEach(([srcBone, tgtBone]) => {
+    customNormalizedLookup.set(normalizeRigName(srcBone), tgtBone);
+  });
 
   return clips.map((clip) => {
     const remappedClip = clip.clone();
     remappedClip.tracks = remappedClip.tracks.map((track) => {
       const bindingTarget = getTrackBindingTargetName(track.name);
-      const remappedBindingTarget = targetBoneLookup.get(normalizeRigName(bindingTarget));
+      const normalizedBinding = normalizeRigName(bindingTarget);
+      // Custom map takes priority over auto-normalized lookup
+      const remappedBindingTarget =
+        customNormalizedLookup.get(normalizedBinding) ??
+        targetBoneLookup.get(normalizedBinding);
 
       if (!remappedBindingTarget || remappedBindingTarget === bindingTarget) {
         return track;

@@ -4,7 +4,8 @@ import { ALL_ITEMS, DUNGEON_BOSS, DUNGEON_ENEMY_DATA, ENEMY_DATA } from '../cons
 import { getRegisteredWeapon3DByItemId, REGISTERED_WEAPON_ITEMS } from '../game/data/weaponCatalog';
 import { getPlayerClassById, PLAYER_CLASSES } from '../game/data/classes';
 import { DungeonBossTemplate, DungeonEnemyTemplate, EnemyTemplate, PlayerAnimationAction, PlayerClassId, Rarity } from '../types';
-import { DeveloperBipedCharacterScene, DeveloperClassBuilderScene, DeveloperGltfMonsterScene, DeveloperKitbashScene, DeveloperMonsterScene, DeveloperScenarioComposerScene, DeveloperWeaponCalibrationScene } from './scene3d/DeveloperSceneAdapters';
+import { DeveloperBipedCharacterScene, DeveloperClassBuilderScene, DeveloperGltfMonsterScene, DeveloperKitbashScene, DeveloperMonsterScene, DeveloperRigRetargetScene, DeveloperScenarioComposerScene, DeveloperWeaponCalibrationScene } from './scene3d/DeveloperSceneAdapters';
+import type { RetargetReport } from './scene3d/developer-scenes';
 import { SpriteAnimationLab } from './SpriteAnimationLab';
 import type {
   DeveloperAnimationRuntimeDiagnostic,
@@ -25,7 +26,7 @@ import type {
 import { ItemPreviewThree } from './items/ItemPreviewThree';
 import { getRuntimeMenuPortalPreset, MENU_NAVIGATION_PORTAL_MODEL_URL, type RuntimeMenuPortalTransform } from '../game/data/runtimeMenuPortal';
 
-type DeveloperTab = 'overview' | 'animation-lab' | 'monster-lab' | 'item-lab' | 'kitbash-lab' | 'sprite-lab' | 'scenario-lab' | 'gltf-monster-viewer' | 'biped-character-viewer';
+type DeveloperTab = 'overview' | 'animation-lab' | 'monster-lab' | 'item-lab' | 'kitbash-lab' | 'sprite-lab' | 'scenario-lab' | 'gltf-monster-viewer' | 'biped-character-viewer' | 'rig-retarget-lab';
 type WeaponCalibrationViewMode = 'sandbox' | 'attached';
 
 const animationActions: PlayerAnimationAction[] = ['idle', 'battle-idle', 'attack', 'defend', 'defend-hit', 'hit', 'critical-hit', 'item', 'heal', 'skill', 'evade', 'death'];
@@ -167,6 +168,51 @@ const BIPED_CHARACTER_CATALOG = [
 ] as const;
 
 const ATLAS_MONSTERS_TEXTURE_URL = new URL('../game/assets/Characters/Monsters/Monsters/Big/Atlas_Monsters.webp', import.meta.url).href;
+
+const RIG_SOURCE_CATALOG: Array<{ id: string; label: string; url: string; isFbx?: boolean }> = [
+  // ── Hero class GLBs (skeleton + animations) ──
+  { id: 'knight',     label: 'Knight',        url: new URL('../game/assets/Characters/gltf/Knight.glb',    import.meta.url).href },
+  { id: 'barbarian',  label: 'Barbarian',     url: new URL('../game/assets/Characters/gltf/Barbarian.glb', import.meta.url).href },
+  { id: 'mage',       label: 'Mage',          url: new URL('../game/assets/Characters/gltf/Mage.glb',      import.meta.url).href },
+  { id: 'ranger',     label: 'Ranger',        url: new URL('../game/assets/Characters/gltf/Ranger.glb',    import.meta.url).href },
+  { id: 'rogue',      label: 'Rogue',         url: new URL('../game/assets/Characters/gltf/Rogue.glb',     import.meta.url).href },
+  { id: 'meshy-anim', label: 'Meshy AI Anims',url: new URL('../game/assets/Characters/Modelos/Exemplo/Meshy_AI_Animacoes.glb', import.meta.url).href },
+  // ── Rig Medium FBX animation bundles ──
+  { id: 'rig-combat-melee',     label: 'RM · Combat Melee',     url: new URL('../game/assets/Characters/Animations/Rig_Medium/Rig_Medium_CombatMelee.fbx',     import.meta.url).href, isFbx: true },
+  { id: 'rig-combat-ranged',    label: 'RM · Combat Ranged',    url: new URL('../game/assets/Characters/Animations/Rig_Medium/Rig_Medium_CombatRanged.fbx',    import.meta.url).href, isFbx: true },
+  { id: 'rig-general',          label: 'RM · General',          url: new URL('../game/assets/Characters/Animations/Rig_Medium/Rig_Medium_General.fbx',          import.meta.url).href, isFbx: true },
+  { id: 'rig-movement-advanced',label: 'RM · Movement Advanced',url: new URL('../game/assets/Characters/Animations/Rig_Medium/Rig_Medium_MovementAdvanced.fbx',  import.meta.url).href, isFbx: true },
+  { id: 'rig-movement-basic',   label: 'RM · Movement Basic',   url: new URL('../game/assets/Characters/Animations/Rig_Medium/Rig_Medium_MovementBasic.fbx',    import.meta.url).href, isFbx: true },
+  { id: 'rig-simulation',       label: 'RM · Simulation',       url: new URL('../game/assets/Characters/Animations/Rig_Medium/Rig_Medium_Simulation.fbx',       import.meta.url).href, isFbx: true },
+  { id: 'rig-special',          label: 'RM · Special',          url: new URL('../game/assets/Characters/Animations/Rig_Medium/Rig_Medium_Special.fbx',          import.meta.url).href, isFbx: true },
+  { id: 'rig-tools',            label: 'RM · Tools',            url: new URL('../game/assets/Characters/Animations/Rig_Medium/Rig_Medium_Tools.fbx',            import.meta.url).href, isFbx: true },
+];
+
+type RigTargetCategory = 'Big' | 'Flying' | 'Blob' | 'Biped' | 'Classes';
+
+/** Hero class FBX models — mesmos arquivos que o jogo usa, garantia de 100% match com Rig_Medium */
+const RIG_CLASS_TARGET_CATALOG: Array<{ id: string; label: string; url: string; isFbx: boolean }> = [
+  { id: 'cls-knight',    label: 'Knight',    url: new URL('../game/assets/Characters/Knight/Knight.fbx',       import.meta.url).href, isFbx: true },
+  { id: 'cls-barbarian', label: 'Barbarian', url: new URL('../game/assets/Characters/Barbarian/Barbarian.fbx', import.meta.url).href, isFbx: true },
+  { id: 'cls-mage',      label: 'Mage',      url: new URL('../game/assets/Characters/Mage/Mage.fbx',           import.meta.url).href, isFbx: true },
+  { id: 'cls-ranger',    label: 'Ranger',    url: new URL('../game/assets/Characters/Ranger/Ranger.fbx',       import.meta.url).href, isFbx: true },
+  { id: 'cls-rogue',     label: 'Rogue',     url: new URL('../game/assets/Characters/Rogue/Rogue.fbx',         import.meta.url).href, isFbx: true },
+];
+
+/** Fuzzy similarity score [0-100] between two bone name strings (normalized). */
+const boneFuzzyScore = (a: string, b: string): number => {
+  const n = (v: string) => v.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const s = n(a);
+  const t = n(b);
+  if (s === t) return 100;
+  if (s.includes(t) || t.includes(s)) return 70;
+  // Compare stems (strip common side suffixes)
+  const stem = (v: string) => v.replace(/(left|right|_l|_r)$/, '').replace(/[lr]$/, '');
+  const ss = stem(s);
+  const ts = stem(t);
+  if (ss.length >= 3 && ts.length >= 3 && (ss === ts || ss.includes(ts) || ts.includes(ss))) return 55;
+  return 0;
+};
 
 const GLTF_MONSTER_CATALOG: Record<GltfMonsterCategory, Array<{ id: string; label: string; url: string }>> = {
   Big: [
@@ -703,6 +749,49 @@ export const DeveloperConsole: React.FC = () => {
   const [bipedClipName, setBipedClipName] = useState<string | undefined>(undefined);
   const [bipedAvailableAnimations, setBipedAvailableAnimations] = useState<string[]>([]);
   const selectedBipedCharacter = BIPED_CHARACTER_CATALOG[bipedCharacterIndex];
+  // ─── Rig Retarget Lab ─────────────────────────────────────────────────────────
+  // Default: RM · Combat Melee (index 6) → Biped Meshy GLBs — os mesmos que o jogo usa
+  const [rigSourceIndex, setRigSourceIndex] = useState(6);
+  const [rigTargetCategory, setRigTargetCategory] = useState<RigTargetCategory>('Biped');
+  const [rigTargetIndex, setRigTargetIndex] = useState(0);
+  const [rigClipName, setRigClipName] = useState<string | undefined>(undefined);
+  const [rigAvailableClips, setRigAvailableClips] = useState<string[]>([]);
+  const [rigShowSkeleton, setRigShowSkeleton] = useState(true);
+  const [rigShowSource, setRigShowSource] = useState(true);
+  const [rigPoseEditMode, setRigPoseEditMode] = useState(false);
+  const [rigReport, setRigReport] = useState<RetargetReport | null>(null);
+  const rigTargetList = useMemo<Array<{ id: string; label: string; url: string; isFbx?: boolean }>>(() => {
+    if (rigTargetCategory === 'Classes') return RIG_CLASS_TARGET_CATALOG;
+    if (rigTargetCategory === 'Biped') return BIPED_CHARACTER_CATALOG.map((c) => ({ id: c.id, label: c.label, url: c.characterUrl }));
+    return GLTF_MONSTER_CATALOG[rigTargetCategory as GltfMonsterCategory] ?? [];
+  }, [rigTargetCategory]);
+  const rigSource = RIG_SOURCE_CATALOG[rigSourceIndex];
+  const rigTarget = rigTargetList[rigTargetIndex] ?? rigTargetList[0];
+  const [rigBoneMap, setRigBoneMap] = useState<Record<string, string>>({});
+  const [rigPendingSource, setRigPendingSource] = useState('');
+  const [rigPendingTarget, setRigPendingTarget] = useState('');
+  // Tracks which source|target combo was already auto-mapped so we don't repeat on every report update
+  const [rigAutoMappedKey, setRigAutoMappedKey] = useState('');
+
+  // Auto-apply fuzzy bone map when the compatibility report first arrives for a new combo
+  useEffect(() => {
+    if (!rigReport || !rigReport.allSourceBones.length || !rigReport.allTargetBones.length) return;
+    const comboKey = (rigSource?.url ?? '') + '|' + (rigTarget?.url ?? '');
+    if (rigAutoMappedKey === comboKey) return; // already handled this combo
+    setRigAutoMappedKey(comboKey);
+
+    const autoMap: Record<string, string> = {};
+    for (const src of rigReport.unmatchedSourceBones) {
+      let bestScore = 0;
+      let bestTarget = '';
+      for (const tgt of rigReport.allTargetBones) {
+        const score = boneFuzzyScore(src, tgt);
+        if (score > bestScore) { bestScore = score; bestTarget = tgt; }
+      }
+      if (bestScore >= 30 && bestTarget) autoMap[src] = bestTarget;
+    }
+    if (Object.keys(autoMap).length > 0) setRigBoneMap(autoMap);
+  }, [rigReport]); // eslint-disable-line react-hooks/exhaustive-deps
   const gltfCategoryList = GLTF_MONSTER_CATALOG[gltfMonsterCategory];
   const selectedGltfMonster = gltfCategoryList[gltfMonsterIndex] ?? gltfCategoryList[0];
   const gltfCurrentAnimMap = GLTF_MONSTER_ANIMATION_MAP[gltfMonsterCategory];
@@ -1273,6 +1362,7 @@ export const DeveloperConsole: React.FC = () => {
     { id: 'monster-lab', label: 'Monstros 3D', icon: <Swords size={16} /> },
     { id: 'gltf-monster-viewer', label: 'Novos Monstros', icon: <Swords size={16} /> },
     { id: 'biped-character-viewer', label: 'Personagens GLB', icon: <Users size={16} /> },
+    { id: 'rig-retarget-lab', label: 'Rig Lab', icon: <Layers3 size={16} /> },
     { id: 'item-lab', label: 'Itens 3D', icon: <Boxes size={16} /> },
     { id: 'kitbash-lab', label: 'Kitbash', icon: <Layers3 size={16} /> },
   ];
@@ -2931,6 +3021,331 @@ export const DeveloperConsole: React.FC = () => {
                   </div>
                 </div>
               </div>
+            </div>
+          </section>
+        )}
+
+        {/* ─── Rig Retarget Lab ───────────────────────────────────────────────── */}
+        {tab === 'rig-retarget-lab' && (
+          <section className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px] xl:items-start">
+            {/* 3D viewport */}
+            <div className="game-surface rounded-[1.75rem] border border-slate-700 p-4 sm:p-5">
+              <div className="mb-4 flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.2em] text-slate-500">
+                <span className="rounded-full border border-slate-400/20 bg-slate-500/10 px-3 py-1 text-slate-200">
+                  {rigSource?.label ?? '—'}
+                </span>
+                <span className="rounded-full border border-slate-700 bg-slate-900/60 px-2 py-1 text-slate-500">→</span>
+                <span className="rounded-full border border-green-400/20 bg-green-500/10 px-3 py-1 text-green-100">
+                  {rigTarget?.label ?? '—'}
+                </span>
+                {rigReport && (
+                  <span className={`rounded-full border px-3 py-1 ${rigReport.matchPercent >= 80 ? 'border-emerald-400/30 bg-emerald-500/10 text-emerald-200' : rigReport.matchPercent >= 50 ? 'border-yellow-400/30 bg-yellow-500/10 text-yellow-200' : 'border-red-400/30 bg-red-500/10 text-red-300'}`}>
+                    {rigReport.matchPercent}% match
+                  </span>
+                )}
+                {rigClipName && (
+                  <span className="rounded-full border border-cyan-400/20 bg-cyan-500/10 px-3 py-1 text-cyan-100">
+                    {rigClipName}
+                  </span>
+                )}
+              </div>
+              <div className="h-[400px] sm:h-[480px] lg:h-[580px] min-[1600px]:h-[680px] rounded-[1.5rem] border border-slate-800 bg-slate-950/60">
+                {rigSource && rigTarget && (
+                  <DeveloperRigRetargetScene
+                    key={rigSource.url + '|' + rigTarget.url}
+                    sourceUrl={rigSource.url}
+                    sourceIsFbx={!!rigSource.isFbx}
+                    targetUrl={rigTarget.url}
+                    targetIsFbx={!!rigTarget?.isFbx}
+                    clipName={rigClipName}
+                    showSkeleton={rigShowSkeleton}
+                    showSourceModel={rigShowSource}
+                    poseEditMode={rigPoseEditMode}
+                    customBoneMap={rigBoneMap}
+                    onClipsLoaded={(names) => {
+                      setRigAvailableClips(names);
+                      setRigClipName(names[0]);
+                    }}
+                    onReportReady={setRigReport}
+                  />
+                )}
+              </div>
+            </div>
+
+            {/* Controls sidebar */}
+            <div className="game-surface rounded-[1.75rem] border border-slate-700 p-5 sm:p-6 xl:sticky xl:top-6 space-y-5">
+              <div>
+                <h2 className="font-gamer text-2xl font-black text-white">Rig Retarget Lab</h2>
+                <p className="mt-2 text-sm text-slate-400">
+                  Visualize esqueletos e teste retargeting de animações entre modelos GLB. A fonte fornece o esqueleto e as animações; o alvo recebe as animações remapeadas pelos nomes de osso.
+                </p>
+              </div>
+
+              {/* Source selector */}
+              <div>
+                <div className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-500 mb-2">Fonte (esqueleto + animações)</div>
+                <div className="grid grid-cols-2 gap-2">
+                  {RIG_SOURCE_CATALOG.map((src, idx) => (
+                    <button
+                      key={src.id}
+                      onClick={() => { setRigSourceIndex(idx); setRigClipName(undefined); setRigAvailableClips([]); setRigReport(null); setRigBoneMap({}); setRigPendingSource(''); setRigPendingTarget(''); setRigAutoMappedKey(''); }}
+                      className={`rounded-xl border px-3 py-2.5 text-xs font-black uppercase tracking-[0.14em] transition-colors ${rigSourceIndex === idx ? 'border-slate-400/40 bg-slate-500/15 text-slate-100' : 'border-slate-700 bg-slate-950/70 text-slate-400 hover:border-slate-500 hover:text-slate-200'}`}
+                    >
+                      {src.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Target category tabs */}
+              <div>
+                <div className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-500 mb-2">Alvo (recebe animação)</div>
+                <div className="flex gap-1.5 mb-3">
+                  {(['Classes', 'Big', 'Flying', 'Blob', 'Biped'] as RigTargetCategory[]).map((cat) => (
+                    <button
+                      key={cat}
+                      onClick={() => { setRigTargetCategory(cat); setRigTargetIndex(0); setRigClipName(undefined); setRigAvailableClips([]); setRigReport(null); setRigBoneMap({}); setRigPendingSource(''); setRigPendingTarget(''); setRigAutoMappedKey(''); }}
+                      className={`flex-1 rounded-lg border py-1.5 text-[10px] font-black uppercase tracking-[0.14em] transition-colors ${rigTargetCategory === cat ? 'border-green-400/40 bg-green-500/15 text-green-100' : 'border-slate-700 bg-slate-950/70 text-slate-500 hover:border-slate-600 hover:text-slate-300'}`}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+                <div className="grid grid-cols-2 gap-1.5 max-h-48 overflow-y-auto pr-1">
+                  {rigTargetList.map((entry, idx) => (
+                    <button
+                      key={entry.id}
+                      onClick={() => { setRigTargetIndex(idx); setRigClipName(undefined); setRigAvailableClips([]); setRigReport(null); setRigBoneMap({}); setRigPendingSource(''); setRigPendingTarget(''); setRigAutoMappedKey(''); }}
+                      className={`rounded-xl border px-3 py-2 text-[11px] font-black uppercase tracking-[0.12em] transition-colors ${rigTargetIndex === idx ? 'border-green-400/40 bg-green-500/15 text-green-100' : 'border-slate-700 bg-slate-950/70 text-slate-400 hover:border-slate-500 hover:text-slate-200'}`}
+                    >
+                      {entry.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Options */}
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setRigShowSkeleton((v) => !v)}
+                  className={`flex-1 rounded-xl border py-2.5 text-[11px] font-black uppercase tracking-[0.14em] transition-colors ${rigShowSkeleton ? 'border-yellow-400/40 bg-yellow-500/15 text-yellow-100' : 'border-slate-700 bg-slate-950/70 text-slate-400 hover:border-slate-500 hover:text-slate-200'}`}
+                >
+                  {rigShowSkeleton ? '⬡ Skeleton ON' : '⬡ Skeleton OFF'}
+                </button>
+                <button
+                  onClick={() => setRigShowSource((v) => !v)}
+                  className={`flex-1 rounded-xl border py-2.5 text-[11px] font-black uppercase tracking-[0.14em] transition-colors ${rigShowSource ? 'border-slate-400/40 bg-slate-500/15 text-slate-100' : 'border-slate-700 bg-slate-950/70 text-slate-400 hover:border-slate-500 hover:text-slate-200'}`}
+                >
+                  {rigShowSource ? '◈ Fonte ON' : '◈ Fonte OFF'}
+                </button>
+              </div>
+              <button
+                onClick={() => setRigPoseEditMode((v) => !v)}
+                className={`w-full rounded-xl border py-2.5 text-[11px] font-black uppercase tracking-[0.14em] transition-colors ${rigPoseEditMode ? 'border-orange-400/50 bg-orange-500/15 text-orange-200' : 'border-slate-700 bg-slate-950/70 text-slate-400 hover:border-slate-500 hover:text-slate-200'}`}
+              >
+                {rigPoseEditMode ? '✦ Pose Edit ATIVO — clique em um osso no 3D' : '✦ Pose Edit — editar ossos no viewport'}
+              </button>
+
+              {/* Rig Compatibility Report */}
+              {rigReport && (
+                <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4 space-y-3">
+                  <div className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-500">Compatibilidade de Rig</div>
+                  <div className="grid grid-cols-3 gap-2 text-center">
+                    <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-2">
+                      <div className="text-xl font-black text-slate-200">{rigReport.sourceBoneCount}</div>
+                      <div className="text-[9px] uppercase tracking-widest text-slate-500">ossos fonte</div>
+                    </div>
+                    <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-2">
+                      <div className="text-xl font-black text-slate-200">{rigReport.targetBoneCount}</div>
+                      <div className="text-[9px] uppercase tracking-widest text-slate-500">ossos alvo</div>
+                    </div>
+                    <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-2">
+                      <div className={`text-xl font-black ${rigReport.matchPercent >= 80 ? 'text-emerald-300' : rigReport.matchPercent >= 50 ? 'text-yellow-300' : 'text-red-400'}`}>{rigReport.matchPercent}%</div>
+                      <div className="text-[9px] uppercase tracking-widest text-slate-500">match</div>
+                    </div>
+                  </div>
+                  {/* Match bar */}
+                  <div className="h-2 w-full overflow-hidden rounded-full bg-slate-800">
+                    <div
+                      className={`h-full rounded-full transition-all ${rigReport.matchPercent >= 80 ? 'bg-emerald-500' : rigReport.matchPercent >= 50 ? 'bg-yellow-500' : 'bg-red-500'}`}
+                      style={{ width: `${rigReport.matchPercent}%` }}
+                    />
+                  </div>
+                  <div className="text-[10px] text-slate-400">
+                    <span className="font-semibold text-slate-200">{rigReport.matchedBones}</span> ossos mapeados ·{' '}
+                    <span className="font-semibold text-slate-200">{rigReport.sourceClipCount}</span> clips na fonte ·{' '}
+                    animações: <span className={`font-semibold ${rigReport.animationSource === 'source' ? 'text-cyan-300' : rigReport.animationSource === 'target' ? 'text-yellow-300' : 'text-slate-500'}`}>
+                      {rigReport.animationSource === 'source' ? 'retargetadas' : rigReport.animationSource === 'target' ? 'próprias do alvo' : 'nenhuma'}
+                    </span>
+                  </div>
+                  {rigReport.unmatchedSourceBones.length > 0 && (
+                    <div className="text-[10px] text-red-400/80">
+                      <span className="font-semibold">{rigReport.unmatchedSourceBones.length}</span> ossos fonte sem par — mapeie manualmente abaixo
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ── Bone Mapping ──────────────────────────────────────── */}
+              {rigReport && (
+                <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-500">
+                      Mapeamento de Ossos
+                      {Object.keys(rigBoneMap).length > 0 && (
+                        <span className="ml-2 rounded-full bg-cyan-500/20 px-2 py-0.5 text-[9px] text-cyan-300">{Object.keys(rigBoneMap).length}</span>
+                      )}
+                    </div>
+                    <div className="flex gap-1.5">
+                      {rigReport.unmatchedSourceBones.length > 0 && (
+                        <button
+                          onClick={() => {
+                            if (!rigReport.allTargetBones) return;
+                            const newMap: Record<string, string> = { ...rigBoneMap };
+                            const usedTargets = new Set(Object.values(newMap));
+                            rigReport.unmatchedSourceBones.forEach((srcBone) => {
+                              if (newMap[srcBone]) return;
+                              let bestScore = 30;
+                              let bestTarget = '';
+                              rigReport.allTargetBones.forEach((tgtBone) => {
+                                if (usedTargets.has(tgtBone)) return;
+                                const sc = boneFuzzyScore(srcBone, tgtBone);
+                                if (sc > bestScore) { bestScore = sc; bestTarget = tgtBone; }
+                              });
+                              if (bestTarget) { newMap[srcBone] = bestTarget; usedTargets.add(bestTarget); }
+                            });
+                            setRigBoneMap(newMap);
+                            setRigClipName(undefined);
+                          }}
+                          className="rounded-lg border border-yellow-400/20 bg-yellow-500/10 px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.14em] text-yellow-200 transition-colors hover:border-yellow-400/40"
+                        >
+                          Auto-map
+                        </button>
+                      )}
+                      {Object.keys(rigBoneMap).length > 0 && (
+                        <button
+                          onClick={() => { setRigBoneMap({}); setRigClipName(undefined); }}
+                          className="rounded-lg border border-red-400/20 bg-red-500/10 px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.14em] text-red-300 transition-colors hover:border-red-400/40"
+                        >
+                          Limpar
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Existing manual mappings */}
+                  {Object.entries(rigBoneMap).length > 0 && (
+                    <div className="max-h-36 overflow-y-auto space-y-1 pr-1">
+                      {Object.entries(rigBoneMap).map(([src, tgt]) => (
+                        <div key={src} className="flex items-center gap-1.5 rounded-lg border border-cyan-400/15 bg-cyan-500/8 px-2 py-1">
+                          <span className="flex-1 truncate font-mono text-[10px] text-cyan-200">{src}</span>
+                          <span className="shrink-0 text-[10px] text-slate-600">→</span>
+                          <span className="flex-1 truncate font-mono text-[10px] text-green-200">{tgt}</span>
+                          <button
+                            onClick={() => {
+                              const m = { ...rigBoneMap };
+                              delete m[src];
+                              setRigBoneMap(m);
+                              setRigClipName(undefined);
+                            }}
+                            className="shrink-0 rounded px-1 text-[11px] text-slate-500 hover:text-red-400"
+                          >×</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Add mapping form */}
+                  <div className="space-y-2">
+                    <div className="text-[9px] uppercase tracking-widest text-slate-600">Adicionar mapeamento</div>
+                    <div className="flex gap-1.5 items-center">
+                      <select
+                        value={rigPendingSource}
+                        onChange={(e) => setRigPendingSource(e.target.value)}
+                        className="min-w-0 flex-1 rounded-lg border border-slate-700 bg-slate-900 px-2 py-1.5 text-[10px] text-slate-200 focus:border-slate-500 focus:outline-none"
+                      >
+                        <option value="">Osso fonte…</option>
+                        {(rigReport.allSourceBones ?? []).map((b) => (
+                          <option key={b} value={b}>{b}</option>
+                        ))}
+                      </select>
+                      <span className="shrink-0 text-[11px] text-slate-600">→</span>
+                      <select
+                        value={rigPendingTarget}
+                        onChange={(e) => setRigPendingTarget(e.target.value)}
+                        className="min-w-0 flex-1 rounded-lg border border-slate-700 bg-slate-900 px-2 py-1.5 text-[10px] text-slate-200 focus:border-slate-500 focus:outline-none"
+                      >
+                        <option value="">Osso alvo…</option>
+                        {(rigReport.allTargetBones ?? []).map((b) => (
+                          <option key={b} value={b}>{b}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <button
+                      disabled={!rigPendingSource || !rigPendingTarget}
+                      onClick={() => {
+                        if (!rigPendingSource || !rigPendingTarget) return;
+                        setRigBoneMap((prev) => ({ ...prev, [rigPendingSource]: rigPendingTarget }));
+                        setRigPendingSource('');
+                        setRigPendingTarget('');
+                        setRigClipName(undefined);
+                      }}
+                      className="w-full rounded-lg border border-green-400/20 bg-green-500/10 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-green-100 transition-colors hover:border-green-400/40 hover:bg-green-500/20 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      Mapear
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Clip list */}
+              {rigAvailableClips.length > 0 && (
+                <div>
+                  <div className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-500 mb-2">
+                    Clips ({rigAvailableClips.length})
+                  </div>
+                  <div className="max-h-56 overflow-y-auto space-y-1 pr-1">
+                    {rigAvailableClips.map((clip) => (
+                      <button
+                        key={clip}
+                        onClick={() => setRigClipName(clip)}
+                        className={`w-full rounded-xl border px-3 py-2 text-left text-[11px] font-semibold transition-colors ${rigClipName === clip ? 'border-cyan-400/40 bg-cyan-500/15 text-cyan-100' : 'border-slate-700 bg-slate-950/60 text-slate-400 hover:border-slate-500 hover:text-slate-200'}`}
+                      >
+                        {clip}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Export bone map */}
+              {rigReport && (
+                <button
+                  onClick={() => {
+                    const payload = {
+                      sourceModel: rigSource?.label,
+                      targetModel: rigTarget?.label,
+                      matchPercent: rigReport.matchPercent,
+                      matchedBones: rigReport.matchedBones,
+                      sourceBoneCount: rigReport.sourceBoneCount,
+                      targetBoneCount: rigReport.targetBoneCount,
+                      manualBoneMap: rigBoneMap,
+                      unmatchedSourceBones: rigReport.unmatchedSourceBones,
+                      unmatchedTargetBones: rigReport.unmatchedTargetBones,
+                    };
+                    navigator.clipboard.writeText(JSON.stringify(payload, null, 2)).catch(() => {});
+                  }}
+                  className="w-full rounded-xl border border-cyan-400/20 bg-cyan-500/10 py-2.5 text-[11px] font-black uppercase tracking-[0.16em] text-cyan-100 transition-colors hover:border-cyan-400/40 hover:bg-cyan-500/20"
+                >
+                  Copiar relatório JSON
+                </button>
+              )}
+
+              {rigAvailableClips.length === 0 && !rigReport && (
+                <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4 text-center text-sm text-slate-500">
+                  Selecione fonte e alvo para iniciar o retarget
+                </div>
+              )}
             </div>
           </section>
         )}

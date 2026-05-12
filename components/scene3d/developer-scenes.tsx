@@ -23,6 +23,10 @@ import {
   RuntimeHeroAssets,
   RIGHT_HAND_BONE_CANDIDATES,
   hasRuntimeFbxAssets,
+  collectBoneNames,
+  createNormalizedBoneLookup,
+  normalizeRigName,
+  remapClipBindingsToSkeleton,
 } from './animation';
 import {
   DeveloperClassBuilderProbe,
@@ -2101,6 +2105,788 @@ export const DeveloperBipedCharacterSceneRenderer: React.FC<DeveloperBipedCharac
 
         <ContactShadows position={[0, -1.09, 0]} opacity={0.45} scale={6} blur={1.8} far={0.5} resolution={quality.contactShadowResolution} />
         <OrbitControls enablePan={false} minDistance={2} maxDistance={14} target={[0, 0.5, 0]} />
+      </Canvas>
+    </div>
+  );
+};
+
+// ─── Rig Retarget Lab ─────────────────────────────────────────────────────────
+
+export interface RetargetReport {
+  sourceBoneCount: number;
+  targetBoneCount: number;
+  matchedBones: number;
+  matchPercent: number;
+  unmatchedSourceBones: string[];
+  unmatchedTargetBones: string[];
+  sourceClipCount: number;
+  animationSource: 'source' | 'target' | 'none';
+  /** All original bone names in the source model */
+  allSourceBones: string[];
+  /** All original bone names in the target model */
+  allTargetBones: string[];
+}
+
+export interface DeveloperRigRetargetSceneProps {
+  /** URL to the source GLB (hero class or animation bundle — provides skeleton + optional animations) */
+  sourceUrl: string;
+  /** URL to the target GLB (monster / biped — receives retargeted animations) */
+  targetUrl: string;
+  /** Clip name to play on the target. undefined = auto-play first available */
+  clipName?: string;
+  /** Show THREE.SkeletonHelper wireframe on both models */
+  showSkeleton?: boolean;
+  /** Show the source model as a ghost on the left */
+  showSourceModel?: boolean;
+  /** Called once clip names are resolved for the target */
+  onClipsLoaded?: (names: string[]) => void;
+  /** Called once the rig comparison report is ready */
+  onReportReady?: (report: RetargetReport) => void;
+  /** Manual bone name overrides: original source bone name → original target bone name */
+  customBoneMap?: Record<string, string>;
+  /** True when sourceUrl points to a FBX animation bundle instead of a GLB */
+  sourceIsFbx?: boolean;
+  /** True when targetUrl points to a FBX character model (hero class) instead of a GLB/GLTF */
+  targetIsFbx?: boolean;
+  /** Enable click-to-select bone + TransformControls gizmo in viewport */
+  poseEditMode?: boolean;
+}
+
+// ── Shared inner-props type for both GLB and FBX core renderers ──────────────
+type RigRetargetCoreProps = {
+  sourceUrl: string;
+  targetUrl: string;
+  clipName?: string;
+  showSkeleton: boolean;
+  showSourceModel: boolean;
+  customBoneMap: Record<string, string>;
+  onClipsLoaded?: (names: string[]) => void;
+  onReportReady?: (report: RetargetReport) => void;
+  /** Injected by router so cores can read it if needed */
+  targetIsFbx?: boolean;
+  /** Enable click-to-select bone + TransformControls gizmo */
+  poseEditMode?: boolean;
+};
+
+// ── Bone pose editor helpers ──────────────────────────────────────────────────
+
+/** Small sphere that follows a bone's world position every frame. Clickable to select. */
+const BoneMarker: React.FC<{
+  bone: THREE.Bone;
+  selected: boolean;
+  onSelect: () => void;
+}> = ({ bone, selected, onSelect }) => {
+  const ref = useRef<THREE.Mesh>(null!);
+  const pos = useRef(new THREE.Vector3());
+  useFrame(() => {
+    if (ref.current) {
+      bone.getWorldPosition(pos.current);
+      ref.current.position.copy(pos.current);
+    }
+  });
+  return (
+    <mesh ref={ref} onClick={(e) => { e.stopPropagation(); onSelect(); }} renderOrder={999}>
+      <sphereGeometry args={[0.032, 8, 8]} />
+      <meshBasicMaterial
+        color={selected ? '#facc15' : '#22d3ee'}
+        transparent
+        opacity={selected ? 1.0 : 0.72}
+        depthTest={false}
+      />
+    </mesh>
+  );
+};
+
+/**
+ * Renders clickable bone markers over the target model and attaches TransformControls
+ * to the selected bone. Requires OrbitControls to have makeDefault={true} so it can be
+ * disabled while dragging a gizmo.
+ */
+const BonePoseEditor: React.FC<{
+  targetClone: THREE.Group;
+  targetOffsetY: number;
+}> = ({ targetClone, targetOffsetY }) => {
+  const { controls } = useThree() as any;
+  const [selectedBone, setSelectedBone] = useState<THREE.Bone | null>(null);
+  const [mode, setMode] = useState<'rotate' | 'translate'>('rotate');
+
+  const bones = useMemo(() => {
+    const result: THREE.Bone[] = [];
+    targetClone.traverse((node) => {
+      if ((node as THREE.Bone).isBone) result.push(node as THREE.Bone);
+    });
+    return result;
+  }, [targetClone]);
+
+  // Bone name label next to selected bone
+  const selectedPos = useMemo(() => new THREE.Vector3(), []);
+
+  useFrame(() => {
+    if (selectedBone) selectedBone.getWorldPosition(selectedPos);
+  });
+
+  const handleTransformMouseDown = () => { if (controls) controls.enabled = false; };
+  const handleTransformMouseUp   = () => { if (controls) controls.enabled = true; };
+
+  return (
+    <>
+      {/* Mode toggle chip — rendered via Html so it stays in 3D space */}
+      <Html position={[2.0, 2.6, 0]} center>
+        <div className="flex gap-1 rounded-full border border-yellow-400/40 bg-slate-950/90 px-2 py-1">
+          {(['rotate', 'translate'] as const).map((m) => (
+            <button
+              key={m}
+              onClick={() => setMode(m)}
+              className={`rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.15em] transition-colors ${mode === m ? 'bg-yellow-400 text-slate-900' : 'text-slate-400 hover:text-slate-200'}`}
+            >
+              {m === 'rotate' ? 'Rot' : 'Pos'}
+            </button>
+          ))}
+          {selectedBone && (
+            <span className="ml-1 rounded-full bg-yellow-400/15 px-2 py-0.5 text-[9px] font-black text-yellow-300 max-w-[120px] truncate">
+              {selectedBone.name}
+            </span>
+          )}
+          {selectedBone && (
+            <button
+              onClick={() => setSelectedBone(null)}
+              className="ml-1 text-[9px] text-slate-500 hover:text-red-400"
+            >×</button>
+          )}
+        </div>
+      </Html>
+
+      {/* Bone markers — only over the target (right side, offset matches group position) */}
+      {bones.map((bone) => (
+        <BoneMarker
+          key={bone.uuid}
+          bone={bone}
+          selected={selectedBone === bone}
+          onSelect={() => setSelectedBone((prev) => prev === bone ? null : bone)}
+        />
+      ))}
+
+      {/* Gizmo on selected bone */}
+      {selectedBone && (
+        <TransformControls
+          object={selectedBone}
+          mode={mode}
+          size={0.55}
+          onMouseDown={handleTransformMouseDown}
+          onMouseUp={handleTransformMouseUp}
+        />
+      )}
+    </>
+  );
+};
+
+// ── GLB source core ───────────────────────────────────────────────────────────
+const RigRetargetModelGLBCore: React.FC<RigRetargetCoreProps> = ({ sourceUrl, targetUrl, clipName, showSkeleton, showSourceModel, customBoneMap, poseEditMode, onClipsLoaded, onReportReady }) => {
+  const sourceGltf = useLoader(GLTFLoader, sourceUrl, configureGltfLoader) as any;
+  const targetGltf = useLoader(GLTFLoader, targetUrl, configureGltfLoader) as any;
+
+  const targetGroupRef = useRef<THREE.Group>(null!);
+  const sourceGroupRef = useRef<THREE.Group>(null!);
+
+  // Clone both scenes for independent bone instances
+  const { sourceClone, targetClone, sourceOffsetY, targetOffsetY } = useMemo(() => {
+    const src = SkeletonUtils.clone(sourceGltf.scene) as THREE.Group;
+    src.traverse((node: any) => {
+      if (node.isMesh) {
+        node.frustumCulled = false;
+        // Ghost material — semi-transparent blue tint
+        const mats = Array.isArray(node.material) ? node.material : [node.material];
+        node.material = mats.map((mat: THREE.Material) => {
+          const m = (mat as THREE.MeshStandardMaterial).clone();
+          m.transparent = true;
+          m.opacity = 0.38;
+          m.color = new THREE.Color(0x93c5fd);
+          return m;
+        });
+        if (!Array.isArray(node.material)) node.material = (node.material as THREE.Material[])[0];
+      }
+    });
+
+    const tgt = SkeletonUtils.clone(targetGltf.scene) as THREE.Group;
+    tgt.traverse((node: any) => {
+      if (node.isMesh) {
+        node.castShadow = true;
+        node.receiveShadow = true;
+        node.frustumCulled = false;
+      }
+    });
+
+    const srcBox = new THREE.Box3().setFromObject(src);
+    const tgtBox = new THREE.Box3().setFromObject(tgt);
+    return {
+      sourceClone: src,
+      targetClone: tgt,
+      sourceOffsetY: !srcBox.isEmpty() && isFinite(srcBox.min.y) ? -srcBox.min.y : 0,
+      targetOffsetY: !tgtBox.isEmpty() && isFinite(tgtBox.min.y) ? -tgtBox.min.y : 0,
+    };
+  }, [sourceGltf.scene, targetGltf.scene]);
+
+  // Remap source animations to target skeleton bones; fall back to target's own clips.
+  // customBoneMap identity is stable (useState from parent) — only changes when user edits mapping.
+  const allClips = useMemo(() => {
+    const srcClips: THREE.AnimationClip[] = sourceGltf.animations ?? [];
+    const tgtClips: THREE.AnimationClip[] = targetGltf.animations ?? [];
+    if (srcClips.length > 0) {
+      return remapClipBindingsToSkeleton({ clips: srcClips, targetModel: targetClone, customBoneMap });
+    }
+    return tgtClips;
+  }, [sourceGltf.animations, targetGltf.animations, targetClone, customBoneMap]);
+
+  // Target mixer — plays retargeted (or own) clips
+  const { names, actions } = useAnimations(allClips, targetGroupRef);
+
+  // Source mixer — plays source's own clips as a visual reference on the ghost
+  const { names: srcNames, actions: srcActions } = useAnimations(sourceGltf.animations ?? [], sourceGroupRef);
+
+  // SkeletonHelpers
+  const sourceHelper = useMemo(() => new THREE.SkeletonHelper(sourceClone), [sourceClone]);
+  const targetHelper = useMemo(() => new THREE.SkeletonHelper(targetClone), [targetClone]);
+
+  // Report available clip names
+  const reportedNamesRef = useRef('');
+  useEffect(() => {
+    const joined = names.join('|');
+    if (joined !== reportedNamesRef.current) {
+      reportedNamesRef.current = joined;
+      onClipsLoaded?.(names);
+    }
+  }, [names, onClipsLoaded]);
+
+  // Compute rig comparison report (factors in customBoneMap)
+  const reportKeyRef = useRef('');
+  useEffect(() => {
+    const key = `${sourceUrl}|${targetUrl}|${JSON.stringify(customBoneMap)}`;
+    if (key === reportKeyRef.current) return;
+    reportKeyRef.current = key;
+
+    const srcBones = collectBoneNames(sourceClone);
+    const tgtBones = collectBoneNames(targetClone);
+    const tgtLookup = createNormalizedBoneLookup(tgtBones);
+    const srcLookup = createNormalizedBoneLookup(srcBones);
+
+    // Build normalized lookup from custom overrides
+    const customNorm = new Map<string, string>();
+    Object.entries(customBoneMap).forEach(([s, t]) => customNorm.set(normalizeRigName(s), t));
+
+    const matched = srcBones.filter((b) => {
+      const n = normalizeRigName(b);
+      return customNorm.has(n) || tgtLookup.has(n);
+    });
+    const unmatchedSrc = srcBones.filter((b) => {
+      const n = normalizeRigName(b);
+      return !customNorm.has(n) && !tgtLookup.has(n);
+    });
+    const mappedTgtNames = new Set([
+      ...tgtBones.filter((b) => srcLookup.has(normalizeRigName(b))),
+      ...Object.values(customBoneMap),
+    ]);
+    const unmatchedTgt = tgtBones.filter((b) => !mappedTgtNames.has(b));
+    const matchPct = srcBones.length > 0 ? Math.round((matched.length / srcBones.length) * 100) : 0;
+    const srcClipCount = (sourceGltf.animations ?? []).length;
+
+    onReportReady?.({
+      sourceBoneCount: srcBones.length,
+      targetBoneCount: tgtBones.length,
+      matchedBones: matched.length,
+      matchPercent: matchPct,
+      unmatchedSourceBones: unmatchedSrc,
+      unmatchedTargetBones: unmatchedTgt,
+      sourceClipCount: srcClipCount,
+      animationSource: srcClipCount > 0 ? 'source' : tgtBones.length > 0 ? 'target' : 'none',
+      allSourceBones: srcBones,
+      allTargetBones: tgtBones,
+    });
+  }, [sourceUrl, targetUrl, sourceClone, targetClone, sourceGltf.animations, customBoneMap, onReportReady]);
+
+  // Play selected clip on target
+  useEffect(() => {
+    if (!names.length || !Object.keys(actions).length) return;
+    Object.values(actions).forEach((a) => { try { a?.stop(); } catch (_) {} });
+    const name = clipName ?? names[0];
+    if (name && actions[name]) {
+      actions[name]!.reset().setLoop(THREE.LoopRepeat, Infinity).play();
+    }
+  }, [actions, clipName, names]);
+
+  // Play first clip on source ghost for visual reference
+  useEffect(() => {
+    if (!srcNames.length || !Object.keys(srcActions).length) return;
+    Object.values(srcActions).forEach((a) => { try { a?.stop(); } catch (_) {} });
+    const first = srcNames[0];
+    if (first && srcActions[first]) {
+      srcActions[first]!.reset().setLoop(THREE.LoopRepeat, Infinity).play();
+    }
+  }, [srcActions, srcNames]);
+
+  return (
+    <>
+      {/* Source ghost — left */}
+      <group position={[-2.0, -1.1 + sourceOffsetY, 0]} visible={showSourceModel}>
+        <primitive ref={sourceGroupRef} object={sourceClone} />
+        {showSkeleton && <primitive object={sourceHelper} />}
+      </group>
+
+      {/* Target — right */}
+      <group position={[2.0, -1.1 + targetOffsetY, 0]}>
+        <primitive ref={targetGroupRef} object={targetClone} />
+        {showSkeleton && <primitive object={targetHelper} />}
+      </group>
+      {poseEditMode && <BonePoseEditor targetClone={targetClone} targetOffsetY={targetOffsetY} />}
+    </>
+  );
+};
+
+// ── FBX source core ───────────────────────────────────────────────────────────
+// Identical logic to GLBCore but source is loaded via FBXLoader.
+// FBX returns a THREE.Group directly (not {scene, animations}).
+const RigRetargetModelFBXCore: React.FC<RigRetargetCoreProps> = ({ sourceUrl, targetUrl, clipName, showSkeleton, showSourceModel, customBoneMap, poseEditMode, onClipsLoaded, onReportReady }) => {
+  // FBX: the loaded object IS the root group; .animations lives on it directly
+  const sourceFbx = useLoader(FBXLoader, sourceUrl, configureFBXLoader) as THREE.Group;
+  const targetGltf = useLoader(GLTFLoader, targetUrl, configureGltfLoader) as any;
+
+  const targetGroupRef = useRef<THREE.Group>(null!);
+  const sourceGroupRef = useRef<THREE.Group>(null!);
+
+  const { sourceClone, targetClone, sourceOffsetY, targetOffsetY } = useMemo(() => {
+    const src = SkeletonUtils.clone(sourceFbx) as THREE.Group;
+    src.traverse((node: any) => {
+      if (node.isMesh) {
+        node.frustumCulled = false;
+        const mats = Array.isArray(node.material) ? node.material : [node.material];
+        node.material = mats.map((mat: THREE.Material) => {
+          const m = (mat as THREE.MeshStandardMaterial).clone();
+          m.transparent = true;
+          m.opacity = 0.38;
+          m.color = new THREE.Color(0x93c5fd);
+          return m;
+        });
+        if (!Array.isArray(node.material)) node.material = (node.material as THREE.Material[])[0];
+      }
+    });
+    const tgt = SkeletonUtils.clone(targetGltf.scene) as THREE.Group;
+    tgt.traverse((node: any) => {
+      if (node.isMesh) {
+        node.castShadow = true;
+        node.receiveShadow = true;
+        node.frustumCulled = false;
+      }
+    });
+    const srcBox = new THREE.Box3().setFromObject(src);
+    const tgtBox = new THREE.Box3().setFromObject(tgt);
+    return {
+      sourceClone: src,
+      targetClone: tgt,
+      sourceOffsetY: !srcBox.isEmpty() && isFinite(srcBox.min.y) ? -srcBox.min.y : 0,
+      targetOffsetY: !tgtBox.isEmpty() && isFinite(tgtBox.min.y) ? -tgtBox.min.y : 0,
+    };
+  }, [sourceFbx, targetGltf.scene]);
+
+  const allClips = useMemo(() => {
+    const srcClips: THREE.AnimationClip[] = (sourceFbx as any).animations ?? [];
+    const tgtClips: THREE.AnimationClip[] = targetGltf.animations ?? [];
+    if (srcClips.length > 0) {
+      return remapClipBindingsToSkeleton({ clips: srcClips, targetModel: targetClone, customBoneMap });
+    }
+    return tgtClips;
+  }, [(sourceFbx as any).animations, targetGltf.animations, targetClone, customBoneMap]);
+
+  const { names, actions } = useAnimations(allClips, targetGroupRef);
+  const { names: srcNames, actions: srcActions } = useAnimations((sourceFbx as any).animations ?? [], sourceGroupRef);
+
+  const sourceHelper = useMemo(() => new THREE.SkeletonHelper(sourceClone), [sourceClone]);
+  const targetHelper = useMemo(() => new THREE.SkeletonHelper(targetClone), [targetClone]);
+
+  const reportedNamesRef = useRef('');
+  useEffect(() => {
+    const joined = names.join('|');
+    if (joined !== reportedNamesRef.current) {
+      reportedNamesRef.current = joined;
+      onClipsLoaded?.(names);
+    }
+  }, [names, onClipsLoaded]);
+
+  const reportKeyRef = useRef('');
+  useEffect(() => {
+    const key = `${sourceUrl}|${targetUrl}|${JSON.stringify(customBoneMap)}`;
+    if (key === reportKeyRef.current) return;
+    reportKeyRef.current = key;
+    const srcBones = collectBoneNames(sourceClone);
+    const tgtBones = collectBoneNames(targetClone);
+    const tgtLookup = createNormalizedBoneLookup(tgtBones);
+    const srcLookup = createNormalizedBoneLookup(srcBones);
+    const customNorm = new Map<string, string>();
+    Object.entries(customBoneMap).forEach(([s, t]) => customNorm.set(normalizeRigName(s), t));
+    const matched = srcBones.filter((b) => { const n = normalizeRigName(b); return customNorm.has(n) || tgtLookup.has(n); });
+    const unmatchedSrc = srcBones.filter((b) => { const n = normalizeRigName(b); return !customNorm.has(n) && !tgtLookup.has(n); });
+    const mappedTgtNames = new Set([
+      ...tgtBones.filter((b) => srcLookup.has(normalizeRigName(b))),
+      ...Object.values(customBoneMap),
+    ]);
+    const unmatchedTgt = tgtBones.filter((b) => !mappedTgtNames.has(b));
+    const matchPct = srcBones.length > 0 ? Math.round((matched.length / srcBones.length) * 100) : 0;
+    const srcClipCount = ((sourceFbx as any).animations ?? []).length;
+    onReportReady?.({
+      sourceBoneCount: srcBones.length,
+      targetBoneCount: tgtBones.length,
+      matchedBones: matched.length,
+      matchPercent: matchPct,
+      unmatchedSourceBones: unmatchedSrc,
+      unmatchedTargetBones: unmatchedTgt,
+      sourceClipCount: srcClipCount,
+      animationSource: srcClipCount > 0 ? 'source' : tgtBones.length > 0 ? 'target' : 'none',
+      allSourceBones: srcBones,
+      allTargetBones: tgtBones,
+    });
+  }, [sourceUrl, targetUrl, sourceClone, targetClone, (sourceFbx as any).animations, customBoneMap, onReportReady]);
+
+  useEffect(() => {
+    if (!names.length || !Object.keys(actions).length) return;
+    Object.values(actions).forEach((a) => { try { a?.stop(); } catch (_) {} });
+    const name = clipName ?? names[0];
+    if (name && actions[name]) actions[name]!.reset().setLoop(THREE.LoopRepeat, Infinity).play();
+  }, [actions, clipName, names]);
+
+  useEffect(() => {
+    if (!srcNames.length || !Object.keys(srcActions).length) return;
+    Object.values(srcActions).forEach((a) => { try { a?.stop(); } catch (_) {} });
+    const first = srcNames[0];
+    if (first && srcActions[first]) srcActions[first]!.reset().setLoop(THREE.LoopRepeat, Infinity).play();
+  }, [srcActions, srcNames]);
+
+  return (
+    <>
+      <group position={[-2.0, -1.1 + sourceOffsetY, 0]} visible={showSourceModel}>
+        <primitive ref={sourceGroupRef} object={sourceClone} />
+        {showSkeleton && <primitive object={sourceHelper} />}
+      </group>
+      <group position={[2.0, -1.1 + targetOffsetY, 0]}>
+        <primitive ref={targetGroupRef} object={targetClone} />
+        {showSkeleton && <primitive object={targetHelper} />}
+      </group>
+      {poseEditMode && <BonePoseEditor targetClone={targetClone} targetOffsetY={targetOffsetY} />}
+    </>
+  );
+};
+
+// ── FBX source + FBX target core ──────────────────────────────────────────────
+// Used when SOURCE = Rig_Medium FBX bundle and TARGET = hero class FBX model.
+// Both share the same UE4-mannequin bone naming → auto-normalization gives ~100% match.
+const RigRetargetModelFBXtoFBXCore: React.FC<RigRetargetCoreProps> = ({ sourceUrl, targetUrl, clipName, showSkeleton, showSourceModel, customBoneMap, poseEditMode, onClipsLoaded, onReportReady }) => {
+  const sourceFbx = useLoader(FBXLoader, sourceUrl, configureFBXLoader) as THREE.Group;
+  const targetFbx = useLoader(FBXLoader, targetUrl, configureFBXLoader) as THREE.Group;
+
+  const targetGroupRef = useRef<THREE.Group>(null!);
+  const sourceGroupRef = useRef<THREE.Group>(null!);
+
+  const { sourceClone, targetClone, sourceOffsetY, targetOffsetY } = useMemo(() => {
+    const src = SkeletonUtils.clone(sourceFbx) as THREE.Group;
+    src.traverse((node: any) => {
+      if (node.isMesh) {
+        node.frustumCulled = false;
+        const mats = Array.isArray(node.material) ? node.material : [node.material];
+        node.material = mats.map((mat: THREE.Material) => {
+          const m = (mat as THREE.MeshStandardMaterial).clone();
+          m.transparent = true; m.opacity = 0.38;
+          m.color = new THREE.Color(0x93c5fd);
+          return m;
+        });
+        if (!Array.isArray(node.material)) node.material = (node.material as THREE.Material[])[0];
+      }
+    });
+    const tgt = SkeletonUtils.clone(targetFbx) as THREE.Group;
+    tgt.traverse((node: any) => {
+      if (node.isMesh) { node.castShadow = true; node.receiveShadow = true; node.frustumCulled = false; }
+    });
+    const srcBox = new THREE.Box3().setFromObject(src);
+    const tgtBox = new THREE.Box3().setFromObject(tgt);
+    return {
+      sourceClone: src,
+      targetClone: tgt,
+      sourceOffsetY: !srcBox.isEmpty() && isFinite(srcBox.min.y) ? -srcBox.min.y : 0,
+      targetOffsetY: !tgtBox.isEmpty() && isFinite(tgtBox.min.y) ? -tgtBox.min.y : 0,
+    };
+  }, [sourceFbx, targetFbx]);
+
+  const allClips = useMemo(() => {
+    const srcClips: THREE.AnimationClip[] = (sourceFbx as any).animations ?? [];
+    const tgtClips: THREE.AnimationClip[] = (targetFbx as any).animations ?? [];
+    if (srcClips.length > 0) return remapClipBindingsToSkeleton({ clips: srcClips, targetModel: targetClone, customBoneMap });
+    return tgtClips;
+  }, [(sourceFbx as any).animations, (targetFbx as any).animations, targetClone, customBoneMap]);
+
+  const { names, actions } = useAnimations(allClips, targetGroupRef);
+  const { names: srcNames, actions: srcActions } = useAnimations((sourceFbx as any).animations ?? [], sourceGroupRef);
+
+  const sourceHelper = useMemo(() => new THREE.SkeletonHelper(sourceClone), [sourceClone]);
+  const targetHelper = useMemo(() => new THREE.SkeletonHelper(targetClone), [targetClone]);
+
+  const reportedNamesRef = useRef('');
+  useEffect(() => {
+    const joined = names.join('|');
+    if (joined !== reportedNamesRef.current) { reportedNamesRef.current = joined; onClipsLoaded?.(names); }
+  }, [names, onClipsLoaded]);
+
+  const reportKeyRef = useRef('');
+  useEffect(() => {
+    const key = `${sourceUrl}|${targetUrl}|${JSON.stringify(customBoneMap)}`;
+    if (key === reportKeyRef.current) return;
+    reportKeyRef.current = key;
+    const srcBones = collectBoneNames(sourceClone);
+    const tgtBones = collectBoneNames(targetClone);
+    const tgtLookup = createNormalizedBoneLookup(tgtBones);
+    const srcLookup = createNormalizedBoneLookup(srcBones);
+    const customNorm = new Map<string, string>();
+    Object.entries(customBoneMap).forEach(([s, t]) => customNorm.set(normalizeRigName(s), t));
+    const matched = srcBones.filter((b) => { const n = normalizeRigName(b); return customNorm.has(n) || tgtLookup.has(n); });
+    const unmatchedSrc = srcBones.filter((b) => { const n = normalizeRigName(b); return !customNorm.has(n) && !tgtLookup.has(n); });
+    const mappedTgtNames = new Set([...tgtBones.filter((b) => srcLookup.has(normalizeRigName(b))), ...Object.values(customBoneMap)]);
+    const unmatchedTgt = tgtBones.filter((b) => !mappedTgtNames.has(b));
+    const matchPct = srcBones.length > 0 ? Math.round((matched.length / srcBones.length) * 100) : 0;
+    const srcClipCount = ((sourceFbx as any).animations ?? []).length;
+    onReportReady?.({
+      sourceBoneCount: srcBones.length, targetBoneCount: tgtBones.length,
+      matchedBones: matched.length, matchPercent: matchPct,
+      unmatchedSourceBones: unmatchedSrc, unmatchedTargetBones: unmatchedTgt,
+      sourceClipCount: srcClipCount,
+      animationSource: srcClipCount > 0 ? 'source' : tgtBones.length > 0 ? 'target' : 'none',
+      allSourceBones: srcBones, allTargetBones: tgtBones,
+    });
+  }, [sourceUrl, targetUrl, sourceClone, targetClone, (sourceFbx as any).animations, customBoneMap, onReportReady]);
+
+  useEffect(() => {
+    if (!names.length || !Object.keys(actions).length) return;
+    Object.values(actions).forEach((a) => { try { a?.stop(); } catch (_) {} });
+    const name = clipName ?? names[0];
+    if (name && actions[name]) actions[name]!.reset().setLoop(THREE.LoopRepeat, Infinity).play();
+  }, [actions, clipName, names]);
+
+  useEffect(() => {
+    if (!srcNames.length || !Object.keys(srcActions).length) return;
+    Object.values(srcActions).forEach((a) => { try { a?.stop(); } catch (_) {} });
+    const first = srcNames[0];
+    if (first && srcActions[first]) srcActions[first]!.reset().setLoop(THREE.LoopRepeat, Infinity).play();
+  }, [srcActions, srcNames]);
+
+  return (
+    <>
+      <group position={[-2.0, -1.1 + sourceOffsetY, 0]} visible={showSourceModel}>
+        <primitive ref={sourceGroupRef} object={sourceClone} />
+        {showSkeleton && <primitive object={sourceHelper} />}
+      </group>
+      <group position={[2.0, -1.1 + targetOffsetY, 0]}>
+        <primitive ref={targetGroupRef} object={targetClone} />
+        {showSkeleton && <primitive object={targetHelper} />}
+      </group>
+      {poseEditMode && <BonePoseEditor targetClone={targetClone} targetOffsetY={targetOffsetY} />}
+    </>
+  );
+};
+
+// ── GLB source + FBX target core ──────────────────────────────────────────────
+// Used when SOURCE = hero GLB (gltf/ folder) and TARGET = hero class FBX.
+const RigRetargetModelGLBtoFBXCore: React.FC<RigRetargetCoreProps> = ({ sourceUrl, targetUrl, clipName, showSkeleton, showSourceModel, customBoneMap, poseEditMode, onClipsLoaded, onReportReady }) => {
+  const sourceGltf = useLoader(GLTFLoader, sourceUrl, configureGltfLoader) as any;
+  const targetFbx  = useLoader(FBXLoader,  targetUrl, configureFBXLoader) as THREE.Group;
+
+  const targetGroupRef = useRef<THREE.Group>(null!);
+  const sourceGroupRef = useRef<THREE.Group>(null!);
+
+  const { sourceClone, targetClone, sourceOffsetY, targetOffsetY } = useMemo(() => {
+    const src = SkeletonUtils.clone(sourceGltf.scene) as THREE.Group;
+    src.traverse((node: any) => {
+      if (node.isMesh) {
+        node.frustumCulled = false;
+        const mats = Array.isArray(node.material) ? node.material : [node.material];
+        node.material = mats.map((mat: THREE.Material) => {
+          const m = (mat as THREE.MeshStandardMaterial).clone();
+          m.transparent = true; m.opacity = 0.38;
+          m.color = new THREE.Color(0x93c5fd);
+          return m;
+        });
+        if (!Array.isArray(node.material)) node.material = (node.material as THREE.Material[])[0];
+      }
+    });
+    const tgt = SkeletonUtils.clone(targetFbx) as THREE.Group;
+    tgt.traverse((node: any) => {
+      if (node.isMesh) { node.castShadow = true; node.receiveShadow = true; node.frustumCulled = false; }
+    });
+    const srcBox = new THREE.Box3().setFromObject(src);
+    const tgtBox = new THREE.Box3().setFromObject(tgt);
+    return {
+      sourceClone: src, targetClone: tgt,
+      sourceOffsetY: !srcBox.isEmpty() && isFinite(srcBox.min.y) ? -srcBox.min.y : 0,
+      targetOffsetY: !tgtBox.isEmpty() && isFinite(tgtBox.min.y) ? -tgtBox.min.y : 0,
+    };
+  }, [sourceGltf.scene, targetFbx]);
+
+  const allClips = useMemo(() => {
+    const srcClips: THREE.AnimationClip[] = sourceGltf.animations ?? [];
+    const tgtClips: THREE.AnimationClip[] = (targetFbx as any).animations ?? [];
+    if (srcClips.length > 0) return remapClipBindingsToSkeleton({ clips: srcClips, targetModel: targetClone, customBoneMap });
+    return tgtClips;
+  }, [sourceGltf.animations, (targetFbx as any).animations, targetClone, customBoneMap]);
+
+  const { names, actions } = useAnimations(allClips, targetGroupRef);
+  const { names: srcNames, actions: srcActions } = useAnimations(sourceGltf.animations ?? [], sourceGroupRef);
+  const sourceHelper = useMemo(() => new THREE.SkeletonHelper(sourceClone), [sourceClone]);
+  const targetHelper = useMemo(() => new THREE.SkeletonHelper(targetClone), [targetClone]);
+
+  const reportedNamesRef = useRef('');
+  useEffect(() => {
+    const joined = names.join('|');
+    if (joined !== reportedNamesRef.current) { reportedNamesRef.current = joined; onClipsLoaded?.(names); }
+  }, [names, onClipsLoaded]);
+
+  const reportKeyRef = useRef('');
+  useEffect(() => {
+    const key = `${sourceUrl}|${targetUrl}|${JSON.stringify(customBoneMap)}`;
+    if (key === reportKeyRef.current) return;
+    reportKeyRef.current = key;
+    const srcBones = collectBoneNames(sourceClone);
+    const tgtBones = collectBoneNames(targetClone);
+    const tgtLookup = createNormalizedBoneLookup(tgtBones);
+    const srcLookup = createNormalizedBoneLookup(srcBones);
+    const customNorm = new Map<string, string>();
+    Object.entries(customBoneMap).forEach(([s, t]) => customNorm.set(normalizeRigName(s), t));
+    const matched = srcBones.filter((b) => { const n = normalizeRigName(b); return customNorm.has(n) || tgtLookup.has(n); });
+    const unmatchedSrc = srcBones.filter((b) => { const n = normalizeRigName(b); return !customNorm.has(n) && !tgtLookup.has(n); });
+    const mappedTgtNames = new Set([...tgtBones.filter((b) => srcLookup.has(normalizeRigName(b))), ...Object.values(customBoneMap)]);
+    const unmatchedTgt = tgtBones.filter((b) => !mappedTgtNames.has(b));
+    const matchPct = srcBones.length > 0 ? Math.round((matched.length / srcBones.length) * 100) : 0;
+    const srcClipCount = (sourceGltf.animations ?? []).length;
+    onReportReady?.({
+      sourceBoneCount: srcBones.length, targetBoneCount: tgtBones.length,
+      matchedBones: matched.length, matchPercent: matchPct,
+      unmatchedSourceBones: unmatchedSrc, unmatchedTargetBones: unmatchedTgt,
+      sourceClipCount: srcClipCount,
+      animationSource: srcClipCount > 0 ? 'source' : tgtBones.length > 0 ? 'target' : 'none',
+      allSourceBones: srcBones, allTargetBones: tgtBones,
+    });
+  }, [sourceUrl, targetUrl, sourceClone, targetClone, sourceGltf.animations, customBoneMap, onReportReady]);
+
+  useEffect(() => {
+    if (!names.length || !Object.keys(actions).length) return;
+    Object.values(actions).forEach((a) => { try { a?.stop(); } catch (_) {} });
+    const name = clipName ?? names[0];
+    if (name && actions[name]) actions[name]!.reset().setLoop(THREE.LoopRepeat, Infinity).play();
+  }, [actions, clipName, names]);
+
+  useEffect(() => {
+    if (!srcNames.length || !Object.keys(srcActions).length) return;
+    Object.values(srcActions).forEach((a) => { try { a?.stop(); } catch (_) {} });
+    const first = srcNames[0];
+    if (first && srcActions[first]) srcActions[first]!.reset().setLoop(THREE.LoopRepeat, Infinity).play();
+  }, [srcActions, srcNames]);
+
+  return (
+    <>
+      <group position={[-2.0, -1.1 + sourceOffsetY, 0]} visible={showSourceModel}>
+        <primitive ref={sourceGroupRef} object={sourceClone} />
+        {showSkeleton && <primitive object={sourceHelper} />}
+      </group>
+      <group position={[2.0, -1.1 + targetOffsetY, 0]}>
+        <primitive ref={targetGroupRef} object={targetClone} />
+        {showSkeleton && <primitive object={targetHelper} />}
+      </group>
+      {poseEditMode && <BonePoseEditor targetClone={targetClone} targetOffsetY={targetOffsetY} />}
+    </>
+  );
+};
+
+// ── Router: chooses core based on sourceIsFbx + targetIsFbx ─────────────────────
+const RigRetargetModel: React.FC<RigRetargetCoreProps & { sourceIsFbx?: boolean; targetIsFbx?: boolean }> = ({ sourceIsFbx, targetIsFbx, ...props }) => {
+  if (sourceIsFbx && targetIsFbx) return <RigRetargetModelFBXtoFBXCore {...props} />;
+  if (sourceIsFbx) return <RigRetargetModelFBXCore {...props} />;
+  if (targetIsFbx) return <RigRetargetModelGLBtoFBXCore {...props} />;
+  return <RigRetargetModelGLBCore {...props} />;
+};
+
+export const DeveloperRigRetargetSceneRenderer: React.FC<DeveloperRigRetargetSceneProps> = ({
+  sourceUrl,
+  targetUrl,
+  clipName,
+  showSkeleton = true,
+  showSourceModel = true,
+  customBoneMap = {},
+  sourceIsFbx = false,
+  targetIsFbx = false,
+  poseEditMode = false,
+  onClipsLoaded,
+  onReportReady,
+}) => {
+  const quality = useMemo(() => getRenderQualityProfile(), []);
+  const powerPreference = useMemo(() => getRenderPowerPreference(), []);
+
+  return (
+    <div className="relative h-full w-full overflow-hidden rounded-[inherit] bg-[radial-gradient(circle_at_top,_rgba(34,197,94,0.08),_transparent_40%),linear-gradient(180deg,rgba(15,23,42,0.98),rgba(2,6,23,0.99))]">
+      <Canvas
+        shadows={{ type: THREE.PCFSoftShadowMap }}
+        dpr={quality.dpr}
+        gl={{ antialias: quality.antialias, powerPreference }}
+        performance={{ min: 0.5 }}
+      >
+        <color attach="background" args={['#020617']} />
+        <fog attach="fog" args={['#020617', 18, 38]} />
+        <PerspectiveCamera makeDefault position={[0, 1.8, 10]} fov={44} onUpdate={(c) => c.lookAt(0, 0.4, 0)} />
+        <ambientLight intensity={1.1} color="#f8fafc" />
+        <hemisphereLight intensity={0.72} color="#e2e8f0" groundColor="#0f172a" />
+        <directionalLight position={[-3, 6, 5]} intensity={1.0} color="#f8fafc" castShadow shadow-mapSize={[quality.shadowMapSize, quality.shadowMapSize]} />
+        <pointLight position={[3, 2.8, 2.2]} intensity={0.9} color="#86efac" distance={18} />
+        <pointLight position={[-2.8, 2.4, 1.4]} intensity={0.8} color="#a78bfa" distance={16} />
+
+        {/* Floor */}
+        <group position={[0, -1.1, 0]}>
+          <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+            <circleGeometry args={[7, 64]} />
+            <meshStandardMaterial color="#0f172a" roughness={0.84} metalness={0.06} />
+          </mesh>
+          <mesh position={[0, 0.01, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <ringGeometry args={[5.2, 6.0, 64]} />
+            <meshStandardMaterial color="#22c55e" emissive="#16a34a" emissiveIntensity={0.22} transparent opacity={0.12} side={THREE.DoubleSide} />
+          </mesh>
+          {/* Divider */}
+          <mesh position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <planeGeometry args={[0.04, 9]} />
+            <meshStandardMaterial color="#475569" transparent opacity={0.35} />
+          </mesh>
+        </group>
+
+        {/* Labels */}
+        <Html position={[-2.0, 2.1, 0]} center>
+          <div className="whitespace-nowrap rounded-full border border-slate-400/30 bg-slate-950/80 px-3 py-1 text-[10px] font-black uppercase tracking-[0.22em] text-slate-300 backdrop-blur-sm">
+            Fonte · esqueleto
+          </div>
+        </Html>
+        <Html position={[2.0, 2.1, 0]} center>
+          <div className="whitespace-nowrap rounded-full border border-green-400/30 bg-slate-950/80 px-3 py-1 text-[10px] font-black uppercase tracking-[0.22em] text-green-100 backdrop-blur-sm">
+            Alvo · retarget
+          </div>
+        </Html>
+
+        <Suspense fallback={null}>
+          <RigRetargetModel
+            key={sourceUrl + '|' + targetUrl}
+            sourceUrl={sourceUrl}
+            targetUrl={targetUrl}
+            clipName={clipName}
+            showSkeleton={showSkeleton}
+            showSourceModel={showSourceModel}
+            customBoneMap={customBoneMap}
+            sourceIsFbx={sourceIsFbx}
+            targetIsFbx={targetIsFbx}
+            poseEditMode={poseEditMode}
+            onClipsLoaded={onClipsLoaded}
+            onReportReady={onReportReady}
+          />
+        </Suspense>
+
+        <ContactShadows position={[0, -1.09, 0]} opacity={0.4} scale={10} blur={2.0} far={0.5} resolution={quality.contactShadowResolution} />
+        <OrbitControls makeDefault enablePan={false} minDistance={3} maxDistance={18} target={[0, 0.4, 0]} />
       </Canvas>
     </div>
   );

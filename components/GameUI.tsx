@@ -2412,7 +2412,7 @@ export const TavernScreen: React.FC<{
                 )}
 
                 {/* MOBILE BOTTOM NAV ─ same items as side-rail, shown only on < md screens */}
-                {!heroInspectOpen && !portalInspectMode && !portalTransitioning && (inventoryUnlocked || showSkillsAction || (merchantUnlocked && sceneRegion === 'forest') || (alchemistUnlocked && sceneRegion === 'dungeon')) && (
+                {!heroInspectOpen && !portalInspectMode && !portalTransitioning && (inventoryUnlocked || showSkillsAction || (merchantUnlocked && sceneRegion === 'forest') || (alchemistUnlocked && sceneRegion === 'dungeon') || canStartHuntFromCurrentRegion || canStartDungeonFromCurrentRegion || (canStartTowerFromCurrentRegion && !!onTower)) && (
                     <div
                         className="mobile-bottom-nav fixed bottom-0 inset-x-0 z-[55] md:hidden flex items-stretch justify-between pointer-events-auto"
                         style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
@@ -2483,7 +2483,7 @@ export const TavernScreen: React.FC<{
                                     className="flex flex-col items-center justify-center gap-1.5 py-3 px-2 active:scale-90 transition-transform"
                                     aria-label="Caçar"
                                 >
-                                    <span style={{ display:'flex', alignItems:'center', justifyContent:'center', width:48, height:48, borderRadius:14, background:'linear-gradient(145deg,#c2622a,#9c3d14)', border:'1.5px solid rgba(251,146,60,0.7)', boxShadow:'0 0 12px rgba(251,146,60,0.5)' }}>
+                                    <span className="action-btn-shine" style={{ display:'flex', alignItems:'center', justifyContent:'center', width:48, height:48, borderRadius:14, background:'linear-gradient(145deg,#c2622a,#9c3d14)', border:'1.5px solid rgba(251,146,60,0.7)', boxShadow:'0 0 12px rgba(251,146,60,0.5)', animationDelay:'0s' }}>
                                         <Sword size={22} style={{ color:'#fb923c', filter:'drop-shadow(0 0 6px rgba(251,146,60,0.9))' }} />
                                     </span>
                                     <span className="text-[9px] font-black uppercase tracking-widest text-white/70">Caçar</span>
@@ -2495,7 +2495,7 @@ export const TavernScreen: React.FC<{
                                     className="flex flex-col items-center justify-center gap-1.5 py-3 px-2 active:scale-90 transition-transform"
                                     aria-label="Dungeon"
                                 >
-                                    <span style={{ display:'flex', alignItems:'center', justifyContent:'center', width:48, height:48, borderRadius:14, background:'linear-gradient(145deg,#1a7aab,#0e4a72)', border:'1.5px solid rgba(56,189,248,0.65)', boxShadow:'0 0 12px rgba(56,189,248,0.45)' }}>
+                                    <span className="action-btn-shine" style={{ display:'flex', alignItems:'center', justifyContent:'center', width:48, height:48, borderRadius:14, background:'linear-gradient(145deg,#1a7aab,#0e4a72)', border:'1.5px solid rgba(56,189,248,0.65)', boxShadow:'0 0 12px rgba(56,189,248,0.45)', animationDelay:'1.8s' }}>
                                         <Crosshair size={22} style={{ color:'#38bdf8', filter:'drop-shadow(0 0 6px rgba(56,189,248,0.9))' }} />
                                     </span>
                                     <span className="text-[9px] font-black uppercase tracking-widest text-white/70">Dungeon</span>
@@ -2507,7 +2507,7 @@ export const TavernScreen: React.FC<{
                                     className="flex flex-col items-center justify-center gap-1.5 py-3 px-2 active:scale-90 transition-transform"
                                     aria-label="Torre"
                                 >
-                                    <span style={{ display:'flex', alignItems:'center', justifyContent:'center', width:48, height:48, borderRadius:14, background:'linear-gradient(145deg,#6b31b8,#44167a)', border:'1.5px solid rgba(167,139,250,0.7)', boxShadow:'0 0 12px rgba(167,139,250,0.5)' }}>
+                                    <span className="action-btn-shine" style={{ display:'flex', alignItems:'center', justifyContent:'center', width:48, height:48, borderRadius:14, background:'linear-gradient(145deg,#6b31b8,#44167a)', border:'1.5px solid rgba(167,139,250,0.7)', boxShadow:'0 0 12px rgba(167,139,250,0.5)', animationDelay:'3.5s' }}>
                                         <Crown size={22} style={{ color:'#a78bfa', filter:'drop-shadow(0 0 6px rgba(167,139,250,0.9))' }} />
                                     </span>
                                     <span className="text-[9px] font-black uppercase tracking-widest text-white/70">Torre</span>
@@ -2602,7 +2602,8 @@ export const TavernScreen: React.FC<{
                                 onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0) scale(1)'; e.currentTarget.style.boxShadow = '0 4px 18px rgba(251,146,60,0.22), inset 0 1px 0 rgba(255,255,255,0.10)'; }}
                                 onMouseDown={e => { e.currentTarget.style.transform = 'translateY(1px) scale(0.97)'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(251,146,60,0.30)'; }}
                                 onMouseUp={e => { e.currentTarget.style.transform = 'translateY(-4px) scale(1.03)'; e.currentTarget.style.boxShadow = '0 12px 40px rgba(251,146,60,0.50), inset 0 1px 0 rgba(255,255,255,0.20)'; }}
-                                style={{ borderRadius: 20, border: '1.5px solid rgba(251,146,60,0.70)', background: 'linear-gradient(145deg, #c2622a, #9c3d14)', padding: '16px 16px', textAlign: 'center', transition: 'transform 0.20s cubic-bezier(0.22,1,0.36,1), box-shadow 0.20s', boxShadow: '0 4px 18px rgba(251,146,60,0.32)', cursor: 'pointer' }}
+                                className="action-btn-shine"
+                                style={{ borderRadius: 20, border: '1.5px solid rgba(251,146,60,0.70)', background: 'linear-gradient(145deg, #c2622a, #9c3d14)', padding: '16px 16px', textAlign: 'center', transition: 'transform 0.20s cubic-bezier(0.22,1,0.36,1), box-shadow 0.20s', boxShadow: '0 4px 18px rgba(251,146,60,0.32)', cursor: 'pointer', animationDelay: '0s' }}
                             >
                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontSize: 18, fontWeight: 900, color: '#fff' }}>{campUiProfile === 'gamepad' && <CampXArc />}<Sword size={20} style={{ color: '#fb923c', filter: 'drop-shadow(0 0 8px rgba(251,146,60,0.9))' }} /> Caçar</div>
                                 <div style={{ marginTop: 4, fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.22em', color: 'rgba(251,186,120,0.75)' }}>Batalha rápida</div>
@@ -2615,7 +2616,8 @@ export const TavernScreen: React.FC<{
                                 onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0) scale(1)'; e.currentTarget.style.boxShadow = '0 4px 18px rgba(56,189,248,0.20), inset 0 1px 0 rgba(255,255,255,0.10)'; }}
                                 onMouseDown={e => { e.currentTarget.style.transform = 'translateY(1px) scale(0.97)'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(56,189,248,0.25)'; }}
                                 onMouseUp={e => { e.currentTarget.style.transform = 'translateY(-4px) scale(1.03)'; e.currentTarget.style.boxShadow = '0 12px 40px rgba(56,189,248,0.45), inset 0 1px 0 rgba(255,255,255,0.20)'; }}
-                                style={{ borderRadius: 20, border: '1.5px solid rgba(56,189,248,0.65)', background: 'linear-gradient(145deg, #1a7aab, #0e4a72)', padding: '16px 16px', textAlign: 'center', transition: 'transform 0.20s cubic-bezier(0.22,1,0.36,1), box-shadow 0.20s', boxShadow: '0 4px 18px rgba(56,189,248,0.28)', cursor: 'pointer' }}
+                                className="action-btn-shine"
+                                style={{ borderRadius: 20, border: '1.5px solid rgba(56,189,248,0.65)', background: 'linear-gradient(145deg, #1a7aab, #0e4a72)', padding: '16px 16px', textAlign: 'center', transition: 'transform 0.20s cubic-bezier(0.22,1,0.36,1), box-shadow 0.20s', boxShadow: '0 4px 18px rgba(56,189,248,0.28)', cursor: 'pointer', animationDelay: '1.8s' }}
                             >
                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontSize: 18, fontWeight: 900, color: '#fff' }}>{campUiProfile === 'gamepad' && <CampXArc />}<Crosshair size={20} style={{ color: '#38bdf8', filter: 'drop-shadow(0 0 8px rgba(56,189,248,0.9))' }} /> Dungeon</div>
                                 <div style={{ marginTop: 4, fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.22em', color: 'rgba(120,200,248,0.75)' }}>Modo progressivo</div>
@@ -2628,7 +2630,8 @@ export const TavernScreen: React.FC<{
                                 onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0) scale(1)'; e.currentTarget.style.boxShadow = '0 4px 18px rgba(167,139,250,0.22), inset 0 1px 0 rgba(255,255,255,0.10)'; }}
                                 onMouseDown={e => { e.currentTarget.style.transform = 'translateY(1px) scale(0.97)'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(167,139,250,0.30)'; }}
                                 onMouseUp={e => { e.currentTarget.style.transform = 'translateY(-4px) scale(1.03)'; e.currentTarget.style.boxShadow = '0 12px 40px rgba(167,139,250,0.50), inset 0 1px 0 rgba(255,255,255,0.20)'; }}
-                                style={{ borderRadius: 20, border: '1.5px solid rgba(167,139,250,0.70)', background: 'linear-gradient(145deg, #6b31b8, #44167a)', padding: '16px 16px', textAlign: 'center', transition: 'transform 0.20s cubic-bezier(0.22,1,0.36,1), box-shadow 0.20s', boxShadow: '0 4px 18px rgba(167,139,250,0.32)', cursor: 'pointer' }}
+                                className="action-btn-shine"
+                                style={{ borderRadius: 20, border: '1.5px solid rgba(167,139,250,0.70)', background: 'linear-gradient(145deg, #6b31b8, #44167a)', padding: '16px 16px', textAlign: 'center', transition: 'transform 0.20s cubic-bezier(0.22,1,0.36,1), box-shadow 0.20s', boxShadow: '0 4px 18px rgba(167,139,250,0.32)', cursor: 'pointer', animationDelay: '3.5s' }}
                             >
                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontSize: 18, fontWeight: 900, color: '#fff' }}>{campUiProfile === 'gamepad' && <CampXArc />}<Crown size={20} style={{ color: '#a78bfa', filter: 'drop-shadow(0 0 8px rgba(167,139,250,0.9))' }} /> Torre</div>
                                 <div style={{ marginTop: 4, fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.22em', color: 'rgba(190,170,255,0.75)' }}>Roguelike</div>

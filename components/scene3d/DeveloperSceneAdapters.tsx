@@ -14,6 +14,7 @@ import {
   DeveloperHeroSceneRenderer,
   DeveloperKitbashSceneRenderer,
   DeveloperMonsterSceneRenderer,
+  DeveloperRigRetargetSceneRenderer,
   DeveloperScenarioComposerSceneRenderer,
   DeveloperWeaponCalibrationSceneRenderer,
 } from './developer-scenes';
@@ -24,6 +25,7 @@ import type {
   DeveloperHeroSceneProps,
   DeveloperKitbashSceneProps,
   DeveloperMonsterSceneProps,
+  DeveloperRigRetargetSceneProps,
   DeveloperScenarioComposerSceneProps,
 } from './developer-scenes';
 import { resolveRuntimeClassAssets } from './developerUtils';
@@ -54,6 +56,10 @@ export const DeveloperGltfMonsterScene: React.FC<DeveloperGltfMonsterSceneProps>
 
 export const DeveloperBipedCharacterScene: React.FC<DeveloperBipedCharacterSceneProps> = (props) => (
   <DeveloperBipedCharacterSceneRenderer {...props} />
+);
+
+export const DeveloperRigRetargetScene: React.FC<DeveloperRigRetargetSceneProps> = (props) => (
+  <DeveloperRigRetargetSceneRenderer {...props} />
 );
 
 const ModularClassHeroVoxel = ({
