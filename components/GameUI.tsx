@@ -3858,8 +3858,9 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
     const stageMapNodes: { type: 'mob' | 'subboss' | 'boss'; done: boolean; active: boolean }[] = [];
     if (!isDungeonRun) {
         const huntPhaseLength = getHuntPhaseLength(stage);
-        const huntMobSteps = Math.max(0, huntPhaseLength - 1);
-        for (let i = 0; i < huntMobSteps; i++) {
+        // huntPhaseLength = quantidade de mobs antes do chefão (ex: 6 na fase 1).
+        // Mostramos todos os nós de mob (sem subtrair 1) + nó de boss separado.
+        for (let i = 0; i < huntPhaseLength; i++) {
             const done = killCount > i || stageMapIsBoss;
             const active = !done && killCount === i && Boolean(enemy) && !stageMapIsBoss;
             stageMapNodes.push({ type: 'mob', done, active });
