@@ -5,7 +5,6 @@ import { Sword, Shield, Zap, Heart, Coins, ShoppingBag, Skull, Play, Plus, Flask
 import { ItemPreviewThree } from './items/ItemPreviewThree';
 import { GameAssetIcon } from './ui/game-asset-icon';
 import { ItemIcon, getItemPowerLabel } from './ui/game-display';
-import { CharacterSheetModal } from './profile/CharacterSheetModal';
 import { ConstellationEvolutionModal } from './profile/ConstellationEvolutionModal';
 import { InventoryScreen as InventoryModal } from './profile/InventoryScreen';
 import { SkillsScreen as SkillsModal } from './profile/SkillsScreen';
@@ -1781,7 +1780,6 @@ export const TavernScreen: React.FC<{
 
     // ── Gamepad: controles no modo zoom do herói ──────────────────────────
     const heroInspectOptions: { label: string; action: () => void }[] = [
-        { label: 'Atributos',    action: () => openProfileModal('overview') },
         { label: 'Equipamentos', action: () => openInventoryModal('equipment', false) },
         { label: 'Itens',        action: () => openInventoryModal('potion', false) },
         { label: 'Habilidades',  action: () => openSkillsScreenModal() },
@@ -2681,7 +2679,7 @@ export const TavernScreen: React.FC<{
     {(() => {
         if (campUiProfile !== 'gamepad') return null;
         if (portalTransitioning) return null;
-        if (showInventory || showProfile || showSkillsScreen || showConstellationScreen) return null;
+        if (showInventory || showSkillsScreen || showConstellationScreen) return null;
         if (portalInspectMode) {
             return <GamepadActionLegend showConfirm confirmText="Viajar" showCancel showDPad dPadText="Escolher destino" />;
         }
@@ -2883,11 +2881,6 @@ export const TavernScreen: React.FC<{
             </div>
         )}
     </AnimatedModal>
-    <AnimatedModal open={showProfile}>
-        {(isClosing) => (
-            <CharacterSheetModal player={player} shopItems={shopItems} onClose={closeProfileModal} onOpenInventory={(initialFilter) => { openInventoryModal(initialFilter ?? 'all', false); }} onUnlockTalent={onUnlockTalent} onResetTalents={onResetTalents} respecUnlockPromptActive={constellationRespecUnlockPromptActive} onAcknowledgeRespecUnlock={onAcknowledgeConstellationRespecUnlock} isClosing={isClosing} restrictToStatusOnly={restrictProfileToStatusOnly} allowInventory={inventoryUnlocked} allowCardsTab={allowCardsInProfile} allowSkillsTab={showSkillsAction} allowConstellationTab={false} initialTab={profileInitialTab} />
-        )}
-    </AnimatedModal>
     <AnimatedModal open={showInventory}>
         {(isClosing) => (
             <InventoryModal player={player} shopItems={shopItems} onClose={itemSlotTargetIndex !== null ? closeInventoryModalAndClearSlot : closeInventoryModal} onOpenShop={merchantUnlocked ? openShopFromInventory : undefined} onEquip={onEquipItem} onUnequip={onUnequipItem} onUse={onUseItem} onSell={onSellItem} isBattleContext={false} initialFilter={inventoryInitialFilter} isClosing={isClosing} targetItemSlotIndex={itemSlotTargetIndex} onEquipItemToSlot={(slotIndex, itemId) => { onEquipItemToSlot?.(slotIndex, itemId); closeInventoryModalAndClearSlot(); }} />
@@ -2952,10 +2945,10 @@ export const TavernScreen: React.FC<{
                 </div>
                 <div className="px-5 pb-6 pt-1">
                     <div style={{ height: 1, background: 'rgba(167,139,250,0.14)', marginBottom: 14 }} />
-                    <button onClick={() => { setShowCardsUnlockPrompt(false); onAcknowledgeCardsUnlock?.(); openProfileModal('cards'); }}
+                    <button onClick={() => { setShowCardsUnlockPrompt(false); onAcknowledgeCardsUnlock?.(); }}
                         className="w-full rounded-xl py-3 font-black text-sm text-white transition-all hover:brightness-110 hover:scale-[1.02] active:scale-95"
                         style={{ background: 'linear-gradient(135deg, #6b31b8, #44167a)', border: '1px solid rgba(167,139,250,0.35)', boxShadow: '0 6px 20px rgba(107,49,184,0.40)' }}>
-                        Ver cartas
+                        Entendido
                     </button>
                 </div>
             </div>
@@ -2973,7 +2966,7 @@ export const TavernScreen: React.FC<{
                 </div>
                 <div className="px-5 pb-6 pt-1">
                     <div style={{ height: 1, background: 'rgba(52,211,153,0.14)', marginBottom: 14 }} />
-                    <button onClick={() => { setShowSkillsUnlockPrompt(false); onAcknowledgeSkillsUnlock?.(); openProfileModal('skills'); }}
+                    <button onClick={() => { setShowSkillsUnlockPrompt(false); onAcknowledgeSkillsUnlock?.(); openSkillsScreenModal(); }}
                         className="w-full rounded-xl py-3 font-black text-sm text-white transition-all hover:brightness-110 hover:scale-[1.02] active:scale-95"
                         style={{ background: 'linear-gradient(135deg, #065f46, #022c22)', border: '1px solid rgba(52,211,153,0.35)', boxShadow: '0 6px 20px rgba(6,95,70,0.50)' }}>
                         Ver habilidades
@@ -4616,10 +4609,10 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                   </div>
                   <div className="px-5 pb-6 pt-1">
                       <div style={{ height: 1, background: 'rgba(167,139,250,0.14)', marginBottom: 14 }} />
-                      <button onClick={() => { setShowCardsUnlockPrompt(false); onAcknowledgeCardsUnlock?.(); openProfileModal('cards'); }}
+                      <button onClick={() => { setShowCardsUnlockPrompt(false); onAcknowledgeCardsUnlock?.(); }}
                           className="w-full rounded-xl py-3 font-black text-sm text-white transition-all hover:brightness-110 hover:scale-[1.02] active:scale-95"
                           style={{ background: 'linear-gradient(135deg, #6b31b8, #44167a)', border: '1px solid rgba(167,139,250,0.35)', boxShadow: '0 6px 20px rgba(107,49,184,0.40)' }}>
-                          Ver cartas
+                          Entendido
                       </button>
                   </div>
               </div>
@@ -4637,7 +4630,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                   </div>
                   <div className="px-5 pb-6 pt-1">
                       <div style={{ height: 1, background: 'rgba(52,211,153,0.14)', marginBottom: 14 }} />
-                      <button onClick={() => { setShowSkillsUnlockPrompt(false); onAcknowledgeSkillsUnlock?.(); openProfileModal('skills'); }}
+                      <button onClick={() => { setShowSkillsUnlockPrompt(false); onAcknowledgeSkillsUnlock?.(); setShowSkillsScreen(true); uiSfx.play('modal_open'); }}
                           className="w-full rounded-xl py-3 font-black text-sm text-white transition-all hover:brightness-110 hover:scale-[1.02] active:scale-95"
                           style={{ background: 'linear-gradient(135deg, #065f46, #022c22)', border: '1px solid rgba(52,211,153,0.35)', boxShadow: '0 6px 20px rgba(6,95,70,0.50)' }}>
                           Ver habilidades
@@ -5817,11 +5810,6 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
           </div>
       </div>
 
-        <AnimatedModal open={showProfile}>
-          {(isClosing) => (
-                        <CharacterSheetModal player={player} shopItems={shopItems} onClose={closeProfileModal} onOpenInventory={(initialFilter) => { openInventoryModal(initialFilter ?? 'all', false); }} onUnlockTalent={onUnlockTalent} onResetTalents={onResetTalents} respecUnlockPromptActive={constellationRespecUnlockPromptActive} onAcknowledgeRespecUnlock={onAcknowledgeConstellationRespecUnlock} isClosing={isClosing} restrictToStatusOnly={restrictProfileToStatusOnly} allowInventory={inventoryUnlocked} allowCardsTab={allowCardsInProfile} allowSkillsTab={showSkillsAction} allowConstellationTab={hasConstellationUnlocked} initialTab={profileInitialTab} />
-          )}
-        </AnimatedModal>
         <AnimatedModal open={showInventory}>
           {(isClosing) => (
             <InventoryModal player={player} shopItems={shopItems} onClose={closeInventoryModal} onEquip={onEquipItem} onUnequip={onUnequipItem} onUse={onUseItem} isBattleContext initialFilter={inventoryInitialFilter} isClosing={isClosing} />
