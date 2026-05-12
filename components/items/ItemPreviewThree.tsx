@@ -821,8 +821,11 @@ export function ItemPreviewThree({ item, variant = 'default' }: { item: Item; va
     const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 100);
     const isMenuVariant = variant === 'menu';
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+    // Disable antialias on mobile to halve GPU memory usage and reduce the risk
+    // of WebGL context eviction on the main game canvas (iOS context limit).
+    const isMobilePreview = typeof window !== 'undefined' && /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    const renderer = new THREE.WebGLRenderer({ antialias: !isMobilePreview, alpha: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, isMobilePreview ? 1 : 1.5));
     renderer.setClearColor(isMenuVariant ? '#000000' : '#020617', isMenuVariant ? 0 : 1);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     mount.appendChild(renderer.domElement);

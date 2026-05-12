@@ -4213,6 +4213,23 @@ export const GameScene: React.FC<SceneProps> = React.memo((props) => {
         performance={{ min: 0.5 }}
         frameloop={useAlwaysFrameloop ? 'always' : 'demand'}
         style={{ touchAction: 'none' }}
+        onCreated={({ gl, invalidate }) => {
+          // Mobile WebGL context loss guard.
+          // On iOS/Android, opening a modal that creates a second WebGLRenderer
+          // (ItemPreviewThree) can cause the browser to evict this context.
+          // e.preventDefault() on 'webglcontextlost' tells the browser to attempt
+          // automatic restoration instead of permanently destroying the context.
+          // On 'webglcontextrestored' we reset Three.js cached GL state and kick
+          // a re-render so the scene reappears without a full page reload.
+          const canvas = gl.domElement;
+          canvas.addEventListener('webglcontextlost', (e: Event) => {
+            e.preventDefault();
+          }, false);
+          canvas.addEventListener('webglcontextrestored', () => {
+            gl.resetState();
+            invalidate();
+          }, false);
+        }}
       >
         {!useAlwaysFrameloop && <FpsCap fps={mobileFpsCap} />}
         {/* Throttle shadow map to 2 fps — saves ~40-60 ms/frame in quality mode.
