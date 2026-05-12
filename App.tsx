@@ -3383,8 +3383,8 @@ export default function App() {
               return prev;
           }
 
-          // Não pular missões — o desbloqueio ocorre via enterBattleImmediate
-          if (ONBOARDING_PHASES.indexOf(prev) < ONBOARDING_PHASES.indexOf('missions_unlocked')) {
+          // Só avança para o mercador se o inventário já foi desbloqueado
+          if (ONBOARDING_PHASES.indexOf(prev) < ONBOARDING_PHASES.indexOf('inventory_unlocked')) {
               return prev;
           }
 
