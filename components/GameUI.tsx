@@ -4982,12 +4982,12 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                       </span>
                   </div>
                   {/* Nodes row */}
-                  <div className="flex items-center justify-between w-full">
+                  <div className="flex items-center w-full">
                       {stageMapNodes.map((node, idx) => {
                           const prevDone = idx > 0 && stageMapNodes[idx - 1].done;
                           const isManyNodes = stageMapNodes.length >= 10;
-                          const nW = node.type === 'boss' ? (isManyNodes ? 24 : 28) : node.type === 'subboss' ? 24 : (isManyNodes ? 18 : 22);
-                          const connW = isManyNodes ? 'w-1.5' : 'w-2';
+                          const nW = node.type === 'boss' ? (isManyNodes ? 22 : 26) : node.type === 'subboss' ? 22 : (isManyNodes ? 16 : 20);
+                          const connMinPx = isManyNodes ? 4 : 6;
                           const dotSz = isManyNodes ? 'w-1.5 h-1.5' : 'w-2 h-2';
                           const dotActiveSz = isManyNodes ? 'w-1 h-1' : 'w-1.5 h-1.5';
                           const bdrColor = (node.done || node.active) ? stageMapPalette.mid : 'rgba(255,255,255,0.12)';
@@ -4996,10 +4996,10 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                           return (
                               <React.Fragment key={idx}>
                                   {idx > 0 && (
-                                      <div className={`h-px flex-1 min-w-[${connW}] rounded-full shrink`} style={{ background: prevDone ? stageMapPalette.mid : 'rgba(255,255,255,0.1)' }} />
+                                      <div className="h-px flex-1 rounded-full" style={{ minWidth: connMinPx, background: prevDone ? stageMapPalette.mid : 'rgba(255,255,255,0.1)' }} />
                                   )}
                                   <div
-                                      className={`relative flex items-center justify-center rounded-full border transition-all duration-300 shrink-0${node.active ? ' animate-pulse' : ''}`}
+                                      className={`relative flex-none flex items-center justify-center rounded-full border transition-all duration-300${node.active ? ' animate-pulse' : ''}`}
                                       style={{ width: nW, height: nW, background: bgFill, borderColor: bdrColor, boxShadow: glowShadow }}
                                   >
                                       {node.type === 'boss' && <Skull size={isManyNodes ? 10 : 12} style={{ color: node.active ? stageMapPalette.bright : 'rgba(255,255,255,0.35)' }} />}
