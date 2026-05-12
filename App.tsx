@@ -623,11 +623,11 @@ export default function App() {
     };
 
     const ENEMY_CLASS_BASE_HP: Record<Player['classId'], number> = {
-        knight: 77,
-        barbarian: 87,
-        mage: 48,
-        ranger: 62,
-        rogue: 62,
+        knight: 61,
+        barbarian: 69,
+        mage: 38,
+        ranger: 49,
+        rogue: 49,
     };
 
     const ENEMY_CLASS_BASE_MP: Record<Player['classId'], number> = {
@@ -647,11 +647,11 @@ export default function App() {
     };
 
     const ENEMY_CLASS_BASE_ATK_FLOOR: Record<Player['classId'], number> = {
-        knight: 16,
-        barbarian: 20,
-        mage: 14,
-        ranger: 16,
-        rogue: 14,
+        knight: 11,
+        barbarian: 14,
+        mage: 9,
+        ranger: 11,
+        rogue: 9,
     };
 
     const ENEMY_CLASS_BASE_DEF: Record<Player['classId'], number> = {
@@ -663,11 +663,11 @@ export default function App() {
     };
 
     const ENEMY_CLASS_BASE_MAGIC_FLOOR: Record<Player['classId'], number> = {
-        knight: 6,
-        barbarian: 10,
-        mage: 20,
-        ranger: 14,
-        rogue: 14,
+        knight: 4,
+        barbarian: 7,
+        mage: 14,
+        ranger: 9,
+        rogue: 9,
     };
 
     const ENEMY_CLASS_BASE_MAGIC_DEF_FLOOR: Record<Player['classId'], number> = {
