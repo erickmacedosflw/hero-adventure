@@ -464,7 +464,7 @@ export const ShopMenuScreen: React.FC<ShopMenuScreenProps> = ({
                 <span style={{ display:'inline-flex', alignItems:'center', justifyContent:'center', width:16, height:16, borderRadius:'50%', background:yBg, fontSize:9, fontWeight:900, color:'#fff', flexShrink:0 }}>{yLabel}</span>
               )}
               <img src={ICONE_MOCHILA_URL} alt="" className="h-5 w-5 object-contain" />
-              Mochila
+              Vender
             </button>
           )}
         </div>
@@ -659,7 +659,7 @@ export const ShopMenuScreen: React.FC<ShopMenuScreenProps> = ({
           showLR
           lrText="Trocar categoria"
           showSkill2={!!onOpenInventory}
-          skill2Text="Mochila"
+          skill2Text="Vender"
         />
         <div className="lg:hidden" style={{ height: 'max(0.5rem, env(safe-area-inset-bottom))' }} />
       </div>
