@@ -2760,6 +2760,7 @@ export default function App() {
     setEnemyAnimationAction('battle-idle');
     setSceneRegion('forest');
     setOnboardingPhase('intro_camp');
+    setMissions(INITIAL_MISSIONS.map(m => ({ ...m })));
     setHasPlayerDiedOnce(false);
         setSkillsUnlockPromptPending(false);
     setImpulseUnlockPromptQueue([]);
@@ -2804,6 +2805,7 @@ export default function App() {
                 logs: [],
                 narration: '',
                 sceneRegion: 'forest',
+                missions: INITIAL_MISSIONS.map(m => ({ ...m })),
             });
             refreshSaveSlotCatalog();
         }, 0);
@@ -2887,6 +2889,8 @@ export default function App() {
 
   // ── Diário de Missões: callbacks ────────────────────────────────────────
   const recordKillForMissions = useCallback((meta: { isBoss: boolean; element?: string; bodyType?: string; archetipo?: string }) => {
+    // Missões só acumulam progresso após serem liberadas no onboarding.
+    if (!missionsUnlockedRef.current) return;
     const types: MissionActionType[] = ['KILL_ENEMY'];
     if (meta.bodyType === 'Flying') types.push('KILL_FLYING');
     if (meta.element === 'sombrio') types.push('KILL_ELEMENT_DARK');
@@ -2922,6 +2926,8 @@ export default function App() {
   }, []);
 
   const checkStageMissions = useCallback((currentStage: number) => {
+    // Missões só acumulam progresso após serem liberadas no onboarding.
+    if (!missionsUnlockedRef.current) return;
     setMissions(prev => {
       const next = prev.map(m => {
         if (m.tipoMissao !== 'REACH_STAGE') return m;
@@ -3831,8 +3837,12 @@ export default function App() {
 
   const gameStateRef = useRef(gameState);
   const turnStateRef = useRef(turnState);
+  const missionsUnlockedRef = useRef(false);
   gameStateRef.current = gameState;
   turnStateRef.current = turnState;
+  // Mirror isMissionsUnlocked into a ref so stable useCallback closures can read it
+  // without being recreated on every onboardingPhase change.
+  missionsUnlockedRef.current = ONBOARDING_PHASES.indexOf(onboardingPhase) >= ONBOARDING_PHASES.indexOf('missions_unlocked');
 
   const equippedSkillsRef = useRef(player.equippedSkillIds);
   equippedSkillsRef.current = player.equippedSkillIds;
