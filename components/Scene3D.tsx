@@ -845,6 +845,8 @@ const BOW_PROJECTILE_FLIGHT_MS = 220;
 const BOW_PROJECTILE_STICK_MS = 1000;
 const BOW_PROJECTILE_FADE_MS = 280;
 const BOW_PROJECTILE_BASE_SCALE = 2.5;
+// Cached singleton — reused every frame to avoid per-frame allocations inside updateBowProjectile.
+const _BOW_UP_AXIS = new THREE.Vector3(0, -1, 0);
 
 const resolveImpactAnimationForWeapon = (weaponId?: string): { animationId: string; tintColor: string | null } => {
   if (!weaponId) {
@@ -1027,6 +1029,14 @@ const CombatCinematicFX = ({
   const enemyBowProjectileStateRef = useRef<BowProjectileState | null>(null);
   const processedPlayerBowShotTriggerRef = useRef<number>(-1);
   const processedEnemyBowShotTriggerRef = useRef<number>(-1);
+  // Pre-allocated Vector3 temps — avoids per-frame heap allocations inside updateBowProjectile.
+  const _bowTmpPosition = useRef(new THREE.Vector3());
+  const _bowTmpDirection = useRef(new THREE.Vector3());
+  const _bowTmpOrientation = useRef(new THREE.Vector3());
+  const _bowTmpFadeOffset = useRef(new THREE.Vector3());
+  // Track previous opacity per projectile so needsUpdate is only set when it actually changes.
+  const playerBowPrevOpacityRef = useRef(1);
+  const enemyBowPrevOpacityRef = useRef(1);
   const bowProjectileModelSource = useLoader(FBXLoader, BOW_PROJECTILE_MODEL_URL, configureFBXLoader) as THREE.Group;
   const bowProjectileTexture = useTexture(BOW_PROJECTILE_TEXTURE_URL);
   const createBowProjectileMesh = useCallback(() => {
@@ -1681,8 +1691,9 @@ const CombatCinematicFX = ({
     }
 
     const updateBowProjectile = (
-      projectileRef: React.RefObject<THREE.Group>,
+      projectileRef: React.RefObject<THREE.Group | null>,
       projectileStateRef: React.MutableRefObject<BowProjectileState | null>,
+      prevOpacityRef: React.MutableRefObject<number>,
     ) => {
       const projectile = projectileRef.current;
       const shot = projectileStateRef.current;
@@ -1705,8 +1716,8 @@ const CombatCinematicFX = ({
       }
 
       projectile.visible = true;
-      const nextPosition = new THREE.Vector3();
-      const nextDirection = new THREE.Vector3(shot.direction, -0.02, 0);
+      const nextPosition = _bowTmpPosition.current;
+      const nextDirection = _bowTmpDirection.current.set(shot.direction, -0.02, 0);
       let opacity = 1;
 
       if (elapsedMs <= BOW_PROJECTILE_FLIGHT_MS) {
@@ -1729,7 +1740,7 @@ const CombatCinematicFX = ({
           nextPosition
             .set(hitAnchorX, hitAnchorY, 0.04)
             .add(shot.hitOffsetFromTarget)
-            .add(new THREE.Vector3(shot.direction * 0.06 * fadeProgress, -0.03 * fadeProgress, 0));
+            .add(_bowTmpFadeOffset.current.set(shot.direction * 0.06 * fadeProgress, -0.03 * fadeProgress, 0));
           nextDirection.copy(shot.hitDirection);
         } else {
           nextPosition.lerpVectors(shot.missPoint, shot.missFadePoint, fadeProgress);
@@ -1738,38 +1749,42 @@ const CombatCinematicFX = ({
       }
 
       projectile.position.copy(nextPosition);
-      const orientationDirection = nextDirection.clone();
+      const orientationDirection = _bowTmpOrientation.current.copy(nextDirection);
       orientationDirection.y += 0.18;
       if (orientationDirection.lengthSq() < 0.00001) {
         orientationDirection.set(shot.direction, 0, 0);
       }
       orientationDirection.normalize();
       // The FBX arrow's tip axis points down (-Y), so align that axis to the flight direction.
-      projectile.quaternion.setFromUnitVectors(new THREE.Vector3(0, -1, 0), orientationDirection);
+      projectile.quaternion.setFromUnitVectors(_BOW_UP_AXIS, orientationDirection);
       const scale = BOW_PROJECTILE_BASE_SCALE * (0.86 + (opacity * 0.14));
       projectile.scale.setScalar(scale);
 
-      projectile.traverse((node) => {
-        const mesh = node as THREE.Mesh;
-        if (!mesh.isMesh) {
-          return;
-        }
-        const applyOpacity = (material: THREE.Material) => {
-          const standard = material as THREE.MeshStandardMaterial;
-          standard.transparent = true;
-          standard.opacity = opacity;
-          standard.needsUpdate = true;
-        };
-        if (Array.isArray(mesh.material)) {
-          mesh.material.forEach((entry) => applyOpacity(entry as THREE.Material));
-        } else if (mesh.material) {
-          applyOpacity(mesh.material as THREE.Material);
-        }
-      });
+      const opacityChanged = opacity !== prevOpacityRef.current;
+      prevOpacityRef.current = opacity;
+      if (opacityChanged) {
+        projectile.traverse((node) => {
+          const mesh = node as THREE.Mesh;
+          if (!mesh.isMesh) {
+            return;
+          }
+          const applyOpacity = (material: THREE.Material) => {
+            const standard = material as THREE.MeshStandardMaterial;
+            standard.transparent = true;
+            standard.opacity = opacity;
+            standard.needsUpdate = true;
+          };
+          if (Array.isArray(mesh.material)) {
+            mesh.material.forEach((entry) => applyOpacity(entry as THREE.Material));
+          } else if (mesh.material) {
+            applyOpacity(mesh.material as THREE.Material);
+          }
+        });
+      }
     };
 
-    updateBowProjectile(playerBowProjectileRef, playerBowProjectileStateRef);
-    updateBowProjectile(enemyBowProjectileRef, enemyBowProjectileStateRef);
+    updateBowProjectile(playerBowProjectileRef, playerBowProjectileStateRef, playerBowPrevOpacityRef);
+    updateBowProjectile(enemyBowProjectileRef, enemyBowProjectileStateRef, enemyBowPrevOpacityRef);
 
     const resolveResources = ({
       side,
