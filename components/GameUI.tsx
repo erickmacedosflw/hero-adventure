@@ -2849,7 +2849,7 @@ export const TavernScreen: React.FC<{
                             </div>
                         </div>
 
-                        {import.meta.env.DEV && (
+                        {import.meta.env.DEV && window.innerWidth >= 640 && (
                             <button
                                 onClick={toggleDesktopStatsMonitor}
                                 className="settings-toggle-btn"
@@ -4433,7 +4433,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                               </div>
                           </div>
 
-                          {import.meta.env.DEV && (
+                          {import.meta.env.DEV && !isMobile && (
                               <button
                                   onClick={toggleDesktopStatsMonitor}
                                   className="settings-toggle-btn"

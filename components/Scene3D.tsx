@@ -4067,7 +4067,6 @@ export const GameScene: React.FC<SceneProps> = React.memo((props) => {
   const quality = useMemo(() => getRenderQualityProfile(renderQualityPreset), [renderQualityPreset]);
   const isMobileDevice = useMemo(() => getRenderPlatform() === 'mobile', []);
   const shouldShowDesktopStatsMonitor = import.meta.env.DEV
-    && !isMobileDevice
     && Boolean(props.showDesktopStatsMonitor);
   const isPerformanceMode = renderQualityPreset === 'performance';
   const isBalancedMode = renderQualityPreset === 'balanced';
