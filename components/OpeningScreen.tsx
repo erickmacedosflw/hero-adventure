@@ -244,14 +244,6 @@ export const OpeningScreen: React.FC<OpeningScreenProps> = ({ classes, enemies, 
     }
   }, []);
 
-  const loadingLabel = percentage >= 100
-    ? (offlinePrimeReady ? 'Iniciando' : 'Otimizando offline')
-    : active
-      ? 'Carregando'
-      : item
-        ? 'Preparando'
-        : 'Carregando';
-
   return (
     <div className="absolute inset-0 z-[100] overflow-hidden pointer-events-auto hero-brand-root">
       <img
@@ -284,25 +276,36 @@ export const OpeningScreen: React.FC<OpeningScreenProps> = ({ classes, enemies, 
             draggable={false}
           />
 
-          <p className="mt-6 text-[10px] font-black uppercase tracking-[0.34em] text-[#f8e9d8] sm:text-xs">
-            {loadingLabel}
-          </p>
-
-          <div className="mx-auto mt-6 h-2.5 w-full max-w-lg overflow-hidden rounded-full bg-[#fff7ea]/22 shadow-[inset_0_0_0_1px_rgba(255,242,220,0.28)] isolate">
-            <div
-              className="h-full bg-[linear-gradient(90deg,#f8d08c_0%,#f0b768_55%,#e18f51_100%)]"
-              style={{
-                width: '100%',
-                transform: `scaleX(${percentage / 100})`,
-                transformOrigin: 'left center',
-                transition: 'transform 0.3s linear',
-                willChange: 'transform',
-              }}
-            />
-          </div>
-
-          <div className="mt-4 font-mono text-xs font-bold tracking-[0.24em] text-[#ffe8c8] sm:text-sm">
-            {percentage}%
+          <div className="mt-8 flex items-center justify-center">
+            <svg
+              viewBox="0 0 48 48"
+              width="52"
+              height="52"
+              style={{ animation: 'spin 1.1s linear infinite' }}
+              aria-hidden="true"
+            >
+              <circle
+                cx="24" cy="24" r="20"
+                fill="none"
+                stroke="rgba(255,232,180,0.18)"
+                strokeWidth="4"
+              />
+              <circle
+                cx="24" cy="24" r="20"
+                fill="none"
+                stroke="url(#splashSpinnerGrad)"
+                strokeWidth="4"
+                strokeLinecap="round"
+                strokeDasharray="88"
+                strokeDashoffset="60"
+              />
+              <defs>
+                <linearGradient id="splashSpinnerGrad" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stopColor="#f8d08c" />
+                  <stop offset="100%" stopColor="#e18f51" />
+                </linearGradient>
+              </defs>
+            </svg>
           </div>
         </div>
       </div>
