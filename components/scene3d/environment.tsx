@@ -33,7 +33,7 @@ const DESKTOP_BALANCED_PROFILE: RenderQualityProfile = {
 const DESKTOP_QUALITY_PROFILE: RenderQualityProfile = {
   isLowQuality: false,
   dpr: [1.0, 1.0],
-  shadowMapSize: 1024,
+  shadowMapSize: 768,
   starsCount: 760,
   contactShadowResolution: 100,
   antialias: true,
@@ -109,7 +109,10 @@ export const getRenderPlatform = (): RenderPlatform => {
 export const getDefaultRenderQualityPreset = (platform = getRenderPlatform()): RenderQualityPreset => {
   // Electron desktop: always start in quality mode — no thermal/battery limits.
   if (isElectronRuntime()) return 'quality';
-  return 'quality';
+  // Web desktop: quality by default for best visual experience.
+  if (platform === 'desktop') return 'quality';
+  // Mobile: performance by default to preserve thermals.
+  return 'performance';
 };
 
 export const getRenderPowerPreference = (preset?: RenderQualityPreset): WebGLPowerPreference => {

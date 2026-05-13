@@ -1,4 +1,4 @@
-import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+﻿import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Sword, Shield, Zap, Sparkles, FlaskConical, Crosshair, Shirt, Footprints, Layers, RefreshCw, Swords, Wind, Clover, Heart, Info, X, LogOut, User } from 'lucide-react';
 import { Canvas, useFrame, useLoader, useThree } from '@react-three/fiber';
@@ -4057,9 +4057,9 @@ export const GameScene: React.FC<SceneProps> = React.memo((props) => {
   const shouldUseBloomAndVignette = isQualityMode;
   const shouldUseVignette = shouldUseBloomAndVignette && !runtimeCameraMenuFocus;
   // MSAA inside EffectComposer doubles GPU cost for all post-processing passes.
-  // Only enable it for quality mode; balanced/performance use 0 (no MSAA) to
-  // avoid 2Ãƒâ€” overdraw on Bloom, Vignette and outline passes.
-  const postProcessingMultisampling = isQualityMode ? 4 : 0;
+  // Desktop quality: capped at 2x MSAA (was 4x) - halves overdraw on Bloom, Vignette and outline passes.
+  // Mobile and lower tiers use 0 (no MSAA).
+  const postProcessingMultisampling = isQualityMode ? (isMobileDevice ? 0 : 2) : 0;
   const backfaceOutlineThickness = isPerformanceMode
     ? (isMobileDevice ? 0.045 : 0.06)
     : (isMobileDevice ? 0.055 : 0.07);

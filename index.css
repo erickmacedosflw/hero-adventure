@@ -533,6 +533,43 @@ button {
   clip-path: polygon(0 10px, 10px 0, calc(100% - 16px) 0, 100% 16px, 100% calc(100% - 10px), calc(100% - 10px) 100%, 12px 100%, 0 calc(100% - 12px));
 }
 
+/* ── Evolution Card — Rarity shimmer (gold) ─────────────────────────────── */
+@keyframes card-shimmer {
+  0%   { transform: translateX(-120%) skewX(-18deg); }
+  100% { transform: translateX(220%)  skewX(-18deg); }
+}
+
+.card-gold-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+
+.card-gold-shimmer::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background: linear-gradient(
+    105deg,
+    transparent 35%,
+    rgba(255, 215, 0, 0.22) 48%,
+    rgba(255, 255, 200, 0.32) 52%,
+    transparent 65%
+  );
+  width: 50%;
+  animation: card-shimmer 2.8s ease-in-out infinite;
+}
+
+@keyframes card-silver-pulse {
+  0%, 100% { box-shadow: 0 0 0 1px rgba(168,169,173,0.6), 0 8px 28px rgba(168,169,173,0.18); }
+  50%       { box-shadow: 0 0 0 1px rgba(200,202,208,0.9), 0 8px 36px rgba(200,202,208,0.28); }
+}
+
+.card-silver-pulse {
+  animation: card-silver-pulse 3.4s ease-in-out infinite;
+}
+
 .hero-brand-root {
   background: #0b0606;
   color: #fff3df;

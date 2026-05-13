@@ -230,12 +230,15 @@ export type CardEffectType =
   | 'atk'
   | 'magic'
   | 'def'
+  | 'magic_def'
   | 'speed'
   | 'luck'
   | 'gold_gain_multiplier'
   | 'xp_gain_multiplier'
   | 'boss_damage_multiplier'
   | 'heal_multiplier'
+  | 'magic_damage_multiplier'
+  | 'skill_cost_reduction'
   | 'opening_atk_buff'
   | 'opening_def_buff'
   | 'defend_mana_restore'
@@ -554,6 +557,8 @@ export interface PlayerCardBonuses {
   xpGainMultiplier: number;
   bossDamageMultiplier: number;
   healingMultiplier: number;
+  magicDamageMultiplier: number;
+  skillCostReduction: number;
   openingAtkBuff: number;
   openingDefBuff: number;
   defendManaRestore: number;

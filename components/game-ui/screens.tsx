@@ -1,18 +1,147 @@
 import React, { useRef, useState } from 'react';
 import { useGSAP } from '@gsap/react';
 import gsap from 'gsap';
-import { AlertTriangle, Crown, Home, LogOut, Play, Sparkles, Sword, Zap } from 'lucide-react';
-import { ALL_ITEMS } from '../../constants';
-import type { BossVictoryContext, CardRewardOffer, DungeonResult, Item, Player, ProgressionCard } from '../../types';
+import { AlertTriangle, BookOpen, Crown, Flame, Heart, Home, LogOut, Play, Sparkles, Sword, Wand2, X, Zap } from 'lucide-react';
+import { ALL_ITEMS, SKILLS } from '../../constants';
+import type { BossVictoryContext, CardRewardOffer, DungeonResult, Item, Player, ProgressionCard, Skill } from '../../types';
 import { getNewlyUnlockedShopRarityByStage } from '../../game/mechanics/shopProgression';
 import { uiSfx } from '../../game/audio/uiSfx';
 import { InventoryScreen as InventoryModal } from '../profile/InventoryScreen';
 import { ShopMenuScreen } from '../shop/ShopMenuScreen';
 import { GameAssetIcon } from '../ui/game-asset-icon';
-import { describeCardEffect, getCardCategoryBadge } from './cardPresentation';
+import { describeCardEffect, getCardCategoryBadge, getCategoryBannerUrl, getEffectIconUrl } from './cardPresentation';
 
 const MENU_BACKGROUND_IMAGE_URL = new URL('../../game/assets/Imagens/Menu_Screen.png', import.meta.url).href;
 const MENU_LOGO_IMAGE_URL = new URL('../../game/assets/Imagens/Logo_Hero_Tower.png', import.meta.url).href;
+
+// ── Skill Unlock Reveal ───────────────────────────────────────────────────
+const SKILL_TYPE_CONFIG = {
+  physical: { label: 'Físico',  color: '#f97316', bg: 'rgba(249,115,22,0.15)',  border: 'rgba(249,115,22,0.4)',  icon: <Sword size={14} /> },
+  magic:    { label: 'Mágico',  color: '#a78bfa', bg: 'rgba(167,139,250,0.15)', border: 'rgba(167,139,250,0.4)', icon: <Wand2 size={14} /> },
+  heal:     { label: 'Cura',    color: '#34d399', bg: 'rgba(52,211,153,0.15)',  border: 'rgba(52,211,153,0.4)', icon: <Heart size={14} /> },
+};
+
+const SkillUnlockReveal: React.FC<{ skill: Skill; onClose: () => void }> = ({ skill, onClose }) => {
+  const overlayRef = useRef<HTMLDivElement>(null);
+  const cardRef    = useRef<HTMLDivElement>(null);
+  const ring1Ref   = useRef<HTMLDivElement>(null);
+  const ring2Ref   = useRef<HTMLDivElement>(null);
+  const iconRef    = useRef<HTMLImageElement>(null);
+  const textRef    = useRef<HTMLDivElement>(null);
+
+  const cfg = SKILL_TYPE_CONFIG[skill.type] ?? SKILL_TYPE_CONFIG.physical;
+
+  useGSAP(() => {
+    // background fade in
+    gsap.fromTo(overlayRef.current, { opacity: 0 }, { opacity: 1, duration: 0.35, ease: 'power2.out' });
+    // card pop
+    gsap.fromTo(cardRef.current,
+      { opacity: 0, scale: 0.55, y: 40 },
+      { opacity: 1, scale: 1,    y: 0,  duration: 0.55, ease: 'back.out(1.8)', delay: 0.1 }
+    );
+    // icon bounce
+    gsap.fromTo(iconRef.current,
+      { scale: 0.3, opacity: 0 },
+      { scale: 1,   opacity: 1, duration: 0.5, ease: 'elastic.out(1.1, 0.55)', delay: 0.35 }
+    );
+    // text slide up
+    gsap.fromTo(textRef.current,
+      { opacity: 0, y: 18 },
+      { opacity: 1, y: 0,  duration: 0.4, ease: 'power2.out', delay: 0.5 }
+    );
+    // pulsing rings
+    const ringAnim = (el: HTMLDivElement | null, delay: number) => {
+      gsap.fromTo(el,
+        { scale: 0.7, opacity: 0.7 },
+        { scale: 2.2, opacity: 0,  duration: 1.6, ease: 'power1.out', repeat: -1, delay }
+      );
+    };
+    ringAnim(ring1Ref.current, 0.4);
+    ringAnim(ring2Ref.current, 0.95);
+  }, { scope: overlayRef });
+
+  const handleClose = () => {
+    gsap.to(cardRef.current,    { scale: 0.9, opacity: 0, y: -20, duration: 0.3, ease: 'power2.in' });
+    gsap.to(overlayRef.current, { opacity: 0, duration: 0.35, ease: 'power2.in', delay: 0.1, onComplete: onClose });
+  };
+
+  return (
+    <div ref={overlayRef} className="absolute inset-0 z-[60] flex items-center justify-center pointer-events-auto"
+      style={{ background: 'radial-gradient(ellipse at center, rgba(10,5,25,0.96) 0%, rgba(5,2,15,0.98) 100%)' }}>
+
+      <div ref={cardRef} className="relative flex flex-col items-center w-full max-w-sm mx-4">
+
+        {/* Badge */}
+        <div className="mb-5 inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-xs font-black uppercase tracking-[0.3em]"
+          style={{ borderColor: cfg.color + '88', background: cfg.bg, color: cfg.color }}>
+          <Sparkles size={12} /> Habilidade Desbloqueada!
+        </div>
+
+        {/* Icon + rings */}
+        <div className="relative flex items-center justify-center mb-6" style={{ width: 140, height: 140 }}>
+          {/* rings */}
+          <div ref={ring1Ref} className="absolute inset-0 rounded-full border-2 pointer-events-none"
+            style={{ borderColor: cfg.color + 'cc' }} />
+          <div ref={ring2Ref} className="absolute inset-0 rounded-full border pointer-events-none"
+            style={{ borderColor: cfg.color + '88' }} />
+          {/* glow backdrop */}
+          <div className="absolute inset-0 rounded-full"
+            style={{ background: `radial-gradient(circle, ${cfg.color}33 0%, transparent 70%)` }} />
+          {/* icon */}
+          {skill.icon
+            ? <img ref={iconRef} src={skill.icon} alt={skill.name}
+                className="relative z-10 rounded-2xl"
+                style={{ width: 90, height: 90, objectFit: 'contain', filter: `drop-shadow(0 0 18px ${cfg.color}cc)` }} />
+            : <div ref={iconRef as React.RefObject<HTMLDivElement>} className="relative z-10 flex items-center justify-center rounded-2xl text-4xl"
+                style={{ width: 90, height: 90, background: cfg.bg, border: `2px solid ${cfg.border}` }}>
+                <BookOpen size={44} style={{ color: cfg.color }} />
+              </div>
+          }
+        </div>
+
+        {/* Text block */}
+        <div ref={textRef} className="w-full rounded-2xl border px-6 py-5 text-center flex flex-col items-center gap-3"
+          style={{ background: 'rgba(15,8,30,0.95)', borderColor: cfg.color + '55', boxShadow: `0 0 40px ${cfg.color}22` }}>
+
+          {/* Skill name */}
+          <h2 className="text-2xl font-black" style={{ color: cfg.color, textShadow: `0 0 20px ${cfg.color}99` }}>
+            {skill.name}
+          </h2>
+
+          {/* Tags row */}
+          <div className="flex items-center gap-2 flex-wrap justify-center">
+            <span className="inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[10px] font-bold"
+              style={{ borderColor: cfg.border, background: cfg.bg, color: cfg.color }}>
+              {cfg.icon} {cfg.label}
+            </span>
+            <span className="inline-flex items-center gap-1 rounded-full border border-sky-400/50 bg-sky-900/30 px-2.5 py-0.5 text-[10px] font-bold text-sky-300">
+              <Zap size={10} /> {skill.manaCost} MP
+            </span>
+            {skill.type !== 'heal' && skill.damageMult > 0 && (
+              <span className="inline-flex items-center gap-1 rounded-full border border-orange-400/50 bg-orange-900/30 px-2.5 py-0.5 text-[10px] font-bold text-orange-300">
+                <Flame size={10} /> {Math.round(skill.damageMult * 100)}% dano
+              </span>
+            )}
+          </div>
+
+          {/* Description */}
+          <p className="text-sm text-[#c0a890] leading-relaxed italic">{skill.description}</p>
+
+          {/* Divider */}
+          <div className="w-full h-px" style={{ background: `linear-gradient(90deg, transparent, ${cfg.color}55, transparent)` }} />
+
+          {/* Close button */}
+          <button
+            onClick={handleClose}
+            className="mt-1 inline-flex items-center gap-2 rounded-xl px-6 py-2.5 text-sm font-black uppercase tracking-widest transition-all duration-200 hover:scale-105 active:scale-95"
+            style={{ background: cfg.color, color: '#0a0514', boxShadow: `0 4px 24px ${cfg.color}55` }}>
+            <X size={15} /> Fechar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 export const MenuScreen: React.FC<{ onStart: () => void }> = ({ onStart }) => (
   <div className="absolute inset-0 z-50 overflow-hidden pointer-events-auto hero-brand-root">
@@ -39,18 +168,52 @@ export const MenuScreen: React.FC<{ onStart: () => void }> = ({ onStart }) => (
   </div>
 );
 
+// ── Rarity visual styles ──────────────────────────────────────────────────
+const RARITY_STYLE = {
+  bronze: {
+    border:     'border-[#cd7f32]',
+    glow:       'hover:shadow-[0_12px_40px_rgba(205,127,50,0.45)]',
+    selectedGlow: '0 0 40px 8px rgba(205,127,50,0.55)',
+    shimmer:    '',
+    dots:       1,
+    label:      'Comum',
+    dotColor:   '#cd7f32',
+    headerOverlay: 'from-[#cd7f32]/20 via-transparent to-transparent',
+  },
+  silver: {
+    border:     'border-[#a8a9ad]',
+    glow:       'hover:shadow-[0_12px_40px_rgba(168,169,173,0.45)] card-silver-pulse',
+    selectedGlow: '0 0 40px 8px rgba(200,202,208,0.7)',
+    shimmer:    '',
+    dots:       2,
+    label:      'Raro',
+    dotColor:   '#a8a9ad',
+    headerOverlay: 'from-[#a8a9ad]/20 via-transparent to-transparent',
+  },
+  gold: {
+    border:     'border-[#ffd700]',
+    glow:       'hover:shadow-[0_12px_48px_rgba(255,215,0,0.55)]',
+    selectedGlow: '0 0 60px 16px rgba(255,215,0,0.5)',
+    shimmer:    'card-gold-shimmer',
+    dots:       3,
+    label:      'Lendário',
+    dotColor:   '#ffd700',
+    headerOverlay: 'from-[#ffd700]/30 via-transparent to-transparent',
+  },
+} as const;
+
 export const CardChoiceScreen: React.FC<{
   offer: CardRewardOffer;
   cards: ProgressionCard[];
   onSelect: (card: ProgressionCard) => void;
 }> = ({ offer, cards, onSelect }) => {
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [revealSkill, setRevealSkill] = useState<{ skill: Skill; card: ProgressionCard } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const isPickingRef = useRef(false);
 
   const { contextSafe } = useGSAP(() => {
-    // Entry animations — run once on mount
     gsap.fromTo(containerRef.current, { opacity: 0 }, { opacity: 1, duration: 0.5, ease: 'power1.out' });
     gsap.fromTo(panelRef.current, { opacity: 0, scale: 0.92, y: 30 }, { opacity: 1, scale: 1, y: 0, duration: 0.5, ease: 'power2.out' });
   }, { scope: containerRef });
@@ -61,38 +224,70 @@ export const CardChoiceScreen: React.FC<{
     uiSfx.play('card_select_evolution');
     setSelectedId(card.id);
 
+    const rs = RARITY_STYLE[card.rarity];
     const selectedEl = containerRef.current?.querySelector<HTMLElement>(`[data-card-id="${card.id}"]`);
     const otherEls = containerRef.current?.querySelectorAll<HTMLElement>(`[data-card-id]:not([data-card-id="${card.id}"])`);
-    const tl = gsap.timeline({ onComplete: () => onSelect(card) });
+
+    // Check for skill unlock BEFORE building timeline so we know what to do at the end
+    const unlockEffect = card.effects.find(e => e.type === 'unlock_skill');
+    const unlockedSkill = unlockEffect?.skillId ? SKILLS.find(s => s.id === unlockEffect.skillId) : null;
+
+    const tl = gsap.timeline();
 
     if (selectedEl) {
-      tl.to(selectedEl, { scale: 1.04, boxShadow: '0 0 40px 8px rgba(250,204,21,0.5)', duration: 0.27, ease: 'power2.out' }, 0);
-      tl.to(selectedEl, { scale: 1.02, boxShadow: '0 0 60px 16px rgba(250,204,21,0.3)', duration: 0.3 }, 0.27);
-      tl.to(selectedEl, { scale: 1.0, boxShadow: '0 0 80px 24px rgba(250,204,21,0)', duration: 0.33, ease: 'power1.in' }, 0.57);
+      tl.to(selectedEl, { scale: 1.05, boxShadow: rs.selectedGlow, duration: 0.27, ease: 'power2.out' }, 0);
+      tl.to(selectedEl, { scale: 1.03, duration: 0.3 }, 0.27);
+      tl.to(selectedEl, { scale: 1.0, boxShadow: '0 0 0px 0px transparent', duration: 0.33, ease: 'power1.in' }, 0.57);
     }
     if (otherEls && otherEls.length > 0) {
-      tl.to(otherEls, { opacity: 0.3, scale: 0.95, filter: 'grayscale(0.6)', duration: 0.5, ease: 'power1.out' }, 0.1);
+      tl.to(otherEls, { opacity: 0.28, scale: 0.94, filter: 'grayscale(0.7)', duration: 0.5, ease: 'power1.out' }, 0.1);
     }
     tl.to(containerRef.current, { opacity: 0, duration: 0.5, ease: 'power2.in' }, 0.9);
+
+    if (unlockedSkill) {
+      // Show skill reveal — onSelect is called when user closes the reveal
+      tl.call(() => setRevealSkill({ skill: unlockedSkill, card }));
+    } else {
+      tl.call(() => onSelect(card));
+    }
   });
 
   return (
-    <div ref={containerRef} className="absolute inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 pointer-events-auto">
-      <div ref={panelRef} className="w-full max-w-6xl max-h-[95vh] sm:max-h-none overflow-y-auto rounded-2xl sm:rounded-[28px] border border-[#cfab91] bg-[#f7ecdd] shadow-[0_30px_120px_rgba(107,49,65,0.18)]">
-        <div className="border-b border-[#dcc0aa] px-4 py-3 sm:px-8 sm:py-6 text-center">
-          <div className="inline-flex items-center gap-2 rounded-full border border-[#cfab91] bg-[#f4e5d4] px-3 py-1 sm:px-4 sm:py-1.5 text-[10px] sm:text-xs font-black uppercase tracking-[0.3em] text-[#8d5e29]">
-            <Sparkles size={12} /> {selectedId ? 'Carta Selecionada!' : 'Escolha uma carta'}
+    <>
+      <div ref={containerRef} className="absolute inset-0 z-50 bg-black/50 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 pointer-events-auto">
+        <div ref={panelRef} className="w-full max-w-5xl max-h-[95vh] overflow-y-auto rounded-2xl sm:rounded-[28px] border border-[#cfab91]/60 bg-[#1a1008]/90 shadow-[0_30px_120px_rgba(0,0,0,0.7)]">
+
+        {/* ── Header ────────────────────────────────────────────────────────── */}
+        <div className="border-b border-[#cfab91]/25 px-4 py-4 sm:px-8 sm:py-6 text-center"
+          style={{ background: 'linear-gradient(180deg, rgba(107,49,65,0.35) 0%, transparent 100%)' }}>
+          <div className="inline-flex items-center gap-2 rounded-full border border-[#cfab91]/50 bg-[#6b3141]/30 px-3 py-1 sm:px-4 sm:py-1.5 text-[10px] sm:text-xs font-black uppercase tracking-[0.3em] text-[#f0c8a0]">
+            <Sparkles size={12} /> {selectedId ? 'Pergaminho Absorvido!' : 'Escolha um Pergaminho'}
           </div>
-          <h2 className="mt-2 sm:mt-4 text-xl sm:text-4xl font-black text-[#6b3141]">{offer.source === 'boss' ? 'Recompensa do Chefao' : 'Recompensa de Evolucao'}</h2>
-          <p className="mt-1 sm:mt-2 text-xs sm:text-base text-[#7f5b56]">{offer.reason}</p>
+          <h2 className="mt-2 sm:mt-3 text-xl sm:text-3xl font-black text-[#f7e5cb]">
+            {offer.source === 'boss' ? 'Recompensa do Chefão' : 'Recompensa de Evolução'}
+          </h2>
+          <p className="mt-1 text-xs sm:text-sm text-[#c9a07a]">{offer.reason}</p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-5 p-3 sm:p-8">
+        {/* ── Card Grid ─────────────────────────────────────────────────────── */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-5 p-4 sm:p-7">
           {cards.map((card) => {
+            const rs = RARITY_STYLE[card.rarity];
             const category = getCardCategoryBadge(card);
             const effectLines = describeCardEffect(card);
+            const bannerUrl = getCategoryBannerUrl(card.category);
             const isThis = selectedId === card.id;
             const isOther = selectedId !== null && selectedId !== card.id;
+
+            // Glass badge style per category (no solid light bg)
+            const glassBadge =
+              card.category === 'economia'
+                ? 'text-amber-300 border-amber-400/50 bg-amber-900/40'
+                : card.category === 'atributo'
+                ? 'text-emerald-300 border-emerald-400/50 bg-emerald-900/40'
+                : card.category === 'batalha'
+                ? 'text-rose-300 border-rose-400/50 bg-rose-900/40'
+                : 'text-sky-300 border-sky-400/50 bg-sky-900/40';
 
             return (
               <button
@@ -100,39 +295,104 @@ export const CardChoiceScreen: React.FC<{
                 data-card-id={card.id}
                 onClick={() => handlePick(card)}
                 disabled={!!selectedId}
-                className={`group text-left rounded-[16px] sm:rounded-[20px] border p-3.5 sm:p-6 shadow-sm transition-all duration-200 relative overflow-hidden
-                  ${isThis ? 'border-amber-400 bg-amber-50/80 ring-2 ring-amber-400/50' : 'border-[#cfab91] bg-[#f7ecdd]'}
-                  ${!selectedId ? 'hover:-translate-y-1 hover:shadow-xl hover:border-[#c59d82] cursor-pointer' : ''}
-                  ${isOther ? 'cursor-default' : ''}
-                `}
+                className={[
+                  'group text-left rounded-[18px] border-2 transition-all duration-300 relative overflow-hidden',
+                  'flex flex-col',
+                  rs.border,
+                  rs.shimmer,
+                  isThis
+                    ? 'ring-2 ring-amber-400/60'
+                    : !selectedId
+                    ? `hover:-translate-y-2 cursor-pointer ${rs.glow}`
+                    : '',
+                  isOther ? 'cursor-default' : '',
+                ].join(' ')}
+                style={{
+                  background: 'linear-gradient(175deg, #1e1208 0%, #140d05 60%, #0e0802 100%)',
+                }}
               >
-                {isThis ? (
+                {/* Selected glow overlay */}
+                {isThis && (
+                  <div className="absolute inset-0 pointer-events-none z-10 rounded-[16px]"
+                    style={{ background: 'radial-gradient(circle at 50% 30%, rgba(250,204,21,0.18) 0%, transparent 70%)' }} />
+                )}
+
+                {/* ── Banner — imagem ocupa toda a área superior ─────────── */}
+                <div className="relative w-full overflow-hidden" style={{ height: '100px' }}>
+                  {/* Banner image fills entire area */}
                   <div
-                    className="absolute inset-0 rounded-[16px] sm:rounded-[20px] pointer-events-none"
-                    style={{
-                      background: 'radial-gradient(circle at center, rgba(250,204,21,0.25) 0%, transparent 70%)',
-                    }}
+                    className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-105"
+                    style={{ backgroundImage: `url(${bannerUrl})` }}
                   />
-                ) : null}
-                <div className="relative flex items-start justify-between gap-2 sm:gap-3 mb-2 sm:mb-4">
-                  <div>
-                    <div className="rounded-full border border-[#d6b9a3] bg-[#f8eddf] px-2.5 py-1 text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.35em] text-[#9a7068] inline-block mb-1 sm:mb-2">{card.rarity}</div>
-                    <h3 className="text-lg sm:text-2xl font-black text-[#6b3141] leading-tight">{card.name}</h3>
-                  </div>
-                  <div className={`inline-flex items-center gap-1 rounded-full border px-2 sm:px-3 py-0.5 sm:py-1 text-[10px] sm:text-[11px] font-bold shrink-0 ${category.color}`}>
-                    {category.icon}
-                    <span>{category.label}</span>
+                  {/* Bottom gradient fade into card body */}
+                  <div className="absolute inset-0"
+                    style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0) 20%, rgba(14,8,2,0.6) 65%, rgba(14,8,2,0.97) 100%)' }} />
+                  {/* Rarity accent strip at top */}
+                  <div className="absolute top-0 left-0 right-0 h-[3px]"
+                    style={{ background: `linear-gradient(90deg, ${rs.dotColor} 0%, ${rs.dotColor}55 60%, transparent 100%)` }} />
+
+                  {/* Name + badge overlaid at bottom of banner */}
+                  <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between gap-2">
+                    <h3 className="text-base sm:text-lg font-black leading-tight text-white drop-shadow-[0_2px_6px_rgba(0,0,0,1)]">
+                      {card.name}
+                    </h3>
+                    <div className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] sm:text-[10px] font-bold shrink-0 backdrop-blur-md ${glassBadge}`}>
+                      {category.icon}
+                      <span>{category.label}</span>
+                    </div>
                   </div>
                 </div>
 
-                <p className="relative text-xs sm:text-sm text-[#7f5b56] leading-relaxed min-h-8 sm:min-h-12">{card.description}</p>
+                {/* ── Card body ───────────────────────────────────────────── */}
+                <div className="flex flex-col flex-1 px-4 pb-4 pt-2 gap-2.5">
 
-                <div className="relative mt-3 sm:mt-5 space-y-1.5 sm:space-y-2">
-                  {effectLines.map((line) => (
-                    <div key={line} className="rounded-xl border border-[#dcc0aa] bg-[#f4e5d4] px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold text-[#6b3141]">
-                      {line}
+                  {/* Decorative divider */}
+                  <div className="h-px w-full opacity-30" style={{ background: `linear-gradient(90deg, transparent, ${rs.dotColor}, transparent)` }} />
+
+                  {/* Effect rows — image flush to left card edge, no padding left */}
+                  <div className="flex flex-col gap-1.5 -mx-4">
+                    {card.effects.map((eff, i) => (
+                      <div key={i} className="flex items-stretch overflow-hidden border-y border-[#cfab91]/12"
+                        style={{ background: 'rgba(207,171,145,0.06)' }}>
+                        {/* Image fills full height, no padding, flush left */}
+                        <img
+                          src={getEffectIconUrl(eff.type)}
+                          alt=""
+                          className="object-cover self-stretch"
+                          style={{ width: '36px', minHeight: '36px', flexShrink: 0, borderRight: '1px solid rgba(207,171,145,0.18)' }}
+                        />
+                        <span className="flex items-center px-3 text-[11px] sm:text-xs font-semibold text-[#e8cfa8] leading-snug">{effectLines[i]}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Description */}
+                  <p className="text-[10px] sm:text-xs text-[#9a7a5a] leading-relaxed italic">{card.description}</p>
+
+                  {/* Spacer */}
+                  <div className="flex-1" />
+
+                  {/* Rarity footer */}
+                  <div className="flex items-center justify-between pt-1 border-t border-[#cfab91]/15">
+                    <div className="flex items-center gap-1.5">
+                      {Array.from({ length: 3 }).map((_, i) => (
+                        <div
+                          key={i}
+                          className="w-2 h-2 rounded-full border"
+                          style={{
+                            backgroundColor: i < rs.dots ? rs.dotColor : 'transparent',
+                            borderColor: i < rs.dots ? rs.dotColor : 'rgba(207,171,145,0.3)',
+                            boxShadow: i < rs.dots ? `0 0 4px ${rs.dotColor}` : 'none',
+                          }}
+                        />
+                      ))}
+                      <span className="ml-1 text-[9px] font-black uppercase tracking-[0.25em]"
+                        style={{ color: rs.dotColor }}>{rs.label}</span>
                     </div>
-                  ))}
+                    {isThis && (
+                      <span className="text-[9px] font-black uppercase tracking-[0.2em] text-amber-400">✓ Selecionado</span>
+                    )}
+                  </div>
                 </div>
               </button>
             );
@@ -140,6 +400,13 @@ export const CardChoiceScreen: React.FC<{
         </div>
       </div>
     </div>
+      {revealSkill && (
+        <SkillUnlockReveal
+          skill={revealSkill.skill}
+          onClose={() => { setRevealSkill(null); onSelect(revealSkill.card); }}
+        />
+      )}
+    </>
   );
 };
 

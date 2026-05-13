@@ -73,7 +73,9 @@ export const BattleSkillMenu: React.FC<BattleSkillMenuProps> = ({
           const TypeIcon = skill?.type === 'physical' ? <Sword size={28} /> : skill?.type === 'magic' ? <Sparkles size={28} /> : <Heart size={28} />;
           const requiredResource = skill?.resourceEffect?.cost ?? 0;
           const hasResource = player.classResource.value >= requiredResource;
-          const effectiveManaCost = skill ? (player.impulsoAtivo >= 1 ? Math.max(1, Math.floor(skill.manaCost * 0.7)) : skill.manaCost) : 0;
+          const effectiveManaCost = skill ? (player.impulsoAtivo >= 1
+            ? Math.max(1, Math.floor(skill.manaCost * 0.7 * (1 - (player.cardBonuses.skillCostReduction ?? 0))))
+            : Math.max(1, Math.floor(skill.manaCost * (1 - (player.cardBonuses.skillCostReduction ?? 0))))) : 0;
           const canCast = !!skill && isPlayerTurn && player.stats.mp >= effectiveManaCost && hasResource;
           const isEmpty = !skill;
           const isSkillInfoOpen = battleInfoPopup?.type === 'skill' && battleInfoPopup?.id === skillId && !!skill;

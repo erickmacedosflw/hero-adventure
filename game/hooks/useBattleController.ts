@@ -661,7 +661,8 @@ export const useBattleController = ({
 
     const resolveStrike = (remainingHp: number, isFirstStrike: boolean) => {
       const riposteMultiplier = riposteActive && isFirstStrike ? RIPOSTE_DAMAGE_MULTIPLIER : 1;
-      const schoolBonus = usesMagicBasicAttack ? talentBonuses.magicDamage : talentBonuses.physicalDamage;
+      const cardMagicBonus = usesMagicBasicAttack ? (player.cardBonuses.magicDamageMultiplier ?? 0) : 0;
+      const schoolBonus = (usesMagicBasicAttack ? talentBonuses.magicDamage : talentBonuses.physicalDamage) + cardMagicBonus;
       const enemyDefenseActive = isFirstStrike && enemy.isDefending;
       const enemyDefenseLevel = enemyDefenseActive ? clampImpulse(enemy.impulseGuardLevel ?? 0) : 0;
       const attackResult = calculateDamage({
@@ -929,9 +930,10 @@ export const useBattleController = ({
     const skill: Skill = catalogSkill ? { ...inputSkill, ...catalogSkill } : inputSkill;
     const requiredResource = skill.resourceEffect?.cost ?? 0;
     const previewImpulse = clampImpulse(player.impulsoAtivo);
+    const cardCostReduction = player.cardBonuses.skillCostReduction ?? 0;
     const discountedManaCost = previewImpulse >= 1
-      ? Math.max(1, Math.floor(skill.manaCost * (1 - IMPULSE_MANA_DISCOUNT)))
-      : skill.manaCost;
+      ? Math.max(1, Math.floor(skill.manaCost * (1 - IMPULSE_MANA_DISCOUNT) * (1 - cardCostReduction)))
+      : Math.max(1, Math.floor(skill.manaCost * (1 - cardCostReduction)));
     if (!enemy || turnState !== TurnState.PLAYER_INPUT || player.stats.mp < discountedManaCost || player.classResource.value < requiredResource) return;
     lastPlayerActionRef.current = 'skill';
 
@@ -1099,7 +1101,8 @@ export const useBattleController = ({
       const resolveSkillStrike = (remainingHp: number, isFirstStrike: boolean) => {
         const statusBonus = getMarkedBonus(enemy.statusEffects, talentBonuses.markedDamage);
         const skillAttackKind = getSkillAttackKind(skill);
-        const schoolBonus = skillAttackKind === 'magic' ? talentBonuses.magicDamage : talentBonuses.physicalDamage;
+        const cardMagicBonus = skillAttackKind === 'magic' ? (player.cardBonuses.magicDamageMultiplier ?? 0) : 0;
+        const schoolBonus = (skillAttackKind === 'magic' ? talentBonuses.magicDamage : talentBonuses.physicalDamage) + cardMagicBonus;
         const resourceBurst = resourceSpent * (skill.resourceEffect?.bonusDamagePerPoint ?? 0);
         const riposteMultiplier = riposteActive && isFirstStrike ? RIPOSTE_DAMAGE_MULTIPLIER : 1;
         const enemyDefenseActive = isFirstStrike && enemy.isDefending;

@@ -5,7 +5,8 @@ import { GameScene } from './components/Scene3D';
 import type { BattleActionsConfig } from './components/scene3d/BattleActionsHtml';
 import { OpeningScreen } from './components/OpeningScreen';
 import { ClassSelectionScreen } from './components/ClassSelectionScreen';
-import { BattleHUD, MenuScreen, ShopScreen, TavernScreen, CardChoiceScreen, DungeonResultScreen, BossVictoryModal } from './components/GameUI';
+import { BattleHUD, MenuScreen, ShopScreen, TavernScreen, DungeonResultScreen, BossVictoryModal } from './components/GameUI';
+import { CardChoiceScreen } from './components/game-ui/screens';
 import { HeroProfileDetailModal } from './components/scene3d/HeroInspectCanvas';
 import { useInputMode } from './game/hooks/useInputMode';
 import { AdminPanel } from './components/AdminPanel';
@@ -2118,6 +2119,9 @@ export default function App() {
                 case 'def':
                     nextPlayer.stats.def += Math.floor(effectValue);
                     break;
+                case 'magic_def':
+                    nextPlayer.stats.magicDef = (nextPlayer.stats.magicDef ?? nextPlayer.stats.def) + Math.floor(effectValue);
+                    break;
                 case 'speed':
                     nextPlayer.stats.speed += Math.floor(effectValue);
                     break;
@@ -2156,6 +2160,12 @@ export default function App() {
                     break;
                 case 'mp_regen_per_turn':
                     nextPlayer.cardBonuses.mpRegenPerTurn = Math.min(40, nextPlayer.cardBonuses.mpRegenPerTurn + Math.floor(effectValue));
+                    break;
+                case 'magic_damage_multiplier':
+                    nextPlayer.cardBonuses.magicDamageMultiplier = Math.min(0.5, (nextPlayer.cardBonuses.magicDamageMultiplier ?? 0) + effectValue);
+                    break;
+                case 'skill_cost_reduction':
+                    nextPlayer.cardBonuses.skillCostReduction = Math.min(0.4, (nextPlayer.cardBonuses.skillCostReduction ?? 0) + effectValue);
                     break;
                 case 'unlock_skill': {
                     const unlockedPlayer = unlockSkillOnPlayer(nextPlayer, effect.skillId);
@@ -4019,21 +4029,36 @@ export default function App() {
   // ── Admin panel handlers ─────────────────────────────────────────────────
   const handleAdminSetLevel = useCallback((targetLevel: number) => {
     const safeLevel = Math.max(1, Math.min(99, Math.floor(targetLevel)));
+    let updatedPlayer: Player | null = null;
     setPlayer(prev => {
       const next = { ...prev, stats: { ...prev.stats } };
       next.level = safeLevel;
       next.xp = 0;
       next.xpToNext = getXpToNextByLevel(safeLevel);
-      next.talentPoints = Math.max(prev.talentPoints, 0);
+      // Admin: set talentPoints equal to the chosen level (1 point per level)
+      next.talentPoints = safeLevel;
       const maxImpulse = getImpulseCapacityByLevel(safeLevel);
       next.impulso = Math.min(prev.impulso, maxImpulse);
       next.impulsoAtivo = Math.min(prev.impulsoAtivo, maxImpulse);
       // Full HP/MP restore on level set
       next.stats.hp = next.stats.maxHp;
       next.stats.mp = next.stats.maxMp;
+      updatedPlayer = next;
       return next;
     });
-  }, []);
+    // Open a level-up card reward after state settles
+    window.setTimeout(() => {
+      const snap = updatedPlayer;
+      if (!snap) return;
+      const offer: CardRewardOffer = {
+        source: 'level-up',
+        reason: `Nível ${safeLevel} — escolha um pergaminho de evolução`,
+        phaseLevel: safeLevel,
+      };
+      setPostCardFlow('tavern');
+      openCardRewardQueue(snap, [offer]);
+    }, 0);
+  }, [openCardRewardQueue]);
 
   const handleAdminForceEquip = useCallback((item: Item) => {
     setPlayer(prev => {
@@ -4068,6 +4093,31 @@ export default function App() {
       });
     }, 0);
   }, []);
+
+  const handleAdminSimulateBossVictory = useCallback((bossName: string) => {
+    const ctx: BossVictoryContext = {
+      mode: 'hunt',
+      bossName,
+      nextStage: stage + 1,
+    };
+    setBossVictoryContext(ctx);
+    setPostCardFlow('boss-victory');
+    const queue: CardRewardOffer[] = [{ source: 'boss', reason: `Vitória sobre ${bossName}`, phaseLevel: stage }];
+    openCardRewardQueue(player, queue);
+  }, [openCardRewardQueue, player, stage]);
+
+  const handleAdminTriggerBossCard = useCallback(() => {
+    const queue: CardRewardOffer[] = [{ source: 'boss', reason: 'Recompensa de Chefão (Admin)', phaseLevel: stage }];
+    setPostCardFlow('tavern');
+    openCardRewardQueue(player, queue);
+  }, [openCardRewardQueue, player, stage]);
+
+  const handleAdminTriggerLevelUpCard = useCallback(() => {
+    const queue: CardRewardOffer[] = [{ source: 'level-up', reason: `Evolução (Admin) — Nível ${player.level}`, phaseLevel: player.level }];
+    setPostCardFlow('tavern');
+    openCardRewardQueue(player, queue);
+  }, [openCardRewardQueue, player]);
+
   // ─────────────────────────────────────────────────────────────────────────
 
   const equipItem = (item: Item) => {
@@ -6202,6 +6252,9 @@ export default function App() {
           onAddDiamonds={(amount) => setPlayer(prev => ({ ...prev, diamonds: prev.diamonds + amount }))}
           onAddEssence={(amount) => setTowerMeta(prev => ({ ...prev, essence: prev.essence + amount }))}
           onForceEquip={handleAdminForceEquip}
+          onSimulateBossVictory={handleAdminSimulateBossVictory}
+          onTriggerBossCard={handleAdminTriggerBossCard}
+          onTriggerLevelUpCard={handleAdminTriggerLevelUpCard}
         />
       )}
 

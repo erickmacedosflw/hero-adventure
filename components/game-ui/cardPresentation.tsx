@@ -1,7 +1,47 @@
 import React from 'react';
 import { Coins, Crosshair, Heart, Sparkles } from 'lucide-react';
 import { SKILLS } from '../../constants';
-import type { ProgressionCard, Rarity } from '../../types';
+import type { CardCategory, CardEffectType, ProgressionCard, Rarity } from '../../types';
+
+// ── Asset URLs ────────────────────────────────────────────────────────────────
+const _icon = (file: string) => new URL(`../../game/assets/Icons/Cartas/${file}`, import.meta.url).href;
+
+const EFFECT_ICON_MAP: Record<CardEffectType, string> = {
+  atk:                           _icon('ataque.png'),
+  opening_atk_buff:              _icon('buff_ataque.png'),
+  opening_def_buff:              _icon('buff_defesa.png'),
+  counter_attack_chance_bonus:   _icon('contra_atque.png'),
+  opening_counter_attack_boost:  _icon('contra_atque.png'),
+  heal_multiplier:               _icon('cura.png'),
+  hp_regen_per_turn:             _icon('cura.png'),
+  skill_cost_reduction:          _icon('cuto_habilidades.png'),
+  boss_damage_multiplier:        _icon('dano_chefes.png'),
+  magic_damage_multiplier:       _icon('dano_magico.png'),
+  def:                           _icon('defesa_fisica.png'),
+  magic_def:                     _icon('defesa_magica.png'),
+  unlock_skill:                  _icon('habilidades.png'),
+  max_hp:                        _icon('hp_vida.png'),
+  max_mp:                        _icon('mana.png'),
+  mp_regen_per_turn:             _icon('mana.png'),
+  defend_mana_restore:           _icon('mano_defender.png'),
+  gold_instant:                  _icon('ouro.png'),
+  gold_gain_multiplier:          _icon('ouro.png'),
+  magic:                         _icon('poder_magico.png'),
+  luck:                          _icon('sorte.png'),
+  speed:                         _icon('velocidade.png'),
+  xp_instant:                    _icon('xp.png'),
+  xp_gain_multiplier:            _icon('xp.png'),
+};
+
+const CATEGORY_BANNER_MAP: Record<CardCategory, string> = {
+  atributo: _icon('Banner_Atributo.png'),
+  batalha:  _icon('Banner_Batalha.png'),
+  economia: _icon('Banner_Economia.png'),
+  especial: _icon('Banner_Especial.png'),
+};
+
+export const getEffectIconUrl = (type: CardEffectType): string => EFFECT_ICON_MAP[type] ?? _icon('habilidades.png');
+export const getCategoryBannerUrl = (category: CardCategory): string => CATEGORY_BANNER_MAP[category];
 
 const CARD_PERCENT_BY_RARITY: Record<Rarity, number> = {
   bronze: 0.03,
@@ -93,12 +133,15 @@ export const describeCardEffect = (card: ProgressionCard) => {
       case 'atk': return `+${value} Ataque`;
       case 'magic': return `+${value} Magia`;
       case 'def': return `+${value} Defesa`;
+      case 'magic_def': return `+${value} Defesa Mágica`;
       case 'speed': return `+${value} Velocidade`;
       case 'luck': return `+${value} Sorte`;
       case 'gold_gain_multiplier': return `+${value} de ouro por batalha`;
       case 'xp_gain_multiplier': return `+${value} de XP por batalha`;
       case 'boss_damage_multiplier': return `+${value} de dano contra chefes`;
       case 'heal_multiplier': return `+${value} de cura em habilidades e itens`;
+      case 'magic_damage_multiplier': return `+${value} de dano mágico`;
+      case 'skill_cost_reduction': return `-${value} de custo de mana das habilidades`;
       case 'opening_atk_buff': return `Buff inicial de ataque: +${value}`;
       case 'opening_def_buff': return `Buff inicial de defesa: +${value}`;
       case 'defend_mana_restore': return `Recupera +${value} de mana ao defender`;

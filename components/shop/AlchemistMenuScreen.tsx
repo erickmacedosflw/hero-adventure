@@ -86,12 +86,15 @@ const describeCardEffects = (card: ProgressionCard): string[] =>
       case 'atk': return `+${value} Ataque`;
       case 'magic': return `+${value} Magia`;
       case 'def': return `+${value} Defesa`;
+      case 'magic_def': return `+${value} Defesa Mágica`;
       case 'speed': return `+${value} Velocidade`;
       case 'luck': return `+${value} Sorte`;
       case 'gold_gain_multiplier': return `+${value} de ouro por batalha`;
       case 'xp_gain_multiplier': return `+${value} de XP por batalha`;
       case 'boss_damage_multiplier': return `+${value} de dano contra chefes`;
       case 'heal_multiplier': return `+${value} de cura em habilidades`;
+      case 'magic_damage_multiplier': return `+${value} de dano mágico`;
+      case 'skill_cost_reduction': return `-${value} de custo de mana das habilidades`;
       case 'opening_atk_buff': return `Buff inicial de ataque: +${value}`;
       case 'opening_def_buff': return `Buff inicial de defesa: +${value}`;
       case 'defend_mana_restore': return `Recupera +${value} de mana ao defender`;

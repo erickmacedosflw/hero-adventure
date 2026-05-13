@@ -20,6 +20,9 @@ export interface AdminPanelProps {
   onAddDiamonds: (amount: number) => void;
   onAddEssence: (amount: number) => void;
   onForceEquip: (item: Item) => void;
+  onSimulateBossVictory: (bossName: string) => void;
+  onTriggerBossCard: () => void;
+  onTriggerLevelUpCard: () => void;
 }
 
 const BTN = (props: React.ButtonHTMLAttributes<HTMLButtonElement> & { label: string }) => {
@@ -71,6 +74,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onAddDiamonds,
   onAddEssence,
   onForceEquip,
+  onSimulateBossVictory,
+  onTriggerBossCard,
+  onTriggerLevelUpCard,
 }) => {
   const [open, setOpen] = useState(false);
   const [itemCategory, setItemCategory] = useState(0);
@@ -206,6 +212,23 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               {[50, 200, 1000].map(a => (
                 <BTN key={a} label={`+${a}`} onClick={() => onAddEssence(a)} />
               ))}
+            </Row>
+          </div>
+
+          {/* Simulações */}
+          <div style={{ marginBottom: 12 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#f43f5e', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.8 }}>Simulações</div>
+            <Row label="Vitória Chefão">
+              {['Goblin Rei', 'Dragão Negro', 'Lich Supremo'].map(name => (
+                <BTN key={name} label={name} onClick={() => onSimulateBossVictory(name)}
+                  style={{ background: '#3b0a14', borderColor: '#f43f5e', color: '#fda4af' }} />
+              ))}
+            </Row>
+            <Row label="Carta de recompensa">
+              <BTN label="Carta de Chefão" onClick={onTriggerBossCard}
+                style={{ background: '#3b0a14', borderColor: '#f43f5e', color: '#fda4af' }} />
+              <BTN label="Carta de Nível" onClick={onTriggerLevelUpCard}
+                style={{ background: '#1c1917', borderColor: '#f59e0b', color: '#fbbf24' }} />
             </Row>
           </div>
 

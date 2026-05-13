@@ -187,7 +187,9 @@ export const BattleActionsHtml: React.FC<{
         const skillIconSrc = skill ? (skill.icon ?? SKILLS.find(s => s.id === skill.id)?.icon) : undefined;
         const resourceCost = skill?.resourceEffect?.cost ?? 0;
         const hasResource = player.classResource.value >= resourceCost;
-        const manaCost = skill ? (player.impulsoAtivo >= 1 ? Math.max(1, Math.floor(skill.manaCost * 0.7)) : skill.manaCost) : 0;
+        const manaCost = skill ? (player.impulsoAtivo >= 1
+          ? Math.max(1, Math.floor(skill.manaCost * 0.7 * (1 - (player.cardBonuses.skillCostReduction ?? 0))))
+          : Math.max(1, Math.floor(skill.manaCost * (1 - (player.cardBonuses.skillCostReduction ?? 0))))) : 0;
         const canCast = !!skill && isPlayerTurn && player.stats.mp >= manaCost && hasResource;
         const isEmpty = !skill;
         const infoOpen = infoPopup?.type === 'skill' && infoPopup?.id === skillId && !!skill;

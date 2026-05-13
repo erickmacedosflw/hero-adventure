@@ -110,12 +110,15 @@ export const getCardEffectPreview = (card: ProgressionCard) => {
     case 'atk': return `+${value} ataque`;
     case 'magic': return `+${value} magia`;
     case 'def': return `+${value} defesa`;
+    case 'magic_def': return `+${value} def. mágica`;
     case 'speed': return `+${value} velocidade`;
     case 'luck': return `+${value} sorte`;
     case 'gold_gain_multiplier': return `+${value} ouro por batalha`;
     case 'xp_gain_multiplier': return `+${value} XP por batalha`;
     case 'boss_damage_multiplier': return `+${value} dano em chefes`;
     case 'heal_multiplier': return `+${value} cura`;
+    case 'magic_damage_multiplier': return `+${value} dano mágico`;
+    case 'skill_cost_reduction': return `-${value} custo de habilidades`;
     case 'opening_atk_buff': return `+${value} ataque inicial`;
     case 'opening_def_buff': return `+${value} defesa inicial`;
     case 'defend_mana_restore': return `+${value} mana ao defender`;

@@ -35,6 +35,8 @@ export const INITIAL_PLAYER: Player = {
     xpGainMultiplier: 0,
     bossDamageMultiplier: 0,
     healingMultiplier: 0,
+    magicDamageMultiplier: 0,
+    skillCostReduction: 0,
     openingAtkBuff: 0,
     openingDefBuff: 0,
     defendManaRestore: 0,
