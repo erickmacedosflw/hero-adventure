@@ -276,35 +276,59 @@ export const OpeningScreen: React.FC<OpeningScreenProps> = ({ classes, enemies, 
             draggable={false}
           />
 
-          <div className="mt-8 flex items-center justify-center">
+          <div className="mt-10 flex items-center justify-center">
             <svg
-              viewBox="0 0 48 48"
-              width="52"
-              height="52"
-              style={{ animation: 'spin 1.1s linear infinite' }}
+              viewBox="0 0 100 100"
+              width="110"
+              height="110"
+              overflow="visible"
               aria-hidden="true"
             >
-              <circle
-                cx="24" cy="24" r="20"
-                fill="none"
-                stroke="rgba(255,232,180,0.18)"
-                strokeWidth="4"
-              />
-              <circle
-                cx="24" cy="24" r="20"
-                fill="none"
-                stroke="url(#splashSpinnerGrad)"
-                strokeWidth="4"
-                strokeLinecap="round"
-                strokeDasharray="88"
-                strokeDashoffset="60"
-              />
               <defs>
-                <linearGradient id="splashSpinnerGrad" x1="0" y1="0" x2="1" y2="1">
+                <radialGradient id="gemGrad" cx="40%" cy="30%" r="65%">
+                  <stop offset="0%" stopColor="#fff8e0" stopOpacity="0.95" />
+                  <stop offset="40%" stopColor="#f8d08c" />
+                  <stop offset="100%" stopColor="#c06010" />
+                </radialGradient>
+                <radialGradient id="gemInner" cx="50%" cy="50%" r="50%">
+                  <stop offset="0%" stopColor="#fff4cc" stopOpacity="0.9" />
+                  <stop offset="100%" stopColor="#f0b040" stopOpacity="0" />
+                </radialGradient>
+                <linearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="1">
                   <stop offset="0%" stopColor="#f8d08c" />
                   <stop offset="100%" stopColor="#e18f51" />
                 </linearGradient>
               </defs>
+
+              {/* Expanding pulse rings */}
+              <circle cx="50" cy="50" r="22" fill="none" stroke="url(#ringGrad)" style={{ animation: 'splash-ring 2s ease-out infinite' }} />
+              <circle cx="50" cy="50" r="22" fill="none" stroke="url(#ringGrad)" style={{ animation: 'splash-ring 2s ease-out 0.9s infinite' }} />
+              <circle cx="50" cy="50" r="22" fill="none" stroke="#f8d08c" opacity="0.25" style={{ animation: 'splash-ring2 2.6s ease-out 0.45s infinite' }} />
+
+              {/* Orbiting diamonds */}
+              <g style={{ transformOrigin: '50px 50px', animation: 'spin 4s linear infinite' }}>
+                <polygon points="50,14 53,18 50,22 47,18" fill="#f8d08c" opacity="0.9" />
+                <polygon points="50,78 53,82 50,86 47,82" fill="#f8d08c" opacity="0.9" />
+              </g>
+              <g style={{ transformOrigin: '50px 50px', animation: 'spin 4s linear infinite reverse' }}>
+                <polygon points="14,50 18,47 22,50 18,53" fill="#e18f51" opacity="0.8" />
+                <polygon points="78,50 82,47 86,50 82,53" fill="#e18f51" opacity="0.8" />
+              </g>
+
+              {/* Center gem — diamond shape */}
+              <polygon
+                points="50,28 64,50 50,72 36,50"
+                fill="url(#gemGrad)"
+                style={{ transformOrigin: '50px 50px', animation: 'splash-pulse 1.8s ease-in-out infinite' }}
+              />
+              {/* Inner highlight */}
+              <polygon
+                points="50,34 58,50 50,58 42,50"
+                fill="url(#gemInner)"
+                style={{ transformOrigin: '50px 50px', animation: 'splash-gem-inner 1.8s ease-in-out infinite' }}
+              />
+              {/* Top facet glint */}
+              <polygon points="50,28 56,40 50,44 44,40" fill="#fffbe8" opacity="0.45" />
             </svg>
           </div>
         </div>
