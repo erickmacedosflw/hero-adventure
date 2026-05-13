@@ -84,6 +84,7 @@ import { useBattleVfxStore } from '../game/stores/battleVfxStore';
 import { useBattleGaugeStore } from '../game/stores/battleGaugeStore';
 import { useBattleStatsStore } from '../game/stores/battleStatsStore';
 import { useGameTimeStore } from '../game/stores/gameTimeStore';
+import { Perf } from 'r3f-perf';
 export { ItemPreviewCanvas } from './items/ItemPreviewCanvas';
 export type {
   DeveloperAnimationRuntimeDiagnostic,
@@ -4260,6 +4261,7 @@ export const GameScene: React.FC<SceneProps> = React.memo((props) => {
         }}
       >
         {!useAlwaysFrameloop && <FpsCap fps={mobileFpsCap} />}
+        {shouldShowDesktopStatsMonitor && <Perf position="top-right" minimal={false} />}
         {/* Throttle shadow map to 2 fps — saves ~40-60 ms/frame in quality mode.
             ContactShadows (per-character) are unaffected and still update normally. */}
         {shadowsEnabled && <ShadowAutoUpdateThrottle fps={24} />}

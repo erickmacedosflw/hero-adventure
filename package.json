@@ -53,6 +53,7 @@
     "electron": "^34.5.8",
     "electron-builder": "^25.1.8",
     "png-to-ico": "^3.0.1",
+    "r3f-perf": "^7.2.3",
     "sharp": "^0.34.5",
     "typescript": "~5.8.2",
     "vite": "^6.2.0",
