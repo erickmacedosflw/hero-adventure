@@ -11,8 +11,8 @@ import type { FloatingText, Particle } from '../../types';
 // ── Particle budget tracking (module-level — never causes React re-renders) ─
 let _budgetWindowStart = 0;
 let _budgetSpawnedInWindow = 0;
-const BUDGET_WINDOW_MS = 240;
-const BUDGET_HARD_CAP = 70;
+const BUDGET_WINDOW_MS = 400;
+const BUDGET_HARD_CAP = 45;
 
 interface BattleVfxState {
   floatingTexts: FloatingText[];
@@ -119,7 +119,7 @@ export const useBattleVfxStore = create<BattleVfxState>((set) => ({
       });
     }
 
-    set((s) => ({ particles: [...s.particles, ...newParticles].slice(-120) }));
+    set((s) => ({ particles: [...s.particles, ...newParticles].slice(-80) }));
   },
 
   pruneExpired: () => {

@@ -31,7 +31,7 @@ const SkillUnlockReveal: React.FC<{ skill: Skill; onClose: () => void }> = ({ sk
 
   const cfg = SKILL_TYPE_CONFIG[skill.type] ?? SKILL_TYPE_CONFIG.physical;
 
-  useGSAP(() => {
+  const { contextSafe } = useGSAP(() => {
     // background fade in
     gsap.fromTo(overlayRef.current, { opacity: 0 }, { opacity: 1, duration: 0.35, ease: 'power2.out' });
     // card pop
@@ -49,7 +49,7 @@ const SkillUnlockReveal: React.FC<{ skill: Skill; onClose: () => void }> = ({ sk
       { opacity: 0, y: 18 },
       { opacity: 1, y: 0,  duration: 0.4, ease: 'power2.out', delay: 0.5 }
     );
-    // pulsing rings
+    // pulsing rings — killed immediately in handleClose
     const ringAnim = (el: HTMLDivElement | null, delay: number) => {
       gsap.fromTo(el,
         { scale: 0.7, opacity: 0.7 },
@@ -60,10 +60,13 @@ const SkillUnlockReveal: React.FC<{ skill: Skill; onClose: () => void }> = ({ sk
     ringAnim(ring2Ref.current, 0.95);
   }, { scope: overlayRef });
 
-  const handleClose = () => {
+  // contextSafe: exit tweens belong to this context and are killed on unmount.
+  // Kill ring tweens immediately so they stop as soon as the user closes.
+  const handleClose = contextSafe(() => {
+    gsap.killTweensOf([ring1Ref.current, ring2Ref.current]);
     gsap.to(cardRef.current,    { scale: 0.9, opacity: 0, y: -20, duration: 0.3, ease: 'power2.in' });
     gsap.to(overlayRef.current, { opacity: 0, duration: 0.35, ease: 'power2.in', delay: 0.1, onComplete: onClose });
-  };
+  });
 
   return (
     <div ref={overlayRef} className="absolute inset-0 z-[60] flex items-center justify-center pointer-events-auto"

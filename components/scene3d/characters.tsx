@@ -554,25 +554,29 @@ export const EnemyCharacter = ({
     }
     if (enemyShieldRef.current) {
       enemyShieldRef.current.visible = Boolean(isDefending);
-      enemyShieldRef.current.rotation.y -= 0.05;
-      enemyShieldRef.current.scale.setScalar(1 + Math.sin(state.clock.elapsedTime * 8) * 0.05);
+      if (isDefending) {
+        enemyShieldRef.current.rotation.y -= 0.05;
+        enemyShieldRef.current.scale.setScalar(1 + Math.sin(state.clock.elapsedTime * 8) * 0.05);
+      }
     }
 
     if (enemyDefendImpulseAuraRef.current) {
       const auraVisible = Boolean(isDefending) && defendImpulseLevel > 0;
       enemyDefendImpulseAuraRef.current.visible = auraVisible;
-      enemyDefendImpulseAuraRef.current.rotation.y -= 0.07 + (defendImpulseLevel * 0.01);
-      enemyDefendImpulseAuraRef.current.position.y = 0.9 + Math.sin(state.clock.elapsedTime * 5.5) * 0.04;
-      // Only re-parse and apply the hex color string when the level actually changes.
-      if (lastAppliedImpulseLevelRef.current !== defendImpulseLevel) {
-        lastAppliedImpulseLevelRef.current = defendImpulseLevel;
-        const defendImpulseColor = defendImpulseLevel >= 3 ? '#7dd3fc' : defendImpulseLevel === 2 ? '#a855f7' : '#ef4444';
-        enemyDefendImpulseAuraRef.current.children.forEach((child) => {
-          if (child instanceof THREE.Mesh && child.material instanceof THREE.MeshStandardMaterial) {
-            child.material.color.set(defendImpulseColor);
-            child.material.emissive.set(defendImpulseColor);
-          }
-        });
+      if (auraVisible) {
+        enemyDefendImpulseAuraRef.current.rotation.y -= 0.07 + (defendImpulseLevel * 0.01);
+        enemyDefendImpulseAuraRef.current.position.y = 0.9 + Math.sin(state.clock.elapsedTime * 5.5) * 0.04;
+        // Only re-parse and apply the hex color string when the level actually changes.
+        if (lastAppliedImpulseLevelRef.current !== defendImpulseLevel) {
+          lastAppliedImpulseLevelRef.current = defendImpulseLevel;
+          const defendImpulseColor = defendImpulseLevel >= 3 ? '#7dd3fc' : defendImpulseLevel === 2 ? '#a855f7' : '#ef4444';
+          enemyDefendImpulseAuraRef.current.children.forEach((child) => {
+            if (child instanceof THREE.Mesh && child.material instanceof THREE.MeshStandardMaterial) {
+              child.material.color.set(defendImpulseColor);
+              child.material.emissive.set(defendImpulseColor);
+            }
+          });
+        }
       }
     }
 

@@ -151,7 +151,6 @@ const SOFT_PARTICLE_TEXTURE = (() => {
 export const MeshParticle: React.FC<Particle> = ({ position, color, velocity, scale = 0.22, life = 1, ttl = 0.9, renderMode }) => {
   const ref = useRef<THREE.Group>(null);
   const materialRef = useRef<THREE.Material>(null);
-  const [alive, setAlive] = useState(true);
   const lifeRef = useRef(Math.max(0.05, life));
   const rotationSeed = useMemo<[number, number, number]>(() => (
     [Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI]
@@ -164,38 +163,40 @@ export const MeshParticle: React.FC<Particle> = ({ position, color, velocity, sc
   const ttlSeconds = Math.max(0.2, ttl);
 
   useFrame((state, delta) => {
-    if (ref.current && alive) {
-      lifeRef.current -= delta / ttlSeconds;
-      ref.current.position.x += velocity[0] * delta;
-      ref.current.position.y += velocity[1] * delta;
-      ref.current.position.z += velocity[2] * delta;
+    const group = ref.current;
+    if (!group) return;
 
-      const life = Math.max(lifeRef.current, 0);
-      const fade = Math.min(Math.max(life / maxLife, 0), 1);
-      const baseScale = Math.max(0.06, scale);
-      ref.current.scale.setScalar(Math.max(0.02, baseScale * fade));
+    lifeRef.current -= delta / ttlSeconds;
+    const currentLife = Math.max(lifeRef.current, 0);
 
-      if (mode === 'sprite2d') {
-        ref.current.quaternion.copy(state.camera.quaternion);
-      } else {
-        ref.current.rotation.x += spinSeed[0] * delta * 0.2;
-        ref.current.rotation.y += spinSeed[1] * delta * 0.2;
-        ref.current.rotation.z += spinSeed[2] * delta * 0.2;
-      }
+    if (currentLife <= 0) {
+      // Hide via Three.js — zero React state updates, no re-render burst.
+      // The store's expiresAt + pruneExpired cycle will unmount this cleanly.
+      group.visible = false;
+      return;
+    }
 
-      if (materialRef.current instanceof THREE.MeshBasicMaterial || materialRef.current instanceof THREE.MeshStandardMaterial) {
-        materialRef.current.opacity = mode === 'shard3d' ? Math.max(0.16, fade) : Math.max(0.08, fade * 0.92);
-      }
+    group.visible = true;
+    group.position.x += velocity[0] * delta;
+    group.position.y += velocity[1] * delta;
+    group.position.z += velocity[2] * delta;
 
-      if (life <= 0) {
-        setAlive(false);
-      }
+    const fade = Math.min(Math.max(currentLife / maxLife, 0), 1);
+    const baseScale = Math.max(0.06, scale);
+    group.scale.setScalar(Math.max(0.02, baseScale * fade));
+
+    if (mode === 'sprite2d') {
+      group.quaternion.copy(state.camera.quaternion);
+    } else {
+      group.rotation.x += spinSeed[0] * delta * 0.2;
+      group.rotation.y += spinSeed[1] * delta * 0.2;
+      group.rotation.z += spinSeed[2] * delta * 0.2;
+    }
+
+    if (materialRef.current instanceof THREE.MeshBasicMaterial || materialRef.current instanceof THREE.MeshStandardMaterial) {
+      materialRef.current.opacity = mode === 'shard3d' ? Math.max(0.16, fade) : Math.max(0.08, fade * 0.92);
     }
   });
-
-  if (!alive) {
-    return null;
-  }
 
   if (mode === 'shard3d') {
     return (
@@ -253,6 +254,7 @@ const WorldFloatingText = ({
   const groupRef = useRef<THREE.Group>(null);
   const textRef = useRef<HTMLDivElement>(null);
   const startTimeRef = useRef<number | null>(null);
+  const doneRef = useRef(false);
   const basePosition = useMemo<[number, number, number]>(() => {
     if (target === 'player') return [-2, 1.48 - stackIndex * 0.24, 0.15];
     const ax = enemyAnchor?.[0] ?? 2;
@@ -263,7 +265,7 @@ const WorldFloatingText = ({
   const durationSeconds = Math.max(0.2, (text.durationMs ?? 1100) / 1000);
 
   useFrame((state) => {
-    if (!groupRef.current) {
+    if (!groupRef.current || doneRef.current) {
       return;
     }
 
@@ -284,6 +286,9 @@ const WorldFloatingText = ({
       textRef.current.style.transform = `translateY(${-8 * smoothFade}px) scale(${1 - (smoothFade * 0.07)})`;
     }
     groupRef.current.position.set(basePosition[0], basePosition[1] + lift, basePosition[2]);
+    if (progress >= 1) {
+      doneRef.current = true;
+    }
   });
 
   const tone = type === 'damage'

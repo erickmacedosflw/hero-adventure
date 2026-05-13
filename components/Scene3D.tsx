@@ -2531,39 +2531,47 @@ export const HeroVoxel = ({ classId = 'knight', playerAnimationAction = 'idle', 
 
     if (shieldRef.current) {
       shieldRef.current.visible = showMagicDefenseOrb;
-      shieldRef.current.rotation.y += 0.05;
-      shieldRef.current.scale.setScalar(1 + Math.sin(state.clock.elapsedTime * 8) * 0.05);
+      if (showMagicDefenseOrb) {
+        shieldRef.current.rotation.y += 0.05;
+        shieldRef.current.scale.setScalar(1 + Math.sin(state.clock.elapsedTime * 8) * 0.05);
+      }
     }
 
     if (defendImpulseAuraRef.current) {
       const auraVisible = Boolean(isDefending) && defendImpulseLevel > 0;
       defendImpulseAuraRef.current.visible = auraVisible;
-      defendImpulseAuraRef.current.rotation.y += 0.07 + (defendImpulseLevel * 0.01);
-      defendImpulseAuraRef.current.position.y = -0.18 + Math.sin(state.clock.elapsedTime * 5.5) * 0.04;
-      defendImpulseAuraRef.current.children.forEach((child) => {
-        if (child instanceof THREE.Mesh && child.material instanceof THREE.MeshStandardMaterial) {
-          child.material.color.set(defendImpulseColor);
-          child.material.emissive.set(defendImpulseColor);
-        }
-      });
+      if (auraVisible) {
+        defendImpulseAuraRef.current.rotation.y += 0.07 + (defendImpulseLevel * 0.01);
+        defendImpulseAuraRef.current.position.y = -0.18 + Math.sin(state.clock.elapsedTime * 5.5) * 0.04;
+        defendImpulseAuraRef.current.children.forEach((child) => {
+          if (child instanceof THREE.Mesh && child.material instanceof THREE.MeshStandardMaterial) {
+            child.material.color.set(defendImpulseColor);
+            child.material.emissive.set(defendImpulseColor);
+          }
+        });
+      }
     }
 
     if (phantomAuraRef.current) {
       phantomAuraRef.current.visible = Boolean(hasPerfectEvadeAura);
-      phantomAuraRef.current.rotation.y += 0.025;
-      phantomAuraRef.current.position.y = 0.15 + Math.sin(state.clock.elapsedTime * 2.5) * 0.04;
-      phantomAuraRef.current.children.forEach((child, index) => {
-        child.position.y = Math.sin(state.clock.elapsedTime * 2 + index) * 0.08;
-      });
+      if (hasPerfectEvadeAura) {
+        phantomAuraRef.current.rotation.y += 0.025;
+        phantomAuraRef.current.position.y = 0.15 + Math.sin(state.clock.elapsedTime * 2.5) * 0.04;
+        phantomAuraRef.current.children.forEach((child, index) => {
+          child.position.y = Math.sin(state.clock.elapsedTime * 2 + index) * 0.08;
+        });
+      }
     }
 
     if (twinAuraRef.current) {
       twinAuraRef.current.visible = Boolean(hasDoubleAttackAura);
-      twinAuraRef.current.rotation.y -= 0.08;
-      twinAuraRef.current.position.y = 0.45 + Math.sin(state.clock.elapsedTime * 6) * 0.03;
-      twinAuraRef.current.children.forEach((child, index) => {
-        child.rotation.z += 0.03 + index * 0.005;
-      });
+      if (hasDoubleAttackAura) {
+        twinAuraRef.current.rotation.y -= 0.08;
+        twinAuraRef.current.position.y = 0.45 + Math.sin(state.clock.elapsedTime * 6) * 0.03;
+        twinAuraRef.current.children.forEach((child, index) => {
+          child.rotation.z += 0.03 + index * 0.005;
+        });
+      }
     }
 
     if (heroHighlightRingRef.current) {
@@ -4067,10 +4075,10 @@ export const GameScene: React.FC<SceneProps> = React.memo((props) => {
   const glPowerPreference = useMemo(() => getRenderPowerPreference(renderQualityPreset), [renderQualityPreset]);
   const shouldRenderAmbientDrift = isQualityMode;
   const particleRenderCap = isPerformanceMode
-    ? (isMobileDevice ? 34 : 84)
+    ? (isMobileDevice ? 24 : 48)
     : isQualityMode
-      ? (isMobileDevice ? 160 : 190)
-      : (isMobileDevice ? 80 : 120);
+      ? (isMobileDevice ? 120 : 150)
+      : (isMobileDevice ? 60 : 90);
   const shouldUseDepthOfField = isDungeonRun ? shouldUseDungeonDepthOfField : shouldUseForestDepthOfField;
   const activeDepthOfFieldRange = isDungeonRun ? DUNGEON_FOCUS_RANGE : FOREST_FOCUS_RANGE;
   const activeDepthOfFieldBokeh = isDungeonRun ? 1.7 : 0.5;
