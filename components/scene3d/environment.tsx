@@ -36,7 +36,7 @@ const DESKTOP_QUALITY_PROFILE: RenderQualityProfile = {
   shadowMapSize: 768,
   starsCount: 760,
   contactShadowResolution: 100,
-  antialias: true,
+  antialias: false,
 };
 
 const MOBILE_PERFORMANCE_PROFILE: RenderQualityProfile = {
