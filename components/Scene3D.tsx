@@ -27,7 +27,6 @@ import {
 import {
   CameraController,
   DayNightCycle,
-  DungeonAtmosphere,
   SkyboxController,
   getDefaultRenderQualityPreset,
   getRenderPlatform,
@@ -43,7 +42,7 @@ import {
   GltfEnemyCharacter,
   applyHitFlashToMaterial,
 } from './scene3d/characters';
-import { MeshParticle, WorldFloatingTexts, WorldLootDisplay, type LootResultData } from './scene3d/effects';
+import { MeshParticle, WorldFloatingTexts, WorldLootDisplay, InstancedParticles, type LootResultData } from './scene3d/effects';
 import {
   getKitbashRootSlot,
   KITBASH_MAIN_SLOTS,
@@ -51,7 +50,6 @@ import {
   rebindPreparedModelToSkeleton,
 } from './scene3d/kitbash';
 import { EquippedWeaponAttachment } from './scene3d/weapons';
-import { DungeonScenario } from './scene3d/scenarios';
 import { getRuntimeScenarioPreset } from '../game/data/runtimeScenarios';
 import {
   getRuntimeMenuPortalPreset,
@@ -3716,7 +3714,7 @@ const WorldParticlesConnected: React.FC<{ renderCap: number }> = ({ renderCap })
   });
 
   const visible = particles.length > renderCap ? particles.slice(-renderCap) : particles;
-  return <>{visible.map((p) => <MeshParticle key={p.id} {...p} />)}</>;
+  return <InstancedParticles particles={visible} />;
 };
 
 /** Isolated component — subscribes to floatingTexts from the VFX store so GameScene never re-renders for texts. */
@@ -4045,6 +4043,13 @@ export const GameScene: React.FC<SceneProps> = React.memo((props) => {
   const setGameTimeInStore = useGameTimeStore((s) => s.setGameTime);
   const [hoveredEnemyId, setHoveredEnemyId] = useState<string | null>(null);
   const [heroItemDetail, setHeroItemDetail] = useState<any | null>(null);
+  // Defer secondary FBX bundle loading so the primary idle animation starts immediately.
+  // 700 ms is enough time for the hero to appear before any player action is possible.
+  const [secondaryBundlesReady, setSecondaryBundlesReady] = useState(false);
+  React.useEffect(() => {
+    const t = window.setTimeout(() => setSecondaryBundlesReady(true), 700);
+    return () => window.clearTimeout(t);
+  }, []);
   // Reset cursor and hover state when selection mode ends
   React.useEffect(() => {
     if (!props.pendingTargetAction) {
@@ -4317,12 +4322,7 @@ export const GameScene: React.FC<SceneProps> = React.memo((props) => {
                     </Suspense>
                   ))}
                 </>
-              ) : (
-                <>
-                  <DungeonAtmosphere quality={quality} noMainShadow={noMainShadow} />
-                  <DungeonScenario />
-                </>
-              )}
+              ) : null}
               {/* Scene-level ContactShadows removed Ã¢â‚¬â€ per-character ones on hero/enemy avoid the square artifact */}
             </>
           ) : (
@@ -4396,7 +4396,7 @@ export const GameScene: React.FC<SceneProps> = React.memo((props) => {
                 playerState={props.playerState}
                 isPlayerTurn={props.battleActionsConfig?.isPlayerTurn ?? false}
                 contactShadowResolution={quality.contactShadowResolution}
-                loadSecondaryAnimationBundles
+                loadSecondaryAnimationBundles={secondaryBundlesReady}
                 onHeroClick={props.onMenuHeroClick}
                 forceHighlight={props.menuGamepadFocus === 'hero'}
                 idlePositionX={isDungeonRun && activeScenarioConfig ? dungeonHeroBasePosition[0] : undefined}

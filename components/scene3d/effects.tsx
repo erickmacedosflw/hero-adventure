@@ -238,6 +238,141 @@ export const MeshParticle: React.FC<Particle> = ({ position, color, velocity, sc
   );
 };
 
+// ─── InstancedParticles ───────────────────────────────────────────────────────
+// Replaces individual <MeshParticle> JSX: both render modes share at most
+// 2 InstancedMesh draw calls regardless of active particle count (up to 80).
+
+const MAX_PARTICLE_INSTANCES = 80;
+
+interface ParticleRuntimeState {
+  id: string;
+  x: number; y: number; z: number;
+  life: number;   // remaining (decrements toward 0)
+  maxLife: number;
+  ttl: number;
+  vx: number; vy: number; vz: number;
+  scale: number;
+  color: THREE.Color;
+  mode: 'sprite2d' | 'shard3d';
+  rx: number; ry: number; rz: number;
+  spinX: number; spinY: number; spinZ: number;
+}
+
+export const InstancedParticles: React.FC<{ particles: Particle[] }> = ({ particles }) => {
+  const sprite2dRef = useRef<THREE.InstancedMesh>(null);
+  const shard3dRef = useRef<THREE.InstancedMesh>(null);
+  const dummy = useMemo(() => new THREE.Object3D(), []);
+  const colorBuf = useMemo(() => new THREE.Color(), []);
+  const runtimeStates = useRef(new Map<string, ParticleRuntimeState>());
+
+  useFrame((state, delta) => {
+    const mesh2d = sprite2dRef.current;
+    const mesh3d = shard3dRef.current;
+    if (!mesh2d || !mesh3d) return;
+
+    // Add new particles; remove ones no longer in the store
+    const activeIds = new Set(particles.map((p) => p.id));
+    for (const id of runtimeStates.current.keys()) {
+      if (!activeIds.has(id)) runtimeStates.current.delete(id);
+    }
+    for (const p of particles) {
+      if (!runtimeStates.current.has(p.id)) {
+        const maxLife = Math.max(0.05, p.life ?? 1);
+        runtimeStates.current.set(p.id, {
+          id: p.id,
+          x: p.position[0], y: p.position[1], z: p.position[2],
+          life: maxLife,
+          maxLife,
+          ttl: Math.max(0.2, p.ttl ?? 0.9),
+          vx: p.velocity[0], vy: p.velocity[1], vz: p.velocity[2],
+          scale: p.scale ?? 0.22,
+          color: new THREE.Color(p.color),
+          mode: p.renderMode ?? 'sprite2d',
+          rx: Math.random() * Math.PI,
+          ry: Math.random() * Math.PI,
+          rz: Math.random() * Math.PI,
+          spinX: (Math.random() - 0.5) * 1.6,
+          spinY: (Math.random() - 0.5) * 1.6,
+          spinZ: (Math.random() - 0.5) * 1.6,
+        });
+      }
+    }
+
+    let i2 = 0;
+    let i3 = 0;
+
+    for (const s of runtimeStates.current.values()) {
+      s.x += s.vx * delta;
+      s.y += s.vy * delta;
+      s.z += s.vz * delta;
+      s.life -= delta / s.ttl;
+
+      const fade = Math.max(0, Math.min(s.life / s.maxLife, 1));
+      if (fade <= 0) continue;
+
+      const sc = Math.max(0.02, Math.max(0.06, s.scale) * fade);
+
+      if (s.mode === 'shard3d') {
+        if (i3 >= MAX_PARTICLE_INSTANCES) continue;
+        s.rx += s.spinX * delta;
+        s.ry += s.spinY * delta;
+        s.rz += s.spinZ * delta;
+        dummy.position.set(s.x, s.y, s.z);
+        dummy.rotation.set(s.rx, s.ry, s.rz);
+        dummy.scale.setScalar(sc);
+        dummy.updateMatrix();
+        mesh3d.setMatrixAt(i3, dummy.matrix);
+        // Encode fade into color: AdditiveBlending treats near-black as transparent
+        colorBuf.copy(s.color).multiplyScalar(Math.max(0.16, fade));
+        mesh3d.setColorAt(i3, colorBuf);
+        i3++;
+      } else {
+        if (i2 >= MAX_PARTICLE_INSTANCES) continue;
+        dummy.position.set(s.x, s.y, s.z);
+        dummy.quaternion.copy(state.camera.quaternion);
+        dummy.scale.setScalar(sc);
+        dummy.updateMatrix();
+        mesh2d.setMatrixAt(i2, dummy.matrix);
+        colorBuf.copy(s.color).multiplyScalar(Math.max(0.08, fade * 0.92));
+        mesh2d.setColorAt(i2, colorBuf);
+        i2++;
+      }
+    }
+
+    mesh2d.count = i2;
+    mesh2d.instanceMatrix.needsUpdate = true;
+    if (mesh2d.instanceColor) mesh2d.instanceColor.needsUpdate = true;
+
+    mesh3d.count = i3;
+    mesh3d.instanceMatrix.needsUpdate = true;
+    if (mesh3d.instanceColor) mesh3d.instanceColor.needsUpdate = true;
+  });
+
+  return (
+    <>
+      <instancedMesh ref={sprite2dRef} args={[undefined, undefined, MAX_PARTICLE_INSTANCES]} frustumCulled={false}>
+        <planeGeometry args={[1, 1]} />
+        <meshBasicMaterial
+          map={SOFT_PARTICLE_TEXTURE}
+          transparent
+          depthWrite={false}
+          blending={THREE.AdditiveBlending}
+          toneMapped={false}
+        />
+      </instancedMesh>
+      <instancedMesh ref={shard3dRef} args={[undefined, undefined, MAX_PARTICLE_INSTANCES]} frustumCulled={false}>
+        <tetrahedronGeometry args={[1, 0]} />
+        <meshBasicMaterial
+          transparent
+          depthWrite={false}
+          blending={THREE.AdditiveBlending}
+          toneMapped={false}
+        />
+      </instancedMesh>
+    </>
+  );
+};
+
 const WorldFloatingText = ({
   text,
   type,

@@ -6,11 +6,9 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { ArrowLeft, ArrowRight, Crosshair, Heart, Shield, Star, Swords, WandSparkles, X, Zap } from 'lucide-react';
 import { getConstellationByClassId } from '../game/data/classTalents';
 import { getRuntimeScenarioPreset } from '../game/data/runtimeScenarios';
-import { getScenario } from '../game/data/scenarios';
 import { PlayerAnimationAction, PlayerClassDefinition, PlayerClassId, WeaponGripType } from '../types';
 import { hasRuntimeFbxAssets } from './scene3d/animation';
 import { AnimatedClassHero } from './scene3d/characters';
-import { BattleScenario } from './scene3d/scenarios';
 import { SkyboxController, getDefaultRenderQualityPreset, getRenderPlatform, getRenderPowerPreference, getRenderQualityProfile } from './scene3d/environment';
 import { configureGltfLoader } from './scene3d/gltfLoader';
 import { onAction } from '../game/mechanics/inputManager';
@@ -194,7 +192,6 @@ const RuntimeSelectionScenarioGlb = ({
       node.raycast = () => null;
       node.castShadow = true;
       node.receiveShadow = true;
-      node.frustumCulled = false;
     });
     return clone;
   }, [gltf.scene]);
@@ -658,7 +655,6 @@ const ForestSelectionScene = ({
     () => buildHeroStageLayout(selectionRuntimeConfig?.heroSelectionSlots),
     [selectionRuntimeConfig?.heroSelectionSlots],
   );
-  const scenario = useMemo(() => getScenario('forest'), []);
 
 
   const SceneReadyProbe = ({ onReady }: { onReady?: () => void }) => {
@@ -757,7 +753,7 @@ const ForestSelectionScene = ({
         <SkyboxController />
         {selectionFogEnabled && <fog attach="fog" args={[selectionFogColor, selectionFogNear, selectionFogFar]} />}
 
-        {selectionRuntimeScenarioPreset ? (
+        {selectionRuntimeScenarioPreset && (
           <Suspense fallback={null}>
             <RuntimeSelectionScenarioGlb
               modelUrl={selectionRuntimeScenarioPreset.scenarioModelUrl}
@@ -774,10 +770,6 @@ const ForestSelectionScene = ({
                 transform={sceneObject.transform}
               />
             ))}
-          </Suspense>
-        ) : (
-          <Suspense fallback={null}>
-            <BattleScenario scenario={scenario} lowQuality={quality.isLowQuality} noShadows={isMobileDevice && !isQualityMode} />
           </Suspense>
         )}
 
