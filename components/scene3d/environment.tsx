@@ -59,7 +59,7 @@ const MOBILE_BALANCED_PROFILE: RenderQualityProfile = {
 
 const MOBILE_QUALITY_PROFILE: RenderQualityProfile = {
   isLowQuality: false,
-  dpr: [1.0, 1.2],
+  dpr: [1.0, 1.0],
   shadowMapSize: 768,
   starsCount: 700,
   contactShadowResolution: 100,
