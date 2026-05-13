@@ -59,11 +59,11 @@ const MOBILE_BALANCED_PROFILE: RenderQualityProfile = {
 
 const MOBILE_QUALITY_PROFILE: RenderQualityProfile = {
   isLowQuality: false,
-  dpr: [1.0, 1.5],
-  shadowMapSize: 1536,
-  starsCount: 900,
-  contactShadowResolution: 144,
-  antialias: true,
+  dpr: [0.9, 1.1],
+  shadowMapSize: 768,
+  starsCount: 700,
+  contactShadowResolution: 100,
+  antialias: false,
 };
 
 // Dedicated high-quality profile used exclusively in the Electron desktop build.
