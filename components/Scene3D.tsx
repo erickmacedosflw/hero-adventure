@@ -4260,7 +4260,13 @@ export const GameScene: React.FC<SceneProps> = React.memo((props) => {
         }}
       >
         {!useAlwaysFrameloop && <FpsCap fps={mobileFpsCap} />}
-        {shouldShowDesktopStatsMonitor && <Perf position="top-right" minimal={false} />}
+        {shouldShowDesktopStatsMonitor && (
+          <Perf
+            position="bottom-right"
+            minimal={isMobileDevice}
+            style={isMobileDevice ? { bottom: '14px', right: '4px', fontSize: '9px' } : { bottom: '14px', right: '14px' }}
+          />
+        )}
         {/* Throttle shadow map to 2 fps — saves ~40-60 ms/frame in quality mode.
             ContactShadows (per-character) are unaffected and still update normally. */}
         {shadowsEnabled && <ShadowAutoUpdateThrottle fps={24} />}
