@@ -339,13 +339,19 @@ export const InstancedParticles: React.FC<{ particles: Particle[] }> = ({ partic
       }
     }
 
+    // Only push buffers to the GPU when something actually changed.
+    const prev2d = mesh2d.count;
+    const prev3d = mesh3d.count;
     mesh2d.count = i2;
-    mesh2d.instanceMatrix.needsUpdate = true;
-    if (mesh2d.instanceColor) mesh2d.instanceColor.needsUpdate = true;
-
     mesh3d.count = i3;
-    mesh3d.instanceMatrix.needsUpdate = true;
-    if (mesh3d.instanceColor) mesh3d.instanceColor.needsUpdate = true;
+    if (i2 > 0 || prev2d > 0) {
+      mesh2d.instanceMatrix.needsUpdate = true;
+      if (mesh2d.instanceColor) mesh2d.instanceColor.needsUpdate = true;
+    }
+    if (i3 > 0 || prev3d > 0) {
+      mesh3d.instanceMatrix.needsUpdate = true;
+      if (mesh3d.instanceColor) mesh3d.instanceColor.needsUpdate = true;
+    }
   });
 
   return (

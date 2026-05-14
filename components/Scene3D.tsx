@@ -84,7 +84,6 @@ import { useBattleVfxStore } from '../game/stores/battleVfxStore';
 import { useBattleGaugeStore } from '../game/stores/battleGaugeStore';
 import { useBattleStatsStore } from '../game/stores/battleStatsStore';
 import { useGameTimeStore } from '../game/stores/gameTimeStore';
-import { Perf } from 'r3f-perf';
 export { ItemPreviewCanvas } from './items/ItemPreviewCanvas';
 export type {
   DeveloperAnimationRuntimeDiagnostic,
@@ -4260,13 +4259,10 @@ export const GameScene: React.FC<SceneProps> = React.memo((props) => {
         }}
       >
         {!useAlwaysFrameloop && <FpsCap fps={mobileFpsCap} />}
-        {shouldShowDesktopStatsMonitor && (
-          <Perf
-            position="bottom-right"
-            minimal={isMobileDevice}
-            style={isMobileDevice ? { bottom: '14px', right: '4px', fontSize: '9px' } : { bottom: '14px', right: '14px' }}
-          />
-        )}
+        {/* r3f-perf <Perf> removed — it instruments every WebGL draw call with
+            EXT_disjoint_timer_query_webgl2, forcing GPU-CPU pipeline serialization
+            (2-3× frame time overhead). Custom StatsMonitor outside the Canvas
+            already provides FPS/MS/MB data without any overhead. */}
         {/* Throttle shadow map to 2 fps — saves ~40-60 ms/frame in quality mode.
             ContactShadows (per-character) are unaffected and still update normally. */}
         {shadowsEnabled && <ShadowAutoUpdateThrottle fps={24} />}

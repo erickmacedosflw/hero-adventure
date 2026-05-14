@@ -24,10 +24,7 @@ import { GamepadActionLegend } from './ui/GamepadActionLegend';
 import { useGSAP } from '@gsap/react';
 import gsap from 'gsap';
 import { BattleParticlesOverlay } from './scene3d/BattleParticlesOverlay';
-import { useBattleVfxStore } from '../game/stores/battleVfxStore';
-
 const CONSTELLATION_ICON_URL = new URL('../game/assets/Icons/Menu/Icone_Constelacao.png', import.meta.url).href;
-import { useBattleLogStore } from '../game/stores/battleLogStore';
 import { useGameTimeStore } from '../game/stores/gameTimeStore';
 
 interface GameUIProps {
@@ -3769,10 +3766,6 @@ function getPotionBattleBadges(item: Item): BattleBadge[] {
 
 export const BattleHUD: React.FC<GameUIProps> = (props) => {
     const { player, enemy, turnState, onAttack, onDefend, onChargeImpulse, onAbsorbImpulse, onSkill, onUseItem, enemyIntentPreview = null, onUnlockTalent, onResetTalents, currentNarration, gameState, shopItems, onFlee, onStartBattle, stage, dungeonPhase = 1, killCount, onEquipItem, onUnequipItem, isDungeonRun, dungeonRewards, dungeonCleared = 0, dungeonTotal = 30, gameTime, restrictProfileToStatusOnly = false, limitBattleActionsToBasics = false, inventoryUnlocked = false, inventoryUnlockPromptActive = false, onAcknowledgeInventoryUnlock, cardsUnlockPromptActive = false, onAcknowledgeCardsUnlock, skillsUnlockPromptActive = false, onAcknowledgeSkillsUnlock, impulseUnlockPromptActive = null, onAcknowledgeImpulseUnlock, constellationUnlockPromptActive = false, onAcknowledgeConstellationUnlock, constellationRespecUnlockPromptActive = false, onAcknowledgeConstellationRespecUnlock, allowCardsInProfile = false, fleeUnlocked = false, showItemsAction = false, showSkillsAction = false, itemsUnlockPromptActive = false, onAcknowledgeItemsUnlock, fleeUnlockPromptActive = false, onAcknowledgeFleeUnlock, autoOpenProfileToken = 0, showDiamondHud = false, diamondUnlockPromptActive = false, onAcknowledgeDiamondUnlock, musicEnabled = true, sfxEnabled = true, renderQualityPreset = 'balanced', showDesktopStatsMonitor = false, recommendedRenderQualityPreset = 'balanced', onUpdateBattleSettings, onBattleSettingsOpenChange, onEquipSkillToSlot, towerEssence = 0, sceneRegion = 'forest', additionalEnemies = [], pendingTargetAction = null, onSelectTarget, onCancelTargetSelection, missions = [], missionsUnlocked = false, onClaimMissionReward, missionsUnlockPromptActive = false, onAcknowledgeMissionsUnlock, autoOpenMissionsToken = 0, enemyDeathToken = 0 } = props;
-  const floatingTexts = useBattleVfxStore((s) => s.floatingTexts) ?? [];
-  // Subscribe directly to the battle log store — avoids re-rendering the
-  // 5800-line App component when logs change during combat.
-  const logs = useBattleLogStore((s) => s.logs);
   const [activeBattleMenu, setActiveBattleMenu] = useState<'skills' | 'items' | null>(null);
   const [battleInfoPopup, setBattleInfoPopup] = useState<{ type: 'skill' | 'item'; id: string } | null>(null);
   const [showProfile, setShowProfile] = useState(false);

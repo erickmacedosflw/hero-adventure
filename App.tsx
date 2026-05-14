@@ -1450,7 +1450,7 @@ export default function App() {
         dungeonResult: cloneDungeonResultState(dungeonResult),
         bossVictoryContext: cloneBossVictoryContextState(bossVictoryContext),
         pendingDungeonQueue: cloneCardRewardOffers(pendingDungeonQueue),
-        towerRun: towerRun ? JSON.parse(JSON.stringify(towerRun)) as TowerRunState : null,
+        towerRun: towerRun ? structuredClone(towerRun) : null,
         towerMeta: { ...towerMeta },
         missions: missions.map(m => ({ ...m })),
         logs: cloneBattleLogs(useBattleLogStore.getState().logs),
@@ -1496,17 +1496,12 @@ export default function App() {
         }
 
         const payload = buildSavePayload(stateOverride);
-        const signature = JSON.stringify(payload);
-        if (signature === lastSavedSignatureRef.current) {
-            return false;
-        }
 
         const saved = saveToActiveSlot(payload);
         if (!saved) {
             return false;
         }
 
-        lastSavedSignatureRef.current = signature;
         return true;
     }, [buildSavePayload, hasConfirmedStartingClass]);
     // Keep ref always pointing to latest version (avoids stale closures in battle)
@@ -1714,7 +1709,13 @@ export default function App() {
 
         autosaveTimerRef.current = window.setTimeout(() => {
             autosaveTimerRef.current = null;
-            persistSaveNow();
+            // Defer the expensive localStorage write to an idle period so it
+            // does not block the render loop (prevents the ~989ms frame spike).
+            if (typeof requestIdleCallback === 'function') {
+                requestIdleCallback(() => { persistSaveNowRef.current(); }, { timeout: 5000 });
+            } else {
+                persistSaveNow();
+            }
         }, AUTOSAVE_DEBOUNCE_MS);
 
         return () => {
