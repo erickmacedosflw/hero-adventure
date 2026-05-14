@@ -174,17 +174,56 @@ export const OpeningScreen: React.FC<OpeningScreenProps> = ({ classes, enemies, 
   const rawPercentage = manifest.totalAssets === 0
     ? 100
     : Math.max(progress, manifestPercentage, loaderPercentage, forceComplete ? 100 : 0);
-  const percentage = manifest.totalAssets === 0
+  const realPercentage = manifest.totalAssets === 0
     ? 100
     : Math.min(100, Math.round(rawPercentage));
 
+  // Animated display percentage: advances smoothly toward a ceiling that rises
+  // over time so the user always sees movement, even when Three.js reports 0 progress
+  // (e.g. assets already cached). Snaps to 100 when loading is truly done.
+  const [percentage, setPercentage] = useState(0);
+  const animFrameRef = useRef<number | null>(null);
   useEffect(() => {
-    if (readyRef.current || percentage < 100 || !offlinePrimeReady) {
+    const startTime = Date.now();
+    const MAX_FAKE_PCT = 95; // never exceeds this until real done
+    const DURATION_TO_CEILING_MS = MAX_PRELOAD_WAIT_MS * 0.92;
+
+    const tick = () => {
+      const elapsed = Date.now() - startTime;
+      // Ease-out curve that slowly fills to MAX_FAKE_PCT over DURATION_TO_CEILING_MS
+      const fakeTarget = realPercentage >= 100
+        ? 100
+        : Math.min(
+            MAX_FAKE_PCT,
+            Math.round(MAX_FAKE_PCT * (1 - Math.exp(-3.5 * elapsed / DURATION_TO_CEILING_MS))),
+          );
+      const target = Math.max(fakeTarget, realPercentage);
+      setPercentage((prev) => {
+        if (prev >= target) return prev;
+        // Advance by at most 1% per tick for smooth feel
+        return Math.min(target, prev + 1);
+      });
+      if (target < 100) {
+        animFrameRef.current = window.setTimeout(tick, 120);
+      } else {
+        setPercentage(100);
+      }
+    };
+
+    animFrameRef.current = window.setTimeout(tick, 120);
+    return () => {
+      if (animFrameRef.current !== null) window.clearTimeout(animFrameRef.current);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [realPercentage >= 100]);
+
+  useEffect(() => {
+    if (readyRef.current || realPercentage < 100 || !offlinePrimeReady) {
       return;
     }
 
     finalizeBoot();
-  }, [finalizeBoot, offlinePrimeReady, percentage]);
+  }, [finalizeBoot, offlinePrimeReady, realPercentage]);
 
   useEffect(() => {
     if (readyRef.current) {
