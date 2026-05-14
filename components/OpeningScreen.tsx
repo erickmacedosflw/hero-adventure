@@ -1,12 +1,14 @@
 import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Canvas } from '@react-three/fiber';
+import { Canvas, useLoader } from '@react-three/fiber';
 import { useProgress, useTexture } from '@react-three/drei';
+import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import { DungeonBossTemplate, DungeonEnemyTemplate, EnemyTemplate, PlayerClassDefinition } from '../types';
 import { primeOfflineBootCache } from '../game/mechanics/offlineCachePriming';
+import { configureFBXLoader } from './scene3d/gltfLoader';
 
 const MIN_SPLASH_VISIBILITY_MS = 900;
-const MAX_PRELOAD_WAIT_MS = 6000;
-const MAX_OFFLINE_PRIME_WAIT_MS = 3000;
+const MAX_PRELOAD_WAIT_MS = 14000;
+const MAX_OFFLINE_PRIME_WAIT_MS = 5200;
 
 const FOREST_SCENARIO_MODEL_URLS = [
   new URL('../game/assets/Scenario/Florest/Tree_1_A_Color1.fbx', import.meta.url).href,
@@ -45,8 +47,18 @@ const SKYBOX_THEME_FACE_URLS = {
 type SkyboxTheme = keyof typeof SKYBOX_THEME_FACE_URLS;
 
 const getBootSkyboxThemes = (): SkyboxTheme[] => {
-  // Only preload 1 skybox theme during boot — others load lazily in-game
-  return ['sol'];
+  if (typeof window === 'undefined') {
+    return ['sol', 'dia', 'tarde', 'noite', 'manha'];
+  }
+
+  const cores = navigator.hardwareConcurrency ?? 4;
+  const memory = (navigator as Navigator & { deviceMemory?: number }).deviceMemory ?? 4;
+  const compactScreen = window.innerWidth < 900;
+  const constrainedDevice = cores <= 6 || memory <= 6 || compactScreen;
+
+  return constrainedDevice
+    ? ['sol', 'dia']
+    : ['sol', 'dia', 'tarde', 'noite', 'manha'];
 };
 
 const getSkyboxFaceUrlsForThemes = (themes: SkyboxTheme[]) => (
@@ -85,11 +97,11 @@ const buildPreloadManifest = (): PreloadManifest => {
   const modelUrls = new Set<string>();
   const textureUrls = new Set<string>();
   const animationUrls = new Set<string>();
-  const audioUrls = new Set<string>();
+  const audioUrls = new Set<string>(MUSIC_TRACK_URLS);
   const bootSkyboxThemes = getBootSkyboxThemes();
   const bootSkyboxFaceUrls = getSkyboxFaceUrlsForThemes(bootSkyboxThemes);
 
-  // Forest FBX models are NOT preloaded at boot — they load lazily when the scene mounts
+  FOREST_SCENARIO_MODEL_URLS.forEach((url) => modelUrls.add(url));
   FOREST_SCENARIO_TEXTURE_URLS.forEach((url) => textureUrls.add(url));
   textureUrls.add(MENU_BACKGROUND_IMAGE_URL);
   textureUrls.add(MENU_LOGO_IMAGE_URL);
@@ -117,7 +129,10 @@ const buildPreloadManifest = (): PreloadManifest => {
 };
 
 const BootAssetPreloader = ({ manifest }: { manifest: PreloadManifest }) => {
+  useLoader(FBXLoader, manifest.modelUrls, configureFBXLoader);
   useTexture(manifest.textureUrls);
+  useLoader(FBXLoader, manifest.animationUrls, configureFBXLoader);
+
   return null;
 };
 
@@ -314,6 +329,20 @@ export const OpeningScreen: React.FC<OpeningScreenProps> = ({ classes, enemies, 
               />
               {/* Top facet glint */}
               <polygon points="50,28 56,40 50,44 44,40" fill="#fffbe8" opacity="0.45" />
+
+              {/* Loading percentage centered on gem */}
+              <text
+                x="50"
+                y="54"
+                textAnchor="middle"
+                dominantBaseline="middle"
+                fontSize="13"
+                fontWeight="900"
+                fontFamily="system-ui, sans-serif"
+                fill="#1a0a00"
+                opacity="0.82"
+                style={{ userSelect: 'none', pointerEvents: 'none' }}
+              >{percentage}%</text>
             </svg>
           </div>
         </div>
