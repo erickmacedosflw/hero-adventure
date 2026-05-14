@@ -176,7 +176,7 @@ export const OpeningScreen: React.FC<OpeningScreenProps> = ({ classes, enemies, 
     : Math.max(progress, manifestPercentage, loaderPercentage, forceComplete ? 100 : 0);
   const percentage = manifest.totalAssets === 0
     ? 100
-    : Math.max(4, Math.min(100, Math.round(rawPercentage)));
+    : Math.min(100, Math.round(rawPercentage));
 
   useEffect(() => {
     if (readyRef.current || percentage < 100 || !offlinePrimeReady) {
@@ -336,7 +336,7 @@ export const OpeningScreen: React.FC<OpeningScreenProps> = ({ classes, enemies, 
                 y="54"
                 textAnchor="middle"
                 dominantBaseline="middle"
-                fontSize="13"
+                fontSize="10"
                 fontWeight="900"
                 fontFamily="system-ui, sans-serif"
                 fill="#1a0a00"
