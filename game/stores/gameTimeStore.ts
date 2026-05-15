@@ -14,5 +14,5 @@ interface GameTimeState {
 
 export const useGameTimeStore = create<GameTimeState>((set) => ({
   gameTime: '12:00',
-  setGameTime: (t) => set({ gameTime: t }),
+  setGameTime: (t) => set((state) => (state.gameTime === t ? state : { gameTime: t })),
 }));

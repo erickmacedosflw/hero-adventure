@@ -2846,33 +2846,31 @@ export const TavernScreen: React.FC<{
                             </div>
                         </div>
 
-                        {import.meta.env.DEV && (
-                            <button
-                                onClick={toggleDesktopStatsMonitor}
-                                className="settings-toggle-btn"
-                                style={{ borderRadius: 14, border: showDesktopStatsMonitor ? '1px solid rgba(100,200,220,0.35)' : '1px solid rgba(180,100,110,0.28)', background: showDesktopStatsMonitor ? 'rgba(40,140,160,0.18)' : 'rgba(255,255,255,0.04)', padding: '12px 14px', textAlign: 'left', transition: 'all 0.2s ease', cursor: 'pointer' }}
-                            >
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-                                    <div style={{ borderRadius: 8, padding: 5, background: showDesktopStatsMonitor ? 'rgba(60,180,210,0.22)' : 'rgba(180,80,90,0.22)', transition: 'background 0.2s' }}>
-                                        <Gauge size={13} color={showDesktopStatsMonitor ? '#6ee7f7' : '#fca5a5'} />
-                                    </div>
-                                    <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(220,180,190,0.60)' }}>Monitor FPS Desktop</span>
+                        <button
+                            onClick={toggleDesktopStatsMonitor}
+                            className="settings-toggle-btn"
+                            style={{ borderRadius: 14, border: showDesktopStatsMonitor ? '1px solid rgba(100,200,220,0.35)' : '1px solid rgba(180,100,110,0.28)', background: showDesktopStatsMonitor ? 'rgba(40,140,160,0.18)' : 'rgba(255,255,255,0.04)', padding: '12px 14px', textAlign: 'left', transition: 'all 0.2s ease', cursor: 'pointer' }}
+                        >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                                <div style={{ borderRadius: 8, padding: 5, background: showDesktopStatsMonitor ? 'rgba(60,180,210,0.22)' : 'rgba(180,80,90,0.22)', transition: 'background 0.2s' }}>
+                                    <Gauge size={13} color={showDesktopStatsMonitor ? '#6ee7f7' : '#fca5a5'} />
                                 </div>
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                                        <span style={{ fontSize: 13, fontWeight: 900, color: showDesktopStatsMonitor ? '#a5f3fc' : '#fca5a5' }}>
-                                            {showDesktopStatsMonitor ? 'Ativado' : 'Oculto'}
-                                        </span>
-                                        <span style={{ fontSize: 10, color: 'rgba(220,180,190,0.58)' }}>
-                                            Exibe o painel de FPS e long tasks no desktop.
-                                        </span>
-                                    </div>
-                                    <div style={{ width: 30, height: 16, borderRadius: 99, background: showDesktopStatsMonitor ? '#0e9cb0' : 'rgba(120,50,60,0.5)', transition: 'background 0.22s', position: 'relative', flexShrink: 0 }}>
-                                        <div style={{ position: 'absolute', top: 2, left: showDesktopStatsMonitor ? 16 : 2, width: 12, height: 12, borderRadius: '50%', background: '#fff', transition: 'left 0.22s cubic-bezier(0.34,1.56,0.64,1)', boxShadow: '0 1px 3px rgba(0,0,0,0.3)' }} />
-                                    </div>
+                                <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(220,180,190,0.60)' }}>Monitor FPS Desktop</span>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                    <span style={{ fontSize: 13, fontWeight: 900, color: showDesktopStatsMonitor ? '#a5f3fc' : '#fca5a5' }}>
+                                        {showDesktopStatsMonitor ? 'Ativado' : 'Oculto'}
+                                    </span>
+                                    <span style={{ fontSize: 10, color: 'rgba(220,180,190,0.58)' }}>
+                                        Exibe FPS, JS, draw calls e long tasks no desktop.
+                                    </span>
                                 </div>
-                            </button>
-                        )}
+                                <div style={{ width: 30, height: 16, borderRadius: 99, background: showDesktopStatsMonitor ? '#0e9cb0' : 'rgba(120,50,60,0.5)', transition: 'background 0.22s', position: 'relative', flexShrink: 0 }}>
+                                    <div style={{ position: 'absolute', top: 2, left: showDesktopStatsMonitor ? 16 : 2, width: 12, height: 12, borderRadius: '50%', background: '#fff', transition: 'left 0.22s cubic-bezier(0.34,1.56,0.64,1)', boxShadow: '0 1px 3px rgba(0,0,0,0.3)' }} />
+                                </div>
+                            </div>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -4426,41 +4424,39 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
                               </div>
                           </div>
 
-                          {import.meta.env.DEV && (
-                              <button
-                                  onClick={toggleDesktopStatsMonitor}
-                                  className="settings-toggle-btn"
-                                  style={{
-                                      borderRadius: 14,
-                                      border: showDesktopStatsMonitor ? '1px solid rgba(100,200,220,0.35)' : '1px solid rgba(180,100,110,0.28)',
-                                      background: showDesktopStatsMonitor ? 'rgba(40,140,160,0.18)' : 'rgba(255,255,255,0.04)',
-                                      padding: '12px 14px',
-                                      textAlign: 'left',
-                                      transition: 'all 0.2s ease',
-                                      cursor: 'pointer',
-                                  }}
-                              >
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-                                      <div style={{ borderRadius: 8, padding: 5, background: showDesktopStatsMonitor ? 'rgba(60,180,210,0.22)' : 'rgba(180,80,90,0.22)', transition: 'background 0.2s' }}>
-                                          <Gauge size={13} color={showDesktopStatsMonitor ? '#6ee7f7' : '#fca5a5'} />
-                                      </div>
-                                      <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(220,180,190,0.60)' }}>Monitor FPS Desktop</span>
+                          <button
+                              onClick={toggleDesktopStatsMonitor}
+                              className="settings-toggle-btn"
+                              style={{
+                                  borderRadius: 14,
+                                  border: showDesktopStatsMonitor ? '1px solid rgba(100,200,220,0.35)' : '1px solid rgba(180,100,110,0.28)',
+                                  background: showDesktopStatsMonitor ? 'rgba(40,140,160,0.18)' : 'rgba(255,255,255,0.04)',
+                                  padding: '12px 14px',
+                                  textAlign: 'left',
+                                  transition: 'all 0.2s ease',
+                                  cursor: 'pointer',
+                              }}
+                          >
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                                  <div style={{ borderRadius: 8, padding: 5, background: showDesktopStatsMonitor ? 'rgba(60,180,210,0.22)' : 'rgba(180,80,90,0.22)', transition: 'background 0.2s' }}>
+                                      <Gauge size={13} color={showDesktopStatsMonitor ? '#6ee7f7' : '#fca5a5'} />
                                   </div>
-                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-                                      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                                          <span style={{ fontSize: 13, fontWeight: 900, color: showDesktopStatsMonitor ? '#a5f3fc' : '#fca5a5' }}>
-                                              {showDesktopStatsMonitor ? 'Ativado' : 'Oculto'}
-                                          </span>
-                                          <span style={{ fontSize: 10, color: 'rgba(220,180,190,0.58)' }}>
-                                              Exibe o painel de FPS e long tasks no desktop.
-                                          </span>
-                                      </div>
-                                      <div style={{ width: 30, height: 16, borderRadius: 99, background: showDesktopStatsMonitor ? '#0e9cb0' : 'rgba(120,50,60,0.5)', transition: 'background 0.22s', position: 'relative', flexShrink: 0 }}>
-                                          <div style={{ position: 'absolute', top: 2, left: showDesktopStatsMonitor ? 16 : 2, width: 12, height: 12, borderRadius: '50%', background: '#fff', transition: 'left 0.22s cubic-bezier(0.34,1.56,0.64,1)', boxShadow: '0 1px 3px rgba(0,0,0,0.3)' }} />
-                                      </div>
+                                  <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(220,180,190,0.60)' }}>Monitor FPS Desktop</span>
+                              </div>
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                      <span style={{ fontSize: 13, fontWeight: 900, color: showDesktopStatsMonitor ? '#a5f3fc' : '#fca5a5' }}>
+                                          {showDesktopStatsMonitor ? 'Ativado' : 'Oculto'}
+                                      </span>
+                                      <span style={{ fontSize: 10, color: 'rgba(220,180,190,0.58)' }}>
+                                          Exibe FPS, JS, draw calls e long tasks no desktop.
+                                      </span>
                                   </div>
-                              </button>
-                          )}
+                                  <div style={{ width: 30, height: 16, borderRadius: 99, background: showDesktopStatsMonitor ? '#0e9cb0' : 'rgba(120,50,60,0.5)', transition: 'background 0.22s', position: 'relative', flexShrink: 0 }}>
+                                      <div style={{ position: 'absolute', top: 2, left: showDesktopStatsMonitor ? 16 : 2, width: 12, height: 12, borderRadius: '50%', background: '#fff', transition: 'left 0.22s cubic-bezier(0.34,1.56,0.64,1)', boxShadow: '0 1px 3px rgba(0,0,0,0.3)' }} />
+                                  </div>
+                              </div>
+                          </button>
                       </div>
                   </div>
               </div>

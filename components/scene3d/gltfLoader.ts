@@ -64,3 +64,11 @@ fbxEmbeddedTextureManager.setURLModifier((url: string) => {
 export const configureFBXLoader = (loader: FBXLoader) => {
   loader.manager = fbxEmbeddedTextureManager;
 };
+
+/** FBX loader that ALLOWS texture loading — use for display-only viewers where
+ *  the FBX contains embedded textures that should be shown (e.g. developer biped viewer).
+ *  Uses a fresh dedicated LoadingManager per call so FBX sub-resource loading is
+ *  properly coordinated and never races with the global DefaultLoadingManager. */
+export const configureFBXLoaderDisplay = (loader: FBXLoader) => {
+  loader.manager = new THREE.LoadingManager();
+};

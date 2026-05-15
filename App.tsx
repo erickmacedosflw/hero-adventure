@@ -53,6 +53,7 @@ import { useBattleVfxStore } from './game/stores/battleVfxStore';
 import { useBattleLogStore } from './game/stores/battleLogStore';
 import { useBattleStatsStore } from './game/stores/battleStatsStore';
 import { useGameTimeStore } from './game/stores/gameTimeStore';
+import { useBattleAnimationStore } from './game/stores/battleAnimationStore';
 import { GLTF_MONSTER_BESTIARY, getGltfMonsterPoolForStage } from './game/data/gltfMonsters';
 
 const DeveloperConsole = React.lazy(async () => ({
@@ -62,6 +63,9 @@ const DeveloperConsole = React.lazy(async () => ({
 type BootWindow = Window & { __heroAdventureBootReady?: boolean };
 const MENU_CAMERA_TRANSITION_MS = 2500;
 const PORTAL_TRAVEL_CAMERA_ZOOM_MS = 720;
+const resolveSetStateAction = <T,>(value: React.SetStateAction<T>, current: T): T => (
+    typeof value === 'function' ? (value as (previous: T) => T)(current) : value
+);
 type SceneRegion = 'forest' | 'dungeon' | 'tower';
 type OnboardingPhase = 'intro_camp' | 'post_first_hunt' | 'inventory_prompt' | 'inventory_unlocked' | 'missions_prompt' | 'missions_unlocked' | 'cards_prompt' | 'cards_unlocked' | 'merchant_prompt' | 'merchant_unlocked' | 'items_prompt' | 'flee_prompt' | 'flee_unlocked' | 'dungeon_prompt' | 'dungeon_unlocked' | 'alchemist_prompt' | 'alchemist_unlocked';
 
@@ -111,7 +115,7 @@ const LEGACY_WEAPON_ID_MAP: Record<string, string> = {
 };
 const ALL_ITEMS_BY_ID = new Map(ALL_ITEMS.map((item) => [item.id, item]));
 const BATTLE_SETTINGS_STORAGE_KEY = 'hero_adventure_battle_settings_v1';
-const BATTLE_SETTINGS_GRAPHICS_REVISION = 3;
+const BATTLE_SETTINGS_GRAPHICS_REVISION = 5;
 const MENU_BACKGROUND_IMAGE_URL = new URL('./game/assets/Imagens/Menu_Screen.png', import.meta.url).href;
 const MENU_LOGO_IMAGE_URL = new URL('./game/assets/Imagens/Logo_Hero_Tower.png', import.meta.url).href;
 const SAVE_THUMB_FOREST_URL = new URL('./game/assets/Scenario/Florest/cenario_thumbnail_floresta.png', import.meta.url).href;
@@ -1299,34 +1303,141 @@ export default function App() {
   // (e.g. for future external subscribers) without triggering App re-renders.
   const _setGameTimeInStore = useGameTimeStore((s) => s.setGameTime);
 
-  // Animation States
-  const [isPlayerAttacking, setIsPlayerAttacking] = useState(false);
-  const [isEnemyAttacking, setIsEnemyAttacking] = useState(false);
-  const [isPlayerHit, setIsPlayerHit] = useState(false);
-  const [isPlayerCritHit, setIsPlayerCritHit] = useState(false);
-  const [isEnemyHit, setIsEnemyHit] = useState(false);
-  const [screenShake, setScreenShake] = useState(0);
+  // Battle animation state lives in useBattleAnimationStore so combat timers do not re-render App/GameScene.
+  const rawPlayerAnimActionRef = useRef<PlayerAnimationAction>('idle');
+  const resolvedGameStateRef = useRef<GameState>(GameState.TAVERN);
+  const menuHeroActionRef = useRef<PlayerAnimationAction>('idle');
+  const isDefenseAnimationActiveRef = useRef(false);
     const [isLevelingUp, setIsLevelingUp] = useState(false);
     const [levelUpCardCategory, setLevelUpCardCategory] = useState<CardCategory>('especial');
-    const [playerAnimationAction, setPlayerAnimationAction] = useState<PlayerAnimationAction>('idle');
-    const [enemyAnimationAction, setEnemyAnimationAction] = useState<PlayerAnimationAction>('battle-idle');
-    const [playerExecutionAnimationId, setPlayerExecutionAnimationId] = useState<string | null>(null);
-    const [enemyExecutionAnimationId, setEnemyExecutionAnimationId] = useState<string | null>(null);
-    const [playerExecutionAnimationTintColor, setPlayerExecutionAnimationTintColor] = useState<string | null>(null);
-    const [enemyExecutionAnimationTintColor, setEnemyExecutionAnimationTintColor] = useState<string | null>(null);
-    const [playerImpactAnimationId, setPlayerImpactAnimationId] = useState<string | null>(null);
-    const [enemyImpactAnimationId, setEnemyImpactAnimationId] = useState<string | null>(null);
-    const [playerImpactAnimationTintColor, setPlayerImpactAnimationTintColor] = useState<string | null>(null);
-    const [enemyImpactAnimationTintColor, setEnemyImpactAnimationTintColor] = useState<string | null>(null);
-    const [playerImpactAnimationTarget, setPlayerImpactAnimationTarget] = useState<'self' | 'target'>('target');
-    const [enemyImpactAnimationTarget, setEnemyImpactAnimationTarget] = useState<'self' | 'target'>('target');
-    const [playerImpactAnimationTrigger, setPlayerImpactAnimationTrigger] = useState(0);
-    const [enemyImpactAnimationTrigger, setEnemyImpactAnimationTrigger] = useState(0);
-    const [playerBowShotTrigger, setPlayerBowShotTrigger] = useState(0);
-    const [enemyBowShotTrigger, setEnemyBowShotTrigger] = useState(0);
-    const [playerBowShotDidHit, setPlayerBowShotDidHit] = useState(true);
-    const [enemyBowShotDidHit, setEnemyBowShotDidHit] = useState(true);
     const [menuHeroAction, setMenuHeroAction] = useState<PlayerAnimationAction>('idle');
+
+    const getEffectivePlayerAnimationAction = useCallback((rawAction: PlayerAnimationAction): PlayerAnimationAction => {
+        const currentGameState = resolvedGameStateRef.current;
+        if (currentGameState === GameState.TAVERN) return menuHeroActionRef.current;
+        if (rawAction === 'defend-hit' || rawAction === 'evade') return rawAction;
+        if (isDefenseAnimationActiveRef.current && (rawAction === 'idle' || rawAction === 'battle-idle')) return 'defend';
+        if (rawAction === 'idle' && currentGameState === GameState.BATTLE) return 'battle-idle';
+        return rawAction;
+    }, []);
+
+    const setPlayerAnimationAction = useCallback<React.Dispatch<React.SetStateAction<PlayerAnimationAction>>>((value) => {
+        const nextRawAction = resolveSetStateAction(value, rawPlayerAnimActionRef.current);
+        rawPlayerAnimActionRef.current = nextRawAction;
+        useBattleAnimationStore.getState().setPlayerAnimationAction(getEffectivePlayerAnimationAction(nextRawAction));
+    }, [getEffectivePlayerAnimationAction]);
+
+    const setEnemyAnimationAction = useCallback<React.Dispatch<React.SetStateAction<PlayerAnimationAction>>>((value) => {
+        const state = useBattleAnimationStore.getState();
+        state.setEnemyAnimationAction(resolveSetStateAction(value, state.enemyAnimationAction));
+    }, []);
+
+    const setIsPlayerAttacking = useCallback<React.Dispatch<React.SetStateAction<boolean>>>((value) => {
+        const state = useBattleAnimationStore.getState();
+        state.setIsPlayerAttacking(resolveSetStateAction(value, state.isPlayerAttacking));
+    }, []);
+
+    const setIsEnemyAttacking = useCallback<React.Dispatch<React.SetStateAction<boolean>>>((value) => {
+        const state = useBattleAnimationStore.getState();
+        state.setIsEnemyAttacking(resolveSetStateAction(value, state.isEnemyAttacking));
+    }, []);
+
+    const setIsPlayerHit = useCallback<React.Dispatch<React.SetStateAction<boolean>>>((value) => {
+        const state = useBattleAnimationStore.getState();
+        state.setIsPlayerHit(resolveSetStateAction(value, state.isPlayerHit));
+    }, []);
+
+    const setIsPlayerCritHit = useCallback<React.Dispatch<React.SetStateAction<boolean>>>((value) => {
+        const state = useBattleAnimationStore.getState();
+        state.setIsPlayerCritHit(resolveSetStateAction(value, state.isPlayerCritHit));
+    }, []);
+
+    const setIsEnemyHit = useCallback<React.Dispatch<React.SetStateAction<boolean>>>((value) => {
+        const state = useBattleAnimationStore.getState();
+        state.setIsEnemyHit(resolveSetStateAction(value, state.isEnemyHit));
+    }, []);
+
+    const setScreenShake = useCallback<React.Dispatch<React.SetStateAction<number>>>((value) => {
+        const state = useBattleAnimationStore.getState();
+        state.setScreenShake(resolveSetStateAction(value, state.screenShake));
+    }, []);
+
+    const setPlayerExecutionAnimationId = useCallback<React.Dispatch<React.SetStateAction<string | null>>>((value) => {
+        const state = useBattleAnimationStore.getState();
+        state.setPlayerExecutionAnimationId(resolveSetStateAction(value, state.playerExecutionAnimationId));
+    }, []);
+
+    const setEnemyExecutionAnimationId = useCallback<React.Dispatch<React.SetStateAction<string | null>>>((value) => {
+        const state = useBattleAnimationStore.getState();
+        state.setEnemyExecutionAnimationId(resolveSetStateAction(value, state.enemyExecutionAnimationId));
+    }, []);
+
+    const setPlayerExecutionAnimationTintColor = useCallback<React.Dispatch<React.SetStateAction<string | null>>>((value) => {
+        const state = useBattleAnimationStore.getState();
+        state.setPlayerExecutionAnimationTintColor(resolveSetStateAction(value, state.playerExecutionAnimationTintColor));
+    }, []);
+
+    const setEnemyExecutionAnimationTintColor = useCallback<React.Dispatch<React.SetStateAction<string | null>>>((value) => {
+        const state = useBattleAnimationStore.getState();
+        state.setEnemyExecutionAnimationTintColor(resolveSetStateAction(value, state.enemyExecutionAnimationTintColor));
+    }, []);
+
+    const setPlayerImpactAnimationId = useCallback<React.Dispatch<React.SetStateAction<string | null>>>((value) => {
+        const state = useBattleAnimationStore.getState();
+        state.setPlayerImpactAnimationId(resolveSetStateAction(value, state.playerImpactAnimationId));
+    }, []);
+
+    const setEnemyImpactAnimationId = useCallback<React.Dispatch<React.SetStateAction<string | null>>>((value) => {
+        const state = useBattleAnimationStore.getState();
+        state.setEnemyImpactAnimationId(resolveSetStateAction(value, state.enemyImpactAnimationId));
+    }, []);
+
+    const setPlayerImpactAnimationTintColor = useCallback<React.Dispatch<React.SetStateAction<string | null>>>((value) => {
+        const state = useBattleAnimationStore.getState();
+        state.setPlayerImpactAnimationTintColor(resolveSetStateAction(value, state.playerImpactAnimationTintColor));
+    }, []);
+
+    const setEnemyImpactAnimationTintColor = useCallback<React.Dispatch<React.SetStateAction<string | null>>>((value) => {
+        const state = useBattleAnimationStore.getState();
+        state.setEnemyImpactAnimationTintColor(resolveSetStateAction(value, state.enemyImpactAnimationTintColor));
+    }, []);
+
+    const setPlayerImpactAnimationTarget = useCallback<React.Dispatch<React.SetStateAction<'self' | 'target'>>>((value) => {
+        const state = useBattleAnimationStore.getState();
+        state.setPlayerImpactAnimationTarget(resolveSetStateAction(value, state.playerImpactAnimationTarget));
+    }, []);
+
+    const setEnemyImpactAnimationTarget = useCallback<React.Dispatch<React.SetStateAction<'self' | 'target'>>>((value) => {
+        const state = useBattleAnimationStore.getState();
+        state.setEnemyImpactAnimationTarget(resolveSetStateAction(value, state.enemyImpactAnimationTarget));
+    }, []);
+
+    const setPlayerImpactAnimationTrigger = useCallback<React.Dispatch<React.SetStateAction<number>>>((value) => {
+        useBattleAnimationStore.getState().setPlayerImpactAnimationTrigger(value);
+    }, []);
+
+    const setEnemyImpactAnimationTrigger = useCallback<React.Dispatch<React.SetStateAction<number>>>((value) => {
+        useBattleAnimationStore.getState().setEnemyImpactAnimationTrigger(value);
+    }, []);
+
+    const setPlayerBowShotTrigger = useCallback<React.Dispatch<React.SetStateAction<number>>>((value) => {
+        useBattleAnimationStore.getState().setPlayerBowShotTrigger(value);
+    }, []);
+
+    const setEnemyBowShotTrigger = useCallback<React.Dispatch<React.SetStateAction<number>>>((value) => {
+        useBattleAnimationStore.getState().setEnemyBowShotTrigger(value);
+    }, []);
+
+    const setPlayerBowShotDidHit = useCallback<React.Dispatch<React.SetStateAction<boolean>>>((value) => {
+        const state = useBattleAnimationStore.getState();
+        state.setPlayerBowShotDidHit(resolveSetStateAction(value, state.playerBowShotDidHit));
+    }, []);
+
+    const setEnemyBowShotDidHit = useCallback<React.Dispatch<React.SetStateAction<boolean>>>((value) => {
+        const state = useBattleAnimationStore.getState();
+        state.setEnemyBowShotDidHit(resolveSetStateAction(value, state.enemyBowShotDidHit));
+    }, []);
+
     const [menuCameraFocusOverride, setMenuCameraFocusOverride] = useState<boolean | null>(null);
     const [showTavernUi, setShowTavernUi] = useState(true);
     const [shopReturnToInventory, setShopReturnToInventory] = useState(false);
@@ -4400,6 +4511,14 @@ export default function App() {
         return gameState;
     })();
     const isDefenseAnimationActive = player.isDefending || player.buffs.autoGuardTurns > 0;
+    resolvedGameStateRef.current = resolvedGameState;
+    menuHeroActionRef.current = menuHeroAction;
+    isDefenseAnimationActiveRef.current = isDefenseAnimationActive;
+
+    useEffect(() => {
+        setPlayerAnimationAction(rawPlayerAnimActionRef.current);
+    }, [resolvedGameState, menuHeroAction, player.isDefending, player.buffs.autoGuardTurns, setPlayerAnimationAction]);
+
     const activeDungeonPhase = getDungeonPhaseFromEvolution(dungeonRun?.evolution ?? dungeonEvolution);
     const alchemistCardOffers = useMemo(
         () => ALCHEMIST_CARDS.filter((offer) => !player.chosenCards.includes(offer.card.id)),
@@ -5469,17 +5588,6 @@ export default function App() {
                                         enemyName={enemy?.name}
                         turnState={turnState}
                         onGameTimeUpdate={_setGameTimeInStore}
-                                playerAnimationAction={resolvedGameState === GameState.TAVERN
-                                    ? menuHeroAction
-                                    : playerAnimationAction === 'defend-hit' || playerAnimationAction === 'evade'
-                                        ? playerAnimationAction
-                                        : isDefenseAnimationActive && (playerAnimationAction === 'idle' || playerAnimationAction === 'battle-idle')
-                                            ? 'defend'
-                                            : playerAnimationAction === 'idle' && resolvedGameState === GameState.BATTLE
-                                                ? 'battle-idle'
-                                                : playerAnimationAction}
-                        isPlayerAttacking={isPlayerAttacking}
-                        isEnemyAttacking={isEnemyAttacking}
                         equippedWeaponId={player.equippedWeapon?.id}
                         equippedArmorId={player.equippedArmor?.id}
                         equippedHelmetId={player.equippedHelmet?.id}
@@ -5487,38 +5595,17 @@ export default function App() {
                         equippedShieldId={player.equippedShield?.id}
                         enemyAssets={enemy?.assets}
                         enemyAttackStyle={enemy?.attackStyle}
-                        enemyAnimationAction={enemyAnimationAction}
                         enemyGltfModelUrl={enemy?.gltfModelUrl}
                         enemyGltfBodyType={enemy?.gltfBodyType}
-                        playerExecutionAnimationId={playerExecutionAnimationId}
-                        enemyExecutionAnimationId={enemyExecutionAnimationId}
-                        playerExecutionAnimationTintColor={playerExecutionAnimationTintColor}
-                        enemyExecutionAnimationTintColor={enemyExecutionAnimationTintColor}
-                        playerImpactAnimationId={playerImpactAnimationId}
-                        enemyImpactAnimationId={enemyImpactAnimationId}
-                        playerImpactAnimationTintColor={playerImpactAnimationTintColor}
-                        enemyImpactAnimationTintColor={enemyImpactAnimationTintColor}
-                        playerImpactAnimationTarget={playerImpactAnimationTarget}
-                        enemyImpactAnimationTarget={enemyImpactAnimationTarget}
-                        playerImpactAnimationTrigger={playerImpactAnimationTrigger}
-                        enemyImpactAnimationTrigger={enemyImpactAnimationTrigger}
-                        playerBowShotTrigger={playerBowShotTrigger}
-                        enemyBowShotTrigger={enemyBowShotTrigger}
-                        playerBowShotDidHit={playerBowShotDidHit}
-                        enemyBowShotDidHit={enemyBowShotDidHit}
                         enemyType={enemy?.type || 'beast'}
                         isEnemyBoss={enemy?.isBoss}
                         isPlayerDefending={isDefenseAnimationActive}
                         playerDefenseType={player.tipoDefesaAtiva ?? null}
                         isEnemyDefending={enemy?.isDefending}
-                        isPlayerHit={isPlayerHit}
-                        isPlayerCritHit={isPlayerCritHit}
-                        isEnemyHit={isEnemyHit}
                         hasPerfectEvadeAura={player.buffs.perfectEvadeTurns > 0}
                         hasDoubleAttackAura={player.buffs.doubleAttackTurns > 0}
                         impulseLevel={player.impulso}
                         activeImpulseLevel={player.impulsoAtivo}
-                        screenShake={screenShake}
                         isLevelingUp={isLevelingUp}
                         levelUpCardCategory={levelUpCardCategory}
                         stage={stage}

@@ -234,6 +234,14 @@ const AnimatedSelectionCamera = ({
   const lookTargetRef = useRef(new THREE.Vector3(initialSlot.position[0], 0.9, initialSlot.position[2] + 0.18));
   const currentLookTargetRef = useRef(new THREE.Vector3(initialSlot.position[0], 0.9, initialSlot.position[2] + 0.18));
   const detailViewProgressRef = useRef(0);
+  const defaultPositionRef = useRef(new THREE.Vector3());
+  const confirmPositionRef = useRef(new THREE.Vector3());
+  const detailPositionRef = useRef(new THREE.Vector3());
+  const targetPositionRef = useRef(new THREE.Vector3());
+  const defaultLookRef = useRef(new THREE.Vector3());
+  const confirmLookRef = useRef(new THREE.Vector3());
+  const detailLookRef = useRef(new THREE.Vector3());
+  const targetLookRef = useRef(new THREE.Vector3());
 
   useFrame(() => {
     const isElectron = typeof window !== 'undefined' && (window as Window & { electronBridge?: { isElectron: boolean } }).electronBridge?.isElectron === true;
@@ -250,33 +258,33 @@ const AnimatedSelectionCamera = ({
     const defaultCameraDistance = (isMobile ? 11.9 : 10.9) + Math.abs(heroX) * 0.05;
     const confirmCameraDistance = isMobile ? 7.9 : 7.1;
     const detailCameraDistance = isMobile ? 7.55 : 6.55;
-    const defaultPosition = new THREE.Vector3(
+    const defaultPosition = defaultPositionRef.current.set(
       heroX * (isMobile ? 0.5 : 0.4),
       isMobile ? 2.5 : 2.42,
       heroDepth + defaultCameraDistance,
     );
-    const confirmPosition = new THREE.Vector3(
+    const confirmPosition = confirmPositionRef.current.set(
       heroX * (isMobile ? 0.42 : 0.34),
       isMobile ? 2.34 : 2.28,
       heroDepth + confirmCameraDistance,
     );
-    const detailPosition = new THREE.Vector3(
+    const detailPosition = detailPositionRef.current.set(
       heroX * (isMobile ? 0.34 : 0.3),
       isMobile ? 1.84 : 2.62,
       heroDepth + detailCameraDistance,
     );
-    const targetPosition = defaultPosition
+    const targetPosition = targetPositionRef.current.copy(defaultPosition)
       .lerp(confirmPosition, transitionProgress)
       .lerp(detailPosition, detailProgress * (1 - transitionProgress));
 
-    const defaultLook = new THREE.Vector3(
+    const defaultLook = defaultLookRef.current.set(
       heroX,
       isMobile ? 0.98 : 0.92,
       heroZ + 0.18,
     );
-    const confirmLook = new THREE.Vector3(heroX, isMobile ? 1.35 : 1.28, heroZ + 0.28);
-    const detailLook = new THREE.Vector3(heroX + (isMobile ? 0 : 0.52), isMobile ? 0.82 : 1.08, heroZ + 0.14);
-    const targetLook = defaultLook
+    const confirmLook = confirmLookRef.current.set(heroX, isMobile ? 1.35 : 1.28, heroZ + 0.28);
+    const detailLook = detailLookRef.current.set(heroX + (isMobile ? 0 : 0.52), isMobile ? 0.82 : 1.08, heroZ + 0.14);
+    const targetLook = targetLookRef.current.copy(defaultLook)
       .lerp(confirmLook, transitionProgress)
       .lerp(detailLook, detailProgress * (1 - transitionProgress));
 
@@ -333,6 +341,7 @@ const StageHero = ({
 }) => {
   const groupRef = useRef<THREE.Group>(null);
   const heroRef = useRef<THREE.Group>(null);
+  const targetScaleRef = useRef(new THREE.Vector3());
   const runtimeAssets = hasRuntimeFbxAssets(playerClass.assets) ? playerClass.assets : null;
   const classNamePt = CLASS_NAME_PT[playerClass.id] ?? playerClass.name;
   const stageSlot = stageLayout[playerClass.id];
@@ -427,7 +436,7 @@ const StageHero = ({
       stageSlot.rotationY + (focused || selected ? 0.05 : 0),
       transitionState ? 0.05 : 0.08,
     );
-    heroRef.current.scale.lerp(new THREE.Vector3(targetScale, targetScale, targetScale), transitionState ? 0.05 : 0.08);
+    heroRef.current.scale.lerp(targetScaleRef.current.set(targetScale, targetScale, targetScale), transitionState ? 0.05 : 0.08);
     applyMeshOpacity(groupRef.current, targetOpacity);
   });
 
@@ -545,6 +554,9 @@ const SelectionHeroAccentLights = ({
   const warmKeyRef = useRef<THREE.PointLight>(null);
   const coolFillRef = useRef<THREE.PointLight>(null);
   const purpleRimRef = useRef<THREE.PointLight>(null);
+  const warmTargetRef = useRef(new THREE.Vector3());
+  const coolTargetRef = useRef(new THREE.Vector3());
+  const rimTargetRef = useRef(new THREE.Vector3());
 
   useFrame(({ clock }) => {
     const activeClassId = detailsClassId ?? focusedClassId;
@@ -556,17 +568,17 @@ const SelectionHeroAccentLights = ({
 
     if (warmKeyRef.current) {
       warmKeyRef.current.intensity = 1.25 + (pulse * 0.42);
-      warmKeyRef.current.position.lerp(new THREE.Vector3(targetX + 1.35, targetY + 1.32, targetZ + 1.65), 0.09);
+      warmKeyRef.current.position.lerp(warmTargetRef.current.set(targetX + 1.35, targetY + 1.32, targetZ + 1.65), 0.09);
     }
 
     if (coolFillRef.current) {
       coolFillRef.current.intensity = 0.8 + (pulse * 0.25);
-      coolFillRef.current.position.lerp(new THREE.Vector3(targetX - 1.18, targetY + 0.9, targetZ + 1.2), 0.09);
+      coolFillRef.current.position.lerp(coolTargetRef.current.set(targetX - 1.18, targetY + 0.9, targetZ + 1.2), 0.09);
     }
 
     if (purpleRimRef.current) {
       purpleRimRef.current.intensity = 0.56 + (pulse * 0.22);
-      purpleRimRef.current.position.lerp(new THREE.Vector3(targetX, targetY + 1.16, targetZ - 1.82), 0.09);
+      purpleRimRef.current.position.lerp(rimTargetRef.current.set(targetX, targetY + 1.16, targetZ - 1.82), 0.09);
     }
   });
 
@@ -638,8 +650,8 @@ const ForestSelectionScene = ({
   const isMobileDevice = useMemo(() => getRenderPlatform() === 'mobile', []);
   const isQualityMode = renderQualityPreset === 'quality';
   const selectionShadowsEnabled = isQualityMode || (!isMobileDevice && renderQualityPreset === 'balanced');
-  const isElectron = typeof window !== 'undefined' && (window as Window & { electronBridge?: { isElectron: boolean } }).electronBridge?.isElectron === true;
-  const selectionFpsCap = isElectron ? (isQualityMode ? 30 : 45) : (isMobileDevice ? (isQualityMode ? 30 : 45) : 30);
+  const selectionUseAlwaysFrameloop = !isMobileDevice;
+  const selectionFpsCap = isQualityMode ? 30 : 45;
   const selectionRuntimeScenarioPreset = useMemo(
     () => getRuntimeScenarioPreset('hero-selection') ?? getRuntimeScenarioPreset('tower'),
     [],
@@ -738,10 +750,10 @@ const ForestSelectionScene = ({
         dpr={quality.dpr}
         gl={{ antialias: quality.antialias, powerPreference }}
         performance={{ min: 0.5 }}
-        frameloop="demand"
+        frameloop={selectionUseAlwaysFrameloop ? 'always' : 'demand'}
         style={{ touchAction: 'none' }}
       >
-        <SelectionFpsCap fps={selectionFpsCap} />
+        {!selectionUseAlwaysFrameloop && <SelectionFpsCap fps={selectionFpsCap} />}
         <PerspectiveCamera makeDefault position={[0, 2.62, 17.2]} fov={33} rotation={[-0.075, 0, 0]} />
         <AnimatedSelectionCamera
           focusedClassId={focusedClassId}

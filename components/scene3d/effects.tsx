@@ -263,6 +263,7 @@ export const InstancedParticles: React.FC<{ particles: Particle[] }> = ({ partic
   const shard3dRef = useRef<THREE.InstancedMesh>(null);
   const dummy = useMemo(() => new THREE.Object3D(), []);
   const colorBuf = useMemo(() => new THREE.Color(), []);
+  const activeParticleIds = useMemo(() => new Set(particles.map((particle) => particle.id)), [particles]);
   const runtimeStates = useRef(new Map<string, ParticleRuntimeState>());
 
   useFrame((state, delta) => {
@@ -270,10 +271,15 @@ export const InstancedParticles: React.FC<{ particles: Particle[] }> = ({ partic
     const mesh3d = shard3dRef.current;
     if (!mesh2d || !mesh3d) return;
 
+    if (particles.length === 0 && runtimeStates.current.size === 0) {
+      if (mesh2d.count !== 0) mesh2d.count = 0;
+      if (mesh3d.count !== 0) mesh3d.count = 0;
+      return;
+    }
+
     // Add new particles; remove ones no longer in the store
-    const activeIds = new Set(particles.map((p) => p.id));
     for (const id of runtimeStates.current.keys()) {
-      if (!activeIds.has(id)) runtimeStates.current.delete(id);
+      if (!activeParticleIds.has(id)) runtimeStates.current.delete(id);
     }
     for (const p of particles) {
       if (!runtimeStates.current.has(p.id)) {

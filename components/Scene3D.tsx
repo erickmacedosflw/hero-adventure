@@ -84,7 +84,16 @@ import { useBattleVfxStore } from '../game/stores/battleVfxStore';
 import { useBattleGaugeStore } from '../game/stores/battleGaugeStore';
 import { useBattleStatsStore } from '../game/stores/battleStatsStore';
 import { useGameTimeStore } from '../game/stores/gameTimeStore';
+import { useBattleAnimationStore } from '../game/stores/battleAnimationStore';
 export { ItemPreviewCanvas } from './items/ItemPreviewCanvas';
+
+const disableObjectRaycast = () => null;
+
+const syncLightVisibility = (light: THREE.Light | null, threshold = 0.02) => {
+  if (!light) return;
+  light.visible = light.intensity > threshold;
+};
+
 export type {
   DeveloperAnimationRuntimeDiagnostic,
   DeveloperKitbashAnalysis,
@@ -122,8 +131,8 @@ interface SceneProps {
   playerBowShotDidHit?: boolean;
   enemyBowShotDidHit?: boolean;
   turnState: TurnState;
-  isPlayerAttacking: boolean;
-  isEnemyAttacking: boolean;
+  isPlayerAttacking?: boolean;
+  isEnemyAttacking?: boolean;
   equippedWeaponId?: string;
   equippedArmorId?: string;
   equippedHelmetId?: string;
@@ -898,55 +907,11 @@ interface BowProjectileState {
 }
 
 const CombatCinematicFX = ({
-  playerAnimationAction,
-  enemyAnimationAction,
-  playerExecutionAnimationId,
-  enemyExecutionAnimationId,
-  playerExecutionAnimationTintColor,
-  enemyExecutionAnimationTintColor,
-  playerImpactAnimationId,
-  enemyImpactAnimationId,
-  playerImpactAnimationTintColor,
-  enemyImpactAnimationTintColor,
-  playerImpactAnimationTarget,
-  enemyImpactAnimationTarget,
-  playerImpactAnimationTrigger,
-  enemyImpactAnimationTrigger,
-  playerBowShotTrigger,
-  enemyBowShotTrigger,
-  playerBowShotDidHit,
-  enemyBowShotDidHit,
-  isPlayerAttacking,
-  isEnemyAttacking,
-  isEnemyHit,
-  isPlayerHit,
   equippedWeaponId,
   enemyAttackStyle,
   activeImpulseLevel,
   enemyImpulseLevel,
 }: {
-  playerAnimationAction?: PlayerAnimationAction;
-  enemyAnimationAction?: PlayerAnimationAction;
-  playerExecutionAnimationId?: string | null;
-  enemyExecutionAnimationId?: string | null;
-  playerExecutionAnimationTintColor?: string | null;
-  enemyExecutionAnimationTintColor?: string | null;
-  playerImpactAnimationId?: string | null;
-  enemyImpactAnimationId?: string | null;
-  playerImpactAnimationTintColor?: string | null;
-  enemyImpactAnimationTintColor?: string | null;
-  playerImpactAnimationTarget?: 'self' | 'target';
-  enemyImpactAnimationTarget?: 'self' | 'target';
-  playerImpactAnimationTrigger?: number;
-  enemyImpactAnimationTrigger?: number;
-  playerBowShotTrigger?: number;
-  enemyBowShotTrigger?: number;
-  playerBowShotDidHit?: boolean;
-  enemyBowShotDidHit?: boolean;
-  isPlayerAttacking?: boolean;
-  isEnemyAttacking?: boolean;
-  isEnemyHit?: boolean;
-  isPlayerHit?: boolean;
   equippedWeaponId?: string;
   enemyAttackStyle?: 'armed' | 'unarmed';
   activeImpulseLevel?: number;
@@ -1295,19 +1260,47 @@ const CombatCinematicFX = ({
   }, []);
 
   useFrame((state, delta) => {
+    const {
+      playerAnimationAction,
+      enemyAnimationAction,
+      playerExecutionAnimationId,
+      enemyExecutionAnimationId,
+      playerExecutionAnimationTintColor,
+      enemyExecutionAnimationTintColor,
+      playerImpactAnimationId,
+      enemyImpactAnimationId,
+      playerImpactAnimationTintColor,
+      enemyImpactAnimationTintColor,
+      playerImpactAnimationTarget,
+      enemyImpactAnimationTarget,
+      playerImpactAnimationTrigger,
+      enemyImpactAnimationTrigger,
+      playerBowShotTrigger,
+      enemyBowShotTrigger,
+      playerBowShotDidHit,
+      enemyBowShotDidHit,
+      isPlayerAttacking,
+      isEnemyAttacking,
+      isEnemyHit,
+      isPlayerHit,
+    } = useBattleAnimationStore.getState();
     const t = state.clock.elapsedTime;
     const playerSkillActive = false;
     const enemySkillActive = false;
     const hasSkillFx = false;
-    const storeParticles = useBattleVfxStore.getState().particles;
-    const pCount = storeParticles.length;
-    const loadScale = pCount > 84 ? 0.65 : pCount > 64 ? 0.82 : 1;
-    // Derive impact color from latest enemy-side particle
     let latestEnemyImpactColor: string | undefined;
-    for (let _i = storeParticles.length - 1; _i >= 0; _i--) {
-      if (storeParticles[_i].position[0] > 0.8) { latestEnemyImpactColor = storeParticles[_i].color; break; }
+    let activeTrailCount = COMBAT_TRAIL_SEEDS.length;
+
+    if (hasSkillFx || hitEnemyPulseRef.current > 0.01) {
+      const storeParticles = useBattleVfxStore.getState().particles;
+      const pCount = storeParticles.length;
+      const loadScale = pCount > 84 ? 0.65 : pCount > 64 ? 0.82 : 1;
+      activeTrailCount = Math.max(8, Math.floor(COMBAT_TRAIL_SEEDS.length * loadScale));
+      // Derive impact color from latest enemy-side particle only while visible hit/trail FX need it.
+      for (let _i = storeParticles.length - 1; _i >= 0; _i--) {
+        if (storeParticles[_i].position[0] > 0.8) { latestEnemyImpactColor = storeParticles[_i].color; break; }
+      }
     }
-    const activeTrailCount = Math.max(8, Math.floor(COMBAT_TRAIL_SEEDS.length * loadScale));
 
     if (hasSkillFx) {
       COMBAT_TRAIL_SEEDS.forEach((seed, i) => {
@@ -1571,6 +1564,7 @@ const CombatCinematicFX = ({
       hitEnemyLightRef.current.color.set(latestEnemyImpactColor ?? '#fef08a');
       hitEnemyLightRef.current.intensity = pulse * 1.2;
       hitEnemyLightRef.current.position.set(2.0, 0.7, 0.16);
+      syncLightVisibility(hitEnemyLightRef.current);
     }
 
     if (hitBurstPlayerRef.current) {
@@ -1589,6 +1583,7 @@ const CombatCinematicFX = ({
         ? (intensityPulse * (0.75 + effectivePlayerImpulseLightLevel * 0.28))
         : 0;
       impulsePlayerLightRef.current.position.set(playerAnchorXRef.current, playerAnchorYRef.current + 0.75, 0.24);
+      syncLightVisibility(impulsePlayerLightRef.current);
     }
 
     if (impulseEnemyLightRef.current) {
@@ -1600,6 +1595,7 @@ const CombatCinematicFX = ({
         ? (intensityPulse * (0.75 + effectiveEnemyImpulseLightLevel * 0.28))
         : 0;
       impulseEnemyLightRef.current.position.set(enemyAnchorXRef.current, enemyAnchorYRef.current + 0.75, 0.24);
+      syncLightVisibility(impulseEnemyLightRef.current);
     }
 
     if (impulseChargePlayerLightRef.current) {
@@ -1612,6 +1608,7 @@ const CombatCinematicFX = ({
       impulseChargePlayerLightRef.current.color.set(chargeColor);
       impulseChargePlayerLightRef.current.intensity = isChargingImpulse ? (chargePulse * 1.45) : 0;
       impulseChargePlayerLightRef.current.position.set(playerAnchorXRef.current, playerAnchorYRef.current + 0.8, 0.28);
+      syncLightVisibility(impulseChargePlayerLightRef.current);
     }
 
     const heroTargetX = isPlayerAttacking
@@ -1853,6 +1850,17 @@ const CombatCinematicFX = ({
       tintColorOverride?: string | null;
       forceLoop?: boolean;
     }) => {
+      const hideRemaining = (fromIndex: number) => {
+        for (let index = fromIndex; index < MAX_SPRITE_ANIMATION_TRACKS; index += 1) {
+          setSpriteHidden(sprites[index] ?? null);
+        }
+      };
+
+      if (startMs == null) {
+        hideRemaining(0);
+        return;
+      }
+
       const { definition, texture, luminanceTexture, trackTextures, trackLuminanceTextures, useBlade } = resolveResources({
         side,
         requestedAnimationId,
@@ -1861,13 +1869,8 @@ const CombatCinematicFX = ({
       const tracks = definition?.spriteTracks?.filter((candidate) => candidate.enabled !== false)
         ?? [];
       const availableTracks = tracks.slice(0, MAX_SPRITE_ANIMATION_TRACKS);
-      const hideRemaining = (fromIndex: number) => {
-        for (let index = fromIndex; index < MAX_SPRITE_ANIMATION_TRACKS; index += 1) {
-          setSpriteHidden(sprites[index] ?? null);
-        }
-      };
 
-      if (availableTracks.length === 0 || !texture || startMs == null) {
+      if (availableTracks.length === 0 || !texture) {
         hideRemaining(0);
         return;
       }
@@ -2193,10 +2196,10 @@ const CombatCinematicFX = ({
       <group ref={enemyBowProjectileRef} visible={false}>
         <primitive object={enemyBowProjectileModel} />
       </group>
-      <pointLight ref={hitEnemyLightRef} color="#fef08a" intensity={0} distance={3.2} decay={2} />
-      <pointLight ref={impulsePlayerLightRef} color="#ef4444" intensity={0} distance={4.8} decay={2} />
-      <pointLight ref={impulseEnemyLightRef} color="#ef4444" intensity={0} distance={4.8} decay={2} />
-      <pointLight ref={impulseChargePlayerLightRef} color="#22d3ee" intensity={0} distance={5.4} decay={2} />
+      <pointLight ref={hitEnemyLightRef} color="#fef08a" intensity={0} distance={3.2} decay={2} visible={false} />
+      <pointLight ref={impulsePlayerLightRef} color="#ef4444" intensity={0} distance={4.8} decay={2} visible={false} />
+      <pointLight ref={impulseEnemyLightRef} color="#ef4444" intensity={0} distance={4.8} decay={2} visible={false} />
+      <pointLight ref={impulseChargePlayerLightRef} color="#22d3ee" intensity={0} distance={5.4} decay={2} visible={false} />
       {(spriteFallbackDebug.missingDefinitions > 0 || spriteFallbackDebug.missingTextures > 0) ? (
         <Html center sprite distanceFactor={9.2} position={[0, 3.1, 0]} zIndexRange={[170, 0]}>
           <div className="rounded-lg border border-amber-200/70 bg-[#111827]/80 px-3 py-2 text-center text-[10px] font-black uppercase tracking-[0.13em] text-amber-100 shadow-[0_10px_24px_rgba(0,0,0,0.45)]">
@@ -2420,9 +2423,17 @@ const INSPECT_CLASS_ICON: Record<PlayerClassId, React.ComponentType<{ size?: num
 
 // Ã¢â€â‚¬Ã¢â€â‚¬ Potion slot stat badges Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
-export const HeroVoxel = ({ classId = 'knight', playerAnimationAction = 'idle', animationClipName, preferredAnimationBundle, onAvailableAnimationClipsChange, loadAllAnimationBundles = false, loadSecondaryAnimationBundles = true, previewLoopAllActions = false, isAttacking, isDefending, defenseType = 'MAGICA', weaponId, armorId, helmetId, legsId, shieldId, isLevelingUp, levelUpCardCategory = 'especial', isMenuView = false, isHit, isPlayerCritHit, hasPerfectEvadeAura, hasDoubleAttackAura, impulseLevel = 0, activeImpulseLevel = 0, contactShadowResolution = 256, idlePositionX = -2, attackPositionX = 0.5, defendPositionX = -1.5, idlePositionY = -1, attackPositionY = -1, defendPositionY = -1, originPosition = [-2, -1, 0], baseRotationY = 0.5, hiddenPartSlots, visiblePartSlots, runtimeAssetsOverride, calibrationOverride, debugRuntimeId, debugRuntimeLabel, onRuntimeDiagnosticChange, statusOverlay, onHeroClick, playerState, isPlayerTurn = false, forceHighlight = false }: any) => {
+export const HeroVoxel = ({ classId = 'knight', playerAnimationAction = 'idle', animationClipName, preferredAnimationBundle, onAvailableAnimationClipsChange, loadAllAnimationBundles = false, loadSecondaryAnimationBundles = true, previewLoopAllActions = false, isAttacking, isDefending, defenseType = 'MAGICA', weaponId, armorId, helmetId, legsId, shieldId, isLevelingUp, levelUpCardCategory = 'especial', isMenuView = false, isHit, isPlayerCritHit, hasPerfectEvadeAura, hasDoubleAttackAura, impulseLevel = 0, activeImpulseLevel = 0, contactShadowResolution = 256, idlePositionX = -2, attackPositionX = 0.5, defendPositionX = -1.5, idlePositionY = -1, attackPositionY = -1, defendPositionY = -1, originPosition = [-2, -1, 0], baseRotationY = 0.5, hiddenPartSlots, visiblePartSlots, runtimeAssetsOverride, calibrationOverride, debugRuntimeId, debugRuntimeLabel, onRuntimeDiagnosticChange, statusOverlay, onHeroClick, playerState, isPlayerTurn = false, forceHighlight = false, useDecorativeLights = true }: any) => {
   const playerClass = getPlayerClassById(classId);
   const runtimeHeroAssets = runtimeAssetsOverride ?? (hasRuntimeFbxAssets(playerClass.assets) ? playerClass.assets : null);
+  const storePlayerAnimationAction = useBattleAnimationStore((s) => s.playerAnimationAction);
+  const storeIsPlayerAttacking = useBattleAnimationStore((s) => s.isPlayerAttacking);
+  const storeIsPlayerHit = useBattleAnimationStore((s) => s.isPlayerHit);
+  const storeIsPlayerCritHit = useBattleAnimationStore((s) => s.isPlayerCritHit);
+  const effectivePlayerAnimationAction: PlayerAnimationAction = playerAnimationAction !== 'idle' ? playerAnimationAction : storePlayerAnimationAction;
+  const effectiveIsAttacking: boolean = isAttacking ?? storeIsPlayerAttacking;
+  const effectiveIsHit: boolean = isHit ?? storeIsPlayerHit;
+  const effectiveIsPlayerCritHit: boolean = isPlayerCritHit ?? storeIsPlayerCritHit;
   const group = useRef<THREE.Group>(null);
   const shieldRef = useRef<THREE.Group>(null);
   const defendImpulseAuraRef = useRef<THREE.Group>(null);
@@ -2493,19 +2504,21 @@ export const HeroVoxel = ({ classId = 'knight', playerAnimationAction = 'idle', 
   useFrame((state) => {
     if (damageLightRef.current) {
       damageLightRef.current.intensity = THREE.MathUtils.lerp(damageLightRef.current.intensity, 0, 0.14);
-      damageLightRef.current.color.set(isPlayerCritHit ? '#facc15' : '#ef4444');
+      damageLightRef.current.color.set(effectiveIsPlayerCritHit ? '#facc15' : '#ef4444');
+      syncLightVisibility(damageLightRef.current);
     }
     if (healLightRef.current) {
-      const shouldShowHealLight = !isMenuView && playerAnimationAction === 'heal';
+      const shouldShowHealLight = !isMenuView && effectivePlayerAnimationAction === 'heal';
       if (shouldShowHealLight) {
         healLightRef.current.intensity = THREE.MathUtils.lerp(healLightRef.current.intensity, 2.5, 0.07);
       } else {
         healLightRef.current.intensity = THREE.MathUtils.lerp(healLightRef.current.intensity, 0, 0.09);
       }
+      syncLightVisibility(healLightRef.current);
     }
     if (group.current) {
       // Idle/Action movement Ã¢â‚¬â€ stay at attack position while animation is still playing
-      const isInAttackAnimation = isAttacking;
+      const isInAttackAnimation = effectiveIsAttacking;
       if (isInAttackAnimation) {
         group.current.position.x = THREE.MathUtils.lerp(group.current.position.x, attackPositionX, 0.2);
         group.current.position.y = THREE.MathUtils.lerp(group.current.position.y, attackPositionY, 0.2);
@@ -2526,11 +2539,11 @@ export const HeroVoxel = ({ classId = 'knight', playerAnimationAction = 'idle', 
 
       group.current.rotation.y = THREE.MathUtils.lerp(group.current.rotation.y, baseRotationY, 0.16);
 
-      if (isHit && !wasHitRef.current) {
+      if (effectiveIsHit && !wasHitRef.current) {
         flashRef.current = 1;
       }
       flashRef.current = THREE.MathUtils.lerp(flashRef.current, 0, 0.32);
-      wasHitRef.current = Boolean(isHit);
+      wasHitRef.current = Boolean(effectiveIsHit);
       if (flashRef.current > 0.003) {
         if (flashMaterialsRef.current.length === 0) {
           refreshFlashMaterials();
@@ -2598,7 +2611,7 @@ export const HeroVoxel = ({ classId = 'knight', playerAnimationAction = 'idle', 
 
     if (turnRingRef.current) {
       const mat = turnRingRef.current.material as THREE.MeshBasicMaterial;
-      const showTurn = Boolean(isPlayerTurn) && !isMenuView && !isAttacking;
+      const showTurn = Boolean(isPlayerTurn) && !isMenuView && !effectiveIsAttacking;
       const targetOpacity = showTurn ? 0.55 + Math.sin(state.clock.elapsedTime * 2.6) * 0.20 : 0;
       mat.opacity = THREE.MathUtils.lerp(mat.opacity, targetOpacity, 0.07);
       mat.color.set(heroClassColor);
@@ -2684,7 +2697,7 @@ export const HeroVoxel = ({ classId = 'knight', playerAnimationAction = 'idle', 
               <AnimatedClassHero
                 assets={runtimeHeroAssets}
                 equippedWeaponId={weaponId}
-                animationAction={playerAnimationAction}
+                animationAction={effectivePlayerAnimationAction}
                 animationClipName={animationClipName}
                 preferredAnimationBundle={preferredAnimationBundle}
                 hasWeapon={Boolean(weaponId)}
@@ -2755,14 +2768,14 @@ export const HeroVoxel = ({ classId = 'knight', playerAnimationAction = 'idle', 
             <ringGeometry args={[0.78, 0.9, 20]} />
             <meshStandardMaterial color="#f97316" emissive="#ea580c" emissiveIntensity={1.1} transparent opacity={0.28} side={THREE.DoubleSide} />
           </mesh>
-          <pointLight position={[0, 0.8, 0.25]} color="#fb923c" intensity={1.35} distance={4.2} decay={2} />
+          {useDecorativeLights ? <pointLight position={[0, 0.8, 0.25]} color="#fb923c" intensity={1.35} distance={4.2} decay={2} /> : null}
         </group>
-        <pointLight ref={damageLightRef} color="#ef4444" intensity={0} distance={8} decay={2.5} position={[0, 0.8, 0.3]} />
-        <pointLight ref={healLightRef} color="#86efac" intensity={0} distance={9} decay={2.5} position={[0, 0.8, 0.3]} />
+        <pointLight ref={damageLightRef} color="#ef4444" intensity={0} distance={8} decay={2.5} position={[0, 0.8, 0.3]} visible={false} />
+        <pointLight ref={healLightRef} color="#86efac" intensity={0} distance={9} decay={2.5} position={[0, 0.8, 0.3]} visible={false} />
         {/* Rim light Ã¢â‚¬â€ behind the hero (Z positive = closer to camera side, hero faces away) */}
-        <pointLight color="#bfdbfe" intensity={0.9} distance={5} decay={2} position={[0, 1.1, 1.6]} />
+        {useDecorativeLights ? <pointLight color="#bfdbfe" intensity={0.9} distance={5} decay={2} position={[0, 1.1, 1.6]} /> : null}
         {/* Fill light Ã¢â‚¬â€ subtle warm from below for volume */}
-        <pointLight color="#fde68a" intensity={0.32} distance={3.5} decay={2.5} position={[0, -0.6, -0.4]} />
+        {useDecorativeLights ? <pointLight color="#fde68a" intensity={0.32} distance={3.5} decay={2.5} position={[0, -0.6, -0.4]} /> : null}
         {/* Turn indicator ring Ã¢â‚¬â€ visible during player turn in battle */}
         <mesh ref={turnRingRef} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.06, 0]}>
           <ringGeometry args={[0.78, 0.98, 56]} />
@@ -2815,7 +2828,7 @@ export const HeroVoxel = ({ classId = 'knight', playerAnimationAction = 'idle', 
           <torusGeometry args={[1.2, 0.03, 6, 20]} />
           <meshStandardMaterial color="#bfdbfe" emissive="#93c5fd" emissiveIntensity={1.0} transparent opacity={0.38} />
         </mesh>
-        <pointLight color="#60a5fa" intensity={1.6} distance={5} decay={2} />
+        {useDecorativeLights ? <pointLight color="#60a5fa" intensity={1.6} distance={5} decay={2} /> : null}
       </group>
       <group ref={defendImpulseAuraRef} position={[idlePositionX + 0.5, -0.18, 0]} visible={Boolean(isDefending) && defendImpulseLevel > 0}>
         <mesh rotation={[Math.PI / 2, 0, 0]}>
@@ -2826,7 +2839,7 @@ export const HeroVoxel = ({ classId = 'knight', playerAnimationAction = 'idle', 
           <torusGeometry args={[1.34, 0.03, 10, 36]} />
           <meshStandardMaterial color={defendImpulseColor} emissive={defendImpulseColor} emissiveIntensity={1.15} transparent opacity={0.36} />
         </mesh>
-        <pointLight color={defendImpulseColor} intensity={1.45 + (defendImpulseLevel * 0.32)} distance={5.8} decay={2} position={[0, 0.42, 0.28]} />
+        {useDecorativeLights ? <pointLight color={defendImpulseColor} intensity={1.45 + (defendImpulseLevel * 0.32)} distance={5.8} decay={2} position={[0, 0.42, 0.28]} /> : null}
       </group>
     </group>
   );
@@ -3144,9 +3157,14 @@ const RuntimeScenarioGlb = ({
   const model = useMemo(() => {
     const clone = gltf.scene.clone(true);
     clone.traverse((node: any) => {
+      node.matrixAutoUpdate = false;
+      node.updateMatrix();
+
       if (!node.isMesh) {
         return;
       }
+
+      node.raycast = disableObjectRaycast;
 
       const materials = Array.isArray(node.material) ? node.material : [node.material];
       materials.forEach((material: any) => {
@@ -3396,8 +3414,9 @@ const MenuNavigationPortal = ({
   );
 };
 
-// Dev-only stats panel using stats.js (FPS / MS / MB). Renders inside the R3F Canvas.
-// Only mounted when import.meta.env.DEV is true — tree-shaken away in production.
+// Performance stats panel — FPS/MS/MB + GPU draw calls, triangles, useFrame JS budget, React re-renders.
+// Activated via props.showDesktopStatsMonitor (works in DEV and production/Electron builds).
+let _sceneRenderTick = 0; // incremented every GameScene React render; read & reset by StatsMonitor
 const StatsMonitor = () => {
   useEffect(() => {
     let rafId: number;
@@ -3410,7 +3429,7 @@ const StatsMonitor = () => {
     panel.style.cssText = [
       'position:fixed', 'left:14px', 'bottom:14px', 'z-index:9999',
       'display:flex', 'flex-direction:column', 'gap:6px',
-      'min-width:136px', 'max-width:148px',
+      'min-width:160px', 'max-width:178px',
       'padding:8px 9px 7px', 'border-radius:14px',
       'border:1px solid rgba(231,186,119,0.28)',
       'background:linear-gradient(180deg, rgba(43,22,30,0.94) 0%, rgba(24,11,19,0.92) 100%)',
@@ -3435,6 +3454,20 @@ const StatsMonitor = () => {
       'pointer-events:none',
     ].join(';');
     panel.appendChild(display);
+
+    const display2 = document.createElement('div');
+    display2.style.cssText = [
+      'display:grid', 'grid-template-columns:repeat(3, minmax(0, 1fr))', 'gap:4px',
+      'pointer-events:none',
+    ].join(';');
+    panel.appendChild(display2);
+
+    const display3 = document.createElement('div');
+    display3.style.cssText = [
+      'display:grid', 'grid-template-columns:repeat(3, minmax(0, 1fr))', 'gap:4px',
+      'pointer-events:none',
+    ].join(';');
+    panel.appendChild(display3);
 
     const btn = document.createElement('button');
     btn.textContent = 'Copiar';
@@ -3470,6 +3503,13 @@ const StatsMonitor = () => {
       'color:rgba(228,202,178,0.58)', 'pointer-events:none',
     ].join(';');
     panel.appendChild(histDiv);
+
+    const reactDiv = document.createElement('div');
+    reactDiv.style.cssText = [
+      'font-size:8px', 'letter-spacing:0.04em',
+      'color:rgba(200,190,255,0.52)', 'pointer-events:none',
+    ].join(';');
+    panel.appendChild(reactDiv);
 
     let hist = { fast: 0, ok: 0, slow: 0, bad: 0 };
 
@@ -3600,6 +3640,36 @@ const StatsMonitor = () => {
           `<div style="${cellStyle}"><span style="${labelStyle}">FPS</span><span style="${valueStyle};color:${fpsColor}">${fps}</span></div>` +
           `<div style="${cellStyle}"><span style="${labelStyle}">MS</span><span style="${valueStyle};color:${msColor}">${ms}</span></div>` +
           `<div style="${cellStyle}"><span style="${labelStyle}">MB</span><span style="${valueStyle};color:${mbColor}">${mb}</span></div>`;
+        const gpu = (window as any).__r3fPerfStats ?? {};
+        const drawCalls = gpu.calls !== undefined ? String(gpu.calls) : '—';
+        const tris = gpu.triangles !== undefined
+          ? (gpu.triangles >= 1000 ? (gpu.triangles / 1000).toFixed(1) + 'k' : String(gpu.triangles))
+          : '—';
+        const jsMs = gpu.frameJs !== undefined ? (gpu.frameJs as number).toFixed(1) : '—';
+        const callColor = gpu.calls !== undefined
+          ? (gpu.calls > 80 ? '#ff9588' : gpu.calls > 40 ? '#f5d27d' : '#8ff3b0') : 'rgba(245,225,196,0.4)';
+        const jsColor = gpu.frameJs !== undefined
+          ? ((gpu.frameJs as number) > 10 ? '#ff9588' : (gpu.frameJs as number) > 5 ? '#f5d27d' : '#8fe9f0') : 'rgba(245,225,196,0.4)';
+        display2.innerHTML =
+          `<div style="${cellStyle}"><span style="${labelStyle}">Draw</span><span style="${valueStyle};color:${callColor}">${drawCalls}</span></div>` +
+          `<div style="${cellStyle}"><span style="${labelStyle}">Tris</span><span style="${valueStyle};color:#d7c4ff">${tris}</span></div>` +
+          `<div style="${cellStyle}"><span style="${labelStyle}">JS·ms</span><span style="${valueStyle};color:${jsColor}">${jsMs}</span></div>`;
+        const meshes = gpu.meshes !== undefined ? String(gpu.meshes) : '—';
+        const mats = gpu.materials !== undefined ? String(gpu.materials) : '—';
+        const tex = gpu.textures !== undefined ? String(gpu.textures) : '—';
+        const meshColor = gpu.meshes !== undefined
+          ? (gpu.meshes > 220 ? '#ff9588' : gpu.meshes > 120 ? '#f5d27d' : '#8ff3b0') : 'rgba(245,225,196,0.4)';
+        const matColor = gpu.materials !== undefined
+          ? (gpu.materials > 180 ? '#ff9588' : gpu.materials > 90 ? '#f5d27d' : '#8ff3b0') : 'rgba(245,225,196,0.4)';
+        const texColor = gpu.textures !== undefined
+          ? (gpu.textures > 90 ? '#ff9588' : gpu.textures > 45 ? '#f5d27d' : '#8ff3b0') : 'rgba(245,225,196,0.4)';
+        display3.innerHTML =
+          `<div style="${cellStyle}"><span style="${labelStyle}">Mesh</span><span style="${valueStyle};color:${meshColor}">${meshes}</span></div>` +
+          `<div style="${cellStyle}"><span style="${labelStyle}">Mat</span><span style="${valueStyle};color:${matColor}">${mats}</span></div>` +
+          `<div style="${cellStyle}"><span style="${labelStyle}">Tex</span><span style="${valueStyle};color:${texColor}">${tex}</span></div>`;
+        const reactR = _sceneRenderTick;
+        _sceneRenderTick = 0;
+        if (reactR > 0) reactDiv.textContent = `⚛ React: ${(reactR * 2).toFixed(0)}/s`;
         if (total > 0) {
           const pct = (n: number) => Math.round((n / total) * 100);
           histDiv.innerHTML =
@@ -3621,6 +3691,100 @@ const StatsMonitor = () => {
       if (panel.parentNode) panel.parentNode.removeChild(panel);
     };
   }, []);
+  return null;
+};
+
+/**
+ * Reads Three.js renderer.info each frame (zero overhead — these counters are
+ * always maintained by Three.js regardless) and writes to window.__r3fPerfStats
+ * so StatsMonitor (outside the Canvas) can display GPU-side data.
+ */
+const RendererInfoBridge: React.FC = () => {
+  const { gl } = useThree();
+  useFrame(() => {
+    const prev = (window as any).__r3fPerfStats ?? {};
+    (window as any).__r3fPerfStats = {
+      ...prev,
+      calls: gl.info.render.calls,
+      triangles: gl.info.render.triangles,
+      geometries: gl.info.memory.geometries,
+      textures: gl.info.memory.textures,
+    };
+  }, -200);
+  return null;
+};
+
+/**
+ * Measures JS time spent inside R3F useFrame hooks each frame.
+ * Priority +200 fires before scene hooks; priority -200 fires after the last.
+ * The gap ≈ total useFrame JS cost (excludes actual WebGL draw time).
+ *   High JS·ms + low FPS  → useFrame JS is the bottleneck
+ *   Low  JS·ms + low FPS  → GPU or React rendering is the bottleneck
+ */
+const FrameTimingBridge: React.FC = () => {
+  const startRef = useRef(0);
+  useFrame(() => {
+    startRef.current = performance.now();
+  }, 200);
+  useFrame(() => {
+    const prev = (window as any).__r3fPerfStats ?? {};
+    (window as any).__r3fPerfStats = { ...prev, frameJs: performance.now() - startRef.current };
+  }, -200);
+  return null;
+};
+
+const SceneClockOverlay: React.FC = () => {
+  const gameTime = useGameTimeStore((s) => s.gameTime);
+
+  return (
+    <div className="absolute top-6 left-6 z-10 bg-black/40 border border-white/10 px-4 py-1 rounded-full hidden sm:flex items-center gap-3 pointer-events-none">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-400 shrink-0"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      <span className="font-mono text-white text-sm tracking-widest">{gameTime}</span>
+    </div>
+  );
+};
+
+const SceneObjectInfoBridge: React.FC = () => {
+  const { scene } = useThree();
+  const lastSampleRef = useRef(0);
+
+  useFrame(() => {
+    const now = performance.now();
+    if (now - lastSampleRef.current < 1000) return;
+    lastSampleRef.current = now;
+
+    let meshes = 0;
+    let skinnedMeshes = 0;
+    let lights = 0;
+    let visibleLights = 0;
+    const materials = new Set<string>();
+
+    scene.traverse((object) => {
+      if ((object as THREE.Mesh).isMesh) {
+        meshes += 1;
+        if ((object as THREE.SkinnedMesh).isSkinnedMesh) skinnedMeshes += 1;
+        const material = (object as THREE.Mesh).material;
+        const materialList = Array.isArray(material) ? material : [material];
+        for (const item of materialList) {
+          if (item) materials.add(item.uuid);
+        }
+      }
+      if ((object as THREE.Light).isLight) {
+        lights += 1;
+        if (object.visible) visibleLights += 1;
+      }
+    });
+
+    const prev = (window as any).__r3fPerfStats ?? {};
+    (window as any).__r3fPerfStats = {
+      ...prev,
+      meshes,
+      skinnedMeshes,
+      lights,
+      visibleLights,
+      materials: materials.size,
+    };
+  }, -210);
   return null;
 };
 
@@ -4034,13 +4198,12 @@ const HeroNameplateCard: React.FC<{
 };
 
 export const GameScene: React.FC<SceneProps> = React.memo((props) => {
+  _sceneRenderTick++; // track React re-renders for StatsMonitor
   const containerRef = useRef<HTMLDivElement>(null);
   const outlineHeroRef = useRef<THREE.Group>(null);
   const outlineEnemyRef = useRef<THREE.Group>(null);
 
-  // gameTime lives in gameTimeStore — no local state to avoid GameScene re-renders 2×/sec
-  const gameTime = useGameTimeStore((s) => s.gameTime);
-  const setGameTimeInStore = useGameTimeStore((s) => s.setGameTime);
+  // gameTime lives in gameTimeStore; SceneClockOverlay subscribes separately so GameScene stays stable.
   const [hoveredEnemyId, setHoveredEnemyId] = useState<string | null>(null);
   const [heroItemDetail, setHeroItemDetail] = useState<any | null>(null);
   // Defer secondary FBX bundle loading so the primary idle animation starts immediately.
@@ -4058,15 +4221,20 @@ export const GameScene: React.FC<SceneProps> = React.memo((props) => {
     }
   }, [props.pendingTargetAction]);
   const handleTimeUpdate = useCallback((time: string) => {
+    const setGameTimeInStore = useGameTimeStore.getState().setGameTime;
     setGameTimeInStore(time);
-    // onGameTimeUpdate prop kept for external consumers but no longer drives App state
-    props.onGameTimeUpdate?.(time);
-  }, [setGameTimeInStore, props.onGameTimeUpdate]);
+    if (props.onGameTimeUpdate && props.onGameTimeUpdate !== setGameTimeInStore) {
+      props.onGameTimeUpdate(time);
+    }
+  }, [props.onGameTimeUpdate]);
   const renderQualityPreset = props.renderQualityPreset ?? getDefaultRenderQualityPreset();
   const quality = useMemo(() => getRenderQualityProfile(renderQualityPreset), [renderQualityPreset]);
   const isMobileDevice = useMemo(() => getRenderPlatform() === 'mobile', []);
-  const shouldShowDesktopStatsMonitor = import.meta.env.DEV
-    && Boolean(props.showDesktopStatsMonitor);
+  const shouldShowDesktopStatsMonitor = Boolean(props.showDesktopStatsMonitor)
+    || (typeof window !== 'undefined' && (
+      new URLSearchParams(window.location.search).has('perf')
+      || window.localStorage.getItem('heroTower.perfMonitor') === '1'
+    ));
   const isPerformanceMode = renderQualityPreset === 'performance';
   const isBalancedMode = renderQualityPreset === 'balanced';
   const isQualityMode = renderQualityPreset === 'quality';
@@ -4092,6 +4260,13 @@ export const GameScene: React.FC<SceneProps> = React.memo((props) => {
     : (isMobileDevice ? 0.055 : 0.07);
   const outlineTargets = useMemo(() => [outlineHeroRef, outlineEnemyRef], []);
   const glPowerPreference = useMemo(() => getRenderPowerPreference(renderQualityPreset), [renderQualityPreset]);
+  // Capture GL context params once on mount — powerPreference and antialias are WebGL context
+  // CREATION attributes that cannot change after the context is created. Passing a new inline
+  // object literal on every quality switch signals R3F to recreate the context, producing the
+  // multi-second freeze + animation reset. The ref is set once and never mutated afterwards.
+  const glPropsRef = useRef<{ antialias: boolean; powerPreference: WebGLPowerPreference }>(
+    { antialias: quality.antialias, powerPreference: glPowerPreference },
+  );
   const shouldRenderAmbientDrift = isQualityMode;
   const particleRenderCap = isPerformanceMode
     ? (isMobileDevice ? 24 : 48)
@@ -4106,6 +4281,7 @@ export const GameScene: React.FC<SceneProps> = React.memo((props) => {
   const activeBloomThreshold = isDungeonRun ? 0.5 : (shouldUseDepthOfField ? 0.42 : 0.48);
   const activeBloomSmoothing = isDungeonRun ? 0.85 : (shouldUseDepthOfField ? 0.8 : 0.82);
   const activeVignetteOffset = isDungeonRun ? 0.1 : (shouldUseDepthOfField ? 0.06 : 0.08);
+  const mainShadowUpdateFps = isDungeonRun ? 24 : 2;
   const activeVignetteDarkness = runtimeCameraMenuFocus
     ? 0
     : (isDungeonRun ? 0.42 : (shouldUseDepthOfField ? 0.1 : 0.13));
@@ -4124,18 +4300,11 @@ export const GameScene: React.FC<SceneProps> = React.memo((props) => {
   // noMainShadow=true means no light uses castShadow, so the renderer overhead is wasted.
   // ContactShadows uses its own WebGLRenderTarget and does NOT depend on this flag.
   const shadowsEnabled = isQualityMode;
-  // Electron desktop: capped below 60 to avoid sustained heat/stutter on long sessions.
-  // Mobile/Electron: use demand+invalidate with FpsCap to save battery/thermals.
-  // Desktop web: use frameloop='always' so the browser vsync handles cadence natively.
-  // demand+invalidate on 120/144Hz monitors creates micro-stutter because
-  // e.g. 45fps / 144Hz = 3.2 frames per render (non-integer) → alternating 3/4 refresh intervals.
-  const isElectron = typeof window !== 'undefined' && (window as Window & { electronBridge?: { isElectron: boolean } }).electronBridge?.isElectron === true;
-  // Desktop web: 'always' durante gameplay ativo, 'demand' no menu/loading.
-  // Durante o menu, FBX parsing + remapClipBindings bloqueiam centenas de ms — forçar
-  // render em cada frame nesse período causa spikes de 700ms+. Em demand, o renderer
-  // só roda quando há uma invalidação explícita, libertando a main thread para o loading.
-  const useAlwaysFrameloop = !isMobileDevice && !isElectron && !props.isMenuView;
-  const mobileFpsCap = isElectron ? (isQualityMode ? 30 : 45) : (isMobileDevice ? (isQualityMode ? 30 : 45) : 45);
+  // Desktop and Electron should let native vsync handle cadence. The previous Electron
+  // demand loop capped quality mode at 30 fps, which made a 60 fps machine feel broken.
+  // Mobile keeps the explicit cap for battery and thermal control.
+  const useAlwaysFrameloop = !isMobileDevice;
+  const mobileFpsCap = isQualityMode ? 30 : 45;
   const battleContactShadowResolution = useMemo(
     // Mobile non-quality stays capped to avoid texture memory pressure on Safari/iOS.
     () => (isMobileDevice && !isQualityMode) ? Math.min(quality.contactShadowResolution, 48) : (isPerformanceMode ? 48 : quality.contactShadowResolution),
@@ -4193,9 +4362,6 @@ export const GameScene: React.FC<SceneProps> = React.memo((props) => {
   const huntFogNear = Math.max(1, huntRuntimeConfig?.atmosphere.fogNear ?? forestFogNear);
   const huntFogFar = Math.max(huntFogNear + 1, huntRuntimeConfig?.atmosphere.fogFar ?? forestFogFar);
   const sceneBackgroundColor = isDungeonRun && activeScenarioConfig ? dungeonSceneBgColor : huntSceneBgColor;
-  const runtimeCameraScreenShake = shouldUseRuntimeScenarioEditorParity
-    ? undefined
-    : props.screenShake;
   const runtimeBattleCamera = useMemo(() => {
     const cs = activeScenarioConfig?.cameraState;
     if (!cs || !isDungeonRun) return undefined;
@@ -4224,10 +4390,7 @@ export const GameScene: React.FC<SceneProps> = React.memo((props) => {
         />
       )}
       {!isDungeonRun && (
-        <div className="absolute top-6 left-6 z-10 bg-black/40 border border-white/10 px-4 py-1 rounded-full hidden sm:flex items-center gap-3 pointer-events-none">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-400 shrink-0"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-          <span className="font-mono text-white text-sm tracking-widest">{gameTime}</span>
-        </div>
+        <SceneClockOverlay />
       )}
 
       {/* Dev-only FPS monitor — rendered outside Canvas to avoid R3F context issues */}
@@ -4236,7 +4399,7 @@ export const GameScene: React.FC<SceneProps> = React.memo((props) => {
       <Canvas
         shadows={shadowsEnabled ? { type: shadowMapType } : false}
         dpr={quality.dpr}
-        gl={{ antialias: quality.antialias, powerPreference: glPowerPreference }}
+        gl={glPropsRef.current}
         performance={{ min: 0.5 }}
         frameloop={useAlwaysFrameloop ? 'always' : 'demand'}
         style={{ touchAction: 'none' }}
@@ -4259,15 +4422,17 @@ export const GameScene: React.FC<SceneProps> = React.memo((props) => {
         }}
       >
         {!useAlwaysFrameloop && <FpsCap fps={mobileFpsCap} />}
+        {shouldShowDesktopStatsMonitor && <RendererInfoBridge />}
+        {shouldShowDesktopStatsMonitor && <FrameTimingBridge />}
+        {shouldShowDesktopStatsMonitor && <SceneObjectInfoBridge />}
         {/* r3f-perf <Perf> removed — it instruments every WebGL draw call with
             EXT_disjoint_timer_query_webgl2, forcing GPU-CPU pipeline serialization
             (2-3× frame time overhead). Custom StatsMonitor outside the Canvas
             already provides FPS/MS/MB data without any overhead. */}
         {/* Throttle shadow map to 2 fps — saves ~40-60 ms/frame in quality mode.
             ContactShadows (per-character) are unaffected and still update normally. */}
-        {shadowsEnabled && <ShadowAutoUpdateThrottle fps={24} />}
+        {shadowsEnabled && <ShadowAutoUpdateThrottle fps={mainShadowUpdateFps} />}
         <CameraController
-          screenShake={runtimeCameraScreenShake}
           menuFocus={runtimeCameraMenuFocus}
           menuPortalTravelCinematicToken={props.menuPortalTravelCinematicToken ?? 0}
           menuPortalFocusPoint={menuPortalFocusPoint}
@@ -4378,8 +4543,6 @@ export const GameScene: React.FC<SceneProps> = React.memo((props) => {
             <group ref={outlineHeroRef}>
               <HeroVoxel
                 classId={props.playerClassId}
-                playerAnimationAction={props.playerAnimationAction}
-                isAttacking={props.isPlayerAttacking}
                 isDefending={props.isPlayerDefending}
                 defenseType={props.playerDefenseType}
                 weaponId={props.equippedWeaponId}
@@ -4390,8 +4553,6 @@ export const GameScene: React.FC<SceneProps> = React.memo((props) => {
                 isLevelingUp={props.isLevelingUp}
                 levelUpCardCategory={props.levelUpCardCategory}
                 isMenuView={props.isMenuView}
-                isHit={props.isPlayerHit}
-                isPlayerCritHit={props.isPlayerCritHit}
                 hasPerfectEvadeAura={props.hasPerfectEvadeAura}
                 hasDoubleAttackAura={props.hasDoubleAttackAura}
                 impulseLevel={props.impulseLevel}
@@ -4515,12 +4676,9 @@ export const GameScene: React.FC<SceneProps> = React.memo((props) => {
                   <GltfEnemyCharacter
                     modelUrl={props.enemyGltfModelUrl}
                     bodyType={props.enemyGltfBodyType ?? 'Big'}
-                    animationAction={props.enemyAnimationAction}
                     scale={props.enemyScale}
-                    isAttacking={props.isEnemyAttacking}
                     isDefending={props.isEnemyDefending}
                     defendImpulseLevel={props.enemyState?.impulseGuardLevel ?? 0}
-                    isHit={props.isEnemyHit}
                     contactShadowResolution={quality.contactShadowResolution}
                     statusOverlay={enemyOverlay}
                     idlePositionX={isDungeonRun && activeScenarioConfig ? dungeonEnemyBasePosition[0] : mainPos?.idleX}
@@ -4538,14 +4696,11 @@ export const GameScene: React.FC<SceneProps> = React.memo((props) => {
                     assets={props.enemyAssets}
                     color={props.enemyColor}
                     scale={props.enemyScale}
-                    isAttacking={props.isEnemyAttacking}
                     isDefending={props.isEnemyDefending}
                     defendImpulseLevel={props.enemyState?.impulseGuardLevel ?? 0}
-                    animationActionOverride={props.enemyAnimationAction}
                     type={props.enemyType}
                     enemyName={props.enemyName}
                     isBoss={props.isEnemyBoss}
-                    isHit={props.isEnemyHit}
                     attackStyle={props.enemyAttackStyle}
                     contactShadowResolution={quality.contactShadowResolution}
                     statusOverlay={enemyOverlay}
@@ -4909,7 +5064,7 @@ export const GameScene: React.FC<SceneProps> = React.memo((props) => {
           </Html>
         )}
 
-        {!shouldUseRuntimeScenarioEditorParity && !props.isMenuView ? (
+        {isQualityMode && !shouldUseRuntimeScenarioEditorParity && !props.isMenuView ? (
           <BackfaceHullOverlay
             targets={outlineTargets}
             thickness={backfaceOutlineThickness}
@@ -4921,28 +5076,6 @@ export const GameScene: React.FC<SceneProps> = React.memo((props) => {
         {!props.isMenuView && (
           <Suspense fallback={null}>
             <CombatCinematicFX
-              playerAnimationAction={props.playerAnimationAction}
-              enemyAnimationAction={props.enemyAnimationAction}
-              playerExecutionAnimationId={props.playerExecutionAnimationId}
-              enemyExecutionAnimationId={props.enemyExecutionAnimationId}
-              playerExecutionAnimationTintColor={props.playerExecutionAnimationTintColor}
-              enemyExecutionAnimationTintColor={props.enemyExecutionAnimationTintColor}
-              playerImpactAnimationId={props.playerImpactAnimationId}
-              enemyImpactAnimationId={props.enemyImpactAnimationId}
-              playerImpactAnimationTintColor={props.playerImpactAnimationTintColor}
-              enemyImpactAnimationTintColor={props.enemyImpactAnimationTintColor}
-              playerImpactAnimationTarget={props.playerImpactAnimationTarget}
-              enemyImpactAnimationTarget={props.enemyImpactAnimationTarget}
-              playerImpactAnimationTrigger={props.playerImpactAnimationTrigger}
-              enemyImpactAnimationTrigger={props.enemyImpactAnimationTrigger}
-              playerBowShotTrigger={props.playerBowShotTrigger}
-              enemyBowShotTrigger={props.enemyBowShotTrigger}
-              playerBowShotDidHit={props.playerBowShotDidHit}
-              enemyBowShotDidHit={props.enemyBowShotDidHit}
-              isPlayerAttacking={props.isPlayerAttacking}
-              isEnemyAttacking={props.isEnemyAttacking}
-              isEnemyHit={props.isEnemyHit}
-              isPlayerHit={props.isPlayerHit}
               equippedWeaponId={props.equippedWeaponId}
               enemyAttackStyle={props.enemyAttackStyle}
               activeImpulseLevel={props.activeImpulseLevel}
@@ -4977,21 +5110,32 @@ export const GameScene: React.FC<SceneProps> = React.memo((props) => {
           );
         })()}
 
+        {/* EffectComposer is always mounted (not conditioned on shouldUsePostProcessing) so
+            it keeps its internal RenderPass warm and avoids a blank-screen in balanced/performance.
+            enabled={false} on EffectComposer intercepts the pipeline without outputting → black.
+            Instead: always mount the composer (renders scene via its own RenderPass when there
+            are no effect children) and conditionally mount Bloom/Vignette inside it. The first
+            re-activation of quality may trigger a brief GLSL recompile, but browser shader cache
+            reduces it on subsequent switches. Editor-parity mode still skips it entirely. */}
         {shouldUsePostProcessing && !shouldUseRuntimeScenarioEditorParity ? (
-          <EffectComposer multisampling={postProcessingMultisampling}>
-            {shouldUseDepthOfField ? (
-              <DepthOfField
-                target={CHARACTER_FOCUS_TARGET}
-                worldFocusRange={activeDepthOfFieldRange}
-                bokehScale={activeDepthOfFieldBokeh}
-                height={activeDepthOfFieldHeight}
-              />
-            ) : null}
-            {shouldUseBloomAndVignette ? (
+          <EffectComposer multisampling={shouldUsePostProcessing ? postProcessingMultisampling : 0}>
+            {shouldUsePostProcessing ? (
               <>
-                <Bloom intensity={activeBloomIntensity} luminanceThreshold={activeBloomThreshold} luminanceSmoothing={activeBloomSmoothing} mipmapBlur />
-                {shouldUseVignette ? (
-                  <Vignette eskil={false} offset={activeVignetteOffset} darkness={activeVignetteDarkness} />
+                {shouldUseDepthOfField ? (
+                  <DepthOfField
+                    target={CHARACTER_FOCUS_TARGET}
+                    worldFocusRange={activeDepthOfFieldRange}
+                    bokehScale={activeDepthOfFieldBokeh}
+                    height={activeDepthOfFieldHeight}
+                  />
+                ) : null}
+                {shouldUseBloomAndVignette ? (
+                  <>
+                    <Bloom intensity={activeBloomIntensity} luminanceThreshold={activeBloomThreshold} luminanceSmoothing={activeBloomSmoothing} mipmapBlur />
+                    {shouldUseVignette ? (
+                      <Vignette eskil={false} offset={activeVignetteOffset} darkness={activeVignetteDarkness} />
+                    ) : null}
+                  </>
                 ) : null}
               </>
             ) : null}

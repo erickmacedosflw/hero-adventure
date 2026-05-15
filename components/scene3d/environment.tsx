@@ -4,6 +4,7 @@ import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { VoxelPart } from '../items/VoxelPart';
 import type { RenderQualityProfile } from './types';
+import { useBattleAnimationStore } from '../../game/stores/battleAnimationStore';
 
 const disableRaycast = () => null;
 
@@ -107,9 +108,8 @@ export const getRenderPlatform = (): RenderPlatform => {
 };
 
 export const getDefaultRenderQualityPreset = (platform = getRenderPlatform()): RenderQualityPreset => {
-  // Electron desktop: always start in quality mode — no thermal/battery limits.
+  // Desktop starts in quality mode by design; performance regressions should be fixed at the source.
   if (isElectronRuntime()) return 'quality';
-  // Web desktop: quality by default for best visual experience.
   if (platform === 'desktop') return 'quality';
   // Mobile: performance by default to preserve thermals.
   return 'performance';
@@ -495,7 +495,7 @@ export const SkyboxController: React.FC = () => {
     if (loadedCount.current === 0) return;
 
     skyboxUpdateAccumulatorRef.current += delta;
-    if (skyboxUpdateAccumulatorRef.current < (1 / 24)) {
+    if (skyboxUpdateAccumulatorRef.current < (1 / 2)) {
       return;
     }
     skyboxUpdateAccumulatorRef.current = 0;
@@ -537,12 +537,15 @@ export const DayNightCycle = ({
   onTimeUpdate,
   quality,
   noMainShadow = false,
+  updateFps = 2,
 }: {
   containerRef: React.RefObject<HTMLDivElement | null>;
   onTimeUpdate: (time: string) => void;
   quality: RenderQualityProfile;
   /** When true the directional sun light does not cast shadows (saves the main shadow map render pass on mobile). */
   noMainShadow?: boolean;
+  /** The cycle moves very slowly; sampling at a low FPS avoids needless light/shadow churn. */
+  updateFps?: number;
 }) => {
   const ambientRef = useRef<THREE.AmbientLight>(null);
   const hemiRef = useRef<THREE.HemisphereLight>(null);
@@ -578,7 +581,8 @@ export const DayNightCycle = ({
 
   useFrame((state, delta) => {
     cycleUpdateAccumulatorRef.current += delta;
-    if (cycleUpdateAccumulatorRef.current < (1 / 30)) {
+    const updateInterval = 1 / Math.max(1, updateFps);
+    if (cycleUpdateAccumulatorRef.current < updateInterval) {
       return;
     }
     const sampledDelta = cycleUpdateAccumulatorRef.current;
@@ -1246,11 +1250,18 @@ export const CameraController = ({
 
       cameraRef.current.position.lerp(cinematicPosition, 1 - Math.exp(-14 * delta));
       mixedLookTarget.copy(cinematicLook);
-    } else if (cameraRef.current && screenShake && focusBlend < 0.2) {
-      const shake = screenShake;
-      cameraRef.current.position.x = targetX + (Math.random() - 0.5) * shake;
-      cameraRef.current.position.y = targetY + (Math.random() - 0.5) * shake;
-      cameraRef.current.position.z = targetZ;
+    } else if (cameraRef.current && focusBlend < 0.2) {
+      const shake = Math.max(screenShake ?? 0, useBattleAnimationStore.getState().screenShake);
+      if (shake) {
+        cameraRef.current.position.x = targetX + (Math.random() - 0.5) * shake;
+        cameraRef.current.position.y = targetY + (Math.random() - 0.5) * shake;
+        cameraRef.current.position.z = targetZ;
+      } else {
+        const camAlpha = 1 - Math.exp(-5 * delta);
+        cameraRef.current.position.x = THREE.MathUtils.lerp(cameraRef.current.position.x, targetX, camAlpha);
+        cameraRef.current.position.y = THREE.MathUtils.lerp(cameraRef.current.position.y, targetY, camAlpha);
+        cameraRef.current.position.z = THREE.MathUtils.lerp(cameraRef.current.position.z, targetZ, camAlpha);
+      }
     } else if (cameraRef.current) {
       // Frame-rate independent camera follow: smooth at 30fps or 60fps.
       const camAlpha = 1 - Math.exp(-5 * delta);

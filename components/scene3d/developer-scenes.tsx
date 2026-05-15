@@ -1,4 +1,4 @@
-import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame, useLoader, useThree } from '@react-three/fiber';
 import { ContactShadows, Html, OrbitControls, PerspectiveCamera, TransformControls, useAnimations, useTexture } from '@react-three/drei';
 import * as THREE from 'three';
@@ -33,7 +33,7 @@ import {
   DeveloperKitbashProbe,
 } from './developer';
 import { upsertRuntimeDiagnostic } from './developerUtils';
-import { configureGltfLoader, configureFBXLoader } from './gltfLoader';
+import { configureGltfLoader, configureFBXLoader, configureFBXLoaderDisplay } from './gltfLoader';
 import type {
   DeveloperAnimationRuntimeDiagnostic,
   DeveloperKitbashAnalysis,
@@ -681,6 +681,9 @@ export const ScenarioParticleField = ({
 }) => {
   const mistRef = useRef<THREE.Group>(null);
   const dustRef = useRef<THREE.Group>(null);
+  const mistMeshRef = useRef<THREE.InstancedMesh>(null);
+  const dustMeshRef = useRef<THREE.InstancedMesh>(null);
+  const instanceDummy = useMemo(() => new THREE.Object3D(), []);
   const density = clampNumber(Number.isFinite(particles.density) ? particles.density : 0.5, 0, 1);
   const speed = clampNumber(Number.isFinite(particles.speed) ? particles.speed : 0.45, 0, 2);
   const opacity = clampNumber(Number.isFinite(particles.opacity) ? particles.opacity : 0.22, 0, 1);
@@ -711,6 +714,38 @@ export const ScenarioParticleField = ({
     [density],
   );
 
+  useLayoutEffect(() => {
+    const mesh = mistMeshRef.current;
+    if (!mesh) return;
+    mesh.count = particles.mistEnabled ? mistSeeds.length : 0;
+    for (let index = 0; index < mistSeeds.length; index += 1) {
+      const seed = mistSeeds[index];
+      instanceDummy.position.set(seed.position[0], seed.position[1], seed.position[2]);
+      instanceDummy.rotation.set(0, 0, 0);
+      instanceDummy.scale.setScalar(seed.scale);
+      instanceDummy.updateMatrix();
+      mesh.setMatrixAt(index, instanceDummy.matrix);
+    }
+    mesh.instanceMatrix.needsUpdate = true;
+    mesh.computeBoundingSphere();
+  }, [instanceDummy, mistSeeds, particles.mistEnabled]);
+
+  useLayoutEffect(() => {
+    const mesh = dustMeshRef.current;
+    if (!mesh) return;
+    mesh.count = particles.dustEnabled ? dustSeeds.length : 0;
+    for (let index = 0; index < dustSeeds.length; index += 1) {
+      const seed = dustSeeds[index];
+      instanceDummy.position.set(seed.position[0], seed.position[1], seed.position[2]);
+      instanceDummy.rotation.set(0, 0, 0);
+      instanceDummy.scale.setScalar(seed.radius);
+      instanceDummy.updateMatrix();
+      mesh.setMatrixAt(index, instanceDummy.matrix);
+    }
+    mesh.instanceMatrix.needsUpdate = true;
+    mesh.computeBoundingSphere();
+  }, [dustSeeds, instanceDummy, particles.dustEnabled]);
+
   useFrame((state) => {
     const t = state.clock.elapsedTime;
 
@@ -729,23 +764,19 @@ export const ScenarioParticleField = ({
     <>
       {particles.mistEnabled ? (
         <group ref={mistRef}>
-          {mistSeeds.map((seed) => (
-            <mesh key={`mist-${seed.id}`} position={seed.position}>
-              <sphereGeometry args={[seed.scale, 12, 12]} />
-              <meshBasicMaterial color="#dbeafe" transparent opacity={opacity * 0.18} depthWrite={false} />
-            </mesh>
-          ))}
+          <instancedMesh ref={mistMeshRef} args={[undefined, undefined, mistSeeds.length]} castShadow={false} receiveShadow={false} frustumCulled={false}>
+            <sphereGeometry args={[1, 12, 12]} />
+            <meshBasicMaterial color="#dbeafe" transparent opacity={opacity * 0.18} depthWrite={false} />
+          </instancedMesh>
         </group>
       ) : null}
 
       {particles.dustEnabled ? (
         <group ref={dustRef}>
-          {dustSeeds.map((seed) => (
-            <mesh key={`dust-${seed.id}`} position={seed.position}>
-              <sphereGeometry args={[seed.radius, 8, 8]} />
-              <meshBasicMaterial color="#f8fafc" transparent opacity={opacity * 0.58} depthWrite={false} />
-            </mesh>
-          ))}
+          <instancedMesh ref={dustMeshRef} args={[undefined, undefined, dustSeeds.length]} castShadow={false} receiveShadow={false} frustumCulled={false}>
+            <sphereGeometry args={[1, 8, 8]} />
+            <meshBasicMaterial color="#f8fafc" transparent opacity={opacity * 0.58} depthWrite={false} />
+          </instancedMesh>
         </group>
       ) : null}
     </>
@@ -1987,10 +2018,18 @@ export const DeveloperGltfMonsterSceneRenderer: React.FC<
 // ─── Biped Character Viewer ───────────────────────────────────────────────────
 
 export interface DeveloperBipedCharacterSceneProps {
-  /** URL to the _Character_output.glb mesh file */
+  /** URL to the character mesh file (GLB or FBX). Use meshIsFbx=true when it is an FBX */
   characterUrl: string;
-  /** URL to the animations GLB (can be own or cross-character for retargeting test) */
+  /** When true the characterUrl points to an FBX file instead of a GLB */
+  meshIsFbx?: boolean;
+  /** URL to the animations file (GLB or FBX). Use animationIsFbx=true when it is an FBX file */
   animationUrl: string;
+  /** When true the animationUrl points to an FBX file instead of a GLB */
+  animationIsFbx?: boolean;
+  /** Optional second animation FBX — its clips are merged with animationUrl clips */
+  secondaryAnimationUrl?: string;
+  /** Optional FBX loaded only to extract its embedded texture and apply it to the characterUrl mesh */
+  textureSourceUrl?: string;
   /** Selected clip name to play (undefined = auto-play first) */
   clipName?: string;
   /** Called once animation clip names are resolved after remapping */
@@ -2053,9 +2092,267 @@ const BipedCharacterModel: React.FC<{
   return <primitive ref={groupRef} object={clonedScene} position={[0, floorOffsetY, 0]} />;
 };
 
+// Helper: derives a human-readable label from an FBX URL (filename without extension).
+const fbxUrlToLabel = (url: string): string =>
+  decodeURIComponent(url.split('/').pop() ?? url).replace(/\.fbx$/i, '');
+
+// Helper: renames clips so "mixamo.com" (the generic Mixamo export name) becomes the
+// filename label.  Other clip names get the label prepended so they stay unique.
+const renameFbxClips = (clips: THREE.AnimationClip[], label: string): THREE.AnimationClip[] =>
+  clips.map((c) => {
+    const r = c.clone();
+    r.name = c.name === 'mixamo.com' ? label : `${label} · ${c.name}`;
+    return r;
+  });
+
+// Inner component — FBX mesh + FBX animation(s).
+// Uses configureFBXLoaderDisplay so embedded textures are visible.
+// Auto-scales the model to BIPED_FBX_TARGET_HEIGHT to match GLB characters.
+// Converts FBX Phong/Lambert materials to MeshStandardMaterial so they always
+// respond correctly to the PBR scene lighting (fixes all-black appearance).
+// Supports an optional secondaryAnimationUrl: both FBX clips are merged and
+// renamed after their source filename, giving multiple selectable clips.
+const BIPED_FBX_TARGET_HEIGHT = 1.75; // metres — matches typical Meshy AI GLB orc height
+const BipedCharacterFbxMeshFbxAnimModel: React.FC<{
+  characterUrl: string;
+  animationUrl: string;
+  /** Optional second animation FBX — clips are merged with the primary ones. */
+  secondaryAnimationUrl?: string;
+  /** Optional FBX loaded only to extract its embedded texture and apply it to the characterUrl mesh. */
+  textureSourceUrl?: string;
+  clipName?: string;
+  onAnimationsLoaded?: (names: string[]) => void;
+}> = ({ characterUrl, animationUrl, secondaryAnimationUrl, textureSourceUrl, clipName, onAnimationsLoaded }) => {
+  // Load mesh FBX with display loader so embedded PNG/TGA textures are decoded.
+  // When textureSourceUrl is a separate file its map overrides; when it falls back
+  // to characterUrl both hooks return the same cached object (same URL + config).
+  const meshFbx    = useLoader(FBXLoader, characterUrl,                           configureFBXLoaderDisplay) as THREE.Group;
+  // Texture-source FBX — falls back to characterUrl when no separate source given.
+  const textureFbx = useLoader(FBXLoader, textureSourceUrl ?? characterUrl,       configureFBXLoaderDisplay) as THREE.Group;
+  const animFbx    = useLoader(FBXLoader, animationUrl,                           configureFBXLoaderDisplay) as THREE.Group;
+  // Always call useLoader for the secondary URL — when undefined fall back to
+  // animationUrl so the hook count stays constant (React rules of hooks).
+  const animFbx2   = useLoader(FBXLoader, secondaryAnimationUrl ?? animationUrl,  configureFBXLoader) as THREE.Group;
+  const groupRef   = useRef<THREE.Group>(null!);
+
+  const { clonedScene, floorOffsetY, normalizedScale } = useMemo(() => {
+    // Helper: returns the texture only when its image is fully decoded.
+    // A THREE.Texture whose image hasn't loaded yet renders as solid black;
+    // discarding it lets the white base-color show instead of a black mesh.
+    const readyMap = (tex: THREE.Texture | null | undefined): THREE.Texture | null => {
+      if (!tex) return null;
+      const img = tex.image as (HTMLImageElement | ImageBitmap | null | undefined);
+      if (!img) return null;
+      if (img instanceof HTMLImageElement && !img.complete) return null;
+      // Fix common FBX texture issues before using.
+      tex.flipY      = false;                       // FBX Y-axis is inverted vs WebGL
+      tex.colorSpace = THREE.SRGBColorSpace;        // Ensure correct colour space
+      tex.needsUpdate = true;
+      return tex;
+    };
+
+    // Extract the first usable diffuse texture from the texture-source FBX.
+    let extractedMap: THREE.Texture | null = null;
+    (textureFbx as THREE.Group).traverse((node: any) => {
+      if (extractedMap || !node.isMesh) return;
+      const mats: THREE.Material[] = Array.isArray(node.material) ? node.material : [node.material];
+      for (const mat of mats) {
+        // Check diffuse, emissive, and other common slots in priority order.
+        const tex = readyMap((mat as any).map)
+          ?? readyMap((mat as any).emissiveMap)
+          ?? readyMap((mat as any).diffuseMap);
+        if (tex) { extractedMap = tex; break; }
+      }
+    });
+
+    const scene = SkeletonUtils.clone(meshFbx) as THREE.Group;
+    const meshBox = new THREE.Box3();
+    scene.traverse((node: any) => {
+      if (!node.isMesh) return;
+      node.castShadow = true;
+      node.receiveShadow = true;
+      node.frustumCulled = false;
+
+      const oldMats: THREE.Material[] = Array.isArray(node.material) ? node.material : [node.material];
+      const wasArray = Array.isArray(node.material);
+      const newMats = oldMats.map((oldMat) => {
+        const map = extractedMap ?? readyMap((oldMat as any).map) ?? null;
+        return new THREE.MeshStandardMaterial({
+          map,
+          normalMap:   (oldMat as any).normalMap ?? null,
+          alphaMap:    (oldMat as any).alphaMap  ?? null,
+          transparent: oldMat.transparent,
+          opacity:     oldMat.opacity,
+          side:        THREE.DoubleSide,   // render both faces — avoids black on inverted normals
+          color:       new THREE.Color(1, 1, 1),
+          roughness:   0.75,
+          metalness:   0.05,
+        });
+      });
+      node.material = wasArray ? newMats : newMats[0];
+
+      const nodeBox = new THREE.Box3().setFromObject(node);
+      if (!nodeBox.isEmpty()) meshBox.union(nodeBox);
+    });
+
+    const rawHeight = meshBox.isEmpty() ? 0 : meshBox.max.y - meshBox.min.y;
+    const scale    = rawHeight > 0.01 ? BIPED_FBX_TARGET_HEIGHT / rawHeight : 0.01;
+    const offsetY  = meshBox.isEmpty() || !isFinite(meshBox.min.y) ? 0 : -meshBox.min.y * scale;
+    return { clonedScene: scene, floorOffsetY: offsetY, normalizedScale: scale };
+  }, [meshFbx, textureFbx]);
+
+  // Build merged + renamed clip list from primary (and optional secondary) animation FBX.
+  const remappedClips = useMemo(() => {
+    const label1 = fbxUrlToLabel(animationUrl);
+    const raw1: THREE.AnimationClip[] = (animFbx as any).animations ?? [];
+    const clips1 = remapClipBindingsToSkeleton({
+      clips: renameFbxClips(raw1, label1),
+      targetModel: clonedScene,
+    });
+
+    if (secondaryAnimationUrl && secondaryAnimationUrl !== animationUrl) {
+      const label2 = fbxUrlToLabel(secondaryAnimationUrl);
+      const raw2: THREE.AnimationClip[] = (animFbx2 as any).animations ?? [];
+      const clips2 = remapClipBindingsToSkeleton({
+        clips: renameFbxClips(raw2, label2),
+        targetModel: clonedScene,
+      });
+      return [...clips1, ...clips2];
+    }
+
+    return clips1;
+  }, [(animFbx as any).animations, (animFbx2 as any).animations, animationUrl, secondaryAnimationUrl, clonedScene]);
+
+  // Expose clip names upward.
+  const reportedRef = useRef('');
+  useEffect(() => {
+    const names = remappedClips.map((c) => c.name);
+    const joined = names.join('|');
+    if (joined !== reportedRef.current) {
+      reportedRef.current = joined;
+      onAnimationsLoaded?.(names);
+    }
+  }, [remappedClips, onAnimationsLoaded]);
+
+  // Drive animation via a manual AnimationMixer rooted directly on clonedScene.
+  useEffect(() => {
+    if (!remappedClips.length || !clonedScene) return;
+    const mixer = new THREE.AnimationMixer(clonedScene);
+    const name  = clipName ?? remappedClips[0]?.name;
+    const clip  = remappedClips.find((c) => c.name === name) ?? remappedClips[0];
+    if (clip) mixer.clipAction(clip).reset().setLoop(THREE.LoopRepeat, Infinity).play();
+    (clonedScene as any).__mixer = mixer;
+    return () => { mixer.stopAllAction(); mixer.uncacheRoot(clonedScene); };
+  }, [remappedClips, clipName, clonedScene]);
+
+  // Tick the mixer every frame.
+  useFrame((_, delta) => {
+    const mixer: THREE.AnimationMixer | undefined = (clonedScene as any).__mixer;
+    if (mixer) mixer.update(delta);
+  });
+
+  return <primitive ref={groupRef} object={clonedScene} scale={normalizedScale} position={[0, floorOffsetY, 0]} />;
+};
+
+// Inner component — FBX animation(s) applied to a GLB character mesh.
+// Loads the character GLB and the animation FBX(s) separately, then uses
+// remapClipBindingsToSkeleton so even if bone naming differs the clips bind correctly.
+const BipedCharacterFbxAnimModel: React.FC<{
+  characterUrl: string;
+  animationUrl: string;
+  secondaryAnimationUrl?: string;
+  clipName?: string;
+  onAnimationsLoaded?: (names: string[]) => void;
+}> = ({ characterUrl, animationUrl, secondaryAnimationUrl, clipName, onAnimationsLoaded }) => {
+  const characterGltf = useLoader(GLTFLoader, characterUrl, configureGltfLoader) as any;
+  const animFbx  = useLoader(FBXLoader, animationUrl,                          configureFBXLoader) as THREE.Group;
+  // Always call for secondary — falls back to animationUrl when undefined (rules of hooks).
+  const animFbx2 = useLoader(FBXLoader, secondaryAnimationUrl ?? animationUrl, configureFBXLoader) as THREE.Group;
+  const groupRef = useRef<THREE.Group>(null!);
+
+  const { clonedScene, floorOffsetY } = useMemo(() => {
+    const scene = SkeletonUtils.clone(characterGltf.scene) as THREE.Group;
+    scene.traverse((node: any) => {
+      if (node.isMesh) {
+        node.castShadow = true;
+        node.receiveShadow = true;
+        node.frustumCulled = false;
+      }
+    });
+    const box = new THREE.Box3().setFromObject(scene);
+    const offsetY = !box.isEmpty() && isFinite(box.min.y) ? -box.min.y : 0;
+    return { clonedScene: scene, floorOffsetY: offsetY };
+  }, [characterGltf.scene]);
+
+  // Remap FBX animation tracks to match the GLB skeleton bone names.
+  // Merge and rename clips from primary and optional secondary animation FBX.
+  const remappedClips = useMemo(() => {
+    // Check if the target GLB skeleton uses the mixamorig prefix on its bones.
+    // When it does NOT (short bone names like "Hips"), the Mixamo FBX tracks
+    // ("mixamorigHips.position") fail to match. Strip the prefix in that case.
+    let glbHasMixamorigBones = false;
+    clonedScene.traverse((n: any) => {
+      if (n.isBone && /^mixamorig/i.test(n.name)) glbHasMixamorigBones = true;
+    });
+
+    const prepareClips = (raw: THREE.AnimationClip[], label: string): THREE.AnimationClip[] => {
+      const renamed = renameFbxClips(raw, label);
+      const stripped = glbHasMixamorigBones
+        ? renamed
+        : renamed.map((c) => {
+            const cloned = c.clone();
+            cloned.tracks = cloned.tracks.map((t) => {
+              const tr = t.clone();
+              // "mixamorigHips.position" → "Hips.position"
+              tr.name = tr.name.replace(/^mixamorig([A-Z])/g, '$1');
+              return tr;
+            });
+            return cloned;
+          });
+      return remapClipBindingsToSkeleton({ clips: stripped, targetModel: clonedScene });
+    };
+
+    const raw1: THREE.AnimationClip[] = (animFbx as any).animations ?? [];
+    const clips1 = prepareClips(raw1, fbxUrlToLabel(animationUrl));
+
+    if (secondaryAnimationUrl && secondaryAnimationUrl !== animationUrl) {
+      const raw2: THREE.AnimationClip[] = (animFbx2 as any).animations ?? [];
+      const clips2 = prepareClips(raw2, fbxUrlToLabel(secondaryAnimationUrl));
+      return [...clips1, ...clips2];
+    }
+    return clips1;
+  }, [(animFbx as any).animations, (animFbx2 as any).animations, animationUrl, secondaryAnimationUrl, clonedScene]);
+
+  const { names, actions } = useAnimations(remappedClips, groupRef);
+
+  const reportedRef = useRef('');
+  useEffect(() => {
+    const joined = names.join('|');
+    if (joined !== reportedRef.current) {
+      reportedRef.current = joined;
+      onAnimationsLoaded?.(names);
+    }
+  }, [names, onAnimationsLoaded]);
+
+  useEffect(() => {
+    if (!names.length || !Object.keys(actions).length) return;
+    Object.values(actions).forEach((a) => { try { a?.stop(); } catch (_) {} });
+    const name = clipName ?? names[0];
+    if (name && actions[name]) {
+      actions[name]!.reset().setLoop(THREE.LoopRepeat, Infinity).play();
+    }
+  }, [actions, clipName, names]);
+
+  return <primitive ref={groupRef} object={clonedScene} position={[0, floorOffsetY, 0]} />;
+};
+
 export const DeveloperBipedCharacterSceneRenderer: React.FC<DeveloperBipedCharacterSceneProps> = ({
   characterUrl,
+  meshIsFbx = false,
   animationUrl,
+  animationIsFbx = false,
+  secondaryAnimationUrl,
+  textureSourceUrl,
   clipName,
   onAnimationsLoaded,
 }) => {
@@ -2093,13 +2390,34 @@ export const DeveloperBipedCharacterSceneRenderer: React.FC<DeveloperBipedCharac
 
         <group position={[0, -1.1, 0]}>
           <Suspense fallback={null}>
-            <BipedCharacterModel
-              key={characterUrl + '|' + animationUrl}
-              characterUrl={characterUrl}
-              animationUrl={animationUrl}
-              clipName={clipName}
-              onAnimationsLoaded={onAnimationsLoaded}
-            />
+            {meshIsFbx && animationIsFbx ? (
+              <BipedCharacterFbxMeshFbxAnimModel
+                key={characterUrl + '|' + animationUrl + '|' + (secondaryAnimationUrl ?? '') + '|' + (textureSourceUrl ?? '')}
+                characterUrl={characterUrl}
+                animationUrl={animationUrl}
+                secondaryAnimationUrl={secondaryAnimationUrl}
+                textureSourceUrl={textureSourceUrl}
+                clipName={clipName}
+                onAnimationsLoaded={onAnimationsLoaded}
+              />
+            ) : animationIsFbx ? (
+              <BipedCharacterFbxAnimModel
+                key={characterUrl + '|' + animationUrl + '|' + (secondaryAnimationUrl ?? '')}
+                characterUrl={characterUrl}
+                animationUrl={animationUrl}
+                secondaryAnimationUrl={secondaryAnimationUrl}
+                clipName={clipName}
+                onAnimationsLoaded={onAnimationsLoaded}
+              />
+            ) : (
+              <BipedCharacterModel
+                key={characterUrl + '|' + animationUrl}
+                characterUrl={characterUrl}
+                animationUrl={animationUrl}
+                clipName={clipName}
+                onAnimationsLoaded={onAnimationsLoaded}
+              />
+            )}
           </Suspense>
         </group>
 

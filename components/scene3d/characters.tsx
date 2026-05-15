@@ -9,6 +9,7 @@ import { GltfMonsterBodyType, PlayerAnimationAction, PlayerClassAssets } from '.
 import { GLTF_BODY_ANIMATION_MAP } from '../../game/data/gltfMonsters';
 import { getPlayerClassById } from '../../game/data/classes';
 import { getEquippedWeaponGrip, getRegisteredWeapon3DByItemId } from '../../game/data/weaponCatalog';
+import { useBattleAnimationStore } from '../../game/stores/battleAnimationStore';
 import { configureGltfLoader, configureFBXLoader } from './gltfLoader';
 import {
   RuntimeHeroAssets,
@@ -58,6 +59,11 @@ const injectFlashUniform = (material: THREE.Material): { value: number } | null 
   // Keep hit flash on the emissive fallback path.
   // Shader mutation here caused desktop stutter during damage reactions.
   return null;
+};
+
+const syncLightVisibility = (light: THREE.Light | null, threshold = 0.02) => {
+  if (!light) return;
+  light.visible = light.intensity > threshold;
 };
 
 interface AnimatedClassHeroProps {
@@ -462,6 +468,7 @@ interface EnemyCharacterProps {
   baseRotationY?: number;
   disableAmbientMotion?: boolean;
   statusOverlay?: React.ReactNode;
+  useDecorativeLights?: boolean;
 }
 
 const MissingEnemyAssetPlaceholder = (_props: { scale?: number }) => null;
@@ -490,11 +497,20 @@ export const EnemyCharacter = ({
   baseRotationY = -Math.PI - 0.35,
   disableAmbientMotion = true,
   statusOverlay,
+  useDecorativeLights = true,
 }: EnemyCharacterProps) => {
   void color;
   void type;
   void enemyName;
   void isBoss;
+
+  // Battle animation state from store — props are optional overrides (e.g. additional enemies)
+  const _storeIsEnemyAttacking = useBattleAnimationStore((s) => s.isEnemyAttacking);
+  const _storeIsEnemyHit = useBattleAnimationStore((s) => s.isEnemyHit);
+  const _storeAnimOverride = useBattleAnimationStore((s) => s.enemyAnimationAction);
+  const effectiveIsAttacking: boolean = isAttacking ?? _storeIsEnemyAttacking;
+  const effectiveIsHit: boolean = isHit ?? _storeIsEnemyHit;
+  const effectiveAnimActionOverride: PlayerAnimationAction | undefined = animationActionOverride ?? _storeAnimOverride;
 
   const group = useRef<THREE.Group>(null);
   const enemyShieldRef = useRef<THREE.Group>(null);
@@ -505,8 +521,8 @@ export const EnemyCharacter = ({
   const flashMaterialsRef = useRef<THREE.Material[]>([]);
   const flashUniformsRef = useRef<Array<{ value: number }>>([]);
   const runtimeEnemyAssets = hasRuntimeFbxAssets(assets) ? assets : null;
-  const holdGroundForAction = animationActionOverride === 'item';
-  const shouldLungeAttack = isAttacking && !holdGroundForAction;
+  const holdGroundForAction = effectiveAnimActionOverride === 'item';
+  const shouldLungeAttack = effectiveIsAttacking && !holdGroundForAction;
   // Track last applied impulse level to avoid re-parsing the hex color string every frame.
   const lastAppliedImpulseLevelRef = useRef<number>(-1);
 
@@ -551,6 +567,7 @@ export const EnemyCharacter = ({
   useFrame((state) => {
     if (enemyDamageLightRef.current) {
       enemyDamageLightRef.current.intensity = THREE.MathUtils.lerp(enemyDamageLightRef.current.intensity, 0, 0.14);
+      syncLightVisibility(enemyDamageLightRef.current);
     }
     if (enemyShieldRef.current) {
       enemyShieldRef.current.visible = Boolean(isDefending);
@@ -598,11 +615,11 @@ export const EnemyCharacter = ({
         group.current.rotation.x = 0;
       }
 
-      if (isHit && !wasHitRef.current) {
+      if (effectiveIsHit && !wasHitRef.current) {
         flashRef.current = 1;
       }
       flashRef.current = THREE.MathUtils.lerp(flashRef.current, 0, 0.32);
-      wasHitRef.current = Boolean(isHit);
+      wasHitRef.current = Boolean(effectiveIsHit);
 
       if (flashRef.current > 0.003) {
         if (flashMaterialsRef.current.length === 0) {
@@ -626,7 +643,7 @@ export const EnemyCharacter = ({
     }
   });
 
-  const enemyAnimationAction: PlayerAnimationAction = animationActionOverride ?? (isAttacking
+  const enemyAnimationAction: PlayerAnimationAction = effectiveAnimActionOverride ?? (effectiveIsAttacking
     ? 'attack'
     : isDefending
       ? 'defend'
@@ -650,11 +667,11 @@ export const EnemyCharacter = ({
       {statusOverlay}
       <ContactShadows frames={1} opacity={0.32} scale={2.6} blur={4} far={1.8} resolution={contactShadowResolution} />
       {/* Damage flash light */}
-      <pointLight ref={enemyDamageLightRef} color="#ef4444" intensity={0} distance={8} decay={2.5} position={[0, 0.8, -0.3]} />
+      <pointLight ref={enemyDamageLightRef} color="#ef4444" intensity={0} distance={8} decay={2.5} position={[0, 0.8, -0.3]} visible={false} />
       {/* Rim light — behind the model (Z negative = away from camera), separates silhouette */}
-      <pointLight color="#c4b5fd" intensity={1.1} distance={5} decay={2} position={[0, 1.1, -1.8]} />
+      {useDecorativeLights ? <pointLight color="#c4b5fd" intensity={1.1} distance={5} decay={2} position={[0, 1.1, -1.8]} /> : null}
       {/* Fill light — subtle warm light from below for volume */}
-      <pointLight color="#fde68a" intensity={0.38} distance={3.5} decay={2.5} position={[0, -0.6, 0.6]} />
+      {useDecorativeLights ? <pointLight color="#fde68a" intensity={0.38} distance={3.5} decay={2.5} position={[0, -0.6, 0.6]} /> : null}
       <group ref={enemyShieldRef} position={[0, 0.9, 0]} visible={false}>
         <mesh>
           <sphereGeometry args={[1.4, 12, 12]} />
@@ -672,7 +689,7 @@ export const EnemyCharacter = ({
           <torusGeometry args={[1.2, 0.03, 6, 20]} />
           <meshStandardMaterial color="#bfdbfe" emissive="#93c5fd" emissiveIntensity={1.0} transparent opacity={0.38} />
         </mesh>
-        <pointLight color="#60a5fa" intensity={1.6} distance={5} decay={2} />
+        {useDecorativeLights ? <pointLight color="#60a5fa" intensity={1.6} distance={5} decay={2} /> : null}
       </group>
       <group ref={enemyDefendImpulseAuraRef} position={[0, 0.9, 0]} visible={Boolean(isDefending) && defendImpulseLevel > 0}>
         <mesh rotation={[Math.PI / 2, 0, 0]}>
@@ -683,13 +700,15 @@ export const EnemyCharacter = ({
           <torusGeometry args={[1.34, 0.03, 10, 36]} />
           <meshStandardMaterial color="#ef4444" emissive="#ef4444" emissiveIntensity={1.15} transparent opacity={0.36} />
         </mesh>
-        <pointLight
-          color={defendImpulseLevel >= 3 ? '#7dd3fc' : defendImpulseLevel === 2 ? '#a855f7' : '#ef4444'}
-          intensity={1.45 + (defendImpulseLevel * 0.32)}
-          distance={5.8}
-          decay={2}
-          position={[0, 0.42, -0.28]}
-        />
+        {useDecorativeLights ? (
+          <pointLight
+            color={defendImpulseLevel >= 3 ? '#7dd3fc' : defendImpulseLevel === 2 ? '#a855f7' : '#ef4444'}
+            intensity={1.45 + (defendImpulseLevel * 0.32)}
+            distance={5.8}
+            decay={2}
+            position={[0, 0.42, -0.28]}
+          />
+        ) : null}
       </group>
     </group>
   );
@@ -717,6 +736,7 @@ interface GltfEnemyCharacterProps {
   defendPositionY?: number;
   originPosition?: [number, number, number];
   statusOverlay?: React.ReactNode;
+  useDecorativeLights?: boolean;
 }
 
 const GltfEnemyModel: React.FC<{
@@ -787,12 +807,12 @@ const GltfEnemyModel: React.FC<{
 export const GltfEnemyCharacter = ({
   modelUrl,
   bodyType,
-  animationAction = 'battle-idle',
+  animationAction,
   scale = 1,
-  isAttacking = false,
+  isAttacking,
   isDefending = false,
   defendImpulseLevel = 0,
-  isHit = false,
+  isHit,
   contactShadowResolution = 256,
   idlePositionX = 2,
   attackPositionX = -0.35,
@@ -802,6 +822,7 @@ export const GltfEnemyCharacter = ({
   defendPositionY = -1,
   originPosition = [2, -1, 0],
   statusOverlay,
+  useDecorativeLights = true,
 }: GltfEnemyCharacterProps) => {
   const group = useRef<THREE.Group>(null);
   const shieldRef = useRef<THREE.Group>(null);
@@ -812,6 +833,14 @@ export const GltfEnemyCharacter = ({
   const flashUniformsRef = useRef<Array<{ value: number }>>([]);
   // Track last applied impulse level to avoid re-parsing the hex color string every frame.
   const lastAppliedImpulseLevelRef = useRef<number>(-1);
+
+  // Battle animation state from store — props are optional overrides (e.g. additional enemies)
+  const _storeIsEnemyAttackingGltf = useBattleAnimationStore((s) => s.isEnemyAttacking);
+  const _storeIsEnemyHitGltf = useBattleAnimationStore((s) => s.isEnemyHit);
+  const _storeAnimActionGltf = useBattleAnimationStore((s) => s.enemyAnimationAction);
+  const gltfEffectiveIsAttacking: boolean = isAttacking ?? _storeIsEnemyAttackingGltf;
+  const gltfEffectiveIsHit: boolean = isHit ?? _storeIsEnemyHitGltf;
+  const gltfEffectiveAnimAction: PlayerAnimationAction = animationAction ?? _storeAnimActionGltf;
 
   const refreshFlashMaterials = React.useCallback(() => {
     if (!group.current) { flashMaterialsRef.current = []; flashUniformsRef.current = []; return; }
@@ -834,7 +863,7 @@ export const GltfEnemyCharacter = ({
   const isFlying = bodyType === 'Flying';
   // Flying monsters hover 0.55 units above the baseline
   const flyingBaseYOffset = isFlying ? 0.55 : 0;
-  const shouldLunge = isAttacking;
+  const shouldLunge = gltfEffectiveIsAttacking;
 
   useFrame((state) => {
     if (!group.current) return;
@@ -886,9 +915,9 @@ export const GltfEnemyCharacter = ({
       }
     }
 
-    if (isHit && !wasHitRef.current) flashRef.current = 1;
+    if (gltfEffectiveIsHit && !wasHitRef.current) flashRef.current = 1;
     flashRef.current = THREE.MathUtils.lerp(flashRef.current, 0, 0.32);
-    wasHitRef.current = isHit;
+    wasHitRef.current = gltfEffectiveIsHit;
 
     if (flashRef.current > 0.003) {
       if (flashMaterialsRef.current.length === 0) refreshFlashMaterials();
@@ -911,7 +940,7 @@ export const GltfEnemyCharacter = ({
     <group ref={group} position={originPosition} rotation={[0, -0.35, 0]}>
       {statusOverlay}
       <Suspense fallback={null}>
-        <GltfEnemyModel modelUrl={modelUrl} bodyType={bodyType} animationAction={animationAction} />
+        <GltfEnemyModel modelUrl={modelUrl} bodyType={bodyType} animationAction={gltfEffectiveAnimAction} />
       </Suspense>
       {/* Flying monsters cast a faded shadow far below them */}
       <ContactShadows
@@ -941,7 +970,7 @@ export const GltfEnemyCharacter = ({
           <torusGeometry args={[1.2, 0.03, 6, 20]} />
           <meshStandardMaterial color="#bfdbfe" emissive="#93c5fd" emissiveIntensity={1.0} transparent opacity={0.38} />
         </mesh>
-        <pointLight color="#60a5fa" intensity={1.6} distance={5} decay={2} />
+        {useDecorativeLights ? <pointLight color="#60a5fa" intensity={1.6} distance={5} decay={2} /> : null}
       </group>
 
       {/* Impulse aura rings */}
@@ -954,13 +983,15 @@ export const GltfEnemyCharacter = ({
           <torusGeometry args={[1.34, 0.03, 10, 36]} />
           <meshStandardMaterial color="#ef4444" emissive="#ef4444" emissiveIntensity={1.15} transparent opacity={0.36} />
         </mesh>
-        <pointLight
-          color={defendImpulseLevel >= 3 ? '#7dd3fc' : defendImpulseLevel === 2 ? '#a855f7' : '#ef4444'}
-          intensity={1.45 + (defendImpulseLevel * 0.32)}
-          distance={5.8}
-          decay={2}
-          position={[0, 0.42, -0.28]}
-        />
+        {useDecorativeLights ? (
+          <pointLight
+            color={defendImpulseLevel >= 3 ? '#7dd3fc' : defendImpulseLevel === 2 ? '#a855f7' : '#ef4444'}
+            intensity={1.45 + (defendImpulseLevel * 0.32)}
+            distance={5.8}
+            decay={2}
+            position={[0, 0.42, -0.28]}
+          />
+        ) : null}
       </group>
     </group>
   );

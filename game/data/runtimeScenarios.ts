@@ -255,7 +255,7 @@ const RUNTIME_SCENARIO_PRESETS: Record<string, RuntimeScenarioPreset> = {
         fogEnabled: true,
         fogColor: '#94a3b8',
         fogNear: 8,
-        fogFar: 70,
+        fogFar: 45,
       },
       particles: {
         dustEnabled: true,

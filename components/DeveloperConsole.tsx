@@ -165,6 +165,7 @@ const BIPED_CHARACTER_CATALOG = [
   { id: 'orc-arqueiro',     label: 'Orc Arqueiro',     characterUrl: new URL('../game/assets/Characters/Modelos/Exemplo/Orc_Arqueiro.glb',     import.meta.url).href },
   { id: 'orc-guerreiro',    label: 'Orc Guerreiro',    characterUrl: new URL('../game/assets/Characters/Modelos/Exemplo/Orc_Guerreiro.glb',    import.meta.url).href },
   { id: 'orc-lord-guereiro',label: 'Orc Lord Guereiro',characterUrl: new URL('../game/assets/Characters/Modelos/Exemplo/Orc_Lord_Guereiro.glb',import.meta.url).href },
+  { id: 'barbaro-01',       label: 'Bárbaro',           characterUrl: new URL('../game/assets/Characters/Modelos/Barbaro/Barbaro_Idle.fbx', import.meta.url).href, meshIsFbx: true, animationUrl: new URL('../game/assets/Characters/Modelos/Barbaro/Barbaro_Idle.fbx', import.meta.url).href, animationIsFbx: true, secondaryAnimationUrl: new URL('../game/assets/Characters/Modelos/Barbaro/Standing Taunt Battlecry.fbx', import.meta.url).href },
 ] as const;
 
 const ATLAS_MONSTERS_TEXTURE_URL = new URL('../game/assets/Characters/Monsters/Monsters/Big/Atlas_Monsters.webp', import.meta.url).href;
@@ -2950,7 +2951,11 @@ export const DeveloperConsole: React.FC = () => {
                 <DeveloperBipedCharacterScene
                   key={selectedBipedCharacter.id}
                   characterUrl={selectedBipedCharacter.characterUrl}
-                  animationUrl={BIPED_ANIMATION_URL}
+                  meshIsFbx={'meshIsFbx' in selectedBipedCharacter ? selectedBipedCharacter.meshIsFbx : false}
+                  animationUrl={'animationUrl' in selectedBipedCharacter ? selectedBipedCharacter.animationUrl : BIPED_ANIMATION_URL}
+                  animationIsFbx={'animationIsFbx' in selectedBipedCharacter ? selectedBipedCharacter.animationIsFbx : false}
+                  secondaryAnimationUrl={'secondaryAnimationUrl' in selectedBipedCharacter ? selectedBipedCharacter.secondaryAnimationUrl : undefined}
+                  textureSourceUrl={'textureSourceUrl' in selectedBipedCharacter ? selectedBipedCharacter.textureSourceUrl : undefined}
                   clipName={bipedClipName}
                   onAnimationsLoaded={(names) => {
                     setBipedAvailableAnimations(names);
@@ -3016,8 +3021,12 @@ export const DeveloperConsole: React.FC = () => {
                     <div className="mt-0.5 truncate text-[11px] text-indigo-200">{selectedBipedCharacter.label}</div>
                   </div>
                   <div>
-                    <div className="text-[10px] uppercase tracking-widest text-slate-500">Animações (compartilhado)</div>
-                    <div className="mt-0.5 truncate text-[11px] text-indigo-200">Meshy_AI_Animacoes.glb</div>
+                    <div className="text-[10px] uppercase tracking-widest text-slate-500">
+                      {'animationIsFbx' in selectedBipedCharacter && selectedBipedCharacter.animationIsFbx ? 'Animações (FBX próprio)' : 'Animações (compartilhado)'}
+                    </div>
+                    <div className="mt-0.5 truncate text-[11px] text-indigo-200">
+                      {'animationUrl' in selectedBipedCharacter ? selectedBipedCharacter.animationUrl.split('/').pop() : 'Meshy_AI_Animacoes.glb'}
+                    </div>
                   </div>
                 </div>
               </div>
