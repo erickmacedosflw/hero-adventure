@@ -814,8 +814,12 @@ export const Torch = ({
 }) => {
   const flameRef = useRef<THREE.Mesh>(null);
   const lightRef = useRef<THREE.PointLight>(null);
+  const torchAccRef = useRef(0);
 
-  useFrame((state) => {
+  useFrame((state, delta) => {
+    torchAccRef.current += delta;
+    if (torchAccRef.current < 0.1) return; // throttle to ~10fps — imperceptible for a torch flame
+    torchAccRef.current = 0;
     const pulse = 1 + Math.sin(state.clock.elapsedTime * 8 + position[0]) * 0.08;
     if (flameRef.current) {
       flameRef.current.scale.set(1.05 * pulse, 1.2 * pulse, 1.05 * pulse);

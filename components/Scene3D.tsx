@@ -1000,6 +1000,8 @@ const CombatCinematicFX = ({
   // Track previous opacity per projectile so needsUpdate is only set when it actually changes.
   const playerBowPrevOpacityRef = useRef(1);
   const enemyBowPrevOpacityRef = useRef(1);
+  // Idle guard — true while any combat FX is active, false while fully at rest.
+  const anythingActiveRef = useRef(false);
   const bowProjectileModelSource = useLoader(FBXLoader, BOW_PROJECTILE_MODEL_URL, configureFBXLoader) as THREE.Group;
   const bowProjectileTexture = useTexture(BOW_PROJECTILE_TEXTURE_URL);
   const createBowProjectileMesh = useCallback(() => {
@@ -1290,6 +1292,37 @@ const CombatCinematicFX = ({
     const hasSkillFx = false;
     let latestEnemyImpactColor: string | undefined;
     let activeTrailCount = COMBAT_TRAIL_SEEDS.length;
+
+    // ── Idle guard: skip all GPU writes when combat is fully at rest ────────
+    const hasActiveWork = (
+      isPlayerAttacking || isEnemyAttacking || isPlayerHit || isEnemyHit
+      || playerAnimationAction !== 'idle'
+      || enemyAnimationAction !== 'idle'
+      || hitEnemyPulseRef.current > 0.002
+      || hitPlayerPulseRef.current > 0.002
+      || unarmedHitEnemyStartMsRef.current !== null
+      || unarmedHitPlayerStartMsRef.current !== null
+      || playerExecutionStartMsRef.current !== null
+      || enemyExecutionStartMsRef.current !== null
+      || playerImpulseAuraStartMsRef.current !== null
+      || enemyImpulseAuraStartMsRef.current !== null
+      || playerBowProjectileStateRef.current !== null
+      || enemyBowProjectileStateRef.current !== null
+    );
+    if (!hasActiveWork) {
+      if (!anythingActiveRef.current) return;
+      // Transitioning to rest: zero-out remaining visible elements once
+      if (hitEnemyLightRef.current) hitEnemyLightRef.current.intensity = 0;
+      if (impulsePlayerLightRef.current) impulsePlayerLightRef.current.intensity = 0;
+      if (impulseEnemyLightRef.current) impulseEnemyLightRef.current.intensity = 0;
+      if (impulseChargePlayerLightRef.current) impulseChargePlayerLightRef.current.intensity = 0;
+      if (hitBurstEnemyRef.current) (hitBurstEnemyRef.current.material as THREE.SpriteMaterial).opacity = 0;
+      if (hitBurstPlayerRef.current) (hitBurstPlayerRef.current.material as THREE.SpriteMaterial).opacity = 0;
+      anythingActiveRef.current = false;
+      return;
+    }
+    anythingActiveRef.current = true;
+    // ──────────────────────────────────────────────────────────────────────────
 
     if (hasSkillFx || hitEnemyPulseRef.current > 0.01) {
       const storeParticles = useBattleVfxStore.getState().particles;
@@ -4252,9 +4285,8 @@ export const GameScene: React.FC<SceneProps> = React.memo((props) => {
   const shouldUseBloomAndVignette = isQualityMode;
   const shouldUseVignette = shouldUseBloomAndVignette && !runtimeCameraMenuFocus;
   // MSAA inside EffectComposer doubles GPU cost for all post-processing passes.
-  // Desktop quality: capped at 2x MSAA (was 4x) - halves overdraw on Bloom, Vignette and outline passes.
-  // Mobile and lower tiers use 0 (no MSAA).
-  const postProcessingMultisampling = isQualityMode ? (isMobileDevice ? 0 : 2) : 0;
+  // Disabled across all tiers — Bloom already softens edges sufficiently at no extra GPU cost.
+  const postProcessingMultisampling = 0;
   const backfaceOutlineThickness = isPerformanceMode
     ? (isMobileDevice ? 0.045 : 0.06)
     : (isMobileDevice ? 0.055 : 0.07);
