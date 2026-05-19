@@ -1,0 +1,354 @@
+{
+  "id": "sprite_anim_1778961596080",
+  "version": 1,
+  "name": "magic_air_1",
+  "spriteSheetName": "PC _ Computer - RPG Maker MV - Exclusive Battle Animations - Wind 1.png",
+  "spriteSheetUrl": "game/sprites/PC _ Computer - RPG Maker MV - Exclusive Battle Animations - Wind 1.png",
+  "referencePreview": {
+    "previewReference": "hero",
+    "heroClassId": "knight",
+    "enemyIndex": 0
+  },
+  "sheetSize": {
+    "width": 960,
+    "height": 960
+  },
+  "frameSource": {
+    "rows": 5,
+    "cols": 5,
+    "frames": [
+      {
+        "x": 0,
+        "y": 768,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 192,
+        "y": 768,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 384,
+        "y": 768,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 576,
+        "y": 768,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 768,
+        "y": 768,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 0,
+        "y": 576,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 192,
+        "y": 576,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 384,
+        "y": 576,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 576,
+        "y": 576,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 768,
+        "y": 576,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 0,
+        "y": 384,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 192,
+        "y": 384,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 384,
+        "y": 384,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 576,
+        "y": 384,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 768,
+        "y": 384,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 0,
+        "y": 192,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 192,
+        "y": 192,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 384,
+        "y": 192,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 576,
+        "y": 192,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 768,
+        "y": 192,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 0,
+        "y": 0,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 192,
+        "y": 0,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 384,
+        "y": 0,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 576,
+        "y": 0,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 768,
+        "y": 0,
+        "width": 192,
+        "height": 192
+      }
+    ]
+  },
+  "spriteTracks": [
+    {
+      "id": "track_dy40r5u",
+      "name": "Track 1",
+      "enabled": true,
+      "spriteRows": 5,
+      "spriteCols": 5,
+      "invertRows": true,
+      "preserveFrameAspect": true,
+      "useOriginalFrameSize": true,
+      "originalSizeScale": 0.012777600000000002,
+      "startEmptyFrame": true,
+      "endEmptyFrame": true,
+      "rotationDeg": 180,
+      "playbackMode": "one-shot",
+      "stopOnLastFrame": true,
+      "tailLoopEnabled": true,
+      "tailLoopFrameCount": 5,
+      "tailLoopRepeats": 2,
+      "tailLoopPattern": "forward",
+      "startDelayFrames": 0,
+      "timelineStartFrame": 0,
+      "fps": 12,
+      "frameIndices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "anchorTarget": "hero",
+      "anchorPoint": "chest",
+      "offset3d": [
+        0.009999999999999953,
+        -0.6100000000000002,
+        0.7000000000000001
+      ],
+      "size": [
+        2.4532992000000005,
+        2.4532992000000005
+      ],
+      "renderPriority": 0,
+      "depthTest": true,
+      "depthWrite": false,
+      "motionPreset": "none",
+      "motionAmplitude": 0.55,
+      "motionSpeed": 1,
+      "blendMode": "normal",
+      "opacity": 1,
+      "tintColor": "#ffffff",
+      "spriteSheetName": "PC _ Computer - RPG Maker MV - Exclusive Battle Animations - Wind 1.png",
+      "spriteSheetPath": "game/sprites/PC _ Computer - RPG Maker MV - Exclusive Battle Animations - Wind 1.png",
+      "spriteSheetUrl": "game/sprites/PC _ Computer - RPG Maker MV - Exclusive Battle Animations - Wind 1.png",
+      "spriteSheetSize": {
+        "width": 960,
+        "height": 960
+      }
+    },
+    {
+      "id": "track_iyo80zu",
+      "name": "Track 1 (copia 4)",
+      "enabled": true,
+      "spriteRows": 5,
+      "spriteCols": 5,
+      "invertRows": true,
+      "preserveFrameAspect": true,
+      "useOriginalFrameSize": true,
+      "originalSizeScale": 0.0156369232252602,
+      "startEmptyFrame": true,
+      "endEmptyFrame": true,
+      "rotationDeg": 180,
+      "playbackMode": "one-shot",
+      "stopOnLastFrame": true,
+      "tailLoopEnabled": true,
+      "tailLoopFrameCount": 5,
+      "tailLoopRepeats": 2,
+      "tailLoopPattern": "forward",
+      "startDelayFrames": 0,
+      "timelineStartFrame": 0,
+      "fps": 12,
+      "frameIndices": [
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23
+      ],
+      "anchorTarget": "hero",
+      "anchorPoint": "chest",
+      "offset3d": [
+        0.18000000000000002,
+        -0.07000000000000019,
+        0.9300000000000002
+      ],
+      "size": [
+        3.0022892592499586,
+        3.0022892592499586
+      ],
+      "renderPriority": 0,
+      "depthTest": true,
+      "depthWrite": false,
+      "motionPreset": "none",
+      "motionAmplitude": 0.55,
+      "motionSpeed": 1,
+      "blendMode": "normal",
+      "opacity": 1,
+      "tintColor": "#ffffff",
+      "spriteSheetName": "PC _ Computer - RPG Maker MV - Exclusive Battle Animations - Wind 1.png",
+      "spriteSheetPath": "game/sprites/PC _ Computer - RPG Maker MV - Exclusive Battle Animations - Wind 1.png",
+      "spriteSheetUrl": "game/sprites/PC _ Computer - RPG Maker MV - Exclusive Battle Animations - Wind 1.png",
+      "spriteSheetSize": {
+        "width": 960,
+        "height": 960
+      }
+    },
+    {
+      "id": "track_59a8ed5",
+      "name": "Track 1 (copia 4) (copia 6)",
+      "enabled": true,
+      "spriteRows": 5,
+      "spriteCols": 5,
+      "invertRows": true,
+      "preserveFrameAspect": true,
+      "useOriginalFrameSize": true,
+      "originalSizeScale": 0.013126085193393897,
+      "startEmptyFrame": true,
+      "endEmptyFrame": true,
+      "rotationDeg": 180,
+      "playbackMode": "one-shot",
+      "stopOnLastFrame": true,
+      "tailLoopEnabled": true,
+      "tailLoopFrameCount": 5,
+      "tailLoopRepeats": 2,
+      "tailLoopPattern": "forward",
+      "startDelayFrames": 0,
+      "timelineStartFrame": 0,
+      "fps": 12,
+      "frameIndices": [
+        9,
+        10,
+        11,
+        12,
+        13,
+        14
+      ],
+      "anchorTarget": "hero",
+      "anchorPoint": "chest",
+      "offset3d": [
+        -0.04999999999999998,
+        -0.8300000000000001,
+        -0.059999999999999915
+      ],
+      "size": [
+        2.5202083571316285,
+        2.5202083571316285
+      ],
+      "renderPriority": 0,
+      "depthTest": true,
+      "depthWrite": false,
+      "motionPreset": "none",
+      "motionAmplitude": 0.55,
+      "motionSpeed": 1,
+      "blendMode": "normal",
+      "opacity": 1,
+      "tintColor": "#ffffff",
+      "spriteSheetName": "PC _ Computer - RPG Maker MV - Exclusive Battle Animations - Wind 1.png",
+      "spriteSheetPath": "game/sprites/PC _ Computer - RPG Maker MV - Exclusive Battle Animations - Wind 1.png",
+      "spriteSheetUrl": "game/sprites/PC _ Computer - RPG Maker MV - Exclusive Battle Animations - Wind 1.png",
+      "spriteSheetSize": {
+        "width": 960,
+        "height": 960
+      }
+    }
+  ]
+}

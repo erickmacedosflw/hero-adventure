@@ -1,4 +1,5 @@
 import path from 'path';
+import fs from 'fs';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
@@ -6,6 +7,26 @@ import { VitePWA } from 'vite-plugin-pwa';
 
 // When building for Electron we need file:// compatible paths and no PWA SW.
 const isElectron = process.env.VITE_ELECTRON === 'true';
+
+/** Dev-only: serves game/VFX/ at /game-vfx/ so Effekseer can resolve
+ *  relative texture paths (Materials/, Texture/) from .efk/.efkefc files. */
+const serveGameVfxPlugin = {
+  name: 'serve-game-vfx',
+  configureServer(server: any) {
+    server.middlewares.use('/game-vfx', (req: any, res: any, next: any) => {
+      // Sanitise path — strip traversal attempts
+      const safeSuffix = decodeURIComponent(req.url ?? '').replace(/\.\./g, '').replace(/^\/+/, '');
+      const filePath = path.join(process.cwd(), 'game', 'VFX', safeSuffix);
+      if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Cache-Control', 'no-cache');
+        fs.createReadStream(filePath).pipe(res);
+      } else {
+        next();
+      }
+    });
+  },
+};
 
 export default defineConfig(() => {
     return {
@@ -21,6 +42,7 @@ export default defineConfig(() => {
       plugins: [
         react(),
         tailwindcss(),
+        serveGameVfxPlugin,
         // Service Workers don't work on file://, so skip the PWA plugin for
         // the Electron build. The stub alias below handles the import in code.
         ...(isElectron ? [] : [VitePWA({

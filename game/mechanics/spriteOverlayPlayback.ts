@@ -125,7 +125,11 @@ export const resolveTrackPlaybackSnapshot = ({
 }): SpriteTrackPlaybackSnapshot => {
   const effectiveMode: SpritePlaybackMode = forcePreviewLoop ? 'loop' : track.playbackMode;
   const startFrame = Math.max(0, Math.floor(track.timelineStartFrame ?? 0));
-  const startMs = (startFrame * 1000) / SPRITE_TIMELINE_FPS;
+  // timelineStartMs: one-time global offset (at 60fps). Applied once regardless of mode.
+  const timelineStartMs = (startFrame * 1000) / SPRITE_TIMELINE_FPS;
+  // startDelayMs: per-cycle delay at the track's own fps.
+  // In loop mode it repeats at the start of every cycle; in one-shot it applies once.
+  const startDelayMs = Math.max(0, Math.floor(track.startDelayFrames ?? 0)) / Math.max(1, track.fps) * 1000;
   const endFrame = track.timelineEndFrame != null
     ? Math.max(startFrame, Math.floor(track.timelineEndFrame))
     : null;
@@ -143,17 +147,20 @@ export const resolveTrackPlaybackSnapshot = ({
     };
   }
 
+  const hasDelay = startDelayMs > 0 || timelineStartMs > 0;
+
   if (!isPlaying) {
     return {
       status: 'idle',
       playbackMode: effectiveMode,
-      frameIndex: startMs > 0 ? -1 : getFrameByElapsed(track, timeline, 0),
+      frameIndex: hasDelay ? -1 : getFrameByElapsed(track, timeline, 0),
       totalDurationMs,
       elapsedWithinCycleMs: 0,
     };
   }
 
-  if (elapsedMs < startMs) {
+  // Global timeline offset — track not yet active.
+  if (elapsedMs < timelineStartMs) {
     return {
       status: 'idle',
       playbackMode: effectiveMode,
@@ -163,7 +170,46 @@ export const resolveTrackPlaybackSnapshot = ({
     };
   }
 
-  const trackElapsedMs = elapsedMs - startMs;
+  // Elapsed since the global timeline start (excludes per-cycle delay).
+  const globalElapsedMs = elapsedMs - timelineStartMs;
+
+  if (effectiveMode === 'loop') {
+    // In loop mode the per-cycle delay is baked into each iteration.
+    const cycleDurationMs = startDelayMs + totalDurationMs;
+    const posInCycle = ((globalElapsedMs % cycleDurationMs) + cycleDurationMs) % cycleDurationMs;
+    if (posInCycle < startDelayMs) {
+      // Still in the delay portion of this cycle — show empty frame.
+      return {
+        status: 'playing',
+        playbackMode: effectiveMode,
+        frameIndex: -1,
+        totalDurationMs,
+        elapsedWithinCycleMs: 0,
+      };
+    }
+    const elapsedWithinCycleMs = posInCycle - startDelayMs;
+    return {
+      status: 'playing',
+      playbackMode: effectiveMode,
+      frameIndex: getFrameByElapsed(track, timeline, elapsedWithinCycleMs),
+      totalDurationMs,
+      elapsedWithinCycleMs,
+    };
+  }
+
+  // One-shot modes: delay applied once at the start.
+  if (globalElapsedMs < startDelayMs) {
+    return {
+      status: 'idle',
+      playbackMode: effectiveMode,
+      frameIndex: -1,
+      totalDurationMs,
+      elapsedWithinCycleMs: 0,
+    };
+  }
+
+  const trackElapsedMs = globalElapsedMs - startDelayMs;
+
   if (endMs != null && elapsedMs >= endMs) {
     return {
       status: 'finished',
@@ -171,17 +217,6 @@ export const resolveTrackPlaybackSnapshot = ({
       frameIndex: -1,
       totalDurationMs,
       elapsedWithinCycleMs: trackElapsedMs,
-    };
-  }
-
-  if (effectiveMode === 'loop') {
-    const elapsedWithinCycleMs = ((trackElapsedMs % totalDurationMs) + totalDurationMs) % totalDurationMs;
-    return {
-      status: 'playing',
-      playbackMode: effectiveMode,
-      frameIndex: getFrameByElapsed(track, timeline, elapsedWithinCycleMs),
-      totalDurationMs,
-      elapsedWithinCycleMs,
     };
   }
 

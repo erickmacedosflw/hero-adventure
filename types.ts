@@ -765,6 +765,7 @@ export interface SpriteTrackDefinition {
   tailLoopFrameCount?: number;
   tailLoopRepeats?: number;
   tailLoopPattern?: SpriteTailLoopPattern;
+  startDelayFrames?: number;
   timelineStartFrame?: number;
   timelineEndFrame?: number;
   fps: number;

@@ -1,0 +1,376 @@
+{
+  "id": "sprite_anim_1778960893053",
+  "version": 1,
+  "name": "arrow_1",
+  "spriteSheetName": "arrow-2.png",
+  "spriteSheetUrl": "game/sprites/arrow-2.png",
+  "referencePreview": {
+    "previewReference": "hero",
+    "heroClassId": "knight",
+    "enemyIndex": 0
+  },
+  "sheetSize": {
+    "width": 960,
+    "height": 1152
+  },
+  "frameSource": {
+    "rows": 6,
+    "cols": 5,
+    "frames": [
+      {
+        "x": 0,
+        "y": 960,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 192,
+        "y": 960,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 384,
+        "y": 960,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 576,
+        "y": 960,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 768,
+        "y": 960,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 0,
+        "y": 768,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 192,
+        "y": 768,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 384,
+        "y": 768,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 576,
+        "y": 768,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 768,
+        "y": 768,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 0,
+        "y": 576,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 192,
+        "y": 576,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 384,
+        "y": 576,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 576,
+        "y": 576,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 768,
+        "y": 576,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 0,
+        "y": 384,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 192,
+        "y": 384,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 384,
+        "y": 384,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 576,
+        "y": 384,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 768,
+        "y": 384,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 0,
+        "y": 192,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 192,
+        "y": 192,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 384,
+        "y": 192,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 576,
+        "y": 192,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 768,
+        "y": 192,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 0,
+        "y": 0,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 192,
+        "y": 0,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 384,
+        "y": 0,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 576,
+        "y": 0,
+        "width": 192,
+        "height": 192
+      },
+      {
+        "x": 768,
+        "y": 0,
+        "width": 192,
+        "height": 192
+      }
+    ]
+  },
+  "spriteTracks": [
+    {
+      "id": "track_ritafvn",
+      "name": "Track 1",
+      "enabled": true,
+      "spriteRows": 6,
+      "spriteCols": 5,
+      "invertRows": true,
+      "preserveFrameAspect": true,
+      "useOriginalFrameSize": true,
+      "originalSizeScale": 0.016193367078858885,
+      "startEmptyFrame": false,
+      "endEmptyFrame": true,
+      "rotationDeg": 90,
+      "playbackMode": "one-shot",
+      "stopOnLastFrame": true,
+      "tailLoopEnabled": true,
+      "tailLoopFrameCount": 1,
+      "tailLoopRepeats": 12,
+      "tailLoopPattern": "forward",
+      "startDelayFrames": 0,
+      "timelineStartFrame": 0,
+      "fps": 10,
+      "frameIndices": [
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "anchorTarget": "hero",
+      "anchorPoint": "chest",
+      "offset3d": [
+        1.4400000000000002,
+        -0.5699999999999998,
+        0.8999999999999999
+      ],
+      "size": [
+        3.109126479140906,
+        3.109126479140906
+      ],
+      "renderPriority": 0,
+      "depthTest": true,
+      "depthWrite": false,
+      "motionPreset": "none",
+      "motionAmplitude": 0.55,
+      "motionSpeed": 1,
+      "blendMode": "normal",
+      "opacity": 1,
+      "tintColor": "#ffffff",
+      "spriteSheetName": "arrow-2.png",
+      "spriteSheetPath": "game/sprites/arrow-2.png",
+      "spriteSheetUrl": "game/sprites/arrow-2.png",
+      "spriteSheetSize": {
+        "width": 960,
+        "height": 1152
+      }
+    },
+    {
+      "id": "track_oomzrzc",
+      "name": "Track 1 (copia 3)",
+      "enabled": true,
+      "spriteRows": 6,
+      "spriteCols": 5,
+      "invertRows": true,
+      "preserveFrameAspect": true,
+      "useOriginalFrameSize": true,
+      "originalSizeScale": 0.012180075225467992,
+      "startEmptyFrame": true,
+      "endEmptyFrame": true,
+      "rotationDeg": 90,
+      "playbackMode": "one-shot",
+      "stopOnLastFrame": true,
+      "tailLoopEnabled": false,
+      "tailLoopFrameCount": 4,
+      "tailLoopRepeats": 0,
+      "tailLoopPattern": "forward",
+      "startDelayFrames": 0,
+      "timelineStartFrame": 0,
+      "fps": 14,
+      "frameIndices": [
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15
+      ],
+      "anchorTarget": "hero",
+      "anchorPoint": "chest",
+      "offset3d": [
+        0.9099999999999993,
+        -0.49999999999999994,
+        0.9799999999999998
+      ],
+      "size": [
+        2.3385744432898545,
+        2.3385744432898545
+      ],
+      "renderPriority": 0,
+      "depthTest": true,
+      "depthWrite": false,
+      "motionPreset": "none",
+      "motionAmplitude": 0.55,
+      "motionSpeed": 1,
+      "blendMode": "normal",
+      "opacity": 1,
+      "tintColor": "#ffffff",
+      "spriteSheetName": "arrow-2.png",
+      "spriteSheetPath": "game/sprites/arrow-2.png",
+      "spriteSheetUrl": "game/sprites/arrow-2.png",
+      "spriteSheetSize": {
+        "width": 960,
+        "height": 1152
+      }
+    },
+    {
+      "id": "track_c4kcjik",
+      "name": "Track 1 (copia 3) (copia 6)",
+      "enabled": true,
+      "spriteRows": 6,
+      "spriteCols": 5,
+      "invertRows": true,
+      "preserveFrameAspect": true,
+      "useOriginalFrameSize": true,
+      "originalSizeScale": 0.012380830428436242,
+      "startEmptyFrame": false,
+      "endEmptyFrame": true,
+      "rotationDeg": 270,
+      "playbackMode": "one-shot",
+      "stopOnLastFrame": true,
+      "tailLoopEnabled": false,
+      "tailLoopFrameCount": 4,
+      "tailLoopRepeats": 0,
+      "tailLoopPattern": "forward",
+      "startDelayFrames": 0,
+      "timelineStartFrame": 0,
+      "fps": 16,
+      "frameIndices": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "anchorTarget": "hero",
+      "anchorPoint": "chest",
+      "offset3d": [
+        1.009999999999999,
+        -0.5799999999999998,
+        0.7499999999999998
+      ],
+      "size": [
+        2.1610176747815983,
+        2.1610176747815983
+      ],
+      "renderPriority": 0,
+      "depthTest": true,
+      "depthWrite": false,
+      "motionPreset": "none",
+      "motionAmplitude": 0.55,
+      "motionSpeed": 1,
+      "blendMode": "normal",
+      "opacity": 1,
+      "tintColor": "#ffffff",
+      "spriteSheetName": "arrow-2.png",
+      "spriteSheetPath": "game/sprites/arrow-2.png",
+      "spriteSheetUrl": "game/sprites/arrow-2.png",
+      "spriteSheetSize": {
+        "width": 960,
+        "height": 1152
+      }
+    }
+  ]
+}

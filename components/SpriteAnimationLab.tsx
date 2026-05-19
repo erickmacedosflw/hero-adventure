@@ -141,6 +141,7 @@ const mkTrack = (name: string, count: number): SpriteTrackDefinition => ({
   tailLoopFrameCount: 4,
   tailLoopRepeats: 0,
   tailLoopPattern: 'forward',
+  startDelayFrames: 0,
   timelineStartFrame: 0,
   timelineEndFrame: undefined,
   fps: 12,
@@ -559,7 +560,9 @@ const Stage: React.FC<{
       {tracks.filter((t) => t.enabled).map((track) => {
         const snap = resolveTrackPlaybackSnapshot({ track, elapsedMs, isPlaying, forcePreviewLoop: forceLoop });
         // If preview is paused and timeline starts with empty frame, show first real frame for editing visibility.
-        const frameIdx = snap.frameIndex < 0 && !isPlaying
+        // Do NOT override when startDelayFrames is active — keep the sprite hidden to reflect the delay state.
+        const hasActiveDelay = (track.startDelayFrames ?? 0) > 0;
+        const frameIdx = snap.frameIndex < 0 && !isPlaying && !hasActiveDelay
           ? (track.frameIndices.find((idx) => idx >= 0) ?? -1)
           : snap.frameIndex;
         if (frameIdx < 0) return null;
@@ -774,8 +777,13 @@ export const SpriteAnimationLab: React.FC = () => {
         spriteRows,
         spriteCols,
         spriteSheetSize: track.spriteSheetSize ?? nextSheetSize,
-        // Import keeps metadata, but editor waits for per-track upload to render/trim frames.
-        spriteSheetUrl: undefined,
+        // Restore asset URL from spriteSheetPath when it is a known game asset (not a blob).
+        // This lets the preview render immediately without requiring a manual re-upload.
+        spriteSheetUrl: (track.spriteSheetPath && !track.spriteSheetPath.startsWith('blob:'))
+          ? track.spriteSheetPath
+          : (track.spriteSheetUrl && !track.spriteSheetUrl.startsWith('blob:'))
+            ? track.spriteSheetUrl
+            : undefined,
         frameIndices: clampTrackFrameIndices({
           ...fallback,
           ...track,
@@ -805,8 +813,13 @@ export const SpriteAnimationLab: React.FC = () => {
     counterRef.current = Math.max(1, nextTracks.length);
     setElapsedMs(0);
     setIsPlaying(false);
+    const hasAssetUrls = nextTracks.some((t) => Boolean(t.spriteSheetUrl));
     setImportStatus('ok');
-    setImportMessage('Animacao carregada. Agora envie as imagens por track para editar visualmente.');
+    setImportMessage(
+      hasAssetUrls
+        ? 'Animacao carregada. Preview disponivel. Para substituir imagens, envie por track.'
+        : 'Animacao carregada. Envie as imagens por track para visualizar.',
+    );
   };
 
   const exportTracks = useMemo(
@@ -964,7 +977,7 @@ export const SpriteAnimationLab: React.FC = () => {
             )}
             <button onClick={() => setPlayMode('normal')} className="h-8 rounded-lg border border-slate-700 bg-slate-950 px-2 text-xs text-slate-100">Normal</button>
             <button onClick={() => setPlayMode('loop')} className="h-8 rounded-lg border border-slate-700 bg-slate-950 px-2 text-xs text-slate-100">Loop</button>
-            <button onClick={() => setIsPlaying(true)} className="h-8 rounded-lg border border-cyan-400/25 bg-cyan-500/10 px-2 text-xs text-cyan-100">Play</button>
+            <button onClick={() => { setElapsedMs(0); setIsPlaying(true); }} className="h-8 rounded-lg border border-cyan-400/25 bg-cyan-500/10 px-2 text-xs text-cyan-100">Play</button>
             <button onClick={() => setIsPlaying(false)} className="h-8 rounded-lg border border-slate-700 bg-slate-950 px-2 text-xs text-slate-100">Pause</button>
             <button onClick={() => { setElapsedMs(0); setIsPlaying(false); }} className="h-8 rounded-lg border border-amber-400/25 bg-amber-500/10 px-2 text-xs text-amber-100">Restart</button>
             <label className="flex h-8 items-center gap-1 rounded-lg border border-slate-700 bg-slate-950 px-2 text-[11px] text-slate-300">
@@ -1377,6 +1390,20 @@ export const SpriteAnimationLab: React.FC = () => {
             </select>
             <div className="text-[11px] text-slate-400">
               campos: quantidade de frames finais + repeticoes do loop.
+            </div>
+            <div className="rounded-lg border border-slate-800 bg-slate-950/40 p-2">
+              <div className="mb-2 text-[10px] uppercase tracking-[0.14em] text-slate-500">atraso de inicio (frames da track)</div>
+              <input
+                type="number"
+                min={0}
+                value={Math.max(0, selected.startDelayFrames ?? 0)}
+                onChange={(e) => updateTrack(selected.id, (t) => ({
+                  ...t,
+                  startDelayFrames: Math.max(0, Number(e.target.value) || 0),
+                }))}
+                className="w-full rounded-lg border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-slate-100"
+              />
+              <div className="mt-1 text-[10px] text-slate-500">aguarda N frames (ao fps da track) antes de iniciar. padrao: 0</div>
             </div>
             <div className="rounded-lg border border-slate-800 bg-slate-950/40 p-2">
               <div className="mb-2 text-[10px] uppercase tracking-[0.14em] text-slate-500">timeline da track (fps global 60)</div>
