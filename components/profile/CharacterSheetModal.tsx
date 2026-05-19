@@ -759,7 +759,7 @@ export const CharacterSheetModal = ({ player, shopItems: _shopItems, onClose, on
                     style={active ? { borderColor: classAccentColor, backgroundColor: classAccentColor } : undefined}
                   >
                     <span className={`${active ? 'rounded-full px-1.5 py-0.5' : ''}`} style={active ? { backgroundColor: 'rgba(255,255,255,0.16)' } : undefined}>
-                      {React.cloneElement(tab.icon as React.ReactElement, { className: getProfileTabIconClass(active), size: active ? 24 : 22 })}
+                      {React.cloneElement(tab.icon as React.ReactElement<{ className?: string; size?: number }>, { className: getProfileTabIconClass(active), size: active ? 24 : 22 })}
                     </span>
                     {tab.label}
                     {tab.id === 'constellation' && player.talentPoints > 0 && (
@@ -791,7 +791,7 @@ export const CharacterSheetModal = ({ player, shopItems: _shopItems, onClose, on
                     aria-label={tab.label}
                     title={tab.label}
                   >
-                    {React.cloneElement(tab.icon as React.ReactElement, { className: getProfileTabIconClass(active), size: active ? 28 : 24 })}
+                    {React.cloneElement(tab.icon as React.ReactElement<{ className?: string; size?: number }>, { className: getProfileTabIconClass(active), size: active ? 28 : 24 })}
                     {active && <span className="ml-2 text-xs font-black uppercase tracking-[0.1em] text-white">{tab.label}</span>}
                     {tab.id === 'constellation' && player.talentPoints > 0 && (
                       <span

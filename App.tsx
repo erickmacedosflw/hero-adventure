@@ -20,9 +20,9 @@ import {
 } from './constants';
 import { PROGRESSION_CARDS, ALCHEMIST_CARDS } from './game/data/cards';
 import { applyPlayerClass, getPlayerClassById, PLAYER_CLASSES } from './game/data/classes';
-import { gameMusicManager, isNightTime, type MusicTrackId } from './game/audio/music';
-import { battleSfx } from './game/audio/sfx';
+import { isNightTime, type MusicTrackId } from './game/audio/music';
 import { uiSfx } from './game/audio/uiSfx';
+import { disposeAudio, getAudioRecoveryDelays, recoverAllAudio, setAudioEnabled, unlockAllAudio } from './game/audio/audioManager';
 import { createEmptyBuffState, consumeTurnBuffs } from './game/mechanics/combat';
 import { createClassResourceState, getTalentBonuses, getUnlockedResourceMax, resetTalentNodes, syncPlayerConstellationSkills, unlockTalentNode } from './game/mechanics/classProgression';
 import { buyItemForPlayer, sellItemFromPlayer } from './game/mechanics/inventory';
@@ -55,6 +55,9 @@ import { useBattleStatsStore } from './game/stores/battleStatsStore';
 import { useGameTimeStore } from './game/stores/gameTimeStore';
 import { useBattleAnimationStore } from './game/stores/battleAnimationStore';
 import { GLTF_MONSTER_BESTIARY, getGltfMonsterPoolForStage } from './game/data/gltfMonsters';
+import { AUTOSAVE_DEBOUNCE_MS, IMPULSE_UNLOCK_LEVELS, getImpulseCapacityByLevel, getXpToNextByLevel } from './game/data/config';
+import { getItemById, normalizeInventoryItemIds, resolveCanonicalItemReference } from './game/data/registries/itemRegistry';
+import { getSkillById, restoreCatalogSkillIcon } from './game/data/registries/skillRegistry';
 
 const DeveloperConsole = React.lazy(async () => ({
     default: (await import('./components/DeveloperConsole')).DeveloperConsole,
@@ -88,32 +91,6 @@ const ONBOARDING_PHASES: OnboardingPhase[] = [
     'alchemist_prompt',
     'alchemist_unlocked',
 ];
-const IMPULSE_UNLOCK_LEVELS = [4, 8, 12] as const;
-const getImpulseCapacityByLevel = (level: number) => (
-    level >= 12 ? 3 : level >= 8 ? 2 : level >= 4 ? 1 : 0
-);
-const XP_TO_NEXT_BASE = 150;
-const XP_TO_NEXT_GROWTH = 1.5;
-const getXpToNextByLevel = (level: number) => {
-    const safeLevel = Math.max(1, Math.floor(level));
-    let xpToNext = XP_TO_NEXT_BASE;
-
-    for (let currentLevel = 1; currentLevel < safeLevel; currentLevel += 1) {
-        xpToNext = Math.floor(xpToNext * XP_TO_NEXT_GROWTH);
-    }
-
-    return xpToNext;
-};
-const AUTOSAVE_DEBOUNCE_MS = 2500;
-const LEGACY_WEAPON_ID_MAP: Record<string, string> = {
-    wep_b1: 'wep_3d_dagger_a',
-    wep_b2: 'wep_3d_axe_a',
-    wep_s1: 'wep_3d_sword_b',
-    wep_s2: 'wep_3d_spear_a',
-    wep_g1: 'wep_3d_sword_d',
-    wep_g2: 'wep_3d_sword_e',
-};
-const ALL_ITEMS_BY_ID = new Map(ALL_ITEMS.map((item) => [item.id, item]));
 const BATTLE_SETTINGS_STORAGE_KEY = 'hero_adventure_battle_settings_v1';
 const BATTLE_SETTINGS_GRAPHICS_REVISION = 5;
 const MENU_BACKGROUND_IMAGE_URL = new URL('./game/assets/Imagens/Menu_Screen.png', import.meta.url).href;
@@ -205,32 +182,6 @@ const hasWeaponProficiencyBonuses = (bonuses: WeaponProficiencyAppliedBonuses) =
     Object.values(bonuses).some((value) => typeof value === 'number' && Number.isFinite(value) && value > 0)
 );
 
-const remapLegacyItemId = (itemId: string) => LEGACY_WEAPON_ID_MAP[itemId] ?? itemId;
-
-const resolveCanonicalItemReference = (item: Item | null | undefined): Item | null => {
-    if (!item) {
-        return null;
-    }
-
-    const mappedId = remapLegacyItemId(item.id);
-    return ALL_ITEMS_BY_ID.get(mappedId) ?? item;
-};
-
-const normalizeInventoryItemIds = (inventory: Record<string, number>): Record<string, number> => {
-    const normalized: Record<string, number> = {};
-
-    Object.entries(inventory).forEach(([itemId, quantity]) => {
-        if (!Number.isFinite(quantity) || quantity <= 0) {
-            return;
-        }
-
-        const mappedId = remapLegacyItemId(itemId);
-        normalized[mappedId] = (normalized[mappedId] ?? 0) + Math.floor(quantity);
-    });
-
-    return normalized;
-};
-
 const normalizeSavedPlayerForCurrentBuild = (source: Player): Player => {
     const playerClass = getPlayerClassById(source.classId);
     const shouldBackfillMagic = !Number.isFinite(source.stats.magic);
@@ -289,11 +240,7 @@ const normalizeSavedPlayerForCurrentBuild = (source: Player): Player => {
         xpToNext: normalizedXpToNext,
         impulso: Math.max(0, Math.min(maxImpulse, source.impulso ?? 0)),
         impulsoAtivo: Math.max(0, Math.min(maxImpulse, source.impulsoAtivo ?? 0)),
-        skills: (source.skills ?? []).map(savedSkill => {
-            const catalog = SKILLS.find(s => s.id === savedSkill.id);
-            if (catalog?.icon && !savedSkill.icon) return { ...savedSkill, icon: catalog.icon };
-            return savedSkill;
-        }),
+        skills: (source.skills ?? []).map(restoreCatalogSkillIcon),
         equippedSkillIds: (() => {
             const ids = Array.isArray((source as any).equippedSkillIds) ? (source as any).equippedSkillIds : [];
             const maxSkills = getClassSlots(source.classId).skills;
@@ -2117,7 +2064,7 @@ export default function App() {
     const unlockSkillOnPlayer = (currentPlayer: Player, skillId?: string) => {
         if (!skillId) return currentPlayer;
 
-        const skill = SKILLS.find(entry => entry.id === skillId);
+        const skill = getSkillById(skillId);
         if (!skill || currentPlayer.skills.some(entry => entry.id === skillId)) {
             return currentPlayer;
         }
@@ -3586,7 +3533,7 @@ export default function App() {
     };
 
     const isDropUnlockedForDungeonEvolution = (itemId: string, evolution: number) => {
-        const item = ALL_ITEMS.find((entry) => entry.id === itemId);
+        const item = getItemById(itemId);
         if (!item || item.type !== 'material') {
             return true;
         }
@@ -3982,12 +3929,12 @@ export default function App() {
         // Usa o primeiro skill equipado, se disponível
         const skillId = equippedSkillsRef.current?.[0];
         if (!skillId) return;
-        const skill = SKILLS.find(s => s.id === skillId);
+        const skill = getSkillById(skillId);
         if (skill) handleSkillWithTargetCheckRef.current(skill);
       } else if (action === 'SKILL_2') {
         const skillId = equippedSkillsRef.current?.[1];
         if (!skillId) return;
-        const skill = SKILLS.find(s => s.id === skillId);
+        const skill = getSkillById(skillId);
         if (skill) handleSkillWithTargetCheckRef.current(skill);
       }
     });
@@ -4190,15 +4137,14 @@ export default function App() {
         else if (item.type === 'legs') next = { ...next, equippedLegs: item };
         else if (item.type === 'shield') next = { ...next, equippedShield: item };
         // Recalculate stats
-        const bonuses = applyEquipmentBonusesToStats(
-          next.stats,
-          next.equippedWeapon ?? null,
-          next.equippedArmor ?? null,
-          next.equippedHelmet ?? null,
-          next.equippedLegs ?? null,
-          next.equippedShield ?? null,
-        );
-        next.stats = { ...next.stats, ...bonuses };
+                let newStats = next.stats;
+                if (item.type === 'weapon') newStats = applyEquipmentBonusesToStats(newStats, withItem.equippedWeapon, -1);
+                else if (item.type === 'armor') newStats = applyEquipmentBonusesToStats(newStats, withItem.equippedArmor, -1);
+                else if (item.type === 'helmet') newStats = applyEquipmentBonusesToStats(newStats, withItem.equippedHelmet, -1);
+                else if (item.type === 'legs') newStats = applyEquipmentBonusesToStats(newStats, withItem.equippedLegs, -1);
+                else if (item.type === 'shield') newStats = applyEquipmentBonusesToStats(newStats, withItem.equippedShield, -1);
+                newStats = applyEquipmentBonusesToStats(newStats, item, 1);
+                next.stats = newStats;
         next.stats.hp = Math.min(next.stats.hp, next.stats.maxHp);
         next.stats.mp = Math.min(next.stats.mp, next.stats.maxMp);
         return next;
@@ -4723,16 +4669,11 @@ export default function App() {
     }, [battleSettings]);
 
     useEffect(() => {
-        gameMusicManager.setEnabled(battleSettings.musicEnabled);
-        if (!battleSettings.musicEnabled) {
-            gameMusicManager.stopAll(220);
-        }
-    }, [battleSettings.musicEnabled]);
-
-    useEffect(() => {
-        battleSfx.setEnabled(battleSettings.sfxEnabled);
-        uiSfx.setEnabled(battleSettings.sfxEnabled);
-    }, [battleSettings.sfxEnabled]);
+        setAudioEnabled({
+            musicEnabled: battleSettings.musicEnabled,
+            sfxEnabled: battleSettings.sfxEnabled,
+        });
+    }, [battleSettings.musicEnabled, battleSettings.sfxEnabled]);
 
     const targetMusicTrack = useMemo<MusicTrackId | null>(() => {
         if (pathname.startsWith('/developer')) {
@@ -4771,21 +4712,16 @@ export default function App() {
 
             const tryUnlock = async () => {
                 try {
-                    const unlockResults = await Promise.allSettled([gameMusicManager.unlock(), battleSfx.unlock(), uiSfx.unlock()]);
-                    const isContextReady = unlockResults.some((result) => result.status === 'fulfilled' && result.value);
-                    battleSfx.preload();
-                    uiSfx.preload();
+                    const isContextReady = await unlockAllAudio({
+                        targetMusicTrack,
+                        musicEnabled: battleSettings.musicEnabled,
+                    });
 
                     // Keep recovery hooks active after first gesture even if resume fails on this exact event.
                     setHasUnlockedMusic(true);
 
                     if (!isContextReady) {
                         console.warn('[Audio] Contexto ainda bloqueado; aguardando nova interacao do usuario.');
-                    }
-
-                    if (targetMusicTrack && battleSettings.musicEnabled) {
-                        // iOS exige uma tentativa de play imediatamente apos o gesto para liberar BGM no PWA.
-                        gameMusicManager.transitionTo(targetMusicTrack, 0);
                     }
                 } catch (error) {
                     setHasUnlockedMusic(true);
@@ -4824,11 +4760,20 @@ export default function App() {
         }
 
         if (!battleSettings.musicEnabled || !targetMusicTrack) {
-            gameMusicManager.stopAll();
+            recoverAllAudio({
+                shouldAttemptUnlock: false,
+                targetMusicTrack: null,
+                musicEnabled: false,
+            });
             return;
         }
 
-        gameMusicManager.transitionTo(targetMusicTrack);
+        recoverAllAudio({
+            shouldAttemptUnlock: false,
+            targetMusicTrack,
+            musicEnabled: battleSettings.musicEnabled,
+            fadeMs: 1400,
+        });
     }, [battleSettings.musicEnabled, hasUnlockedMusic, targetMusicTrack]);
 
     useEffect(() => {
@@ -4836,9 +4781,7 @@ export default function App() {
             return;
         }
 
-        const isLikelyIos = /iPad|iPhone|iPod/i.test(navigator.userAgent)
-            || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-        const recoveryDelays = isLikelyIos ? [0, 180, 620] : [0];
+        const recoveryDelays = getAudioRecoveryDelays();
         const pendingRecoveryTimers = new Set<number>();
         const isGestureEvent = (event?: Event) => ['pointerdown', 'touchstart', 'mousedown', 'click', 'keydown'].includes(event?.type ?? '');
 
@@ -4851,20 +4794,14 @@ export default function App() {
 
             const ensureRecovered = async () => {
                 if (shouldAttemptUnlock) {
-                    const unlockResults = await Promise.allSettled([gameMusicManager.unlock(), battleSfx.unlock(), uiSfx.unlock()]);
-                    const isContextReady = unlockResults.some((result) => result.status === 'fulfilled' && result.value);
-
-                    if (!isContextReady) {
-                        return;
-                    }
                 }
 
-                if (!battleSettings.musicEnabled || !targetMusicTrack) {
-                    gameMusicManager.stopAll();
-                    return;
-                }
-
-                gameMusicManager.transitionTo(targetMusicTrack, 420);
+                await recoverAllAudio({
+                    shouldAttemptUnlock,
+                    targetMusicTrack,
+                    musicEnabled: battleSettings.musicEnabled,
+                    fadeMs: 420,
+                });
             };
 
             recoveryDelays.forEach((delayMs) => {
@@ -4903,9 +4840,7 @@ export default function App() {
     }, [battleSettings.musicEnabled, hasUnlockedMusic, targetMusicTrack]);
 
     useEffect(() => () => {
-        gameMusicManager.dispose();
-        battleSfx.dispose();
-        uiSfx.dispose();
+        disposeAudio();
     }, []);
 
     useEffect(() => {
@@ -5990,7 +5925,6 @@ export default function App() {
                         missionsUnlockPromptActive={onboardingPhase === 'missions_prompt'}
                         onAcknowledgeMissionsUnlock={() => setOnboardingPhase('missions_unlocked')}
                         autoOpenMissionsToken={openMissionsFromToastToken}
-                        enemyDeathToken={enemyDeathToken}
                         musicEnabled={battleSettings.musicEnabled}
                         sfxEnabled={battleSettings.sfxEnabled}
                         renderQualityPreset={battleSettings.renderQualityPreset}

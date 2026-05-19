@@ -1,7 +1,8 @@
 ﻿import { useCallback, useEffect, useRef } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import { useBattleVfxStore } from '../stores/battleVfxStore';
-import { ALL_ITEMS, SKILLS } from '../../constants';
+import { getItemById } from '../data/registries/itemRegistry';
+import { mergeCatalogSkill } from '../data/registries/skillRegistry';
 import { COMBAT_SPRITE_ANIMATION_DEFAULTS, getSpriteAnimationRegistryEntry, SPRITE_ANIMATION_IDS } from '../data/sprite-animations/registry';
 import { getPlayerClassById } from '../data/classes';
 import { estimateAnimationPlaybackDurationMs } from '../mechanics/spriteOverlayPlayback';
@@ -926,8 +927,7 @@ export const useBattleController = ({
   ]);
 
   const handleSkill = useCallback((inputSkill: Skill) => {
-    const catalogSkill = SKILLS.find((entry) => entry.id === inputSkill.id);
-    const skill: Skill = catalogSkill ? { ...inputSkill, ...catalogSkill } : inputSkill;
+    const skill: Skill = mergeCatalogSkill(inputSkill);
     const requiredResource = skill.resourceEffect?.cost ?? 0;
     const previewImpulse = clampImpulse(player.impulsoAtivo);
     const cardCostReduction = player.cardBonuses.skillCostReduction ?? 0;
@@ -1304,7 +1304,7 @@ export const useBattleController = ({
     if (turnState !== TurnState.PLAYER_INPUT) return;
     lastPlayerActionRef.current = 'item';
 
-    const item = ALL_ITEMS.find((entry) => entry.id === itemId);
+    const item = getItemById(itemId);
     const invQty = player.inventory[itemId] || 0;
     const slotHasItem = (player.equippedItemSlots ?? []).some(s => s.itemId === itemId && s.qty > 0);
     if (!item || (invQty <= 0 && !slotHasItem)) return;
@@ -1861,7 +1861,7 @@ export const useBattleController = ({
 
         if (stealableInventoryIds.length > 0) {
           const targetItemId = stealableInventoryIds[Math.floor(Math.random() * stealableInventoryIds.length)];
-          const stolenItem = ALL_ITEMS.find((entry) => entry.id === targetItemId);
+          const stolenItem = getItemById(targetItemId);
           setPlayer((prev) => {
             const qty = prev.inventory[targetItemId] || 0;
             if (qty <= 0) return prev;

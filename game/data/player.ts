@@ -65,6 +65,7 @@ export const INITIAL_PLAYER: Player = {
     counterChanceBoostTurns: 0,
     perfectGuardTurns: 0,
     impulseDefenseBoostTurns: 0,
+    impulseDefenseLevel: 0,
     guaranteedCounterTurns: 0,
     skillEmpowerTurns: 0,
   },

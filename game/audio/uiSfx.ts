@@ -1,7 +1,11 @@
 import { Howl } from 'howler';
-import { recoverHowlerAudioContext } from './recovery';
+import { createAudioPlaybackLimiter } from './playbackLimiter';
+import { isHowlerAudioContextReady, recoverHowlerAudioContext } from './recovery';
+
+const uiSfxBurstLimiter = createAudioPlaybackLimiter({ maxPlays: 6, windowMs: 140, minIntervalMs: 12 });
 
 const uiSfxConfig = {
+  menu_nav: { src: new URL('./effects/click_in.mp3', import.meta.url).href, volume: 0.42, cooldownMs: 45 },
   click_in: { src: new URL('./effects/click_in.mp3', import.meta.url).href, volume: 0.5, cooldownMs: 35 },
   click_out: { src: new URL('./effects/click_out.mp3', import.meta.url).href, volume: 0.5, cooldownMs: 50 },
   new_mechanic_modal: { src: new URL('./effects/modal_nova_mecanica.wav', import.meta.url).href, volume: 0.64, cooldownMs: 220 },
@@ -86,6 +90,10 @@ class UiSfxManager {
       return;
     }
 
+    if (!isHowlerAudioContextReady() || !uiSfxBurstLimiter.canPlay()) {
+      return;
+    }
+
     const now = Date.now();
     const cooldownMs = uiSfxConfig[event].cooldownMs;
     const lastPlayedAt = this.lastPlayAt.get(event) ?? 0;
@@ -105,6 +113,7 @@ class UiSfxManager {
     this.sounds.forEach((sound) => sound.unload());
     this.sounds.clear();
     this.lastPlayAt.clear();
+    uiSfxBurstLimiter.reset();
     this.hasPreloaded = false;
   }
 }

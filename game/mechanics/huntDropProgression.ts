@@ -2,7 +2,9 @@ import { Enemy } from '../../types';
 
 const pickRandom = <T,>(entries: T[]): T => entries[Math.floor(Math.random() * entries.length)];
 
-export const getUnlockedDropRaritiesByStage = (stage: number) => {
+type DropRarity = 'bronze' | 'silver' | 'gold';
+
+export const getUnlockedDropRaritiesByStage = (stage: number): readonly DropRarity[] => {
   if (stage >= 10) {
     return ['bronze', 'silver', 'gold'] as const;
   }

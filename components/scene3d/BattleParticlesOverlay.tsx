@@ -111,6 +111,7 @@ interface ParticleSceneProps {
 
 const ParticleScene: React.FC<ParticleSceneProps> = ({ particlesRef }) => {
     const gfxRef = useRef<Graphics | null>(null);
+    const noopDraw = useRef(() => undefined).current;
 
     useTick((ticker: Ticker) => {
         const dt = ticker.deltaMS / 1000; // seconds
@@ -140,7 +141,7 @@ const ParticleScene: React.FC<ParticleSceneProps> = ({ particlesRef }) => {
         }
     });
 
-    return <pixiGraphics ref={gfxRef} />;
+    return <pixiGraphics ref={gfxRef} draw={noopDraw} />;
 };
 
 // ── Public component ───────────────────────────────────────────────────────
@@ -155,7 +156,6 @@ export const BattleParticlesOverlay: React.FC<BattleParticlesOverlayProps> = ({
     const prevTextsLenRef = useRef(0);
     const prevDeathTokenRef = useRef(enemyDeathToken);
     // Stable memoized props — prevent new object references causing @pixi/react prop diffs
-    const appStyle = useRef({ width: '100%', height: '100%' }).current;
     const appWidth = useRef(window.innerWidth).current;
     const appHeight = useRef(window.innerHeight).current;
 
@@ -208,7 +208,6 @@ export const BattleParticlesOverlay: React.FC<BattleParticlesOverlayProps> = ({
                 height={appHeight}
                 backgroundAlpha={0}
                 antialias={false}
-                style={appStyle}
             >
                 <pixiContainer>
                     <ParticleScene particlesRef={particlesRef} />

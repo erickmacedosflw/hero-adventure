@@ -1,4 +1,4 @@
-import type { PlayerAnimationAction } from '../../types';
+import type { PlayerAnimationAction, PlayerClassId } from '../../types';
 
 export interface RenderQualityProfile {
   isLowQuality: boolean;
@@ -117,6 +117,24 @@ export interface DeveloperScenarioComposerHeroSlot {
   classId: PlayerClassId;
   position: [number, number, number];
   rotationY: number;
+}
+
+// ─── Effect Lab ───────────────────────────────────────────────────────────────
+
+export type { EffectCategory, EffectLabParams, EffectPreset } from './effectPresets';
+
+export interface DeveloperEffectLabSceneProps {
+  /** Preset id to preview */
+  presetId: string;
+  /** Live param overrides */
+  params: import('./effectPresets').EffectLabParams;
+  isPlaying: boolean;
+  loop: boolean;
+  /** Optional .efk URL for Effekseer playback */
+  efkUrl: string;
+  spawnOffset: [number, number, number];
+  onSpawnOffsetChange?: (offset: [number, number, number]) => void;
+  onEfkError?: (err: string) => void;
 }
 
 export interface DeveloperScenarioComposerConfig {

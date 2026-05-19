@@ -1,9 +1,21 @@
 import { Howl } from 'howler';
-import { recoverHowlerAudioContext } from './recovery';
+import { createAudioPlaybackLimiter } from './playbackLimiter';
+import { isHowlerAudioContextReady, recoverHowlerAudioContext } from './recovery';
 
 const SFX_COOLDOWN_MS = 65;
+const sfxBurstLimiter = createAudioPlaybackLimiter({ maxPlays: 8, windowMs: 120, minIntervalMs: 10 });
 
-const sfxConfig = {
+type BattleSfxConfig = {
+  file: string;
+  volume: number;
+  cooldownMs?: number;
+  randomRateRange?: readonly [number, number];
+  seekSeconds?: number;
+};
+
+const defineSfxConfig = <T extends string>(config: Record<T, BattleSfxConfig>) => config;
+
+const sfxConfig = defineSfxConfig({
   attack_weapon_impact: { file: 'dmg_arma.wav', volume: 0.62, cooldownMs: 35, randomRateRange: [0.88, 1.16] as const },
   attack_unarmed_or_magic_impact: { file: 'dmg_soco.wav', volume: 0.62, cooldownMs: 35, randomRateRange: [0.86, 1.16] as const },
   attack_weapon_swing: { file: 'atk_arma.wav', volume: 0.56, cooldownMs: 30, randomRateRange: [0.9, 1.2] as const },
@@ -16,7 +28,7 @@ const sfxConfig = {
   heal: { file: 'effect_cure.wav', volume: 0.6, cooldownMs: 40 },
   death: { file: 'btl_dead1.wav', volume: 0.68, cooldownMs: 120 },
   enemy_steal_success: { file: 'roubo_efetuado.wav', volume: 0.66, cooldownMs: 70 },
-} as const;
+});
 
 export type BattleSfxEvent = keyof typeof sfxConfig;
 
@@ -114,6 +126,10 @@ class BattleSfxManager {
       return;
     }
 
+    if (!isHowlerAudioContextReady() || !sfxBurstLimiter.canPlay()) {
+      return;
+    }
+
     const now = Date.now();
     const config = sfxConfig[event];
     const cooldownMs = config.cooldownMs ?? SFX_COOLDOWN_MS;
@@ -140,6 +156,7 @@ class BattleSfxManager {
     this.sounds.forEach((sound) => sound.unload());
     this.sounds.clear();
     this.lastPlayAt.clear();
+    sfxBurstLimiter.reset();
     this.hasPreloaded = false;
   }
 }

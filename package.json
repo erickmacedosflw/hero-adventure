@@ -10,6 +10,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "lint": "tsc --noEmit",
+    "test": "vitest",
+    "test:run": "vitest run",
     "assets:copy-draco": "node scripts/copy-draco-decoders.mjs",
     "assets:copy-basis": "node scripts/copy-basis-decoders.mjs",
     "assets:compress-textures": "node scripts/compress-textures.mjs",
@@ -58,6 +60,7 @@
     "typescript": "~5.8.2",
     "vite": "^6.2.0",
     "vite-plugin-pwa": "^1.2.0",
+    "vitest": "^4.1.6",
     "wait-on": "^9.0.5"
   },
   "build": {

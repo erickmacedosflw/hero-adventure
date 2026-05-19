@@ -1,10 +1,12 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, Boxes, Bug, Layers3, Swords, Users, WandSparkles } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { ArrowLeft, Boxes, Bug, Layers3, Sparkles, Swords, Users, WandSparkles } from 'lucide-react';
 import { ALL_ITEMS, DUNGEON_BOSS, DUNGEON_ENEMY_DATA, ENEMY_DATA } from '../constants';
 import { getRegisteredWeapon3DByItemId, REGISTERED_WEAPON_ITEMS } from '../game/data/weaponCatalog';
 import { getPlayerClassById, PLAYER_CLASSES } from '../game/data/classes';
 import { DungeonBossTemplate, DungeonEnemyTemplate, EnemyTemplate, PlayerAnimationAction, PlayerClassId, Rarity } from '../types';
-import { DeveloperBipedCharacterScene, DeveloperClassBuilderScene, DeveloperGltfMonsterScene, DeveloperKitbashScene, DeveloperMonsterScene, DeveloperRigRetargetScene, DeveloperScenarioComposerScene, DeveloperWeaponCalibrationScene } from './scene3d/DeveloperSceneAdapters';
+import { DeveloperBipedCharacterScene, DeveloperClassBuilderScene, DeveloperEffectLabScene, DeveloperGltfMonsterScene, DeveloperKitbashScene, DeveloperMonsterScene, DeveloperRigRetargetScene, DeveloperScenarioComposerScene, DeveloperWeaponCalibrationScene } from './scene3d/DeveloperSceneAdapters';
+import { EFFECT_CATEGORY_ICONS, EFFECT_CATEGORY_LABELS, EFFECT_PRESETS_BY_CATEGORY, type EffectCategory } from './scene3d/effectPresets';
+import { useEffectLabStore } from '../game/stores/effectLabStore';
 import type { RetargetReport } from './scene3d/developer-scenes';
 import { SpriteAnimationLab } from './SpriteAnimationLab';
 import type {
@@ -26,7 +28,7 @@ import type {
 import { ItemPreviewThree } from './items/ItemPreviewThree';
 import { getRuntimeMenuPortalPreset, MENU_NAVIGATION_PORTAL_MODEL_URL, type RuntimeMenuPortalTransform } from '../game/data/runtimeMenuPortal';
 
-type DeveloperTab = 'overview' | 'animation-lab' | 'monster-lab' | 'item-lab' | 'kitbash-lab' | 'sprite-lab' | 'scenario-lab' | 'gltf-monster-viewer' | 'biped-character-viewer' | 'rig-retarget-lab';
+type DeveloperTab = 'overview' | 'animation-lab' | 'monster-lab' | 'item-lab' | 'kitbash-lab' | 'sprite-lab' | 'scenario-lab' | 'gltf-monster-viewer' | 'biped-character-viewer' | 'rig-retarget-lab' | 'effect-lab';
 type WeaponCalibrationViewMode = 'sandbox' | 'attached';
 
 const animationActions: PlayerAnimationAction[] = ['idle', 'battle-idle', 'attack', 'defend', 'defend-hit', 'hit', 'critical-hit', 'item', 'heal', 'skill', 'evade', 'death'];
@@ -774,6 +776,119 @@ export const DeveloperConsole: React.FC = () => {
   // Tracks which source|target combo was already auto-mapped so we don't repeat on every report update
   const [rigAutoMappedKey, setRigAutoMappedKey] = useState('');
 
+  // ─── Effect Lab ───────────────────────────────────────────────────────────────
+  const {
+    selectedCategory: effectCategory,
+    selectedPresetId: effectPresetId,
+    params: effectParams,
+    isPlaying: effectIsPlaying,
+    loop: effectLoop,
+    efkUrl: effectEfkUrl,
+    efkLoadError: effectEfkError,
+    spawnOffset: effectSpawnOffset,
+    setCategory: setEffectCategory,
+    setPreset: setEffectPreset,
+    updateParam: updateEffectParam,
+    setIsPlaying: setEffectIsPlaying,
+    setLoop: setEffectLoop,
+    setEfkUrl: setEffectEfkUrl,
+    setEfkLoadError: setEffectEfkError,
+    setSpawnOffset: setEffectSpawnOffset,
+    triggerPlay: playEffect,
+    triggerStop: stopEffect,
+    getActivePreset: getActiveEffectPreset,
+  } = useEffectLabStore();
+  const [effectExportCode, setEffectExportCode] = useState<string | null>(null);
+  const efkFileInputRef = useRef<HTMLInputElement>(null);
+  const efkBlobUrlRef = useRef<string | null>(null);
+
+  const handleEfkFileOpen = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    // Revoke previous blob to avoid memory leaks
+    if (efkBlobUrlRef.current) { URL.revokeObjectURL(efkBlobUrlRef.current); efkBlobUrlRef.current = null; }
+
+    // In Electron, File.path gives the real filesystem path.
+    // If the file lives inside game/VFX/, map to /game-vfx/ served by Vite
+    // so Effekseer can resolve sibling textures (Materials/, Texture/, etc.).
+    const electronPath: string | undefined = (file as any).path;
+    let url: string;
+    if (electronPath) {
+      const normalised = electronPath.replace(/\\/g, '/');
+      const marker = 'game/VFX/';
+      const idx = normalised.toLowerCase().indexOf(marker.toLowerCase());
+      if (idx !== -1) {
+        const rel = normalised.slice(idx + marker.length);
+        url = `/game-vfx/${rel}`;
+      } else {
+        // Outside game/VFX — use file:// so Effekseer can still resolve siblings
+        url = 'file:///' + normalised;
+      }
+    } else {
+      // Browser fallback: blob URL (textures may not load if referenced relatively)
+      const blobUrl = URL.createObjectURL(file);
+      efkBlobUrlRef.current = blobUrl;
+      url = blobUrl;
+    }
+
+    setEffectEfkUrl(url);
+    setEffectEfkError(null);
+    e.target.value = '';
+  };
+
+  const handleEfkClear = () => {
+    if (efkBlobUrlRef.current) { URL.revokeObjectURL(efkBlobUrlRef.current); efkBlobUrlRef.current = null; }
+    setEffectEfkUrl('');
+    setEffectEfkError(null);
+  };
+
+  const generateEffectExportCode = () => {
+    const preset = getActiveEffectPreset();
+    const p = effectParams;
+    const code = `// Effect: ${preset.label} (${preset.category}) — gerado pelo Effect Lab
+// Preset ID: ${preset.id}
+
+// ── Spawn com battleVfxStore ──────────────────────────────────────────────
+// import { useBattleVfxStore } from '@/game/stores/battleVfxStore';
+// const { spawnParticles, spawnFloatingText } = useBattleVfxStore.getState();
+
+const EFFECT_${preset.id.toUpperCase().replace(/-/g, '_')}_CONFIG = {
+  presetId: '${preset.id}',
+  category: '${preset.category}' as const,
+  spawnOffset: [${preset.spawnOffset.join(', ')}] as [number, number, number],
+  emitterMode: '${preset.emitterMode}' as const,
+  params: {
+    color: '#${p.color}',
+    colorSecondary: '#${p.colorSecondary}',
+    scale: ${p.scale},
+    speed: ${p.speed},
+    count: ${p.count},
+    duration: ${p.duration},
+    intensity: ${p.intensity},
+  },
+} satisfies import('../components/scene3d/effectPresets').EffectPreset['params'] extends infer P ? {
+  presetId: string; category: string; spawnOffset: [number, number, number];
+  emitterMode: string; params: P;
+} : never;
+
+// ── Trigger no combate ────────────────────────────────────────────────────
+// const position: [number, number, number] = enemyAnchor;
+// spawnParticles(position, ${p.count}, '#${p.color}', 'explode');
+
+// ── EffectLabRenderer (Developer Preview) ────────────────────────────────
+// import { DeveloperEffectLabScene } from './components/scene3d/DeveloperSceneAdapters';
+// <DeveloperEffectLabScene
+//   presetId="${preset.id}"
+//   params={EFFECT_${preset.id.toUpperCase().replace(/-/g, '_')}_CONFIG.params}
+//   isPlaying={isPlaying}
+//   loop={false}
+//   efkUrl=""
+//   spawnOffset={${JSON.stringify(effectSpawnOffset)}}
+// />
+`;
+    setEffectExportCode(code);
+  };
+
   // Auto-apply fuzzy bone map when the compatibility report first arrives for a new combo
   useEffect(() => {
     if (!rigReport || !rigReport.allSourceBones.length || !rigReport.allTargetBones.length) return;
@@ -1120,6 +1235,20 @@ export const DeveloperConsole: React.FC = () => {
     }));
   };
 
+  const setMenuPortalTransform = (updater: React.SetStateAction<RuntimeMenuPortalTransform>) => {
+    updateActiveScenarioConfig((current) => {
+      const previous = current.menuPortalTransform ?? createDefaultMenuPortalTransform();
+      const next = typeof updater === 'function'
+        ? (updater as (value: RuntimeMenuPortalTransform) => RuntimeMenuPortalTransform)(previous)
+        : updater;
+
+      return {
+        ...current,
+        menuPortalTransform: next,
+      };
+    });
+  };
+
   const handleSceneScenarioTransformChange = (transform: {
     position: [number, number, number];
     rotation: [number, number, number];
@@ -1359,6 +1488,7 @@ export const DeveloperConsole: React.FC = () => {
     { id: 'overview', label: 'Hub', icon: <Bug size={16} /> },
     { id: 'animation-lab', label: 'Animacao', icon: <WandSparkles size={16} /> },
     { id: 'scenario-lab', label: 'Cenarios', icon: <Layers3 size={16} /> },
+    { id: 'effect-lab', label: 'Effect Lab', icon: <Sparkles size={16} /> },
     { id: 'sprite-lab', label: 'Sprite Lab', icon: <WandSparkles size={16} /> },
     { id: 'monster-lab', label: 'Monstros 3D', icon: <Swords size={16} /> },
     { id: 'gltf-monster-viewer', label: 'Novos Monstros', icon: <Swords size={16} /> },
@@ -1444,6 +1574,12 @@ export const DeveloperConsole: React.FC = () => {
               <div className="game-icon-badge h-12 w-12 text-cyan-300"><Layers3 size={22} /></div>
               <h2 className="mt-4 font-gamer text-2xl font-black text-white">Scenario Lab</h2>
               <p className="mt-3 text-sm text-slate-400">Monte os cenarios GLB de batalha com camera simulada, ajuste de luz/atmosfera e posicao base de heroi e inimigo.</p>
+            </button>
+
+            <button onClick={() => setTab('effect-lab')} className="game-surface rounded-[1.75rem] border border-violet-400/15 p-6 text-left transition-transform hover:-translate-y-1">
+              <div className="game-icon-badge h-12 w-12 text-violet-300"><Sparkles size={22} /></div>
+              <h2 className="mt-4 font-gamer text-2xl font-black text-white">Effect Lab</h2>
+              <p className="mt-3 text-sm text-slate-400">Crie e visualize efeitos RPG: magia, fogo, vento, corte, flechas, explosoes, aura, impacto, buff/debuff e ambiente. Suporte a Effekseer .efk.</p>
             </button>
 
             <div className="game-surface rounded-[1.75rem] border border-amber-400/15 p-6">
@@ -2955,7 +3091,7 @@ export const DeveloperConsole: React.FC = () => {
                   animationUrl={'animationUrl' in selectedBipedCharacter ? selectedBipedCharacter.animationUrl : BIPED_ANIMATION_URL}
                   animationIsFbx={'animationIsFbx' in selectedBipedCharacter ? selectedBipedCharacter.animationIsFbx : false}
                   secondaryAnimationUrl={'secondaryAnimationUrl' in selectedBipedCharacter ? selectedBipedCharacter.secondaryAnimationUrl : undefined}
-                  textureSourceUrl={'textureSourceUrl' in selectedBipedCharacter ? selectedBipedCharacter.textureSourceUrl : undefined}
+                  textureSourceUrl={'textureSourceUrl' in selectedBipedCharacter && typeof selectedBipedCharacter.textureSourceUrl === 'string' ? selectedBipedCharacter.textureSourceUrl : undefined}
                   clipName={bipedClipName}
                   onAnimationsLoaded={(names) => {
                     setBipedAvailableAnimations(names);
@@ -3355,6 +3491,297 @@ export const DeveloperConsole: React.FC = () => {
                   Selecione fonte e alvo para iniciar o retarget
                 </div>
               )}
+            </div>
+          </section>
+        )}
+
+        {/* ─── Effect Lab ──────────────────────────────────────────────────────── */}
+        {tab === 'effect-lab' && (
+          <section className="mt-6 grid gap-6 xl:grid-cols-[260px_minmax(0,1fr)_300px] xl:items-start">
+
+            {/* ── Left: Category + Preset + .efk ─────────────────────────────── */}
+            <div className="game-surface rounded-[1.75rem] border border-slate-700 p-5 space-y-5 xl:sticky xl:top-6">
+              <div>
+                <h2 className="font-gamer text-xl font-black text-white">Effect Lab</h2>
+                <p className="mt-1 text-xs text-slate-500">Efeitos visuais RPG com Three.js + Effekseer</p>
+              </div>
+
+              {/* Category grid */}
+              <div>
+                <div className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-500 mb-2">Categoria</div>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {(Object.keys(EFFECT_CATEGORY_LABELS) as EffectCategory[]).map((cat) => (
+                    <button
+                      key={cat}
+                      onClick={() => setEffectCategory(cat)}
+                      className={`rounded-xl border px-2 py-2 text-[10px] font-black uppercase tracking-[0.12em] transition-colors text-left flex items-center gap-1.5 ${effectCategory === cat ? 'border-violet-400/40 bg-violet-500/15 text-violet-100' : 'border-slate-700 bg-slate-950/70 text-slate-400 hover:border-slate-600 hover:text-slate-200'}`}
+                    >
+                      <span className="text-base leading-none">{EFFECT_CATEGORY_ICONS[cat]}</span>
+                      <span>{EFFECT_CATEGORY_LABELS[cat]}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Preset list */}
+              <div>
+                <div className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-500 mb-2">Presets</div>
+                <div className="space-y-1.5">
+                  {EFFECT_PRESETS_BY_CATEGORY[effectCategory].map((preset) => (
+                    <button
+                      key={preset.id}
+                      onClick={() => setEffectPreset(preset.id)}
+                      className={`w-full rounded-xl border px-3 py-2.5 text-left transition-colors ${effectPresetId === preset.id ? 'border-violet-400/40 bg-violet-500/15' : 'border-slate-700 bg-slate-950/70 hover:border-slate-600'}`}
+                    >
+                      <div className={`text-xs font-black uppercase tracking-[0.12em] ${effectPresetId === preset.id ? 'text-violet-100' : 'text-slate-300'}`}>{preset.label}</div>
+                      <div className="mt-0.5 text-[10px] text-slate-500 leading-snug">{preset.description}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* .efk Loader */}
+              <div>
+                <div className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-500 mb-2">Effekseer .efk (opcional)</div>
+
+                {/* Hidden file input */}
+                <input
+                  ref={efkFileInputRef}
+                  type="file"
+                  accept=".efk,.efkefc"
+                  className="hidden"
+                  onChange={handleEfkFileOpen}
+                />
+
+                {/* Browse / Clear row */}
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => efkFileInputRef.current?.click()}
+                    className="flex-1 flex items-center justify-center gap-2 rounded-xl border border-violet-400/30 bg-violet-500/10 px-3 py-2 text-xs font-black uppercase tracking-[0.14em] text-violet-200 transition-colors hover:bg-violet-500/20"
+                  >
+                    📂 Abrir .efk / .efkefc
+                  </button>
+                  {effectEfkUrl && (
+                    <button
+                      onClick={handleEfkClear}
+                      className="rounded-xl border border-slate-700 bg-slate-950/70 px-3 py-2 text-xs text-slate-400 transition-colors hover:border-red-400/30 hover:text-red-300"
+                      title="Remover .efk"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+
+                {/* Active file display */}
+                {effectEfkUrl && !effectEfkError && (
+                  <div className="mt-2 rounded-lg border border-emerald-400/20 bg-emerald-500/10 px-3 py-2 space-y-0.5">
+                    <div className="flex items-center gap-2">
+                      <span className="text-emerald-400 text-[10px]">✓</span>
+                      <span className="text-[10px] font-black uppercase tracking-[0.14em] text-emerald-300">Carregado</span>
+                    </div>
+                    <div className="truncate font-mono text-[10px] text-slate-400 break-all">
+                      {effectEfkUrl}
+                    </div>
+                  </div>
+                )}
+
+                {effectEfkError && (
+                  <div className="mt-2 rounded-lg border border-red-400/20 bg-red-500/10 px-3 py-2 text-[10px] text-red-300">
+                    {effectEfkError}
+                  </div>
+                )}
+
+                {/* Manual URL fallback */}
+                <input
+                  type="text"
+                  value={effectEfkUrl.startsWith('blob:') ? '' : effectEfkUrl}
+                  onChange={(e) => { handleEfkClear(); setEffectEfkUrl(e.target.value); }}
+                  placeholder="ou cole uma URL .efk / .efkefc aqui"
+                  className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950/80 px-3 py-2 text-xs text-slate-200 placeholder-slate-600 outline-none focus:border-violet-400/40"
+                />
+
+                <div className="mt-2 text-[10px] text-slate-600 leading-relaxed space-y-1">
+                  <div>Requer <code className="text-slate-400">public/effekseer/effekseer.min.js</code> +{' '}<code className="text-slate-400">.wasm</code></div>
+                  <div className="rounded-lg border border-slate-800 bg-slate-900/60 px-2.5 py-2">
+                    <div className="text-slate-500 mb-1">Coloque efeitos em:</div>
+                    <code className="text-cyan-400/80">game/VFX/seuEfeito.efkefc</code>
+                    <div className="text-slate-600 mt-1">↳ acesse via <code className="text-cyan-300/70">/game-vfx/seuEfeito.efkefc</code></div>
+                    <div className="text-slate-600 mt-0.5">Subpastas <code className="text-slate-500">Materials/</code> e <code className="text-slate-500">Texture/</code> são servidas automaticamente.</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* ── Center: 3D Canvas + Playback ───────────────────────────────── */}
+            <div className="space-y-4">
+              <div className="game-surface rounded-[1.75rem] border border-slate-700 p-4">
+                <div className="mb-3 flex items-center justify-between">
+                  <div className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-500">
+                    Preview — <span className="text-violet-300">{EFFECT_CATEGORY_ICONS[effectCategory]} {EFFECT_CATEGORY_LABELS[effectCategory]}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-[10px] text-slate-600">
+                    <span>Spawn:</span>
+                    {effectSpawnOffset.map((v, i) => (
+                      <span key={i} className="rounded bg-slate-900 px-1.5 py-0.5 font-mono text-slate-400">
+                        {['X', 'Y', 'Z'][i]}:{v.toFixed(2)}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+                <div className="h-[440px] sm:h-[520px] lg:h-[580px] rounded-[1.5rem] border border-slate-800 bg-slate-950/60 overflow-hidden">
+                  <DeveloperEffectLabScene
+                    presetId={effectPresetId}
+                    params={effectParams}
+                    isPlaying={effectIsPlaying}
+                    loop={effectLoop}
+                    efkUrl={effectEfkUrl}
+                    spawnOffset={effectSpawnOffset}
+                    onSpawnOffsetChange={setEffectSpawnOffset}
+                    onEfkError={setEffectEfkError}
+                  />
+                </div>
+              </div>
+
+              {/* Playback controls */}
+              <div className="game-surface rounded-[1.75rem] border border-slate-700 p-4 flex flex-wrap items-center gap-3">
+                <button
+                  onClick={() => effectIsPlaying ? stopEffect() : playEffect()}
+                  className={`flex items-center gap-2 rounded-xl border px-5 py-2.5 text-sm font-black uppercase tracking-[0.16em] transition-colors ${effectIsPlaying ? 'border-red-400/40 bg-red-500/15 text-red-100 hover:bg-red-500/25' : 'border-violet-400/40 bg-violet-500/15 text-violet-100 hover:bg-violet-500/25'}`}
+                >
+                  {effectIsPlaying ? '⏹ Stop' : '▶ Play'}
+                </button>
+                <button
+                  onClick={() => setEffectLoop(!effectLoop)}
+                  className={`rounded-xl border px-4 py-2.5 text-xs font-black uppercase tracking-[0.16em] transition-colors ${effectLoop ? 'border-cyan-400/40 bg-cyan-500/15 text-cyan-100' : 'border-slate-700 bg-slate-950/70 text-slate-400 hover:border-slate-600'}`}
+                >
+                  {effectLoop ? '🔁 Loop ON' : '🔁 Loop'}
+                </button>
+                <button
+                  onClick={() => { stopEffect(); setEffectIsPlaying(false); }}
+                  className="rounded-xl border border-slate-700 bg-slate-950/70 px-4 py-2.5 text-xs font-black uppercase tracking-[0.16em] text-slate-400 transition-colors hover:border-slate-600 hover:text-slate-200"
+                >
+                  ↺ Reset
+                </button>
+                <div className="ml-auto flex items-center gap-2 text-[10px] text-slate-600">
+                  <span className={`rounded-full px-2 py-0.5 ${effectEfkUrl ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-400/20' : 'bg-slate-800 text-slate-500'}`}>
+                    {effectEfkUrl ? 'Effekseer .efk' : 'Three.js Procedural'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* ── Right: Parameters + Export ─────────────────────────────────── */}
+            <div className="game-surface rounded-[1.75rem] border border-slate-700 p-5 space-y-5 xl:sticky xl:top-6">
+              <h3 className="font-gamer text-lg font-black text-white">Parâmetros</h3>
+
+              {/* Color */}
+              <div className="space-y-3">
+                <div className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-500">Cores</div>
+                <div className="flex items-center gap-3">
+                  <label className="flex items-center gap-2 text-xs text-slate-400">
+                    <span className="w-16">Primária</span>
+                    <input
+                      type="color"
+                      value={`#${effectParams.color}`}
+                      onChange={(e) => updateEffectParam('color', e.target.value.replace('#', ''))}
+                      className="h-8 w-10 cursor-pointer rounded border border-slate-700 bg-transparent"
+                    />
+                    <span className="font-mono text-slate-500">#{effectParams.color}</span>
+                  </label>
+                </div>
+                <div className="flex items-center gap-3">
+                  <label className="flex items-center gap-2 text-xs text-slate-400">
+                    <span className="w-16">Secundária</span>
+                    <input
+                      type="color"
+                      value={`#${effectParams.colorSecondary}`}
+                      onChange={(e) => updateEffectParam('colorSecondary', e.target.value.replace('#', ''))}
+                      className="h-8 w-10 cursor-pointer rounded border border-slate-700 bg-transparent"
+                    />
+                    <span className="font-mono text-slate-500">#{effectParams.colorSecondary}</span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Sliders */}
+              {(
+                [
+                  { key: 'scale' as const, label: 'Escala', min: 0.1, max: 5, step: 0.05 },
+                  { key: 'speed' as const, label: 'Velocidade', min: 0, max: 12, step: 0.1 },
+                  { key: 'count' as const, label: 'Partículas', min: 1, max: 200, step: 1 },
+                  { key: 'duration' as const, label: 'Duração (s)', min: 0.1, max: 30, step: 0.1 },
+                  { key: 'intensity' as const, label: 'Intensidade', min: 0, max: 3, step: 0.05 },
+                ]
+              ).map(({ key, label, min, max, step }) => (
+                <div key={key}>
+                  <div className="mb-1 flex items-center justify-between">
+                    <span className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">{label}</span>
+                    <span className="font-mono text-xs text-slate-300">{effectParams[key]}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={min}
+                    max={max}
+                    step={step}
+                    value={effectParams[key]}
+                    onChange={(e) => updateEffectParam(key, parseFloat(e.target.value))}
+                    className="w-full accent-violet-400"
+                  />
+                </div>
+              ))}
+
+              {/* Export */}
+              <div className="border-t border-slate-800 pt-4 space-y-3">
+                <button
+                  onClick={generateEffectExportCode}
+                  className="w-full rounded-xl border border-violet-400/30 bg-violet-500/10 py-2.5 text-xs font-black uppercase tracking-[0.16em] text-violet-200 transition-colors hover:border-violet-400/50 hover:bg-violet-500/20"
+                >
+                  ✦ Exportar TypeScript
+                </button>
+                {effectExportCode && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">Código gerado</span>
+                      <button
+                        onClick={() => { navigator.clipboard.writeText(effectExportCode).catch(() => {}); }}
+                        className="rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-slate-400 hover:text-slate-200 transition-colors"
+                      >
+                        Copiar
+                      </button>
+                    </div>
+                    <pre className="max-h-64 overflow-y-auto rounded-xl border border-slate-800 bg-slate-950 p-3 text-[10px] text-slate-300 font-mono leading-relaxed whitespace-pre-wrap break-all">
+                      {effectExportCode}
+                    </pre>
+                    <button
+                      onClick={() => setEffectExportCode(null)}
+                      className="w-full rounded-xl border border-slate-800 py-1.5 text-[10px] text-slate-600 hover:text-slate-400 transition-colors"
+                    >
+                      Fechar
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Preset info */}
+              <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4 space-y-2">
+                <div className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Preset Ativo</div>
+                {(() => {
+                  const preset = getActiveEffectPreset();
+                  return (
+                    <>
+                      <div className="text-sm font-black text-white">{preset.label}</div>
+                      <div className="text-[11px] text-slate-400">{preset.description}</div>
+                      <div className="flex flex-wrap gap-1.5 mt-1">
+                        <span className="rounded-full border border-slate-700 bg-slate-900 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.12em] text-slate-500">{preset.emitterMode}</span>
+                        <span className="rounded-full border border-slate-700 bg-slate-900 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.12em] text-slate-500">{preset.additiveBlend ? 'Additive' : 'Normal'}</span>
+                        {preset.orbitRadius && (
+                          <span className="rounded-full border border-slate-700 bg-slate-900 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.12em] text-slate-500">r={preset.orbitRadius}</span>
+                        )}
+                      </div>
+                    </>
+                  );
+                })()}
+              </div>
             </div>
           </section>
         )}

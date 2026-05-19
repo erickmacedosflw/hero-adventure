@@ -272,7 +272,7 @@ export const AnimatedClassHero = ({
   // 1/30s of delta has accumulated. Preserves crossfades and weight blending.
   useEffect(() => {
     if (!mixer) return undefined;
-    type MixerWithPatch = THREE.AnimationMixer & { __origUpdate?: (delta: number) => void };
+    type MixerWithPatch = THREE.AnimationMixer & { __origUpdate?: THREE.AnimationMixer['update'] };
     const m = mixer as MixerWithPatch;
     const orig = m.update.bind(m);
     let acc = 0;
@@ -283,6 +283,7 @@ export const AnimatedClassHero = ({
         orig(acc);
         acc = 0;
       }
+      return m;
     };
     return () => {
       if (m.__origUpdate) {

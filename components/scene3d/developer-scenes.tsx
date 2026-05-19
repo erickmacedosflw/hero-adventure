@@ -1232,13 +1232,6 @@ export const DeveloperScenarioComposerSceneRenderer: React.FC<
             onObjectChange();
           }}
           onObjectChange={liveObjectCommit ? onObjectChange : undefined}
-          onDraggingChanged={(event) => {
-            const dragging = Boolean(event.value);
-            setIsDraggingTransform(dragging);
-            if (!dragging) {
-              onObjectChange();
-            }
-          }}
         />
       );
     }
@@ -1253,13 +1246,6 @@ export const DeveloperScenarioComposerSceneRenderer: React.FC<
           onObjectChange();
         }}
         onObjectChange={liveObjectCommit ? onObjectChange : undefined}
-        onDraggingChanged={(event) => {
-          const dragging = Boolean(event.value);
-          setIsDraggingTransform(dragging);
-          if (!dragging) {
-            onObjectChange();
-          }
-        }}
       >
         {handleContent}
       </TransformControls>
@@ -1446,13 +1432,6 @@ export const DeveloperScenarioComposerSceneRenderer: React.FC<
               handleSceneObjectObjectChange(selectedSceneObjectId);
             }}
             onObjectChange={() => handleSceneObjectObjectChange(selectedSceneObjectId)}
-            onDraggingChanged={(event) => {
-              const dragging = Boolean(event.value);
-              setIsDraggingTransform(dragging);
-              if (!dragging && selectedSceneObjectId) {
-                handleSceneObjectObjectChange(selectedSceneObjectId);
-              }
-            }}
           />
         ) : null}
 
@@ -1635,13 +1614,6 @@ export const DeveloperScenarioComposerSceneRenderer: React.FC<
               handleHeroSelectionSlotObjectChange(selectedHeroSlotClassId);
             }}
             onObjectChange={() => handleHeroSelectionSlotObjectChange(selectedHeroSlotClassId)}
-            onDraggingChanged={(event) => {
-              const dragging = Boolean(event.value);
-              setIsDraggingTransform(dragging);
-              if (!dragging && selectedHeroSlotClassId) {
-                handleHeroSelectionSlotObjectChange(selectedHeroSlotClassId);
-              }
-            }}
           />
         ) : null}
 

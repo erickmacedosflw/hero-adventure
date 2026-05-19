@@ -27,6 +27,15 @@ import { BattleParticlesOverlay } from './scene3d/BattleParticlesOverlay';
 const CONSTELLATION_ICON_URL = new URL('../game/assets/Icons/Menu/Icone_Constelacao.png', import.meta.url).href;
 import { useGameTimeStore } from '../game/stores/gameTimeStore';
 
+type InventoryInitialFilter = 'all' | 'equipment' | 'potion' | 'material' | 'weapon' | 'shield' | 'helmet' | 'armor' | 'legs';
+type InventoryCategoryFilter = 'all' | 'equipment' | 'potion' | 'material';
+
+const toInventoryCategoryFilter = (filter: InventoryInitialFilter): InventoryCategoryFilter => (
+    filter === 'weapon' || filter === 'shield' || filter === 'helmet' || filter === 'armor' || filter === 'legs'
+        ? 'equipment'
+        : filter
+);
+
 interface GameUIProps {
   player: Player;
   enemy: Enemy | null;
@@ -1264,7 +1273,7 @@ export const TavernScreen: React.FC<{
   const [skillsTargetSlotIndex, setSkillsTargetSlotIndex] = useState<number | null>(null);
   const [heroInspectOpen, setHeroInspectOpen] = useState(false);
     const [returnToProfileOnInventoryClose, setReturnToProfileOnInventoryClose] = useState(false);
-    const [inventoryInitialFilter, setInventoryInitialFilter] = useState<'all' | 'equipment' | 'potion' | 'material' | 'weapon' | 'shield' | 'helmet' | 'armor' | 'legs'>('all');
+    const [inventoryInitialFilter, setInventoryInitialFilter] = useState<InventoryInitialFilter>('all');
     const [profileInitialTab, setProfileInitialTab] = useState<'overview' | 'cards' | 'skills' | 'constellation' | undefined>(undefined);
     const [isClosing, setIsClosing] = useState(false);
     const [showDungeonConfirm, setShowDungeonConfirm] = useState(false);
@@ -1405,7 +1414,7 @@ export const TavernScreen: React.FC<{
         setShowProfile(false);
         uiSfx.play('modal_close');
     };
-    const openInventoryModal = (initialFilter: 'all' | 'equipment' | 'potion' | 'material' = 'all', fromProfile = false) => {
+    const openInventoryModal = (initialFilter: InventoryInitialFilter = 'all', fromProfile = false) => {
         setInventoryInitialFilter(initialFilter);
         setReturnToProfileOnInventoryClose(fromProfile);
         if (!showInventory) {
@@ -2054,7 +2063,7 @@ export const TavernScreen: React.FC<{
         setShowInventory(false);
         setReturnToProfileOnInventoryClose(false);
         if (onShopFromInventory) {
-            onShopFromInventory(inventoryInitialFilter);
+            onShopFromInventory(toInventoryCategoryFilter(inventoryInitialFilter));
             return;
         }
         handleServiceTransition(onShop);
@@ -3772,7 +3781,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
   const [showInventory, setShowInventory] = useState(false);
   const [showSkillsScreen, setShowSkillsScreen] = useState(false);
     const [returnToProfileOnInventoryClose, setReturnToProfileOnInventoryClose] = useState(false);
-    const [inventoryInitialFilter, setInventoryInitialFilter] = useState<'all' | 'equipment' | 'potion' | 'material' | 'weapon' | 'shield' | 'helmet' | 'armor' | 'legs'>('all');
+    const [inventoryInitialFilter, setInventoryInitialFilter] = useState<InventoryInitialFilter>('all');
     const [showInventoryUnlockPrompt, setShowInventoryUnlockPrompt] = useState(false);
         const [showCardsUnlockPrompt, setShowCardsUnlockPrompt] = useState(false);
                 const [showSkillsUnlockPrompt, setShowSkillsUnlockPrompt] = useState(false);
@@ -3933,7 +3942,7 @@ export const BattleHUD: React.FC<GameUIProps> = (props) => {
         lastHandledProfileAutoOpenTokenRef.current = autoOpenProfileToken;
         openProfileModal('overview');
     }, [autoOpenProfileToken]);
-    const openInventoryModal = (initialFilter: 'all' | 'equipment' | 'potion' | 'material' | 'weapon' | 'shield' | 'helmet' | 'armor' | 'legs' = 'all', fromProfile = false) => {
+    const openInventoryModal = (initialFilter: InventoryInitialFilter = 'all', fromProfile = false) => {
         setInventoryInitialFilter(initialFilter);
         setReturnToProfileOnInventoryClose(fromProfile);
         if (!showInventory) {

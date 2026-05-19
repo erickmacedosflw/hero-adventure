@@ -440,7 +440,7 @@ export const ConstellationEvolutionModal: React.FC<ConstellationEvolutionModalPr
     }, [selectedNodeId, trails]);
 
     const classColor = playerClass?.visualProfile?.secondaryColor ?? '#a5b4fc';
-    const classTertiary = playerClass?.visualProfile?.tertiaryColor ?? classColor;
+    const classTertiary = playerClass?.visualProfile?.detailColor ?? classColor;
 
     // ---- render helpers ----
 

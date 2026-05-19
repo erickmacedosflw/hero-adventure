@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import { ALL_ITEMS } from '../../constants';
+import { getItemById } from '../data/registries/itemRegistry';
 import { createEmptyBuffState } from '../mechanics/combat';
 import { generateHuntDropsByStage } from '../mechanics/huntDropProgression';
 import { getNewlyUnlockedShopRarityByStage } from '../mechanics/shopProgression';
@@ -174,7 +175,7 @@ export const useBattleResolution = ({
 
     const effectiveDrops = allowPotionDrops
       ? drops
-      : drops.filter((dropId) => ALL_ITEMS.find((item) => item.id === dropId)?.type !== 'potion');
+      : drops.filter((dropId) => getItemById(dropId)?.type !== 'potion');
 
     const diamondGain = (() => {
       if (!dungeonRun) return 0;
@@ -187,7 +188,7 @@ export const useBattleResolution = ({
       return Math.random() < dropChance ? 1 : 0;
     })();
 
-    const dropItems = effectiveDrops.map(dropId => ALL_ITEMS.find(item => item.id === dropId)).filter((item): item is Item => Boolean(item));
+    const dropItems = effectiveDrops.map(getItemById).filter((item): item is Item => Boolean(item));
 
     if (dungeonRun) {
       const playerAfterXpGain = {
@@ -363,7 +364,7 @@ export const useBattleResolution = ({
     }
 
     const dropText = effectiveDrops.length > 0
-      ? ` Drops: ${effectiveDrops.map(dropId => ALL_ITEMS.find(item => item.id === dropId)?.name).join(', ')}`
+      ? ` Drops: ${effectiveDrops.map(dropId => getItemById(dropId)?.name).join(', ')}`
       : '';
     const accGroupGold = accumulatedGroupRewards?.gold ?? 0;
     const accGroupXp = accumulatedGroupRewards?.xp ?? 0;
