@@ -41,10 +41,39 @@ import { EquippedWeaponAttachment } from './weapons';
 import { getPlayerClassById } from '../../game/data/classes';
 import { getEquippedWeaponGrip, getRegisteredWeapon3DByItemId } from '../../game/data/weaponCatalog';
 import type { PlayerAnimationAction, PlayerClassId } from '../../types';
+import { EffectLabRenderer } from './EffectLabRenderer';
+import { EFFECT_PRESETS } from './effectPresets';
+import type { DeveloperEffectLabSceneProps } from './types';
 
 export const DeveloperHeroScene: React.FC<DeveloperHeroSceneProps> = (props) => (
   <DeveloperHeroSceneRenderer {...props} HeroVoxelComponent={HeroVoxel} />
 );
+
+export const DeveloperEffectLabScene: React.FC<DeveloperEffectLabSceneProps> = ({
+  presetId,
+  params,
+  isPlaying,
+  loop,
+  efkUrl,
+  spawnOffset,
+  onSpawnOffsetChange,
+  onEfkError,
+}) => {
+  const preset = EFFECT_PRESETS.find((p) => p.id === presetId) ?? EFFECT_PRESETS[0];
+  return (
+    <EffectLabRenderer
+      preset={preset}
+      params={params}
+      isPlaying={isPlaying}
+      loop={loop}
+      efkUrl={efkUrl}
+      spawnOffset={spawnOffset}
+      onSpawnOffsetChange={onSpawnOffsetChange}
+      onEfkError={onEfkError}
+      HeroVoxelComponent={HeroVoxel}
+    />
+  );
+};
 
 export const DeveloperMonsterScene: React.FC<DeveloperMonsterSceneProps> = (props) => (
   <DeveloperMonsterSceneRenderer {...props} EnemyCharacterComponent={EnemyCharacter} />
