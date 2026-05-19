@@ -39,6 +39,16 @@ const getNow = () => (typeof performance !== 'undefined' ? performance.now() : D
 
 const getHowlerContext = () => (Howler as HowlerWithContext).ctx;
 
+export const prepareHowlerForMobileUnlock = () => {
+  Howler.autoUnlock = true;
+  Howler.mute(false);
+
+  const howlerWithContext = Howler as HowlerWithContext;
+  if (typeof howlerWithContext.autoSuspend === 'boolean') {
+    howlerWithContext.autoSuspend = false;
+  }
+};
+
 const updateContextState = () => {
   const ctx = getHowlerContext();
   audioRuntimeStatus.lastContextState = ctx?.state ?? 'missing';
@@ -77,13 +87,7 @@ const primeContext = (ctx: AudioContext) => {
 export const recoverHowlerAudioContext = async (scope: string) => {
   audioRuntimeStatus.recoverAttempts += 1;
   audioRuntimeStatus.lastRecoverAt = getNow();
-  Howler.autoUnlock = true;
-  Howler.mute(false);
-
-  const howlerWithContext = Howler as HowlerWithContext;
-  if (typeof howlerWithContext.autoSuspend === 'boolean') {
-    howlerWithContext.autoSuspend = false;
-  }
+  prepareHowlerForMobileUnlock();
 
   const ctx = updateContextState();
   if (!ctx) {

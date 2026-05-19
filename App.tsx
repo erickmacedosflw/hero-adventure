@@ -4698,17 +4698,15 @@ export default function App() {
         return sceneRegion === 'dungeon' ? 'dungeon' : campAndSelectionTrack;
     }, [dungeonRun, hasConfirmedStartingClass, isBootReady, pathname, resolvedGameState, sceneRegion]);
 
-    const isAudioUnlockingRef = useRef(false);
     useEffect(() => {
         if (typeof window === 'undefined' || hasUnlockedMusic) {
             return;
         }
 
         const unlockMusic = () => {
-            if (isAudioUnlockingRef.current || hasUnlockedMusic) {
+            if (hasUnlockedMusic) {
                 return;
             }
-            isAudioUnlockingRef.current = true;
 
             const tryUnlock = async () => {
                 try {
@@ -4726,8 +4724,6 @@ export default function App() {
                 } catch (error) {
                     setHasUnlockedMusic(true);
                     console.warn('[Audio] Falha ao desbloquear audio; nova tentativa sera feita na proxima interacao.', error);
-                } finally {
-                    isAudioUnlockingRef.current = false;
                 }
             };
 

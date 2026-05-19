@@ -1,7 +1,7 @@
 import { battleSfx } from './sfx';
 import { gameMusicManager, type MusicTrackId } from './music';
 import { uiSfx } from './uiSfx';
-import { getAudioRuntimeStatus, markAudioUserGesture } from './recovery';
+import { getAudioRuntimeStatus, markAudioUserGesture, prepareHowlerForMobileUnlock } from './recovery';
 
 interface AudioEnabledState {
   musicEnabled: boolean;
@@ -22,6 +22,16 @@ let unlockInFlight: Promise<boolean> | null = null;
 let hasPreloadedSfx = false;
 
 const getWindow = () => (typeof window === 'undefined' ? null : window);
+
+const playMusicDuringUserGesture = (targetMusicTrack: MusicTrackId | null, musicEnabled: boolean) => {
+  if (!targetMusicTrack || !musicEnabled) {
+    return;
+  }
+
+  // iOS/Safari only grants WebAudio reliably when the first play happens inside
+  // the same synchronous user-gesture task. Do this before any awaited resume.
+  gameMusicManager.transitionTo(targetMusicTrack, 0);
+};
 
 const runManagersUnlock = async () => {
   const unlockResults = await Promise.allSettled([
@@ -62,6 +72,8 @@ export const preloadUnlockedAudio = () => {
 
 export const unlockAllAudio = async ({ targetMusicTrack, musicEnabled }: AudioUnlockOptions) => {
   markAudioUserGesture();
+  prepareHowlerForMobileUnlock();
+  playMusicDuringUserGesture(targetMusicTrack, musicEnabled);
 
   if (!unlockInFlight) {
     unlockInFlight = runManagersUnlock().finally(() => {
@@ -73,7 +85,6 @@ export const unlockAllAudio = async ({ targetMusicTrack, musicEnabled }: AudioUn
   preloadUnlockedAudio();
 
   if (targetMusicTrack && musicEnabled) {
-    // iOS exige uma tentativa de play imediatamente apos o gesto para liberar BGM no PWA.
     gameMusicManager.transitionTo(targetMusicTrack, 0);
   }
 
@@ -88,6 +99,8 @@ export const recoverAllAudio = async ({
 }: AudioRecoveryOptions) => {
   if (shouldAttemptUnlock) {
     markAudioUserGesture();
+    prepareHowlerForMobileUnlock();
+    playMusicDuringUserGesture(targetMusicTrack, musicEnabled);
   }
 
   const isContextReady = await runManagersUnlock();
