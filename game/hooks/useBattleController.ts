@@ -33,7 +33,7 @@ import {
   TurnState,
 } from '../../types';
 
-const GENERATED_ANIMATION_JSON_MODULES = import.meta.glob('../data/sprite-animations/generated/*.json', { eager: true }) as Record<string, { default?: unknown } | unknown>;
+const GENERATED_ANIMATION_JSON_MODULES = import.meta.glob('../data/sprite-animations/generated/*.json') as Record<string, () => Promise<{ default?: unknown } | unknown>>;
 
 const getPathBasename = (input?: string | null) => {
   if (!input) return null;
@@ -42,22 +42,35 @@ const getPathBasename = (input?: string | null) => {
   return parts[parts.length - 1] || null;
 };
 
-const BUILT_IN_ANIMATIONS_BY_FILE = Object.entries(GENERATED_ANIMATION_JSON_MODULES).reduce<Record<string, unknown>>((acc, [modulePath, moduleValue]) => {
+const BUILT_IN_ANIMATION_LOADERS_BY_FILE = Object.entries(GENERATED_ANIMATION_JSON_MODULES).reduce<Record<string, () => Promise<{ default?: unknown } | unknown>>>((acc, [modulePath, moduleLoader]) => {
   const fileName = getPathBasename(modulePath);
   if (!fileName) return acc;
-  const resolved = (moduleValue as { default?: unknown })?.default ?? moduleValue;
-  acc[fileName] = resolved;
+  acc[fileName] = moduleLoader;
   return acc;
 }, {});
 
-const getAnimationDurationMsById = (animationId?: string | null) => {
+const animationDurationCache = new Map<string, Promise<number>>();
+
+const getAnimationDurationMsById = async (animationId?: string | null) => {
   if (!animationId) return 0;
   const registryEntry = getSpriteAnimationRegistryEntry(animationId);
   const fileName = getPathBasename(registryEntry?.arquivo);
   if (!fileName) return 0;
-  const definition = BUILT_IN_ANIMATIONS_BY_FILE[fileName] as import('../../types').SpriteOverlayAnimationDefinition | undefined;
-  const duration = estimateAnimationPlaybackDurationMs(definition);
-  return Math.max(0, Math.round(duration));
+  const cachedDuration = animationDurationCache.get(fileName);
+  if (cachedDuration) {
+    return cachedDuration;
+  }
+
+  const loader = BUILT_IN_ANIMATION_LOADERS_BY_FILE[fileName];
+  if (!loader) return 0;
+
+  const durationPromise = loader().then((moduleValue) => {
+    const definition = ((moduleValue as { default?: unknown })?.default ?? moduleValue) as import('../../types').SpriteOverlayAnimationDefinition | undefined;
+    const duration = estimateAnimationPlaybackDurationMs(definition);
+    return Math.max(0, Math.round(duration));
+  }).catch(() => 0);
+  animationDurationCache.set(fileName, durationPromise);
+  return durationPromise;
 };
 
 interface SkillVisualConfig {
@@ -528,7 +541,7 @@ export const useBattleController = ({
     addLog(`${skill.name} aplicou ${status.name.toLowerCase()}!`, 'buff');
   }, [addLog, enemy, setEnemy]);
 
-  const handleChargeImpulse = useCallback(() => {
+  const handleChargeImpulse = useCallback(async () => {
     const maxImpulse = getImpulseCapacityByLevel(player.level);
     if (!enemy || turnState !== TurnState.PLAYER_INPUT || maxImpulse <= 0 || player.impulso >= maxImpulse) return;
     lastPlayerActionRef.current = 'item';
@@ -536,7 +549,7 @@ export const useBattleController = ({
     battleSfx.play('defense_use', { source: 'hero' });
     const nextReserve = clampImpulse(player.impulso + 1, maxImpulse);
     const impulseTintColor = player.classResource.color || '#22d3ee';
-    const impulseAnimationDurationMs = getAnimationDurationMsById(SPRITE_ANIMATION_IDS.execImpulse);
+    const impulseAnimationDurationMs = await getAnimationDurationMsById(SPRITE_ANIMATION_IDS.execImpulse);
     const impulseFinishDelayMs = impulseAnimationDurationMs > 0 ? (impulseAnimationDurationMs + 80) : 520;
     setPlayerAnimationAction('item');
     setPlayerImpactAnimationId(SPRITE_ANIMATION_IDS.execImpulse);
@@ -926,7 +939,7 @@ export const useBattleController = ({
     turnState,
   ]);
 
-  const handleSkill = useCallback((inputSkill: Skill) => {
+  const handleSkill = useCallback(async (inputSkill: Skill) => {
     const skill: Skill = mergeCatalogSkill(inputSkill);
     const requiredResource = skill.resourceEffect?.cost ?? 0;
     const previewImpulse = clampImpulse(player.impulsoAtivo);
@@ -936,6 +949,7 @@ export const useBattleController = ({
       : Math.max(1, Math.floor(skill.manaCost * (1 - cardCostReduction)));
     if (!enemy || turnState !== TurnState.PLAYER_INPUT || player.stats.mp < discountedManaCost || player.classResource.value < requiredResource) return;
     lastPlayerActionRef.current = 'skill';
+    setTurnState(TurnState.PLAYER_ANIMATION);
 
     const activeImpulse = consumeActiveImpulse();
     const talentBonuses = getTalentBonuses(player);
@@ -946,9 +960,9 @@ export const useBattleController = ({
       ?? (skill.type === 'heal' ? 'cura_status' : skill.type === 'magic' ? 'magia' : 'ataque');
     const skillImpactTarget = skill.animacaoImpactoAlvo
       ?? (skillAnimationType === 'cura_status' ? 'self' : 'target');
-    const executionAnimationDurationMs = getAnimationDurationMsById(skill.animacaoExecucao);
+    const executionAnimationDurationMs = await getAnimationDurationMsById(skill.animacaoExecucao);
     const skillImpactDelayMs = executionAnimationDurationMs > 0 ? executionAnimationDurationMs + 40 : 0;
-    const skillImpactAnimationDurationMs = getAnimationDurationMsById(skill.animacaoImpacto);
+    const skillImpactAnimationDurationMs = await getAnimationDurationMsById(skill.animacaoImpacto);
     const skillImpactPlaybackWindowMs = skillImpactAnimationDurationMs > 0 ? (skillImpactAnimationDurationMs + 80) : 520;
     const impactColor = skill.trailColor ?? visual.color;
     const resourceSpent = skill.resourceEffect?.consumeAll ? player.classResource.value : requiredResource;
@@ -960,7 +974,6 @@ export const useBattleController = ({
     const bowSkillImpulseExtraStrikes = isBowSkillShot ? activeImpulse : 0;
     const skillProjectileImpactDelayMs = isBowSkillShot ? BOW_PROJECTILE_IMPACT_DELAY_MS : 0;
 
-    setTurnState(TurnState.PLAYER_ANIMATION);
     setPlayerExecutionAnimationId(skill.animacaoExecucao ?? null);
     setPlayerExecutionAnimationTintColor(skill.animacaoExecucaoCor ?? null);
     setPlayerImpactAnimationId(null);
@@ -1300,7 +1313,7 @@ export const useBattleController = ({
     turnState,
   ]);
 
-  const handleUseItem = useCallback((itemId: string) => {
+  const handleUseItem = useCallback(async (itemId: string) => {
     if (turnState !== TurnState.PLAYER_INPUT) return;
     lastPlayerActionRef.current = 'item';
 
@@ -1336,8 +1349,8 @@ export const useBattleController = ({
     }
 
     const itemExecutionAnimationId = item.animacaoExecucao ?? COMBAT_SPRITE_ANIMATION_DEFAULTS.unarmedExecutionAnimationId;
-    const itemExecutionDurationMs = getAnimationDurationMsById(itemExecutionAnimationId);
-    const itemImpactDurationMs = getAnimationDurationMsById(item.animacaoImpacto);
+    const itemExecutionDurationMs = await getAnimationDurationMsById(itemExecutionAnimationId);
+    const itemImpactDurationMs = await getAnimationDurationMsById(item.animacaoImpacto);
     const itemImpactDelayMs = Math.max(120, itemExecutionDurationMs > 0 ? itemExecutionDurationMs + 40 : 120);
     const itemImpactPlaybackWindowMs = itemImpactDurationMs > 0 ? (itemImpactDurationMs + 80) : 520;
     const itemFinishDelayMs = itemImpactDelayMs + itemImpactPlaybackWindowMs;

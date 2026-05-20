@@ -4,6 +4,7 @@ import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { VoxelPart } from '../items/VoxelPart';
 import type { RenderQualityProfile } from './types';
+import { getRenderProfileForPlatform } from './renderProfiles';
 import { useBattleAnimationStore } from '../../game/stores/battleAnimationStore';
 
 const disableRaycast = () => null;
@@ -13,78 +14,8 @@ export type RenderQualityPreset = 'performance' | 'balanced' | 'quality';
 
 const MOBILE_USER_AGENT_PATTERN = /android|iphone|ipad|ipod|mobile/i;
 
-const DESKTOP_PERFORMANCE_PROFILE: RenderQualityProfile = {
-  isLowQuality: true,
-  dpr: [0.5, 0.7],
-  shadowMapSize: 384,
-  starsCount: 140,
-  contactShadowResolution: 44,
-  antialias: false,
-};
-
-const DESKTOP_BALANCED_PROFILE: RenderQualityProfile = {
-  isLowQuality: false,
-  dpr: [0.75, 0.9],
-  shadowMapSize: 512,
-  starsCount: 460,
-  contactShadowResolution: 72,
-  antialias: false,
-};
-
-const DESKTOP_QUALITY_PROFILE: RenderQualityProfile = {
-  isLowQuality: false,
-  dpr: [1.0, 1.0],
-  shadowMapSize: 768,
-  starsCount: 760,
-  contactShadowResolution: 100,
-  antialias: false,
-};
-
-const MOBILE_PERFORMANCE_PROFILE: RenderQualityProfile = {
-  isLowQuality: true,
-  dpr: [0.65, 0.85],
-  shadowMapSize: 384,
-  starsCount: 140,
-  contactShadowResolution: 44,
-  antialias: false,
-};
-
-const MOBILE_BALANCED_PROFILE: RenderQualityProfile = {
-  isLowQuality: false,
-  dpr: [0.85, 1.1],
-  shadowMapSize: 512,
-  starsCount: 460,
-  contactShadowResolution: 72,
-  antialias: false,
-};
-
-const MOBILE_QUALITY_PROFILE: RenderQualityProfile = {
-  isLowQuality: false,
-  dpr: [1.0, 1.0],
-  shadowMapSize: 768,
-  starsCount: 700,
-  contactShadowResolution: 100,
-  antialias: false,
-};
-
-// Dedicated high-quality profile used exclusively in the Electron desktop build.
-// No mobile / thermal constraints apply — target the best GPU in the machine.
-const ELECTRON_QUALITY_PROFILE: RenderQualityProfile = {
-  isLowQuality: false,
-  dpr: [1.0, 1.5],
-  shadowMapSize: 2048,
-  starsCount: 900,
-  contactShadowResolution: 100,
-  antialias: true,
-};
-
-const cloneRenderQualityProfile = (profile: RenderQualityProfile): RenderQualityProfile => ({
-  ...profile,
-  dpr: [profile.dpr[0], profile.dpr[1]],
-});
-
 // Runtime detection — the preload bridge sets this before the page loads.
-const isElectronRuntime = (): boolean =>
+export const isElectronRuntime = (): boolean =>
   typeof window !== 'undefined' && (window as Window & { electronBridge?: { isElectron: boolean } }).electronBridge?.isElectron === true;
 
 export const getRenderPlatform = (): RenderPlatform => {
@@ -143,36 +74,9 @@ export const createModularBuilderQualityProfile = (base: RenderQualityProfile): 
 });
 
 export const getRenderQualityProfile = (preset?: RenderQualityPreset): RenderQualityProfile => {
-  // Electron desktop: always use the maximum quality profile regardless of
-  // preset or platform — no mobile/thermal constraints apply here.
-  if (isElectronRuntime()) {
-    return cloneRenderQualityProfile(ELECTRON_QUALITY_PROFILE);
-  }
-
   const platform = getRenderPlatform();
   const selectedPreset = preset ?? getDefaultRenderQualityPreset(platform);
-
-  if (platform === 'mobile') {
-    if (selectedPreset === 'quality') {
-      return cloneRenderQualityProfile(MOBILE_QUALITY_PROFILE);
-    }
-
-    if (selectedPreset === 'balanced') {
-      return cloneRenderQualityProfile(MOBILE_BALANCED_PROFILE);
-    }
-
-    return cloneRenderQualityProfile(MOBILE_PERFORMANCE_PROFILE);
-  }
-
-  if (selectedPreset === 'quality') {
-    return cloneRenderQualityProfile(DESKTOP_QUALITY_PROFILE);
-  }
-
-  if (selectedPreset === 'performance') {
-    return cloneRenderQualityProfile(DESKTOP_PERFORMANCE_PROFILE);
-  }
-
-  return cloneRenderQualityProfile(DESKTOP_BALANCED_PROFILE);
+  return getRenderProfileForPlatform({ platform, preset: selectedPreset, isElectron: isElectronRuntime() });
 };
 
 export const GrassFloor = () => {

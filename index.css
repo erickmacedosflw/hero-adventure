@@ -294,8 +294,8 @@ button {
 /* ── Settings Modal ── */
 @keyframes settings-overlay-in  { from { opacity: 0; backdrop-filter: blur(0px); } to { opacity: 1; backdrop-filter: blur(8px); } }
 @keyframes settings-overlay-out { from { opacity: 1; } to { opacity: 0; } }
-@keyframes settings-card-in  { from { opacity: 0; transform: translateY(24px) scale(0.94); filter: blur(4px); } to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); } }
-@keyframes settings-card-out { from { opacity: 1; transform: scale(1); filter: blur(0); } to { opacity: 0; transform: scale(0.94) translateY(12px); filter: blur(4px); } }
+@keyframes settings-card-in  { from { opacity: 0; transform: translateY(24px) scale(0.94); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes settings-card-out { from { opacity: 1; transform: scale(1); } to { opacity: 0; transform: scale(0.94) translateY(12px); } }
 
 .settings-overlay-in  { animation: settings-overlay-in  280ms ease-out both; }
 .settings-overlay-out { animation: settings-overlay-out 220ms ease-in  both; }
@@ -327,6 +327,25 @@ button {
 .rpg-modal-overlay-out { animation: rpg-modal-overlay-out 180ms ease-out both; }
 .rpg-modal-panel-in { animation: rpg-modal-panel-in 220ms cubic-bezier(0.22, 1, 0.36, 1) both; }
 .rpg-modal-panel-out { animation: rpg-modal-panel-out 200ms ease-in both; }
+
+.rpg-modal-overlay-in,
+.rpg-modal-overlay-out,
+.settings-overlay-in,
+.settings-overlay-out {
+  contain: paint;
+  will-change: opacity;
+}
+
+.rpg-modal-panel-in,
+.rpg-modal-panel-out,
+.settings-card-in,
+.settings-card-out,
+.gameover-card-in,
+.gameover-card-out {
+  backface-visibility: hidden;
+  transform: translateZ(0);
+  will-change: transform, opacity;
+}
 
 /* ── Action button idle shine sweep ── */
 @keyframes btn-shine-sweep {

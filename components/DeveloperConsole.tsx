@@ -4,11 +4,9 @@ import { ALL_ITEMS, DUNGEON_BOSS, DUNGEON_ENEMY_DATA, ENEMY_DATA } from '../cons
 import { getRegisteredWeapon3DByItemId, REGISTERED_WEAPON_ITEMS } from '../game/data/weaponCatalog';
 import { getPlayerClassById, PLAYER_CLASSES } from '../game/data/classes';
 import { DungeonBossTemplate, DungeonEnemyTemplate, EnemyTemplate, PlayerAnimationAction, PlayerClassId, Rarity } from '../types';
-import { DeveloperBipedCharacterScene, DeveloperClassBuilderScene, DeveloperEffectLabScene, DeveloperGltfMonsterScene, DeveloperKitbashScene, DeveloperMonsterScene, DeveloperRigRetargetScene, DeveloperScenarioComposerScene, DeveloperWeaponCalibrationScene } from './scene3d/DeveloperSceneAdapters';
 import { EFFECT_CATEGORY_ICONS, EFFECT_CATEGORY_LABELS, EFFECT_PRESETS_BY_CATEGORY, type EffectCategory } from './scene3d/effectPresets';
 import { useEffectLabStore } from '../game/stores/effectLabStore';
 import type { RetargetReport } from './scene3d/developer-scenes';
-import { SpriteAnimationLab } from './SpriteAnimationLab';
 import type {
   DeveloperAnimationRuntimeDiagnostic,
   DeveloperKitbashAnalysis,
@@ -28,8 +26,25 @@ import type {
 import { ItemPreviewThree } from './items/ItemPreviewThree';
 import { getRuntimeMenuPortalPreset, MENU_NAVIGATION_PORTAL_MODEL_URL, type RuntimeMenuPortalTransform } from '../game/data/runtimeMenuPortal';
 
+const DeveloperBipedCharacterScene = React.lazy(async () => ({ default: (await import('./scene3d/DeveloperSceneAdapters')).DeveloperBipedCharacterScene }));
+const DeveloperClassBuilderScene = React.lazy(async () => ({ default: (await import('./scene3d/DeveloperSceneAdapters')).DeveloperClassBuilderScene }));
+const DeveloperEffectLabScene = React.lazy(async () => ({ default: (await import('./scene3d/DeveloperSceneAdapters')).DeveloperEffectLabScene }));
+const DeveloperGltfMonsterScene = React.lazy(async () => ({ default: (await import('./scene3d/DeveloperSceneAdapters')).DeveloperGltfMonsterScene }));
+const DeveloperKitbashScene = React.lazy(async () => ({ default: (await import('./scene3d/DeveloperSceneAdapters')).DeveloperKitbashScene }));
+const DeveloperMonsterScene = React.lazy(async () => ({ default: (await import('./scene3d/DeveloperSceneAdapters')).DeveloperMonsterScene }));
+const DeveloperRigRetargetScene = React.lazy(async () => ({ default: (await import('./scene3d/DeveloperSceneAdapters')).DeveloperRigRetargetScene }));
+const DeveloperScenarioComposerScene = React.lazy(async () => ({ default: (await import('./scene3d/DeveloperSceneAdapters')).DeveloperScenarioComposerScene }));
+const DeveloperWeaponCalibrationScene = React.lazy(async () => ({ default: (await import('./scene3d/DeveloperSceneAdapters')).DeveloperWeaponCalibrationScene }));
+const SpriteAnimationLab = React.lazy(async () => ({ default: (await import('./SpriteAnimationLab')).SpriteAnimationLab }));
+
 type DeveloperTab = 'overview' | 'animation-lab' | 'monster-lab' | 'item-lab' | 'kitbash-lab' | 'sprite-lab' | 'scenario-lab' | 'gltf-monster-viewer' | 'biped-character-viewer' | 'rig-retarget-lab' | 'effect-lab';
 type WeaponCalibrationViewMode = 'sandbox' | 'attached';
+
+const DeveloperPanelFallback = () => (
+  <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-950/70 p-6 text-sm font-bold uppercase tracking-[0.18em] text-slate-400">
+    Carregando modulo 3D...
+  </div>
+);
 
 const animationActions: PlayerAnimationAction[] = ['idle', 'battle-idle', 'attack', 'defend', 'defend-hit', 'hit', 'critical-hit', 'item', 'heal', 'skill', 'evade', 'death'];
 const automaticClipValue = '__automatic__';
@@ -2802,7 +2817,9 @@ const EFFECT_${preset.id.toUpperCase().replace(/-/g, '_')}_CONFIG = {
         )}
 
         {tab === 'sprite-lab' && (
-          <SpriteAnimationLab />
+          <React.Suspense fallback={<DeveloperPanelFallback />}>
+            <SpriteAnimationLab />
+          </React.Suspense>
         )}
 
         {tab === 'item-lab' && selectedItem && (

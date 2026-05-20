@@ -4536,6 +4536,25 @@ export default function App() {
         resolvedGameState === GameState.BATTLE ? 'battle' : 'camp'
     ));
     const shouldMenuCameraFocus = menuCameraFocusOverride ?? (cameraSceneAnchor === 'camp');
+    const shouldPrioritizeSceneUiMotion = resolvedGameState !== GameState.BATTLE
+        || heroInspectMode
+        || portalInspectMode
+        || showHeroDetailModal
+        || isBattleSettingsModalOpen
+        || Boolean(pendingTargetAction)
+        || targetCardLeaving
+        || Boolean(resourceUnlockModal)
+        || Boolean(levelUpModal)
+        || onboardingPhase === 'inventory_prompt'
+        || onboardingPhase === 'cards_prompt'
+        || onboardingPhase === 'merchant_prompt'
+        || onboardingPhase === 'items_prompt'
+        || onboardingPhase === 'flee_prompt'
+        || onboardingPhase === 'dungeon_prompt'
+        || onboardingPhase === 'alchemist_prompt'
+        || skillsUnlockPromptPending
+        || constellationUnlockPromptPending
+        || constellationRespecUnlockPromptPending;
     const previousResolvedGameStateRef = useRef<GameState>(resolvedGameState);
 
     useEffect(() => {
@@ -5573,6 +5592,7 @@ export default function App() {
                         menuGamepadFocus={resolvedGameState === GameState.TAVERN && !portalInspectMode ? campGamepadFocusForScene : null}
                         renderQualityPreset={battleSettings.renderQualityPreset}
                         showDesktopStatsMonitor={battleSettings.showDesktopStatsMonitor}
+                        prioritizeUiMotion={shouldPrioritizeSceneUiMotion}
                         onMenuHeroClick={handleMenuHeroClickStable}
                         lootResult={lootResult}
                         xpIconComponent={xpIconComponent}

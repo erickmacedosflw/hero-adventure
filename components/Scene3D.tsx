@@ -32,6 +32,7 @@ import {
   getRenderPlatform,
   getRenderPowerPreference,
   getRenderQualityProfile,
+  isElectronRuntime,
   type RenderQualityPreset,
 } from './scene3d/environment';
 import { configureGltfLoader, configureFBXLoader } from './scene3d/gltfLoader';
@@ -79,6 +80,7 @@ import { GamepadActionLegend } from './ui/GamepadActionLegend';
 import { HeroItemDetailOverlay } from './scene3d/ItemDetailOverlays';
 import { HeroInspectCanvas } from './scene3d/HeroInspectCanvas';
 import { BattleActionsHtml, type BattleActionsConfig } from './scene3d/BattleActionsHtml';
+import { createSceneRenderSettings } from './scene3d/sceneRenderSettings';
 import { PortalInspectCanvas } from './scene3d/PortalInspectCanvas';
 import { useBattleVfxStore } from '../game/stores/battleVfxStore';
 import { useBattleGaugeStore } from '../game/stores/battleGaugeStore';
@@ -174,6 +176,7 @@ interface SceneProps {
   battleActorGauges?: BattleActorGaugeMap; // DEPRECATED: gauges now flow through useBattleGaugeStore. Kept for type compat.
   renderQualityPreset?: RenderQualityPreset;
   showDesktopStatsMonitor?: boolean;
+  prioritizeUiMotion?: boolean;
   heroInspectMode?: boolean;
   onHeroInspectClose?: () => void;
   onHeroEquipSlotClick?: (slot: 'weapon' | 'shield' | 'helmet' | 'armor' | 'legs') => void;
@@ -396,8 +399,11 @@ const COMBAT_TRAIL_SEEDS = Array.from({ length: COMBAT_TRAIL_COUNT }, (_, i) => 
 const SPRITE_FETCH_TIMEOUT_MS = 2600;
 const SPRITE_TEXTURE_LOAD_TIMEOUT_MS = 3200;
 
-const GENERATED_ANIMATION_JSON_MODULES = import.meta.glob('../game/data/sprite-animations/generated/*.json', { eager: true });
-const GENERATED_SPRITE_SHEET_URL_MODULES = import.meta.glob('../game/sprites/*', { eager: true, import: 'default', query: '?url' }) as Record<string, string>;
+const GENERATED_ANIMATION_JSON_MODULES = import.meta.glob('../game/data/sprite-animations/generated/*.json');
+const GENERATED_SPRITE_SHEET_URL_MODULES = import.meta.glob('../game/sprites/*', { import: 'default', query: '?url' }) as Record<string, () => Promise<string>>;
+
+const generatedAnimationDefinitionCache = new Map<string, SpriteOverlayAnimationDefinition | null>();
+const generatedSpriteSheetUrlCache = new Map<string, string | null>();
 
 const isOfflineRuntime = () => (
   typeof navigator !== 'undefined' && navigator.onLine === false
@@ -502,7 +508,7 @@ const LevelUpSpriteExecution = ({ isLevelingUp }: { isLevelingUp?: boolean }) =>
         return;
       }
 
-      const loadedDefinition = resolveBundledAnimationDefinitionByPath(entry.arquivo);
+      const loadedDefinition = await resolveBundledAnimationDefinitionByPath(entry.arquivo);
       if (!loadedDefinition) {
         return;
       }
@@ -514,10 +520,12 @@ const LevelUpSpriteExecution = ({ isLevelingUp }: { isLevelingUp?: boolean }) =>
         ?? loadedDefinition.spriteSheetUrl
         ?? loadedDefinition.spriteSheetName;
 
+      const bundledSpriteSheetUrl = await resolveBundledSpriteSheetUrl(spriteSheetRef);
+      const bundledSpriteSheetNameUrl = await resolveBundledSpriteSheetUrl(loadedDefinition.spriteSheetName);
       const textureCandidates = [
+        bundledSpriteSheetUrl,
+        bundledSpriteSheetNameUrl,
         resolveSpriteAssetUrl(spriteSheetRef),
-        resolveBundledSpriteSheetUrl(spriteSheetRef),
-        resolveBundledSpriteSheetUrl(loadedDefinition.spriteSheetName),
       ].filter((candidate, index, self): candidate is string => Boolean(candidate) && self.indexOf(candidate) === index);
 
       const loadedTexture = await loadTextureByCandidates(textureCandidates);
@@ -688,24 +696,40 @@ const resolveSpriteAssetUrl = (input?: string): string | null => {
   return new URL(`../${input.replace(/^\.?\//, '')}`, import.meta.url).href;
 };
 
-const resolveBundledSpriteSheetUrl = (input?: string | null) => {
+const resolveBundledSpriteSheetUrl = async (input?: string | null) => {
   const base = getPathBasename(input)?.toLowerCase();
   if (!base) return null;
+  if (generatedSpriteSheetUrlCache.has(base)) {
+    return generatedSpriteSheetUrlCache.get(base) ?? null;
+  }
   const match = Object.entries(GENERATED_SPRITE_SHEET_URL_MODULES)
     .find(([modulePath]) => modulePath.toLowerCase().endsWith(`/${base}`));
-  return match?.[1] ?? null;
+  if (!match) {
+    generatedSpriteSheetUrlCache.set(base, null);
+    return null;
+  }
+  const loadedUrl = await match[1]();
+  generatedSpriteSheetUrlCache.set(base, loadedUrl ?? null);
+  return loadedUrl ?? null;
 };
 
-const resolveBundledAnimationDefinitionByPath = (input?: string | null): SpriteOverlayAnimationDefinition | null => {
+const resolveBundledAnimationDefinitionByPath = async (input?: string | null): Promise<SpriteOverlayAnimationDefinition | null> => {
   const base = getPathBasename(input)?.toLowerCase();
   if (!base) return null;
+  if (generatedAnimationDefinitionCache.has(base)) {
+    return generatedAnimationDefinitionCache.get(base) ?? null;
+  }
   const match = Object.entries(GENERATED_ANIMATION_JSON_MODULES)
     .find(([modulePath]) => modulePath.toLowerCase().endsWith(`/${base}`));
-  if (!match) return null;
-  const loaded = match[1] as { default?: unknown } | SpriteOverlayAnimationDefinition;
+  if (!match) {
+    generatedAnimationDefinitionCache.set(base, null);
+    return null;
+  }
+  const loaded = await match[1]() as { default?: unknown } | SpriteOverlayAnimationDefinition;
   const json = (typeof loaded === 'object' && loaded && 'default' in loaded)
     ? (loaded as { default: SpriteOverlayAnimationDefinition }).default
     : loaded as SpriteOverlayAnimationDefinition;
+  generatedAnimationDefinitionCache.set(base, json ?? null);
   return json ?? null;
 };
 
@@ -1081,7 +1105,7 @@ const CombatCinematicFX = ({
     };
 
     const loadDefinitionByRegistryPath = async (path: string): Promise<SpriteOverlayAnimationDefinition | null> => {
-      const bundled = resolveBundledAnimationDefinitionByPath(path);
+      const bundled = await resolveBundledAnimationDefinitionByPath(path);
       if (bundled) {
         return bundled;
       }
@@ -1136,10 +1160,12 @@ const CombatCinematicFX = ({
           return textureSetByRef.get(refKey) ?? null;
         }
 
+        const bundledSpriteSheetUrl = await resolveBundledSpriteSheetUrl(spriteSheetRef);
+        const bundledFallbackSheetUrl = await resolveBundledSpriteSheetUrl(fallbackSheetName);
         const textureCandidates = [
+          bundledSpriteSheetUrl,
+          bundledFallbackSheetUrl,
           resolveSpriteAssetUrl(spriteSheetRef),
-          resolveBundledSpriteSheetUrl(spriteSheetRef),
-          resolveBundledSpriteSheetUrl(fallbackSheetName),
         ].filter((candidate, index, self): candidate is string => Boolean(candidate) && self.indexOf(candidate) === index);
 
         const loadedTexture = await loadTextureByCandidates(textureCandidates);
@@ -1171,7 +1197,21 @@ const CombatCinematicFX = ({
         return textureSet;
       };
 
-      for (const entry of SPRITE_ANIMATION_REGISTRY) {
+      const priorityAnimationIds = new Set<string>([
+        COMBAT_SPRITE_ANIMATION_DEFAULTS.unarmedImpactAnimationId,
+        COMBAT_SPRITE_ANIMATION_DEFAULTS.armedImpactAnimationId,
+        COMBAT_SPRITE_ANIMATION_DEFAULTS.unarmedExecutionAnimationId,
+        SPRITE_ANIMATION_IDS.execImpulse,
+        SPRITE_ANIMATION_IDS.execImpulsePulse,
+        SPRITE_ANIMATION_IDS.hitBlock,
+      ]);
+      const orderedEntries = [...SPRITE_ANIMATION_REGISTRY].sort((left, right) => {
+        const leftPriority = priorityAnimationIds.has(left.id) ? 0 : 1;
+        const rightPriority = priorityAnimationIds.has(right.id) ? 0 : 1;
+        return leftPriority - rightPriority;
+      });
+
+      for (const entry of orderedEntries) {
         const definition = await loadDefinitionByRegistryPath(entry.arquivo);
         if (!definition) {
           missingDefinitionIds.push(entry.id);
@@ -1221,6 +1261,18 @@ const CombatCinematicFX = ({
         nextPlayerTrackTextures[entry.id] = perTrackPlayerTextures;
         nextEnemyTrackLuminanceTextures[entry.id] = perTrackEnemyLuminanceTextures;
         nextPlayerTrackLuminanceTextures[entry.id] = perTrackPlayerLuminanceTextures;
+
+        if (active) {
+          setHitDefinitionsById((previous) => ({ ...previous, [entry.id]: definition }));
+          setHitEnemyTexturesById((previous) => ({ ...previous, [entry.id]: baseTextureSet.enemyTex }));
+          setHitPlayerTexturesById((previous) => ({ ...previous, [entry.id]: baseTextureSet.playerTex }));
+          setHitEnemyLuminanceTexturesById((previous) => ({ ...previous, [entry.id]: baseTextureSet.enemyLuminanceTex }));
+          setHitPlayerLuminanceTexturesById((previous) => ({ ...previous, [entry.id]: baseTextureSet.playerLuminanceTex }));
+          setHitEnemyTrackTexturesById((previous) => ({ ...previous, [entry.id]: perTrackEnemyTextures }));
+          setHitPlayerTrackTexturesById((previous) => ({ ...previous, [entry.id]: perTrackPlayerTextures }));
+          setHitEnemyTrackLuminanceTexturesById((previous) => ({ ...previous, [entry.id]: perTrackEnemyLuminanceTextures }));
+          setHitPlayerTrackLuminanceTexturesById((previous) => ({ ...previous, [entry.id]: perTrackPlayerLuminanceTextures }));
+        }
       }
 
       if (!active) return;
@@ -1871,6 +1923,7 @@ const CombatCinematicFX = ({
       requestedAnimationId,
       fallbackAnimationId,
       onFinished,
+      onResourcesPending,
       tintColorOverride,
       forceLoop = false,
     }: {
@@ -1880,6 +1933,7 @@ const CombatCinematicFX = ({
       requestedAnimationId: string | null;
       fallbackAnimationId: string;
       onFinished: () => void;
+      onResourcesPending?: () => void;
       tintColorOverride?: string | null;
       forceLoop?: boolean;
     }) => {
@@ -1904,6 +1958,7 @@ const CombatCinematicFX = ({
       const availableTracks = tracks.slice(0, MAX_SPRITE_ANIMATION_TRACKS);
 
       if (availableTracks.length === 0 || !texture) {
+        onResourcesPending?.();
         hideRemaining(0);
         return;
       }
@@ -1989,6 +2044,10 @@ const CombatCinematicFX = ({
       }
     };
 
+    const deferSpriteStartUntilResourcesReady = (startRef: React.MutableRefObject<number | null>) => {
+      startRef.current = state.clock.elapsedTime * 1000;
+    };
+
     renderTrackAnimationSet({
       sprites: unarmedHitEnemyRefs.current,
       startMs: unarmedHitEnemyStartMsRef.current,
@@ -1996,6 +2055,7 @@ const CombatCinematicFX = ({
       requestedAnimationId: enemyHitAnimationIdRef.current,
       fallbackAnimationId: COMBAT_SPRITE_ANIMATION_DEFAULTS.unarmedImpactAnimationId,
       tintColorOverride: enemyHitTintColorRef.current,
+      onResourcesPending: () => deferSpriteStartUntilResourcesReady(unarmedHitEnemyStartMsRef),
       onFinished: () => {
         unarmedHitEnemyStartMsRef.current = null;
         enemyHitAnimationIdRef.current = null;
@@ -2009,6 +2069,7 @@ const CombatCinematicFX = ({
       requestedAnimationId: playerHitAnimationIdRef.current,
       fallbackAnimationId: COMBAT_SPRITE_ANIMATION_DEFAULTS.unarmedImpactAnimationId,
       tintColorOverride: playerHitTintColorRef.current,
+      onResourcesPending: () => deferSpriteStartUntilResourcesReady(unarmedHitPlayerStartMsRef),
       onFinished: () => {
         unarmedHitPlayerStartMsRef.current = null;
         playerHitAnimationIdRef.current = null;
@@ -2022,6 +2083,7 @@ const CombatCinematicFX = ({
       requestedAnimationId: enemyExecutionAnimationIdRef.current,
       fallbackAnimationId: COMBAT_SPRITE_ANIMATION_DEFAULTS.unarmedExecutionAnimationId,
       tintColorOverride: enemyExecutionTintColorRef.current,
+      onResourcesPending: () => deferSpriteStartUntilResourcesReady(enemyExecutionStartMsRef),
       onFinished: () => {
         enemyExecutionStartMsRef.current = null;
         enemyExecutionAnimationIdRef.current = null;
@@ -2035,6 +2097,7 @@ const CombatCinematicFX = ({
       requestedAnimationId: playerExecutionAnimationIdRef.current,
       fallbackAnimationId: COMBAT_SPRITE_ANIMATION_DEFAULTS.unarmedExecutionAnimationId,
       tintColorOverride: playerExecutionTintColorRef.current,
+      onResourcesPending: () => deferSpriteStartUntilResourcesReady(playerExecutionStartMsRef),
       onFinished: () => {
         playerExecutionStartMsRef.current = null;
         playerExecutionAnimationIdRef.current = null;
@@ -2049,6 +2112,7 @@ const CombatCinematicFX = ({
       fallbackAnimationId: SPRITE_ANIMATION_IDS.execImpulsePulse,
       tintColorOverride: playerImpulseAuraTintColorRef.current,
       forceLoop: true,
+      onResourcesPending: () => deferSpriteStartUntilResourcesReady(playerImpulseAuraStartMsRef),
       onFinished: () => {},
     });
     renderTrackAnimationSet({
@@ -2059,6 +2123,7 @@ const CombatCinematicFX = ({
       fallbackAnimationId: SPRITE_ANIMATION_IDS.execImpulsePulse,
       tintColorOverride: enemyImpulseAuraTintColorRef.current,
       forceLoop: true,
+      onResourcesPending: () => deferSpriteStartUntilResourcesReady(enemyImpulseAuraStartMsRef),
       onFinished: () => {},
     });
   });
@@ -3822,13 +3887,12 @@ const SceneObjectInfoBridge: React.FC = () => {
 };
 
 /** Throttles the global shadow map so the expensive PCFSoft shadow pass does
- *  not run on every render frame. At quality mode (1024×1024 PCFSoft) the
- *  shadow pass costs ~40-60 ms/frame — roughly half the frame budget. Since
- *  this is a turn-based game, 2 fps shadows are visually indistinguishable.
+ *  not run on every render frame. Shadows update at a cinematic cadence while
+ *  the rest of the scene can keep its normal render loop.
  *  Per-character blob shadows from ContactShadows are NOT affected (they use
  *  their own WebGLRenderTarget and update independently).
  */
-const ShadowAutoUpdateThrottle: React.FC<{ fps?: number }> = ({ fps = 2 }) => {
+const ShadowAutoUpdateThrottle: React.FC<{ fps?: number }> = ({ fps = 24 }) => {
   const { gl } = useThree();
   const accRef = useRef(0);
   const minInterval = fps > 0 ? 1 / fps : Infinity;
@@ -4262,34 +4326,16 @@ export const GameScene: React.FC<SceneProps> = React.memo((props) => {
   }, [props.onGameTimeUpdate]);
   const renderQualityPreset = props.renderQualityPreset ?? getDefaultRenderQualityPreset();
   const quality = useMemo(() => getRenderQualityProfile(renderQualityPreset), [renderQualityPreset]);
+  const isElectron = useMemo(() => isElectronRuntime(), []);
   const isMobileDevice = useMemo(() => getRenderPlatform() === 'mobile', []);
   const shouldShowDesktopStatsMonitor = Boolean(props.showDesktopStatsMonitor)
     || (typeof window !== 'undefined' && (
       new URLSearchParams(window.location.search).has('perf')
       || window.localStorage.getItem('heroTower.perfMonitor') === '1'
     ));
-  const isPerformanceMode = renderQualityPreset === 'performance';
-  const isBalancedMode = renderQualityPreset === 'balanced';
   const isQualityMode = renderQualityPreset === 'quality';
-  const shouldUseForestDepthOfField = false;
-  const shouldUseDungeonDepthOfField = false;
-  const forestBloomIntensity = isQualityMode ? 0.5 : (isMobileDevice ? 0.34 : 0.44);
-  const dungeonBloomIntensity = isQualityMode ? 0.34 : (isMobileDevice ? 0.22 : 0.28);
-  const forestDepthOfFieldHeight = 360;
-  const dungeonDepthOfFieldHeight = 440;
   const isDungeonRun = Boolean(props.isDungeonScene ?? props.isDungeonRun);
   const runtimeCameraMenuFocus = props.menuCameraFocus ?? Boolean(props.isMenuView);
-  // Keep Bloom/Vignette exclusive to quality mode. Desktop web balanced is the default
-  // browser preset and should stay cool during long sessions.
-  const shouldUsePostProcessing = isQualityMode;
-  const shouldUseBloomAndVignette = isQualityMode;
-  const shouldUseVignette = shouldUseBloomAndVignette && !runtimeCameraMenuFocus;
-  // MSAA inside EffectComposer doubles GPU cost for all post-processing passes.
-  // Disabled across all tiers — Bloom already softens edges sufficiently at no extra GPU cost.
-  const postProcessingMultisampling = 0;
-  const backfaceOutlineThickness = isPerformanceMode
-    ? (isMobileDevice ? 0.045 : 0.06)
-    : (isMobileDevice ? 0.055 : 0.07);
   const outlineTargets = useMemo(() => [outlineHeroRef, outlineEnemyRef], []);
   const glPowerPreference = useMemo(() => getRenderPowerPreference(renderQualityPreset), [renderQualityPreset]);
   // Capture GL context params once on mount — powerPreference and antialias are WebGL context
@@ -4299,49 +4345,44 @@ export const GameScene: React.FC<SceneProps> = React.memo((props) => {
   const glPropsRef = useRef<{ antialias: boolean; powerPreference: WebGLPowerPreference }>(
     { antialias: quality.antialias, powerPreference: glPowerPreference },
   );
-  const shouldRenderAmbientDrift = isQualityMode;
-  const particleRenderCap = isPerformanceMode
-    ? (isMobileDevice ? 24 : 48)
-    : isQualityMode
-      ? (isMobileDevice ? 120 : 150)
-      : (isMobileDevice ? 60 : 90);
-  const shouldUseDepthOfField = isDungeonRun ? shouldUseDungeonDepthOfField : shouldUseForestDepthOfField;
-  const activeDepthOfFieldRange = isDungeonRun ? DUNGEON_FOCUS_RANGE : FOREST_FOCUS_RANGE;
-  const activeDepthOfFieldBokeh = isDungeonRun ? 1.7 : 0.5;
-  const activeDepthOfFieldHeight = isDungeonRun ? dungeonDepthOfFieldHeight : forestDepthOfFieldHeight;
-  const activeBloomIntensity = isDungeonRun ? dungeonBloomIntensity : forestBloomIntensity;
-  const activeBloomThreshold = isDungeonRun ? 0.5 : (shouldUseDepthOfField ? 0.42 : 0.48);
-  const activeBloomSmoothing = isDungeonRun ? 0.85 : (shouldUseDepthOfField ? 0.8 : 0.82);
-  const activeVignetteOffset = isDungeonRun ? 0.1 : (shouldUseDepthOfField ? 0.06 : 0.08);
-  const mainShadowUpdateFps = isDungeonRun ? 24 : 2;
-  const activeVignetteDarkness = runtimeCameraMenuFocus
-    ? 0
-    : (isDungeonRun ? 0.42 : (shouldUseDepthOfField ? 0.1 : 0.13));
-  // Mountain fog: starts close (6u) so objects at mid-distance get misty;
-  // tower in the background (15-30u) gets heavy fog for depth illusion.
-  const forestFogNear = quality.isLowQuality ? 6 : 5;
-  const forestFogFar = quality.isLowQuality ? 22 : 28;
-  // Mobile balanced uses PCFShadowMap (faster) instead of PCFSoftShadowMap to cut shadow pass cost.
-  // Desktop balanced also uses PCFShadowMap Ã¢â‚¬â€ PCFSoftShadowMap custo extra sem ganho visual perceptÃƒÂ­vel.
-  const isMobileBalanced = isMobileDevice && isBalancedMode;
+  const sceneRenderSettings = useMemo(() => createSceneRenderSettings({
+    renderQualityPreset,
+    quality,
+    isMobileDevice,
+    isElectronRuntime: isElectron,
+    prioritizeUiMotion: Boolean(props.prioritizeUiMotion),
+    isDungeonRun,
+    runtimeCameraMenuFocus,
+    dungeonFocusRange: DUNGEON_FOCUS_RANGE,
+    forestFocusRange: FOREST_FOCUS_RANGE,
+  }), [isDungeonRun, isElectron, isMobileDevice, props.prioritizeUiMotion, quality, renderQualityPreset, runtimeCameraMenuFocus]);
+  const {
+    shouldUsePostProcessing,
+    shouldUseBloomAndVignette,
+    shouldUseVignette,
+    postProcessingMultisampling,
+    backfaceOutlineThickness,
+    shouldRenderAmbientDrift,
+    particleRenderCap,
+    shouldUseDepthOfField,
+    activeDepthOfFieldRange,
+    activeDepthOfFieldBokeh,
+    activeDepthOfFieldHeight,
+    activeBloomIntensity,
+    activeBloomThreshold,
+    activeBloomSmoothing,
+    activeVignetteOffset,
+    activeVignetteDarkness,
+    mainShadowUpdateFps,
+    forestFogNear,
+    forestFogFar,
+    noMainShadow,
+    shadowsEnabled,
+    useAlwaysFrameloop,
+    mobileFpsCap,
+    battleContactShadowResolution,
+  } = sceneRenderSettings;
   const shadowMapType = isQualityMode ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
-  // Skip the main directional shadow map (saves a full scene re-render pass per frame) unless
-  // quality mode is selected. ContactShadows provides ground shadows for all other modes.
-  const noMainShadow = !isQualityMode;
-  // Only enable the canvas shadow renderer for quality mode. For balanced/performance,
-  // noMainShadow=true means no light uses castShadow, so the renderer overhead is wasted.
-  // ContactShadows uses its own WebGLRenderTarget and does NOT depend on this flag.
-  const shadowsEnabled = isQualityMode;
-  // Desktop and Electron should let native vsync handle cadence. The previous Electron
-  // demand loop capped quality mode at 30 fps, which made a 60 fps machine feel broken.
-  // Mobile keeps the explicit cap for battery and thermal control.
-  const useAlwaysFrameloop = !isMobileDevice;
-  const mobileFpsCap = isQualityMode ? 30 : 45;
-  const battleContactShadowResolution = useMemo(
-    // Mobile non-quality stays capped to avoid texture memory pressure on Safari/iOS.
-    () => (isMobileDevice && !isQualityMode) ? Math.min(quality.contactShadowResolution, 48) : (isPerformanceMode ? 48 : quality.contactShadowResolution),
-    [isMobileDevice, isPerformanceMode, isQualityMode, quality.contactShadowResolution],
-  );
 
   const bgColor = useMemo(() => {
     if (isDungeonRun) {
@@ -4461,8 +4502,8 @@ export const GameScene: React.FC<SceneProps> = React.memo((props) => {
             EXT_disjoint_timer_query_webgl2, forcing GPU-CPU pipeline serialization
             (2-3× frame time overhead). Custom StatsMonitor outside the Canvas
             already provides FPS/MS/MB data without any overhead. */}
-        {/* Throttle shadow map to 2 fps — saves ~40-60 ms/frame in quality mode.
-            ContactShadows (per-character) are unaffected and still update normally. */}
+        {/* Throttle the main shadow map to 24 fps. ContactShadows (per-character)
+          are unaffected and still update normally. */}
         {shadowsEnabled && <ShadowAutoUpdateThrottle fps={mainShadowUpdateFps} />}
         <CameraController
           menuFocus={runtimeCameraMenuFocus}
