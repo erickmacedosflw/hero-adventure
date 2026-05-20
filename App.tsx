@@ -4536,13 +4536,15 @@ export default function App() {
         resolvedGameState === GameState.BATTLE ? 'battle' : 'camp'
     ));
     const shouldMenuCameraFocus = menuCameraFocusOverride ?? (cameraSceneAnchor === 'camp');
-    const shouldPrioritizeSceneUiMotion = resolvedGameState !== GameState.BATTLE
-        || heroInspectMode
+    const shouldPrioritizeSceneUiMotion = heroInspectMode
         || portalInspectMode
         || showHeroDetailModal
         || isBattleSettingsModalOpen
+        || !showTavernUi
+        || portalTransitioning
         || Boolean(pendingTargetAction)
         || targetCardLeaving
+        || Boolean(loadingSplash)
         || Boolean(resourceUnlockModal)
         || Boolean(levelUpModal)
         || onboardingPhase === 'inventory_prompt'

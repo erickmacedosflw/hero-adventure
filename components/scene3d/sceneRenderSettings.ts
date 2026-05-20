@@ -51,7 +51,7 @@ export const createSceneRenderSettings = ({
 }): SceneRenderSettings => {
   const isPerformanceMode = renderQualityPreset === 'performance';
   const isQualityMode = renderQualityPreset === 'quality';
-  const shouldPrioritizeUiMotion = prioritizeUiMotion || runtimeCameraMenuFocus;
+  const shouldPrioritizeUiMotion = prioritizeUiMotion;
   const shouldUseForestDepthOfField = false;
   const shouldUseDungeonDepthOfField = false;
   const forestBloomIntensity = isQualityMode ? 0.5 : (isMobileDevice ? 0.34 : 0.44);
