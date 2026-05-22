@@ -36,8 +36,9 @@ const DeveloperRigRetargetScene = React.lazy(async () => ({ default: (await impo
 const DeveloperScenarioComposerScene = React.lazy(async () => ({ default: (await import('./scene3d/DeveloperSceneAdapters')).DeveloperScenarioComposerScene }));
 const DeveloperWeaponCalibrationScene = React.lazy(async () => ({ default: (await import('./scene3d/DeveloperSceneAdapters')).DeveloperWeaponCalibrationScene }));
 const SpriteAnimationLab = React.lazy(async () => ({ default: (await import('./SpriteAnimationLab')).SpriteAnimationLab }));
+const VideoEffectLab = React.lazy(async () => ({ default: (await import('./VideoEffectLab')).VideoEffectLab }));
 
-type DeveloperTab = 'overview' | 'animation-lab' | 'monster-lab' | 'item-lab' | 'kitbash-lab' | 'sprite-lab' | 'scenario-lab' | 'gltf-monster-viewer' | 'biped-character-viewer' | 'rig-retarget-lab' | 'effect-lab';
+type DeveloperTab = 'overview' | 'animation-lab' | 'monster-lab' | 'item-lab' | 'kitbash-lab' | 'sprite-lab' | 'scenario-lab' | 'gltf-monster-viewer' | 'biped-character-viewer' | 'rig-retarget-lab' | 'effect-lab' | 'video-effect-lab';
 type WeaponCalibrationViewMode = 'sandbox' | 'attached';
 
 const DeveloperPanelFallback = () => (
@@ -1505,6 +1506,7 @@ const EFFECT_${preset.id.toUpperCase().replace(/-/g, '_')}_CONFIG = {
     { id: 'scenario-lab', label: 'Cenarios', icon: <Layers3 size={16} /> },
     { id: 'effect-lab', label: 'Effect Lab', icon: <Sparkles size={16} /> },
     { id: 'sprite-lab', label: 'Sprite Lab', icon: <WandSparkles size={16} /> },
+    { id: 'video-effect-lab', label: 'Video Lab', icon: <Sparkles size={16} /> },
     { id: 'monster-lab', label: 'Monstros 3D', icon: <Swords size={16} /> },
     { id: 'gltf-monster-viewer', label: 'Novos Monstros', icon: <Swords size={16} /> },
     { id: 'biped-character-viewer', label: 'Personagens GLB', icon: <Users size={16} /> },
@@ -1595,6 +1597,12 @@ const EFFECT_${preset.id.toUpperCase().replace(/-/g, '_')}_CONFIG = {
               <div className="game-icon-badge h-12 w-12 text-violet-300"><Sparkles size={22} /></div>
               <h2 className="mt-4 font-gamer text-2xl font-black text-white">Effect Lab</h2>
               <p className="mt-3 text-sm text-slate-400">Crie e visualize efeitos RPG: magia, fogo, vento, corte, flechas, explosoes, aura, impacto, buff/debuff e ambiente. Suporte a Effekseer .efk.</p>
+            </button>
+
+            <button onClick={() => setTab('video-effect-lab')} className="game-surface rounded-[1.75rem] border border-rose-400/15 p-6 text-left transition-transform hover:-translate-y-1">
+              <div className="game-icon-badge h-12 w-12 text-rose-300"><Sparkles size={22} /></div>
+              <h2 className="mt-4 font-gamer text-2xl font-black text-white">Video Effect Lab</h2>
+              <p className="mt-3 text-sm text-slate-400">Carregue MP4 + MP3, posicione o vídeo sobre um personagem 3D com luma key em tempo real. Edite a timeline de vídeo e áudio e exporte config JSON.</p>
             </button>
 
             <div className="game-surface rounded-[1.75rem] border border-amber-400/15 p-6">
@@ -2819,6 +2827,14 @@ const EFFECT_${preset.id.toUpperCase().replace(/-/g, '_')}_CONFIG = {
         {tab === 'sprite-lab' && (
           <React.Suspense fallback={<DeveloperPanelFallback />}>
             <SpriteAnimationLab />
+          </React.Suspense>
+        )}
+
+        {tab === 'video-effect-lab' && (
+          <React.Suspense fallback={<DeveloperPanelFallback />}>
+            <div className="mt-6">
+              <VideoEffectLab />
+            </div>
           </React.Suspense>
         )}
 

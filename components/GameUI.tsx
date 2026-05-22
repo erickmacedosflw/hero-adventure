@@ -2115,8 +2115,8 @@ export const TavernScreen: React.FC<{
     <div ref={tavernBackdropRef} className="absolute inset-0 z-40 pointer-events-none text-white">
                 <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,rgba(0,0,0,0.18)_100%)] pointer-events-none" />
 
-                {/* CLOCK WIDGET � only in forest/mountain */}
-                {sceneRegion === 'forest' && (
+                {/* CLOCK WIDGET — hidden: mountain uses fixed lighting, no time cycle */}
+                {false && sceneRegion === 'forest' && (
                 <div className="absolute top-3 left-3 sm:top-5 sm:left-5 z-10 pointer-events-none">
                     <div className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-black/50 backdrop-blur-sm px-3 py-2 shadow-[0_8px_24px_rgba(0,0,0,0.4)]">
                         <Clock size={22} className="text-white/60 shrink-0" />

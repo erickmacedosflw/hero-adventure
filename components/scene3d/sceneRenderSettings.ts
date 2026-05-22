@@ -88,8 +88,14 @@ export const createSceneRenderSettings = ({
     forestFogFar: quality.isLowQuality ? 22 : 28,
     noMainShadow: !isQualityMode || shouldPrioritizeUiMotion,
     shadowsEnabled: isQualityMode && !shouldPrioritizeUiMotion,
-    useAlwaysFrameloop: isElectronRuntime || (!isMobileDevice && !isQualityMode),
-    mobileFpsCap: isQualityMode ? 30 : 45,
+    // Desktop uses 'always' frameloop (VSync rAF) for smooth 3D + game animations.
+    // Exception: when UI motion is prioritised (modal open/transition) we switch to
+    // 'demand' with no invalidation source — the 3D scene freezes and the compositor
+    // gets full GPU bandwidth for CSS modal animations.
+    // Mobile always uses demand + FpsCap to preserve thermals and battery.
+    useAlwaysFrameloop: !prioritizeUiMotion && (isElectronRuntime || !isMobileDevice),
+    // 0 = pause (used when prioritizeUiMotion=true so FpsCap does not drive renders).
+    mobileFpsCap: prioritizeUiMotion ? 0 : (isQualityMode ? 30 : 45),
     battleContactShadowResolution: (isMobileDevice && !isQualityMode)
       ? Math.min(quality.contactShadowResolution, 48)
       : (isPerformanceMode ? 48 : quality.contactShadowResolution),

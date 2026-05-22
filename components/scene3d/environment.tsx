@@ -297,13 +297,15 @@ void main() {
   #include <colorspace_fragment>
 }`;
 
-export const SkyboxController: React.FC = () => {
+export const SkyboxController: React.FC<{ fixedTheme?: string }> = ({ fixedTheme }) => {
   const { scene, gl } = useThree();
   const cubemaps = useRef<Record<string, THREE.CubeTexture>>({});
   const iblCache = useRef<Record<string, THREE.Texture>>({});
   const deferredLoadTimersRef = useRef<number[]>([]);
   const fallbackCubeRef = useRef<THREE.CubeTexture | null>(null);
   const skyboxUpdateAccumulatorRef = useRef(0);
+  // When fixedTheme is set, we apply skybox + IBL once and then stop updating.
+  const fixedThemeAppliedRef = useRef(false);
   const pmrem = useRef<THREE.PMREMGenerator | null>(null);
   const loadedCount = useRef(0);
 
@@ -386,6 +388,7 @@ export const SkyboxController: React.FC = () => {
         window.clearTimeout(timer);
       });
       deferredLoadTimersRef.current = [];
+      fixedThemeAppliedRef.current = false;
       pmrem.current?.dispose();
       Object.values(cubemaps.current).forEach((texture) => texture.dispose());
       Object.values(iblCache.current).forEach((texture) => texture.dispose());
@@ -397,6 +400,9 @@ export const SkyboxController: React.FC = () => {
 
   useFrame((state, delta) => {
     if (loadedCount.current === 0) return;
+    // Fixed theme: once skybox + IBL are applied, there is nothing left to do —
+    // stop looping entirely to avoid any per-frame overhead on the mountain scene.
+    if (fixedTheme && fixedThemeAppliedRef.current) return;
 
     skyboxUpdateAccumulatorRef.current += delta;
     if (skyboxUpdateAccumulatorRef.current < (1 / 2)) {
@@ -405,7 +411,9 @@ export const SkyboxController: React.FC = () => {
     skyboxUpdateAccumulatorRef.current = 0;
 
     const t = getGameT(state.clock.elapsedTime);
-    const { from, to, blend } = getSkyboxBlend(t);
+    const { from, to, blend } = fixedTheme
+      ? { from: fixedTheme, to: fixedTheme, blend: 0 }
+      : getSkyboxBlend(t);
     const fromTex = cubemaps.current[from] ?? fallbackCubeRef.current;
     const toTex = cubemaps.current[to] ?? fromTex;
 
@@ -426,6 +434,10 @@ export const SkyboxController: React.FC = () => {
     }
     if ((scene as THREE.Scene & { environmentIntensity?: number }).environmentIntensity !== 0.24) {
       (scene as THREE.Scene & { environmentIntensity?: number }).environmentIntensity = 0.24;
+    }
+    // Mark done so future frames are skipped (fixedTheme mode only).
+    if (fixedTheme && iblTex) {
+      fixedThemeAppliedRef.current = true;
     }
   });
 
@@ -775,6 +787,45 @@ export const DungeonAtmosphere = ({ quality, noMainShadow = false }: { quality: 
     </group>
   );
 };
+
+/**
+ * Fixed daytime atmosphere for the mountain/hunt scene.
+ * Replaces DayNightCycle with static 14:00 (2 pm) lighting — no sun movement,
+ * no time counter, no sun/moon visual meshes. Shadows are cast from a fixed
+ * sun position that matches the midday angle. The skybox (SkyboxController)
+ * is still rendered separately and provides IBL reflections as usual.
+ */
+export const MountainFixedAtmosphere = ({
+  quality,
+  noMainShadow = false,
+}: {
+  quality: RenderQualityProfile;
+  /** When true the directional light does not cast shadows (mobile performance). */
+  noMainShadow?: boolean;
+}) => (
+  <group>
+    {/* Neutral ambient — same values used in dungeon/tower for consistency */}
+    <ambientLight intensity={1.08} color="#f8fafc" />
+    <hemisphereLight intensity={0.70} color="#dbeafe" groundColor="#1f2937" />
+    {/* Simple overhead directional — no angled sun, matches dungeon/tower feel */}
+    <directionalLight
+      position={[0, 8, 6]}
+      intensity={0.78}
+      color="#f8fafc"
+      castShadow={!noMainShadow}
+      shadow-mapSize={[quality.shadowMapSize, quality.shadowMapSize]}
+      shadow-camera-left={-10}
+      shadow-camera-right={10}
+      shadow-camera-top={10}
+      shadow-camera-bottom={-10}
+      shadow-camera-near={0.1}
+      shadow-camera-far={200}
+      shadow-bias={-0.0004}
+      shadow-normalBias={0.03}
+      shadow-radius={3}
+    />
+  </group>
+);
 
 // Pre-allocated outside the component to avoid per-frame GC allocations
 const FOG_COLORS = {

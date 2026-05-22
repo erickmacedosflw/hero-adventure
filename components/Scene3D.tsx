@@ -27,6 +27,7 @@ import {
 import {
   CameraController,
   DayNightCycle,
+  MountainFixedAtmosphere,
   SkyboxController,
   getDefaultRenderQualityPreset,
   getRenderPlatform,
@@ -4462,9 +4463,7 @@ export const GameScene: React.FC<SceneProps> = React.memo((props) => {
           onClose={() => setHeroItemDetail(null)}
         />
       )}
-      {!isDungeonRun && (
-        <SceneClockOverlay />
-      )}
+      {/* Clock overlay removed — mountain scene uses fixed lighting with no time cycle */}
 
       {/* Dev-only FPS monitor — rendered outside Canvas to avoid R3F context issues */}
       {shouldShowDesktopStatsMonitor && <StatsMonitor />}
@@ -4494,7 +4493,7 @@ export const GameScene: React.FC<SceneProps> = React.memo((props) => {
           }, false);
         }}
       >
-        {!useAlwaysFrameloop && <FpsCap fps={mobileFpsCap} />}
+        {!useAlwaysFrameloop && mobileFpsCap > 0 && <FpsCap fps={mobileFpsCap} />}
         {shouldShowDesktopStatsMonitor && <RendererInfoBridge />}
         {shouldShowDesktopStatsMonitor && <FrameTimingBridge />}
         {shouldShowDesktopStatsMonitor && <SceneObjectInfoBridge />}
@@ -4568,8 +4567,8 @@ export const GameScene: React.FC<SceneProps> = React.memo((props) => {
             </>
           ) : (
             <>
-              <SkyboxController />
-              <DayNightCycle containerRef={containerRef} onTimeUpdate={handleTimeUpdate} quality={quality} noMainShadow={noMainShadow} />
+              <SkyboxController fixedTheme="sol" />
+              <MountainFixedAtmosphere quality={quality} noMainShadow={noMainShadow} />
               {huntRuntimeConfig ? (
                 <>
                   <ScenarioParticleField particles={huntRuntimeConfig.particles} />
