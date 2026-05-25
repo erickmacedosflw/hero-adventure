@@ -1,0 +1,62 @@
+{
+  "version": "1.0",
+  "videoFileName": "Efeitos_Monk_Final.mp4",
+  "timeline": {
+    "trimIn": 37.41765183761503,
+    "trimOut": 39.10302620878067,
+    "duration": 1.6853743711656364
+  },
+  "placement": {
+    "position": [
+      0.023999999999999914,
+      0.2639999999999999,
+      0.9799999999999999
+    ],
+    "scale": 3.8999999999999932,
+    "billboard": true,
+    "flipX": false,
+    "flipY": false
+  },
+  "lumaKey": {
+    "threshold": 0.38,
+    "smoothness": 0.65,
+    "softness": 0.09,
+    "blackClip": 1,
+    "whiteClip": 1,
+    "edgeSoftness": 0,
+    "alphaFade": 1,
+    "gamma": 1.47,
+    "contrast": 0.23,
+    "brightness": -0.13,
+    "exposure": 0,
+    "saturation": 2
+  },
+  "refinement": {
+    "blurAlpha": 0,
+    "edgeBlur": 0,
+    "despillDark": 0,
+    "noiseReduction": 0,
+    "feather": 0,
+    "clampAlpha": 0,
+    "vignette": 0.48,
+    "vignetteWarmth": 0,
+    "vignetteShape": 1
+  },
+  "invertMask": 0,
+  "colorTint": {
+    "color": "#ffffff",
+    "strength": 0
+  },
+  "videoLight": {
+    "enabled": true,
+    "intensity": 1,
+    "luminance": 0.05,
+    "satBoost": 0,
+    "greyThreshold": 0
+  },
+  "playback": {
+    "speed": 0.8,
+    "loop": true,
+    "pingPong": false
+  }
+}

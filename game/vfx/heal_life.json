@@ -1,0 +1,62 @@
+{
+  "version": "1.0",
+  "videoFileName": "0524 (2).mp4",
+  "timeline": {
+    "trimIn": 45.409304483895696,
+    "trimOut": 46.86304680866564,
+    "duration": 1.453742324769948
+  },
+  "placement": {
+    "position": [
+      -0.03600000000000006,
+      0.15599999999999992,
+      0.9799999999999999
+    ],
+    "scale": 4.549999999999991,
+    "billboard": true,
+    "flipX": false,
+    "flipY": false
+  },
+  "lumaKey": {
+    "threshold": 0.35,
+    "smoothness": 0.76,
+    "softness": 1.18,
+    "blackClip": 0,
+    "whiteClip": 0,
+    "edgeSoftness": 0,
+    "alphaFade": 1,
+    "gamma": 1.87,
+    "contrast": 0.7,
+    "brightness": -0.17,
+    "exposure": 0,
+    "saturation": 0.64
+  },
+  "refinement": {
+    "blurAlpha": 0,
+    "edgeBlur": 1,
+    "despillDark": 0,
+    "noiseReduction": 0,
+    "feather": 0,
+    "clampAlpha": 0,
+    "vignette": 0.48,
+    "vignetteWarmth": 0,
+    "vignetteShape": 1
+  },
+  "invertMask": 0,
+  "colorTint": {
+    "color": "#ffffff",
+    "strength": 0
+  },
+  "videoLight": {
+    "enabled": true,
+    "intensity": 1,
+    "luminance": 0.05,
+    "satBoost": 0,
+    "greyThreshold": 0
+  },
+  "playback": {
+    "speed": 0.8,
+    "loop": true,
+    "pingPong": false
+  }
+}

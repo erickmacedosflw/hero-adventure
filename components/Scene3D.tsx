@@ -83,6 +83,9 @@ import { HeroInspectCanvas } from './scene3d/HeroInspectCanvas';
 import { BattleActionsHtml, type BattleActionsConfig } from './scene3d/BattleActionsHtml';
 import { createSceneRenderSettings } from './scene3d/sceneRenderSettings';
 import { PortalInspectCanvas } from './scene3d/PortalInspectCanvas';
+import BattleVfxLayer from './scene3d/BattleVfxLayer';
+import PersistentImpulseAura from './scene3d/PersistentImpulseAura';
+import type { VfxQueueApi } from '../game/hooks/useVfxQueue';
 import { useBattleVfxStore } from '../game/stores/battleVfxStore';
 import { useBattleGaugeStore } from '../game/stores/battleGaugeStore';
 import { useBattleStatsStore } from '../game/stores/battleStatsStore';
@@ -216,6 +219,8 @@ interface SceneProps {
   initialGroupSize?: number;
   /** Called when the player clicks the hero nameplate card above the 3D model in battle. */
   onHeroNameplateClick?: () => void;
+  /** Queue of active video-based VFX (see `useVfxQueue`). Rendered inside the Canvas. */
+  vfxQueue?: VfxQueueApi;
 }
 
 // --- MAIN COMPONENTS ---
@@ -1553,25 +1558,14 @@ const CombatCinematicFX = ({
     const playerImpulseColor = getImpulseAuraColor(effectivePlayerImpulseLightLevel);
     const enemyImpulseColor = getImpulseAuraColor(effectiveEnemyImpulseLightLevel);
 
-    if (normalizedPlayerImpulseLevel > 0) {
-      if (playerImpulseAuraStartMsRef.current == null) {
-        playerImpulseAuraStartMsRef.current = state.clock.elapsedTime * 1000;
-      }
-      playerImpulseAuraTintColorRef.current = playerImpulseColor;
-    } else {
-      playerImpulseAuraStartMsRef.current = null;
-      playerImpulseAuraTintColorRef.current = null;
-    }
-
-    if (normalizedEnemyImpulseLevel > 0) {
-      if (enemyImpulseAuraStartMsRef.current == null) {
-        enemyImpulseAuraStartMsRef.current = state.clock.elapsedTime * 1000;
-      }
-      enemyImpulseAuraTintColorRef.current = enemyImpulseColor;
-    } else {
-      enemyImpulseAuraStartMsRef.current = null;
-      enemyImpulseAuraTintColorRef.current = null;
-    }
+    // Legacy sprite-sheet impulse aura + dedicated point lights are
+    // disabled — the persistent video aura (`PersistentImpulseAura`)
+    // is now the only impulse VFX and ships its own dynamic lighting
+    // via `VfxLighting` inside `VfxVideoPlayer`.
+    playerImpulseAuraStartMsRef.current = null;
+    playerImpulseAuraTintColorRef.current = null;
+    enemyImpulseAuraStartMsRef.current = null;
+    enemyImpulseAuraTintColorRef.current = null;
 
     if (
       typeof playerImpactAnimationTrigger === 'number'
@@ -1661,39 +1655,18 @@ const CombatCinematicFX = ({
     }
 
     if (impulsePlayerLightRef.current) {
-      const intensityPulse = effectivePlayerImpulseLightLevel > 0
-        ? (0.62 + Math.sin((t * 5.4) + 0.2) * 0.2)
-        : 0;
-      impulsePlayerLightRef.current.color.set(playerImpulseColor);
-      impulsePlayerLightRef.current.intensity = effectivePlayerImpulseLightLevel > 0
-        ? (intensityPulse * (0.75 + effectivePlayerImpulseLightLevel * 0.28))
-        : 0;
-      impulsePlayerLightRef.current.position.set(playerAnchorXRef.current, playerAnchorYRef.current + 0.75, 0.24);
+      // Disabled — the video aura supplies its own light.
+      impulsePlayerLightRef.current.intensity = 0;
       syncLightVisibility(impulsePlayerLightRef.current);
     }
 
     if (impulseEnemyLightRef.current) {
-      const intensityPulse = effectiveEnemyImpulseLightLevel > 0
-        ? (0.62 + Math.sin((t * 5.1) + 0.8) * 0.2)
-        : 0;
-      impulseEnemyLightRef.current.color.set(enemyImpulseColor);
-      impulseEnemyLightRef.current.intensity = effectiveEnemyImpulseLightLevel > 0
-        ? (intensityPulse * (0.75 + effectiveEnemyImpulseLightLevel * 0.28))
-        : 0;
-      impulseEnemyLightRef.current.position.set(enemyAnchorXRef.current, enemyAnchorYRef.current + 0.75, 0.24);
+      impulseEnemyLightRef.current.intensity = 0;
       syncLightVisibility(impulseEnemyLightRef.current);
     }
 
     if (impulseChargePlayerLightRef.current) {
-      const isChargingImpulse = (
-        playerAnimationAction === 'item'
-        && playerImpactAnimationId === SPRITE_ANIMATION_IDS.execImpulse
-      );
-      const chargeColor = playerImpactAnimationTintColor ?? '#22d3ee';
-      const chargePulse = 0.75 + Math.sin((t * 6.8) + 0.4) * 0.22;
-      impulseChargePlayerLightRef.current.color.set(chargeColor);
-      impulseChargePlayerLightRef.current.intensity = isChargingImpulse ? (chargePulse * 1.45) : 0;
-      impulseChargePlayerLightRef.current.position.set(playerAnchorXRef.current, playerAnchorYRef.current + 0.8, 0.28);
+      impulseChargePlayerLightRef.current.intensity = 0;
       syncLightVisibility(impulseChargePlayerLightRef.current);
     }
 
@@ -5213,6 +5186,35 @@ export const GameScene: React.FC<SceneProps> = React.memo((props) => {
             ) : null}
           </EffectComposer>
         ) : null}
+        {props.vfxQueue ? <BattleVfxLayer queue={props.vfxQueue} /> : null}
+        {/* Persistent impulse-aura visualisation — replaces the legacy
+         *  sprite/particle feedback. Driven by the actor state so the
+         *  start→loop chain auto-plays whenever the active impulse charge
+         *  rises above zero, and tears down when it drops to zero. */}
+        {/* Anchor matches the VideoEffectLab convention: the character group
+         *  sits at y = -1 in lab world space (and at y = -1 in battle too),
+         *  so the authored `placement.position` is applied verbatim from
+         *  that same origin. */}
+        {/* Anchor on the X axis only — the JSON `placement.position` is
+         *  authored in absolute lab world-space (lab character group sits
+         *  at y=-1 but `videoPos` is world-space). `VfxVideoPlayer` adds
+         *  `anchor + placement.position`, so we pass y=z=0 to preserve the
+         *  authored position verbatim, just shifted to each combatant's
+         *  side. Matches how heal/other VFX align with their JSON. */}
+        {!props.isMenuView && props.playerState && (props.playerState.impulsoAtivo ?? 0) > 0 && (
+          <PersistentImpulseAura
+            key={`player-aura-${props.playerState.impulsoAtivo}`}
+            worldPosition={[-2, 0, 0]}
+            level={props.playerState.impulsoAtivo}
+          />
+        )}
+        {!props.isMenuView && props.enemyState && (props.enemyState.impulso ?? 0) > 0 && (
+          <PersistentImpulseAura
+            key={`enemy-aura-${props.enemyState.impulso}`}
+            worldPosition={[2, 0, 0]}
+            level={props.enemyState.impulso}
+          />
+        )}
       </Canvas>
     </div>
   );

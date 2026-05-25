@@ -9,6 +9,7 @@ import { BattleHUD, MenuScreen, ShopScreen, TavernScreen, DungeonResultScreen, B
 import { CardChoiceScreen } from './components/game-ui/screens';
 import { HeroProfileDetailModal } from './components/scene3d/HeroInspectCanvas';
 import { useInputMode } from './game/hooks/useInputMode';
+import { useVfxQueue } from './game/hooks/useVfxQueue';
 import { AdminPanel } from './components/AdminPanel';
 import { AlchemistScreen } from './components/shop/AlchemistMenuScreen';
 import { 
@@ -1030,6 +1031,8 @@ export default function App() {
   const [showHeroDetailModal, setShowHeroDetailModal] = useState(false);
     const [isBattleSettingsModalOpen, setIsBattleSettingsModalOpen] = useState(false);
   const { uiProfile: appUiProfile } = useInputMode();
+  /** Queue of active video-based VFX (see `useVfxQueue` + `BattleVfxLayer`). */
+  const vfxQueue = useVfxQueue();
   const [accumulatedGroupRewards, setAccumulatedGroupRewards] = useState<{ gold: number; xp: number }>({ gold: 0, xp: 0 });
     const [battleTimelineState, setBattleTimelineState] = useState<BattleTimelineState>('RUNNING');
     const [activeBattleActorId, setActiveBattleActorId] = useState<string | null>(null);
@@ -3790,6 +3793,7 @@ export default function App() {
         onPlayerDefeat: () => setHasPlayerDiedOnce(true),
         onTowerDefeat: towerRun ? handleTowerDeath : undefined,
         onActorTurnDone,
+        playVfx: vfxQueue.enqueue,
   });
 
   useEffect(() => {
@@ -3849,9 +3853,17 @@ export default function App() {
     }, [beginPlayerActionExecution, handleChargeImpulse]);
 
     const handleUseItemWithTimeline = useCallback((itemId: string) => {
+        // If this item has an authored video VFX, enqueue it now. The legacy
+        // sprite-sheet animation (`animacaoExecucao`) still plays — the video
+        // sits on top as a richer overlay. To fully replace the sprite later,
+        // strip `animacaoExecucao` from the item definition.
+        const item = ALL_ITEMS.find(i => i.id === itemId);
+        if (item?.vfxId) {
+            vfxQueue.enqueue({ vfxId: item.vfxId, target: 'player', maxDuration: 1.5 });
+        }
         beginPlayerActionExecution();
         handleUseItem(itemId);
-    }, [beginPlayerActionExecution, handleUseItem]);
+    }, [beginPlayerActionExecution, handleUseItem, vfxQueue]);
 
   const handleSelectTarget = useCallback((targetId: string) => {
     const all = [enemy, ...additionalEnemies].filter(Boolean) as Enemy[];
@@ -5600,6 +5612,7 @@ export default function App() {
                         mainEnemySlotIndex={mainEnemySlotIndex}
                         initialGroupSize={initialGroupSize}
                         onHeroNameplateClick={handleHeroNameplateClick}
+                        vfxQueue={vfxQueue}
                     />
                     </div>
             </SceneErrorBoundary>

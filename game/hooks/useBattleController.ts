@@ -131,6 +131,10 @@ interface UseBattleControllerParams {
   onTowerDefeat?: () => void;
   /** Chamado quando o ator atual termina sua ação e a timeline ATB pode retomar. */
   onActorTurnDone: (actorIdOverride?: string) => void;
+  /** Optional: enqueue a video VFX (see `useVfxQueue`). When provided the
+   *  controller will trigger video-based effects (e.g. impulse absorption
+   *  aura) on top of the legacy particles. */
+  playVfx?: (opts: { vfxId: string; target: 'player' | 'enemy'; maxDuration?: number; tintColor?: string; tintStrength?: number }) => void;
 }
 
 const getMarkedBonus = (statuses: Enemy['statusEffects'] | undefined, value: number) => (
@@ -424,6 +428,7 @@ export const useBattleController = ({
   onPlayerDefeat,
   onTowerDefeat,
   onActorTurnDone,
+  playVfx,
 }: UseBattleControllerParams) => {
   const handleVictoryRef = useRef(handleVictory);
   const lastPlayerActionRef = useRef<'attack' | 'defend' | 'skill' | 'item' | null>(null);
@@ -456,12 +461,11 @@ export const useBattleController = ({
   }), []);
 
   const playImpulseVisual = useCallback((target: 'player' | 'enemy', level: number, label: string, overrideColor?: string | null) => {
+    // The persistent video aura (see `PersistentImpulseAura` in Scene3D) is
+    // the new authoritative visual for impulse charges — the old particle
+    // burst was removed to avoid double feedback. We keep the floating text
+    // label as combat-UI confirmation.
     const color = overrideColor ?? getImpulseColorByLevel(level);
-    const basePosition: [number, number, number] = target === 'player' ? [-2, -0.45, 0] : [2, -0.45, 0];
-    const corePosition: [number, number, number] = target === 'player' ? [-2, 0.1, 0] : [2, 0.1, 0];
-    spawnParticles(basePosition, 22 + (level * 6), color, 'spark');
-    spawnParticles(corePosition, 18 + (level * 4), color, 'heal');
-    spawnParticles(corePosition, 14 + (level * 4), '#ffffff', 'spark');
     spawnFloatingText(label, target, 'buff', color);
   }, []);
 
@@ -549,13 +553,10 @@ export const useBattleController = ({
     battleSfx.play('defense_use', { source: 'hero' });
     const nextReserve = clampImpulse(player.impulso + 1, maxImpulse);
     const impulseTintColor = player.classResource.color || '#22d3ee';
-    const impulseAnimationDurationMs = await getAnimationDurationMsById(SPRITE_ANIMATION_IDS.execImpulse);
-    const impulseFinishDelayMs = impulseAnimationDurationMs > 0 ? (impulseAnimationDurationMs + 80) : 520;
+    // Legacy `execImpulse` sprite-sheet removed — the persistent video aura
+    // (`PersistentImpulseAura`) is now the only on-screen impulse FX.
+    const impulseFinishDelayMs = 520;
     setPlayerAnimationAction('item');
-    setPlayerImpactAnimationId(SPRITE_ANIMATION_IDS.execImpulse);
-    setPlayerImpactAnimationTintColor(impulseTintColor);
-    setPlayerImpactAnimationTarget('self');
-    setPlayerImpactAnimationTrigger((prev) => prev + 1);
     setPlayer((prev) => ({
       ...prev,
       impulso: clampImpulse(prev.impulso + 1, getImpulseCapacityByLevel(prev.level)),
@@ -565,8 +566,6 @@ export const useBattleController = ({
     addLog('Impulso carregado +1.', 'buff');
 
     window.setTimeout(() => {
-      setPlayerImpactAnimationId(null);
-      setPlayerImpactAnimationTintColor(null);
       setPlayerAnimationAction('idle');
       window.setTimeout(() => onActorTurnDone(), 1000);
     }, impulseFinishDelayMs);
@@ -600,10 +599,14 @@ export const useBattleController = ({
     }));
     const nextActive = clampImpulse(player.impulsoAtivo + 1, maxImpulse);
     playImpulseVisual('player', nextActive, `ABSORVER ${nextActive}/${maxImpulse}`);
+    // Play the authored absorb VFX tinted with the impulse tier colour.
+    const absorbTint = getImpulseColorByLevel(nextActive);
+    playVfx?.({ vfxId: 'absorve_aura', target: 'player', maxDuration: 2, tintColor: absorbTint });
     addLog(`Absorcao de impulso: ${nextActive}/${maxImpulse} ativo.`, 'buff');
   }, [
     addLog,
     playImpulseVisual,
+    playVfx,
     player.impulso,
     player.impulsoAtivo,
     player.level,
@@ -1337,11 +1340,16 @@ export const useBattleController = ({
       return;
     }
 
+    // Items with a video VFX (item.vfxId) handle visuals AND audio via the
+    // VFX video itself. We skip the legacy sprite-sheet execution animation
+    // and the SFX 'heal' cue below to avoid double effects.
+    const hasVideoVfx = !!item.vfxId;
+
     if (gameState === GameState.BATTLE) {
       setTurnState(TurnState.PLAYER_ANIMATION);
       setPlayerAnimationAction('item');
-      setPlayerExecutionAnimationId(item.animacaoExecucao ?? COMBAT_SPRITE_ANIMATION_DEFAULTS.unarmedExecutionAnimationId);
-      setPlayerExecutionAnimationTintColor(item.animacaoExecucaoCor ?? null);
+      setPlayerExecutionAnimationId(hasVideoVfx ? null : (item.animacaoExecucao ?? COMBAT_SPRITE_ANIMATION_DEFAULTS.unarmedExecutionAnimationId));
+      setPlayerExecutionAnimationTintColor(hasVideoVfx ? null : (item.animacaoExecucaoCor ?? null));
       setPlayerImpactAnimationId(null);
       setPlayerImpactAnimationTintColor(null);
       setPlayerImpactAnimationTarget('self');
@@ -1368,19 +1376,19 @@ export const useBattleController = ({
         : 0;
 
     if (recoveredHp > 0 && recoveredMp > 0) {
-      battleSfx.play('heal');
+      if (!hasVideoVfx) battleSfx.play('heal');
       spawnParticles([-2, -1, 0], 26, '#4ade80', 'heal');
       spawnParticles([-2, -1, 0], 20, '#3b82f6', 'heal');
       spawnFloatingText(`+${recoveredHp} HP`, 'player', 'heal');
       spawnFloatingText(`+${recoveredMp} Mana`, 'player', 'heal');
       addLog(`Usou ${item.name}, recuperou ${recoveredHp} HP e ${recoveredMp} Mana`, 'heal');
     } else if (recoveredHp > 0) {
-      battleSfx.play('heal');
+      if (!hasVideoVfx) battleSfx.play('heal');
       spawnParticles([-2, -1, 0], 24, '#4ade80', 'heal');
       spawnFloatingText(`+${recoveredHp}`, 'player', 'heal');
       addLog(`Usou ${item.name}, recuperou ${recoveredHp} HP`, 'heal');
     } else if (recoveredMp > 0) {
-      battleSfx.play('heal');
+      if (!hasVideoVfx) battleSfx.play('heal');
       spawnParticles([-2, -1, 0], 24, '#3b82f6', 'heal');
       spawnFloatingText(`+${recoveredMp} Mana`, 'player', 'heal');
       addLog(`Usou ${item.name}, recuperou ${recoveredMp} Mana`, 'heal');

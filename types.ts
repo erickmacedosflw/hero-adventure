@@ -271,6 +271,8 @@ export interface Item {
   animacaoImpacto?: string;
   animacaoExecucaoCor?: string;
   animacaoImpactoCor?: string;
+  /** Optional video VFX id (see `game/vfx/registry.ts`). If set, used in place of sprite-sheet `animacaoExecucao`. */
+  vfxId?: string;
 }
 
 export interface LootChance {
@@ -408,6 +410,8 @@ export interface Skill {
   animacaoImpactoCor?: string;
   animacaoImpactoAlvo?: 'self' | 'target';
   tipoAnimacao?: 'cura_status' | 'ataque' | 'magia';
+  /** Optional video VFX id (see `game/vfx/registry.ts`). If set, used in place of sprite-sheet `animacaoExecucao`. */
+  vfxId?: string;
 }
 
 export interface TalentNodeEffect {

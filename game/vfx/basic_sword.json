@@ -1,0 +1,62 @@
+{
+  "version": "1.0",
+  "videoFileName": "Efeitos_Fusion_Final.mp4",
+  "timeline": {
+    "trimIn": 3.8854294290644176,
+    "trimOut": 4.916257644938643,
+    "duration": 1.0308282158742252
+  },
+  "placement": {
+    "position": [
+      0.13199999999999992,
+      0.29999999999999993,
+      0.9799999999999999
+    ],
+    "scale": 4.199999999999992,
+    "billboard": true,
+    "flipX": false,
+    "flipY": false
+  },
+  "lumaKey": {
+    "threshold": 0.35,
+    "smoothness": 1,
+    "softness": 1.1,
+    "blackClip": 0,
+    "whiteClip": 0,
+    "edgeSoftness": 0,
+    "alphaFade": 1,
+    "gamma": 1.87,
+    "contrast": 0.7,
+    "brightness": -0.17,
+    "exposure": 0,
+    "saturation": 2
+  },
+  "refinement": {
+    "blurAlpha": 0,
+    "edgeBlur": 1,
+    "despillDark": 0,
+    "noiseReduction": 0,
+    "feather": 0,
+    "clampAlpha": 0,
+    "vignette": 0.48,
+    "vignetteWarmth": 0,
+    "vignetteShape": 1
+  },
+  "invertMask": 0,
+  "colorTint": {
+    "color": "#ffffff",
+    "strength": 0
+  },
+  "videoLight": {
+    "enabled": true,
+    "intensity": 1,
+    "luminance": 0.05,
+    "satBoost": 0,
+    "greyThreshold": 0
+  },
+  "playback": {
+    "speed": 0.8,
+    "loop": true,
+    "pingPong": false
+  }
+}

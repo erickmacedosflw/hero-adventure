@@ -19,7 +19,7 @@ const _sklIcon  = (n: number | string) => new URL(`./game/assets/Icons/Habilidad
 
 const BASE_SHOP_ITEMS: Item[] = [
   // --- POTIONS & CONSUMABLES ---
-  { id: 'pot_1', name: 'Poção Menor', description: 'Cura ferimentos leves. +35 HP', cost: 40, type: 'potion', value: 35, icon: '🧪', iconImage: _itmIcon('Poção Menor.png'), rarity: 'bronze', minLevel: 1, animacaoExecucao: SPRITE_ANIMATION_IDS.execAuraVida2 },
+  { id: 'pot_1', name: 'Poção Menor', description: 'Cura ferimentos leves. +35 HP', cost: 40, type: 'potion', value: 35, icon: '🧪', iconImage: _itmIcon('Poção Menor.png'), rarity: 'bronze', minLevel: 1, vfxId: 'heal_life' },
   { id: 'pot_3', name: 'Poção de Vida', description: 'Recuperação moderada. +65 HP', cost: 70, type: 'potion', value: 65, icon: '❤️', iconImage: _itmIcon('Poção de Vida.png'), rarity: 'bronze', minLevel: 2, animacaoExecucao: SPRITE_ANIMATION_IDS.execAuraVida2 },
   { id: 'pot_5', name: 'Elixir Rubro', description: 'Cura poderosa. +130 HP', cost: 120, type: 'potion', value: 130, icon: '💖', iconImage: _itmIcon('Elixir Rubro .png'), rarity: 'silver', minLevel: 8, animacaoExecucao: SPRITE_ANIMATION_IDS.execAuraVida2 },
   { id: 'pot_4', name: 'Ambrosia Dourada', description: 'Restauração superior. +285 HP', cost: 300, type: 'potion', value: 285, icon: '🌟', iconImage: _itmIcon('Ambrosia Dourada.png'), rarity: 'gold', minLevel: 15, animacaoExecucao: SPRITE_ANIMATION_IDS.execAuraVida2 },
