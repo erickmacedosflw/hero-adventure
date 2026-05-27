@@ -44,6 +44,9 @@ import {
   GltfEnemyCharacter,
   applyHitFlashToMaterial,
 } from './scene3d/characters';
+import { BattleHero2D } from './scene3d/BattleHero2D';
+import { BattleEnemy2D } from './scene3d/BattleEnemy2D';
+import { ENEMIES_2D } from '../game/data/enemies2D';
 import { MeshParticle, WorldFloatingTexts, WorldLootDisplay, InstancedParticles, type LootResultData } from './scene3d/effects';
 import {
   getKitbashRootSlot,
@@ -91,6 +94,7 @@ import { useBattleGaugeStore } from '../game/stores/battleGaugeStore';
 import { useBattleStatsStore } from '../game/stores/battleStatsStore';
 import { useGameTimeStore } from '../game/stores/gameTimeStore';
 import { useBattleAnimationStore } from '../game/stores/battleAnimationStore';
+import { useCinematicCameraStore } from '../game/stores/cinematicCameraStore';
 export { ItemPreviewCanvas } from './items/ItemPreviewCanvas';
 
 const disableObjectRaycast = () => null;
@@ -198,6 +202,8 @@ interface SceneProps {
   onPortalTravelTo?: (region: 'forest' | 'dungeon' | 'tower') => void;
   /** When set, the battle renders a GLTF monster model instead of the FBX skeleton. */
   enemyGltfModelUrl?: string;
+  /** When set, renders a 2D sprite enemy using the matching Enemy2DTemplate from enemies2D.ts. */
+  enemySprite2DTemplateId?: string;
   enemyGltfBodyType?: GltfMonsterBodyType;
   /** Mobile-only battle action panel rendered via <Html> in 3D space next to the hero. */
   battleActionsConfig?: BattleActionsConfig;
@@ -2531,7 +2537,8 @@ export const HeroVoxel = ({ classId = 'knight', playerAnimationAction = 'idle', 
     return 0;
   }, [playerState?.buffs]);
   const defendImpulseColor = defendImpulseLevel >= 3 ? '#7dd3fc' : defendImpulseLevel === 2 ? '#a855f7' : '#ef4444';
-  const showMagicDefenseOrb = Boolean(isDefending);
+  // Efeito 3D de defesa substituído pela DefenseAura2D no BattleHero2D (brilho + ícone de escudo)
+  const showMagicDefenseOrb = false;
 
   const refreshFlashMaterials = useCallback(() => {
     if (!group.current) {
@@ -2589,12 +2596,8 @@ export const HeroVoxel = ({ classId = 'knight', playerAnimationAction = 'idle', 
       syncLightVisibility(healLightRef.current);
     }
     if (group.current) {
-      // Idle/Action movement Ã¢â‚¬â€ stay at attack position while animation is still playing
-      const isInAttackAnimation = effectiveIsAttacking;
-      if (isInAttackAnimation) {
-        group.current.position.x = THREE.MathUtils.lerp(group.current.position.x, attackPositionX, 0.2);
-        group.current.position.y = THREE.MathUtils.lerp(group.current.position.y, attackPositionY, 0.2);
-      } else if (isDefending) {
+      // Herói 2D não se desloca para atacar - animação ocorre no sprite no lugar.
+      if (isDefending) {
         group.current.position.x = THREE.MathUtils.lerp(group.current.position.x, defendPositionX, 0.1);
         group.current.position.y = THREE.MathUtils.lerp(group.current.position.y, defendPositionY, 0.12);
         group.current.rotation.x = 0.2;
@@ -2764,46 +2767,11 @@ export const HeroVoxel = ({ classId = 'knight', playerAnimationAction = 'idle', 
           onPointerOut={handleHeroPointerOut}
           onClick={handleHeroClick}
         >
-          {runtimeHeroAssets ? (
-            <Suspense fallback={null}>
-              <AnimatedClassHero
-                assets={runtimeHeroAssets}
-                equippedWeaponId={weaponId}
-                animationAction={effectivePlayerAnimationAction}
-                animationClipName={animationClipName}
-                preferredAnimationBundle={preferredAnimationBundle}
-                hasWeapon={Boolean(weaponId)}
-                loadAllAnimationBundles={loadAllAnimationBundles}
-                loadSecondaryAnimationBundles={loadSecondaryAnimationBundles}
-                previewLoopAllActions={previewLoopAllActions}
-                onAvailableAnimationClipsChange={onAvailableAnimationClipsChange}
-                debugTargetId={classId}
-                debugRuntimeId={debugRuntimeId}
-                debugRuntimeLabel={debugRuntimeLabel}
-                onRuntimeDiagnosticChange={onRuntimeDiagnosticChange}
-                hiddenPartSlots={hiddenPartSlots}
-                visiblePartSlots={visiblePartSlots}
-                calibrationOverride={calibrationOverride}
-              />
-            </Suspense>
-          ) : (
-            <group>
-              <mesh position={[0, 0.9, 0]}>
-                <boxGeometry args={[0.7, 1.3, 0.52]} />
-                <meshStandardMaterial color="#60a5fa" wireframe transparent opacity={0.88} />
-              </mesh>
-              <mesh position={[0, 0.16, 0]} rotation={[Math.PI / 2, 0, 0]}>
-                <torusGeometry args={[0.7, 0.05, 10, 24]} />
-                <meshStandardMaterial color="#93c5fd" emissive="#93c5fd" emissiveIntensity={0.85} transparent opacity={0.6} />
-              </mesh>
-              <pointLight color="#93c5fd" intensity={1.1} distance={4.8} decay={2} position={[0, 1.35, 0.3]} />
-              <Html center sprite distanceFactor={8} position={[0, 2.25, 0]} zIndexRange={[170, 0]}>
-                <div className="rounded-lg border border-sky-200/70 bg-[#111827]/78 px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-sky-100 shadow-[0_10px_24px_rgba(0,0,0,0.45)]">
-                  Modelo de heroi indisponivel
-                </div>
-              </Html>
-            </group>
-          )}
+          <BattleHero2D
+            classId={classId}
+            animationAction={effectivePlayerAnimationAction}
+            interactive
+          />
         </group>
         {isLevelingUp && <LevelUpEffect category={levelUpCardCategory} />}
         <LevelUpSpriteExecution isLevelingUp={isLevelingUp} />
@@ -2879,7 +2847,7 @@ export const HeroVoxel = ({ classId = 'knight', playerAnimationAction = 'idle', 
             </Html>
           </>
         ) : null}
-        <ContactShadows frames={1} opacity={0.34} scale={3.2} blur={4.5} far={2.5} resolution={contactShadowResolution} />
+        <ContactShadows opacity={0.72} scale={3.2} blur={3.0} far={2.5} resolution={contactShadowResolution} />
       </group>
       
       {/* Energy Shield Effect */}
@@ -2902,7 +2870,7 @@ export const HeroVoxel = ({ classId = 'knight', playerAnimationAction = 'idle', 
         </mesh>
         {useDecorativeLights ? <pointLight color="#60a5fa" intensity={1.6} distance={5} decay={2} /> : null}
       </group>
-      <group ref={defendImpulseAuraRef} position={[idlePositionX + 0.5, -0.18, 0]} visible={Boolean(isDefending) && defendImpulseLevel > 0}>
+      <group ref={defendImpulseAuraRef} position={[idlePositionX + 0.5, -0.18, 0]} visible={false}>
         <mesh rotation={[Math.PI / 2, 0, 0]}>
           <torusGeometry args={[1.52, 0.045, 10, 42]} />
           <meshStandardMaterial color={defendImpulseColor} emissive={defendImpulseColor} emissiveIntensity={1.35} transparent opacity={0.5} />
@@ -4291,6 +4259,19 @@ export const GameScene: React.FC<SceneProps> = React.memo((props) => {
       if (typeof document !== 'undefined') document.body.style.cursor = '';
     }
   }, [props.pendingTargetAction]);
+  // Pré-carrega todos os sprites 2D do inimigo assim que o templateId chega,
+  // evitando o flash/delay na primeira exibição em batalha.
+  React.useEffect(() => {
+    const ids = new Set<string>();
+    if (props.enemySprite2DTemplateId) ids.add(props.enemySprite2DTemplateId);
+    props.additionalEnemies?.forEach((e) => { if (e.sprite2DTemplateId) ids.add(e.sprite2DTemplateId); });
+    ids.forEach((id) => {
+      const template = ENEMIES_2D.find((e) => e.id === id);
+      if (template) {
+        Object.values(template.sprites).forEach((url) => useTexture.preload(url));
+      }
+    });
+  }, [props.enemySprite2DTemplateId, props.additionalEnemies]);
   const handleTimeUpdate = useCallback((time: string) => {
     const setGameTimeInStore = useGameTimeStore.getState().setGameTime;
     setGameTimeInStore(time);
@@ -4358,6 +4339,13 @@ export const GameScene: React.FC<SceneProps> = React.memo((props) => {
   } = sceneRenderSettings;
   const shadowMapType = isQualityMode ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
 
+  // Cinematic camera — DOF target, bloom boost driven by battle phase.
+  const cinematicDofTarget  = useCinematicCameraStore((s) => s.dofTarget);
+  const cinematicDofRange   = useCinematicCameraStore((s) => s.dofFocusRange);
+  const cinematicDofBokeh   = useCinematicCameraStore((s) => s.dofBokehScale);
+  const cinematicBloomBoost = useCinematicCameraStore((s) => s.bloomBoost);
+  const battleDofActive     = useCinematicCameraStore((s) => s.battleDofActive);
+
   const bgColor = useMemo(() => {
     if (isDungeonRun) {
       return '#111827';
@@ -4391,6 +4379,14 @@ export const GameScene: React.FC<SceneProps> = React.memo((props) => {
   const dungeonHeroDefendX = dungeonHeroBasePosition[0] + 0.5;
   const dungeonEnemyAttackX = dungeonEnemyBasePosition[0] - 2.35;
   const dungeonEnemyDefendX = dungeonEnemyBasePosition[0] - 0.5;
+  // Active enemy X for cinematic camera framing (follows mainEnemySlotIndex)
+  const _cmcGrpSize = Math.min(3, Math.max(1, props.initialGroupSize ?? (1 + (props.additionalEnemies?.length ?? 0))));
+  const _cmcSlot    = props.mainEnemySlotIndex ?? 0;
+  const _cmcGrpIdleX = [[2.0], [1.5, 3.8], [0.9, 3.0, 4.6]];
+  const cinematicEnemyX: number = (isDungeonRun && activeScenarioConfig)
+    ? dungeonEnemyBasePosition[0]
+    : (_cmcGrpIdleX[_cmcGrpSize - 1]?.[_cmcSlot] ?? 2.0);
+
   const dungeonFogColor = activeScenarioConfig?.atmosphere.fogColor ?? '#1f2937';
   const dungeonFogNearBase = Math.max(1, activeScenarioConfig?.atmosphere.fogNear ?? 14);
   const dungeonFogFarBase = Math.max(dungeonFogNearBase + 1, activeScenarioConfig?.atmosphere.fogFar ?? 32);
@@ -4485,6 +4481,7 @@ export const GameScene: React.FC<SceneProps> = React.memo((props) => {
           heroInspectMode={props.heroInspectMode}
           portalInspectMode={props.portalInspectMode}
           bossEntryCinematicToken={props.bossEntryCinematicToken ?? 0}
+          cinematicEnemyX={cinematicEnemyX}
         />
         {/* fog/background must be at Canvas root (scene level) Ã¢â‚¬â€ THREE.js only reads scene.fog and scene.background */}
         {isDungeonRun ? (
@@ -4717,7 +4714,13 @@ export const GameScene: React.FC<SceneProps> = React.memo((props) => {
             <>
               {/* Ã¢â€â‚¬Ã¢â€â‚¬ Main enemy Ã¢â€â‚¬Ã¢â€â‚¬ */}
               <group ref={outlineEnemyRef}>
-                {!props.isMenuView && props.enemyGltfModelUrl ? (
+                {!props.isMenuView && props.enemySprite2DTemplateId ? (
+                  <group position={isDungeonRun && activeScenarioConfig
+                    ? dungeonEnemyBasePosition
+                    : [mainPos?.idleX ?? 2, -1, mainPos?.idleZ ?? 0]}>
+                    <BattleEnemy2D templateId={props.enemySprite2DTemplateId} />
+                  </group>
+                ) : !props.isMenuView && props.enemyGltfModelUrl ? (
                   <GltfEnemyCharacter
                     modelUrl={props.enemyGltfModelUrl}
                     bodyType={props.enemyGltfBodyType ?? 'Big'}
@@ -4772,8 +4775,15 @@ export const GameScene: React.FC<SceneProps> = React.memo((props) => {
                 const nameplateY = -1 + extraEnemy.scale * 2 + 0.2;
                 return (
                   <React.Fragment key={extraEnemy.id}>
-                    {/* Use correct renderer: GltfEnemyCharacter for GLTF monsters, EnemyCharacter for voxel */}
-                    {extraEnemy.gltfModelUrl ? (
+                    {/* Use correct renderer: BattleEnemy2D for 2D sprites, GltfEnemyCharacter for GLTF, EnemyCharacter for voxel */}
+                    {extraEnemy.sprite2DTemplateId ? (
+                      <group position={[idleX, -1, idleZ]}>
+                        <BattleEnemy2D
+                          templateId={extraEnemy.sprite2DTemplateId}
+                          animationAction="battle-idle"
+                        />
+                      </group>
+                    ) : extraEnemy.gltfModelUrl ? (
                       <GltfEnemyCharacter
                         modelUrl={extraEnemy.gltfModelUrl}
                         bodyType={extraEnemy.gltfBodyType ?? 'Big'}
@@ -5166,17 +5176,17 @@ export const GameScene: React.FC<SceneProps> = React.memo((props) => {
           <EffectComposer multisampling={shouldUsePostProcessing ? postProcessingMultisampling : 0}>
             {shouldUsePostProcessing ? (
               <>
-                {shouldUseDepthOfField ? (
+                {(shouldUseDepthOfField || battleDofActive) ? (
                   <DepthOfField
-                    target={CHARACTER_FOCUS_TARGET}
-                    worldFocusRange={activeDepthOfFieldRange}
-                    bokehScale={activeDepthOfFieldBokeh}
+                    target={battleDofActive ? cinematicDofTarget : CHARACTER_FOCUS_TARGET}
+                    worldFocusRange={battleDofActive ? cinematicDofRange : activeDepthOfFieldRange}
+                    bokehScale={battleDofActive ? cinematicDofBokeh : activeDepthOfFieldBokeh}
                     height={activeDepthOfFieldHeight}
                   />
                 ) : null}
                 {shouldUseBloomAndVignette ? (
                   <>
-                    <Bloom intensity={activeBloomIntensity} luminanceThreshold={activeBloomThreshold} luminanceSmoothing={activeBloomSmoothing} mipmapBlur />
+                    <Bloom intensity={activeBloomIntensity + cinematicBloomBoost} luminanceThreshold={activeBloomThreshold} luminanceSmoothing={activeBloomSmoothing} mipmapBlur />
                     {shouldUseVignette ? (
                       <Vignette eskil={false} offset={activeVignetteOffset} darkness={activeVignetteDarkness} />
                     ) : null}

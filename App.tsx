@@ -57,6 +57,14 @@ import { useGameTimeStore } from './game/stores/gameTimeStore';
 import { useBattleAnimationStore } from './game/stores/battleAnimationStore';
 import { GLTF_MONSTER_BESTIARY, getGltfMonsterPoolForStage } from './game/data/gltfMonsters';
 import { AUTOSAVE_DEBOUNCE_MS, IMPULSE_UNLOCK_LEVELS, getImpulseCapacityByLevel, getXpToNextByLevel } from './game/data/config';
+
+// 2D sprite template selection per-stage/type
+const CREATURES_2D_IDS = ['rato_comum', 'aguia_comum', 'lobo_comum'] as const;
+const ORCS_2D_IDS     = ['orc_ladrao_comum', 'orc_arqueiro_comum', 'orc_barbaro_comum'] as const;
+const pick2DTemplateId = (isBoss: boolean, isSubBoss: boolean, _stage: number): string =>
+    (isBoss || isSubBoss)
+        ? ORCS_2D_IDS[Math.floor(Math.random() * ORCS_2D_IDS.length)]
+        : CREATURES_2D_IDS[Math.floor(Math.random() * CREATURES_2D_IDS.length)];
 import { getItemById, normalizeInventoryItemIds, resolveCanonicalItemReference } from './game/data/registries/itemRegistry';
 import { getSkillById, restoreCatalogSkillIcon } from './game/data/registries/skillRegistry';
 
@@ -2610,6 +2618,7 @@ export default function App() {
             element: gltfMonsterTemplate ? gltfMonsterTemplate.element : undefined,
             gltfBodyType: gltfMonsterTemplate ? gltfMonsterTemplate.bodyType as GltfMonsterBodyType : undefined,
             archetipo: gltfMonsterTemplate ? gltfMonsterTemplate.archetipo : undefined,
+            sprite2DTemplateId: pick2DTemplateId(isBoss, isSubBossEncounter, currentStage),
             manaRegenOnDefend: combatProfile.manaRegenOnDefend,
             potionCharges: combatProfile.potionCharges,
             potionHealValue: combatProfile.potionHealValue,
@@ -5556,6 +5565,7 @@ export default function App() {
                         enemyAttackStyle={enemy?.attackStyle}
                         enemyGltfModelUrl={enemy?.gltfModelUrl}
                         enemyGltfBodyType={enemy?.gltfBodyType}
+                        enemySprite2DTemplateId={enemy?.sprite2DTemplateId}
                         enemyType={enemy?.type || 'beast'}
                         isEnemyBoss={enemy?.isBoss}
                         isPlayerDefending={isDefenseAnimationActive}

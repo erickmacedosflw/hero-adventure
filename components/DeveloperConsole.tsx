@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, Boxes, Bug, Layers3, Sparkles, Swords, Users, WandSparkles } from 'lucide-react';
+import { ArrowLeft, Boxes, Bug, Layers3, Scissors, Sparkles, Swords, Users, WandSparkles } from 'lucide-react';
 import { ALL_ITEMS, DUNGEON_BOSS, DUNGEON_ENEMY_DATA, ENEMY_DATA } from '../constants';
 import { getRegisteredWeapon3DByItemId, REGISTERED_WEAPON_ITEMS } from '../game/data/weaponCatalog';
 import { getPlayerClassById, PLAYER_CLASSES } from '../game/data/classes';
@@ -25,6 +25,8 @@ import type {
 } from './scene3d/types';
 import { ItemPreviewThree } from './items/ItemPreviewThree';
 import { getRuntimeMenuPortalPreset, MENU_NAVIGATION_PORTAL_MODEL_URL, type RuntimeMenuPortalTransform } from '../game/data/runtimeMenuPortal';
+import { ENEMIES_2D, ENEMIES_2D_BY_RACE, ENEMY_2D_RACES, ENEMY_2D_SPRITE_POSITIONS, getEnemy2DTypeLabel, type Enemy2DRace, type Enemy2DSpritePosition } from '../game/data/enemies2D';
+import { HEROES_2D, HERO_2D_SPRITE_POSITIONS, type Hero2DSpritePosition } from '../game/data/heroes2D';
 
 const DeveloperBipedCharacterScene = React.lazy(async () => ({ default: (await import('./scene3d/DeveloperSceneAdapters')).DeveloperBipedCharacterScene }));
 const DeveloperClassBuilderScene = React.lazy(async () => ({ default: (await import('./scene3d/DeveloperSceneAdapters')).DeveloperClassBuilderScene }));
@@ -34,11 +36,13 @@ const DeveloperKitbashScene = React.lazy(async () => ({ default: (await import('
 const DeveloperMonsterScene = React.lazy(async () => ({ default: (await import('./scene3d/DeveloperSceneAdapters')).DeveloperMonsterScene }));
 const DeveloperRigRetargetScene = React.lazy(async () => ({ default: (await import('./scene3d/DeveloperSceneAdapters')).DeveloperRigRetargetScene }));
 const DeveloperScenarioComposerScene = React.lazy(async () => ({ default: (await import('./scene3d/DeveloperSceneAdapters')).DeveloperScenarioComposerScene }));
+const DeveloperEnemy2DScene = React.lazy(async () => ({ default: (await import('./scene3d/DeveloperSceneAdapters')).DeveloperEnemy2DScene }));
 const DeveloperWeaponCalibrationScene = React.lazy(async () => ({ default: (await import('./scene3d/DeveloperSceneAdapters')).DeveloperWeaponCalibrationScene }));
 const SpriteAnimationLab = React.lazy(async () => ({ default: (await import('./SpriteAnimationLab')).SpriteAnimationLab }));
+const SpriteCutterLab = React.lazy(async () => ({ default: (await import('./SpriteCutterLab')).SpriteCutterLab }));
 const VideoEffectLab = React.lazy(async () => ({ default: (await import('./VideoEffectLab')).VideoEffectLab }));
 
-type DeveloperTab = 'overview' | 'animation-lab' | 'monster-lab' | 'item-lab' | 'kitbash-lab' | 'sprite-lab' | 'scenario-lab' | 'gltf-monster-viewer' | 'biped-character-viewer' | 'rig-retarget-lab' | 'effect-lab' | 'video-effect-lab';
+type DeveloperTab = 'overview' | 'animation-lab' | 'monster-lab' | 'item-lab' | 'kitbash-lab' | 'sprite-lab' | 'sprite-cutter' | 'scenario-lab' | 'gltf-monster-viewer' | 'biped-character-viewer' | 'rig-retarget-lab' | 'effect-lab' | 'video-effect-lab' | 'bestiary-2d' | 'heroes-2d';
 type WeaponCalibrationViewMode = 'sandbox' | 'attached';
 
 const DeveloperPanelFallback = () => (
@@ -792,6 +796,21 @@ export const DeveloperConsole: React.FC = () => {
   // Tracks which source|target combo was already auto-mapped so we don't repeat on every report update
   const [rigAutoMappedKey, setRigAutoMappedKey] = useState('');
 
+  // ─── Bestiário 2D ─────────────────────────────────────────────────────────────
+  const [bestiary2DRace, setBestiary2DRace] = useState<Enemy2DRace>('Criaturas');
+  const [bestiary2DEnemyId, setBestiary2DEnemyId] = useState<string>(ENEMIES_2D_BY_RACE['Criaturas'][0]?.id ?? '');
+  const [bestiary2DPosition, setBestiary2DPosition] = useState<Enemy2DSpritePosition>('idle');
+  const [bestiary2DAnim, setBestiary2DAnim] = useState(0);
+  const [bestiary2DDisintegrate, setBestiary2DDisintegrate] = useState(0);
+  const selectedEnemy2D = useMemo(() => ENEMIES_2D.find((e) => e.id === bestiary2DEnemyId), [bestiary2DEnemyId]);
+
+  // ─── Heróis 2D ────────────────────────────────────────────────────────────────
+  const [hero2DId, setHero2DId] = useState<string>(HEROES_2D[0]?.id ?? '');
+  const [hero2DPosition, setHero2DPosition] = useState<Hero2DSpritePosition>('idle');
+  const [hero2DAnim, setHero2DAnim] = useState(0);
+  const [hero2DDisintegrate, setHero2DDisintegrate] = useState(0);
+  const selectedHero2D = useMemo(() => HEROES_2D.find((h) => h.id === hero2DId), [hero2DId]);
+
   // ─── Effect Lab ───────────────────────────────────────────────────────────────
   const {
     selectedCategory: effectCategory,
@@ -1506,8 +1525,11 @@ const EFFECT_${preset.id.toUpperCase().replace(/-/g, '_')}_CONFIG = {
     { id: 'scenario-lab', label: 'Cenarios', icon: <Layers3 size={16} /> },
     { id: 'effect-lab', label: 'Effect Lab', icon: <Sparkles size={16} /> },
     { id: 'sprite-lab', label: 'Sprite Lab', icon: <WandSparkles size={16} /> },
+    { id: 'sprite-cutter', label: 'Sprite Cutter', icon: <Scissors size={16} /> },
     { id: 'video-effect-lab', label: 'Video Lab', icon: <Sparkles size={16} /> },
     { id: 'monster-lab', label: 'Monstros 3D', icon: <Swords size={16} /> },
+    { id: 'bestiary-2d', label: 'Bestiário 2D', icon: <Users size={16} /> },
+    { id: 'heroes-2d',   label: 'Heróis 2D',    icon: <Users size={16} /> },
     { id: 'gltf-monster-viewer', label: 'Novos Monstros', icon: <Swords size={16} /> },
     { id: 'biped-character-viewer', label: 'Personagens GLB', icon: <Users size={16} /> },
     { id: 'rig-retarget-lab', label: 'Rig Lab', icon: <Layers3 size={16} /> },
@@ -1556,6 +1578,12 @@ const EFFECT_${preset.id.toUpperCase().replace(/-/g, '_')}_CONFIG = {
               <div className="game-icon-badge h-12 w-12 text-cyan-300"><WandSparkles size={22} /></div>
               <h2 className="mt-4 font-gamer text-2xl font-black text-white">Sprite Animation Lab</h2>
               <p className="mt-3 text-sm text-slate-400">Monte animacoes por sprite sheet com varias tracks em paralelo, preview normal/loop e exportacao JSON.</p>
+            </button>
+
+            <button onClick={() => setTab('sprite-cutter')} className="game-surface rounded-[1.75rem] border border-orange-400/15 p-6 text-left transition-transform hover:-translate-y-1">
+              <div className="game-icon-badge h-12 w-12 text-orange-300"><Scissors size={22} /></div>
+              <h2 className="mt-4 font-gamer text-2xl font-black text-white">Sprite Cutter Lab</h2>
+              <p className="mt-3 text-sm text-slate-400">Recorte sprite sheets de personagem 2D em posicoes individuais (Idle, Ataque, Defesa, Magia, Dano, Morto) e exporte a pasta com os PNGs nomeados.</p>
             </button>
             <button onClick={() => setTab('item-lab')} className="game-surface rounded-[1.75rem] border border-emerald-400/15 p-6 text-left transition-transform hover:-translate-y-1">
               <div className="game-icon-badge h-12 w-12 text-emerald-300"><Boxes size={22} /></div>
@@ -2830,6 +2858,12 @@ const EFFECT_${preset.id.toUpperCase().replace(/-/g, '_')}_CONFIG = {
           </React.Suspense>
         )}
 
+        {tab === 'sprite-cutter' && (
+          <React.Suspense fallback={<DeveloperPanelFallback />}>
+            <SpriteCutterLab />
+          </React.Suspense>
+        )}
+
         {tab === 'video-effect-lab' && (
           <React.Suspense fallback={<DeveloperPanelFallback />}>
             <div className="mt-6">
@@ -3522,6 +3556,298 @@ const EFFECT_${preset.id.toUpperCase().replace(/-/g, '_')}_CONFIG = {
               {rigAvailableClips.length === 0 && !rigReport && (
                 <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4 text-center text-sm text-slate-500">
                   Selecione fonte e alvo para iniciar o retarget
+                </div>
+              )}
+            </div>
+          </section>
+        )}
+
+        {/* ─── Bestiário 2D ─────────────────────────────────────────────────────── */}
+        {tab === 'bestiary-2d' && selectedEnemy2D && (
+          <section className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px] xl:items-start">
+
+            {/* ── Left: 3D canvas + position buttons ──────────────────────────── */}
+            <div className="game-surface rounded-[1.75rem] border border-slate-700 p-4 sm:p-5">
+              <div className="mb-4 flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.2em] text-slate-500">
+                <span className="rounded-full border border-cyan-400/20 bg-cyan-500/10 px-3 py-1 text-cyan-100">{selectedEnemy2D.name}</span>
+                <span className="rounded-full border border-indigo-400/20 bg-indigo-500/10 px-3 py-1 text-indigo-100">{selectedEnemy2D.race}</span>
+                <span className="rounded-full border border-amber-400/20 bg-amber-500/10 px-3 py-1 text-amber-100">
+                  {ENEMY_2D_SPRITE_POSITIONS.find((p) => p.id === bestiary2DPosition)?.label ?? bestiary2DPosition}
+                </span>
+              </div>
+
+              <div className="h-[360px] sm:h-[420px] lg:h-[520px] min-[1600px]:h-[620px] rounded-[1.5rem] border border-slate-800 bg-slate-950/60">
+                <React.Suspense fallback={<DeveloperPanelFallback />}>
+                  <DeveloperEnemy2DScene
+                    spriteUrl={selectedEnemy2D.sprites[bestiary2DPosition]}
+                    scale={selectedEnemy2D.scale ?? 2.0}
+                    spritePosition={bestiary2DPosition}
+                    animTrigger={bestiary2DAnim}
+                    attackStyle={selectedEnemy2D.attackStyle}
+                    disintegrateTrigger={bestiary2DDisintegrate}
+                  />
+                </React.Suspense>
+              </div>
+
+              <div className="mt-4 flex flex-wrap gap-2">
+                {ENEMY_2D_SPRITE_POSITIONS.map((pos) => (
+                  <button
+                    key={pos.id}
+                    onClick={() => { setBestiary2DPosition(pos.id); setBestiary2DAnim((n) => n + 1); }}
+                    className={`rounded-xl border px-4 py-2 text-xs font-black uppercase tracking-[0.14em] transition-colors ${
+                      bestiary2DPosition === pos.id
+                        ? 'border-cyan-400/40 bg-cyan-500/15 text-cyan-100'
+                        : 'border-slate-700 bg-slate-950/70 text-slate-400 hover:border-slate-500 hover:text-slate-200'
+                    }`}
+                  >
+                    {pos.label}
+                  </button>
+                ))}
+                <button
+                  onClick={() => setBestiary2DDisintegrate((n) => n + 1)}
+                  className="rounded-xl border border-red-500/40 bg-red-950/40 px-4 py-2 text-xs font-black uppercase tracking-[0.14em] text-red-300 transition-colors hover:border-red-400/60 hover:bg-red-900/40 hover:text-red-100"
+                >
+                  ☠ Desintegrar
+                </button>
+              </div>
+            </div>
+
+            {/* ── Right: filters + attributes ──────────────────────────────────── */}
+            <div className="game-surface rounded-[1.75rem] border border-slate-700 p-5 sm:p-6 xl:sticky xl:top-6 space-y-5">
+              <div>
+                <h2 className="font-gamer text-2xl font-black text-white">Bestiário 2D</h2>
+                <p className="mt-1 text-sm text-slate-400 leading-relaxed">{selectedEnemy2D.lore}</p>
+              </div>
+
+              {/* Race filter */}
+              <div>
+                <div className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-500 mb-2">Raça</div>
+                <div className="flex gap-2">
+                  {ENEMY_2D_RACES.map((race) => (
+                    <button
+                      key={race}
+                      onClick={() => {
+                        setBestiary2DRace(race);
+                        const first = ENEMIES_2D_BY_RACE[race][0];
+                        if (first) { setBestiary2DEnemyId(first.id); setBestiary2DPosition('idle'); }
+                      }}
+                      className={`flex-1 rounded-xl border py-2 text-xs font-black uppercase tracking-[0.14em] transition-colors ${
+                        bestiary2DRace === race
+                          ? 'border-violet-400/40 bg-violet-500/15 text-violet-100'
+                          : 'border-slate-700 bg-slate-950/70 text-slate-400 hover:border-slate-600 hover:text-slate-200'
+                      }`}
+                    >
+                      {race}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Enemy list */}
+              <div>
+                <div className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-500 mb-2">
+                  Inimigos — {bestiary2DRace}
+                </div>
+                <div className="grid grid-cols-1 gap-1.5">
+                  {ENEMIES_2D_BY_RACE[bestiary2DRace].map((enemy) => (
+                    <button
+                      key={enemy.id}
+                      onClick={() => { setBestiary2DEnemyId(enemy.id); setBestiary2DPosition('idle'); }}
+                      className={`flex items-center justify-between rounded-xl border px-3 py-2.5 text-left text-xs font-black uppercase tracking-[0.12em] transition-colors ${
+                        bestiary2DEnemyId === enemy.id
+                          ? 'border-cyan-400/40 bg-cyan-500/15 text-cyan-100'
+                          : 'border-slate-700 bg-slate-950/70 text-slate-400 hover:border-slate-500 hover:text-slate-200'
+                      }`}
+                    >
+                      <span>{enemy.name}</span>
+                      <span className="text-[10px] opacity-60">Nv.{enemy.level}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="h-px bg-slate-800" />
+
+              {/* Stats grid */}
+              <div>
+                <div className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-500 mb-3">Atributos</div>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { label: '❤ HP',         value: `${selectedEnemy2D.baseStats.hp}/${selectedEnemy2D.baseStats.maxHp}`, color: 'text-red-300' },
+                    { label: '💧 MP',         value: `${selectedEnemy2D.baseStats.mp}/${selectedEnemy2D.baseStats.maxMp}`, color: 'text-blue-300' },
+                    { label: '⚔ Ataque',     value: String(selectedEnemy2D.baseStats.atk),      color: 'text-orange-300' },
+                    { label: '🛡 Defesa',     value: String(selectedEnemy2D.baseStats.def),      color: 'text-slate-300' },
+                    { label: '✨ Magia',      value: String(selectedEnemy2D.baseStats.magic),    color: 'text-purple-300' },
+                    { label: '🔮 Def.Mágica', value: String(selectedEnemy2D.baseStats.magicDef), color: 'text-indigo-300' },
+                    { label: '⚡ Velocidade', value: String(selectedEnemy2D.baseStats.speed),    color: 'text-yellow-300' },
+                    { label: '🍀 Sorte',      value: String(selectedEnemy2D.baseStats.luck),     color: 'text-green-300' },
+                  ].map(({ label, value, color }) => (
+                    <div key={label} className="rounded-xl border border-slate-800 bg-slate-950/60 px-3 py-2">
+                      <div className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-500">{label}</div>
+                      <div className={`mt-0.5 text-sm font-black ${color}`}>{value}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* XP / Gold / Level / Type */}
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { label: 'XP Reward',  value: String(selectedEnemy2D.xpReward),   color: 'text-amber-300' },
+                  { label: 'Gold Reward', value: String(selectedEnemy2D.goldReward), color: 'text-yellow-300' },
+                  { label: 'Nível Base', value: String(selectedEnemy2D.level),       color: 'text-slate-200' },
+                  { label: 'Tipo',       value: getEnemy2DTypeLabel(selectedEnemy2D.type), color: 'text-slate-200' },
+                ].map(({ label, value, color }) => (
+                  <div key={label} className="rounded-xl border border-slate-800 bg-slate-950/60 px-3 py-2">
+                    <div className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-500">{label}</div>
+                    <div className={`mt-0.5 text-sm font-black ${color}`}>{value}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Drops */}
+              {((selectedEnemy2D.guaranteedDrops?.length ?? 0) > 0 || (selectedEnemy2D.rareDrops?.length ?? 0) > 0) && (
+                <>
+                  <div className="h-px bg-slate-800" />
+                  <div>
+                    <div className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-500 mb-2">Drops</div>
+                    <div className="space-y-1">
+                      {selectedEnemy2D.guaranteedDrops?.map((item) => (
+                        <div key={item} className="flex items-center justify-between rounded-lg border border-green-400/15 bg-green-500/10 px-3 py-1.5">
+                          <span className="text-xs font-black uppercase tracking-[0.1em] text-green-200">{item}</span>
+                          <span className="text-[10px] font-black text-green-400">100%</span>
+                        </div>
+                      ))}
+                      {selectedEnemy2D.rareDrops?.map((drop) => (
+                        <div key={drop.itemId} className="flex items-center justify-between rounded-lg border border-amber-400/15 bg-amber-500/10 px-3 py-1.5">
+                          <span className="text-xs font-black uppercase tracking-[0.1em] text-amber-200">{drop.itemId}</span>
+                          <span className="text-[10px] font-black text-amber-400">{Math.round(drop.chance * 100)}%</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          </section>
+        )}
+
+        {/* ─── Heróis 2D ───────────────────────────────────────────────────────── */}
+        {tab === 'heroes-2d' && selectedHero2D && (
+          <section className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px] xl:items-start">
+
+            {/* ── Left: 3D canvas + position buttons ──────────────────────────── */}
+            <div className="game-surface rounded-[1.75rem] border border-slate-700 p-4 sm:p-5">
+              <div className="mb-4 flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.2em] text-slate-500">
+                <span className="rounded-full border border-cyan-400/20 bg-cyan-500/10 px-3 py-1 text-cyan-100">{selectedHero2D.name}</span>
+                <span className="rounded-full border border-violet-400/20 bg-violet-500/10 px-3 py-1 text-violet-100">{selectedHero2D.title}</span>
+                <span className="rounded-full border border-amber-400/20 bg-amber-500/10 px-3 py-1 text-amber-100">
+                  {HERO_2D_SPRITE_POSITIONS.find((p) => p.id === hero2DPosition)?.label ?? hero2DPosition}
+                </span>
+              </div>
+
+              <div className="h-[360px] sm:h-[420px] lg:h-[520px] min-[1600px]:h-[620px] rounded-[1.5rem] border border-slate-800 bg-slate-950/60">
+                <React.Suspense fallback={<DeveloperPanelFallback />}>
+                  <DeveloperEnemy2DScene
+                    spriteUrl={selectedHero2D.sprites[hero2DPosition]}
+                    scale={selectedHero2D.scale ?? 2.0}
+                    spritePosition={hero2DPosition}
+                    animTrigger={hero2DAnim}
+                    attackStyle={selectedHero2D.attackStyle}
+                    disintegrateTrigger={hero2DDisintegrate}
+                  />
+                </React.Suspense>
+              </div>
+
+              <div className="mt-4 flex flex-wrap gap-2">
+                {HERO_2D_SPRITE_POSITIONS.map((pos) => (
+                  <button
+                    key={pos.id}
+                    onClick={() => { setHero2DPosition(pos.id); setHero2DAnim((n) => n + 1); }}
+                    className={`rounded-xl border px-4 py-2 text-xs font-black uppercase tracking-[0.14em] transition-colors ${
+                      hero2DPosition === pos.id
+                        ? 'border-cyan-400/40 bg-cyan-500/15 text-cyan-100'
+                        : 'border-slate-700 bg-slate-950/70 text-slate-400 hover:border-slate-500 hover:text-slate-200'
+                    }`}
+                  >
+                    {pos.label}
+                  </button>
+                ))}
+                <button
+                  onClick={() => setHero2DDisintegrate((n) => n + 1)}
+                  className="rounded-xl border border-red-500/40 bg-red-950/40 px-4 py-2 text-xs font-black uppercase tracking-[0.14em] text-red-300 transition-colors hover:border-red-400/60 hover:bg-red-900/40 hover:text-red-100"
+                >
+                  ☠ Desintegrar
+                </button>
+              </div>
+            </div>
+
+            {/* ── Right: hero list + attributes ────────────────────────────────── */}
+            <div className="game-surface rounded-[1.75rem] border border-slate-700 p-5 sm:p-6 xl:sticky xl:top-6 space-y-5">
+              <div>
+                <h2 className="font-gamer text-2xl font-black text-white">Heróis 2D</h2>
+                <p className="mt-1 text-sm text-slate-400 leading-relaxed">{selectedHero2D.description}</p>
+              </div>
+
+              {/* Hero list */}
+              <div>
+                <div className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-500 mb-2">Heróis</div>
+                <div className="grid grid-cols-1 gap-1.5">
+                  {HEROES_2D.map((hero) => (
+                    <button
+                      key={hero.id}
+                      onClick={() => { setHero2DId(hero.id); setHero2DPosition('idle'); }}
+                      className={`flex items-center justify-between rounded-xl border px-3 py-2.5 text-left text-xs font-black uppercase tracking-[0.12em] transition-colors ${
+                        hero2DId === hero.id
+                          ? 'border-cyan-400/40 bg-cyan-500/15 text-cyan-100'
+                          : 'border-slate-700 bg-slate-950/70 text-slate-400 hover:border-slate-500 hover:text-slate-200'
+                      }`}
+                    >
+                      <span>{hero.name}</span>
+                      <span className="text-[10px] font-normal normal-case opacity-60 tracking-normal">{hero.title}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="h-px bg-slate-800" />
+
+              {/* Stats grid */}
+              <div>
+                <div className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-500 mb-3">Atributos</div>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { label: '❤ HP',         value: `${selectedHero2D.baseStats.hp}/${selectedHero2D.baseStats.maxHp}`, color: 'text-red-300' },
+                    { label: '💧 MP',         value: `${selectedHero2D.baseStats.mp}/${selectedHero2D.baseStats.maxMp}`, color: 'text-blue-300' },
+                    { label: '⚔ Ataque',     value: String(selectedHero2D.baseStats.atk),      color: 'text-orange-300' },
+                    { label: '🛡 Defesa',     value: String(selectedHero2D.baseStats.def),      color: 'text-slate-300' },
+                    { label: '✨ Magia',      value: String(selectedHero2D.baseStats.magic),    color: 'text-purple-300' },
+                    { label: '🔮 Def.Mágica', value: String(selectedHero2D.baseStats.magicDef), color: 'text-indigo-300' },
+                    { label: '⚡ Velocidade', value: String(selectedHero2D.baseStats.speed),    color: 'text-yellow-300' },
+                    { label: '🍀 Sorte',      value: String(selectedHero2D.baseStats.luck),     color: 'text-green-300' },
+                  ].map(({ label, value, color }) => (
+                    <div key={label} className="rounded-xl border border-slate-800 bg-slate-950/60 px-3 py-2">
+                      <div className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-500">{label}</div>
+                      <div className={`mt-0.5 text-sm font-black ${color}`}>{value}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Weapon proficiencies */}
+              {selectedHero2D.weaponProficiencies.length > 0 && (
+                <div>
+                  <div className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-500 mb-2">Proficiências</div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {selectedHero2D.weaponProficiencies.map((w) => (
+                      <span
+                        key={w}
+                        className="rounded-lg border border-amber-500/30 bg-amber-900/20 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-amber-300"
+                      >
+                        {w}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>

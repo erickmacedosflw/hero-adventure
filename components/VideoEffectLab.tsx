@@ -21,11 +21,23 @@ import { ContactShadows, OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { ENEMY_DATA } from '../constants';
 import { getPlayerClassById, PLAYER_CLASSES } from '../game/data/classes';
+import { ENEMIES_2D } from '../game/data/enemies2D';
+import { HEROES_2D } from '../game/data/heroes2D';
 import type { PlayerClassId } from '../types';
 import { hasRuntimeFbxAssets } from './scene3d/animation';
 import { AnimatedClassHero, EnemyCharacter } from './scene3d/characters';
+import { Sprite2DBillboard } from './scene3d/DeveloperEnemy2DScene';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
+
+const hexToRgb01 = (hex: string): [number, number, number] => {
+  const safe = hex.length === 7 && hex[0] === '#' ? hex : '#ffffff';
+  return [
+    parseInt(safe.slice(1, 3), 16) / 255,
+    parseInt(safe.slice(3, 5), 16) / 255,
+    parseInt(safe.slice(5, 7), 16) / 255,
+  ];
+};
 
 interface LumaKeyParams {
   threshold: number;
@@ -57,21 +69,32 @@ interface RefinementParams {
 interface VideoEffectConfig {
   version: string;
   videoFileName: string;
-  audioFileName: string;
   timeline: {
-    videoIn: number;
-    videoOut: number;
-    audioOffset: number;
-    audioIn: number;
-    audioOut: number;
-    totalDuration: number;
+    trimIn: number;
+    trimOut: number;
+    duration: number;
   };
   placement: {
     position: [number, number, number];
     scale: number;
+    billboard: boolean;
+    flipX: boolean;
+    flipY: boolean;
   };
   lumaKey: LumaKeyParams;
   refinement: RefinementParams;
+  invertMask: 0 | 1;
+  videoLight: {
+    enabled: boolean;
+    intensity: number;
+    luminance: number;
+    satBoost: number;
+    greyThreshold: number;
+  };
+  colorTint: {
+    color: string;   // hex e.g. "#ff6600"
+    strength: number;
+  };
   playback: {
     speed: number;
     loop: boolean;
@@ -139,10 +162,17 @@ const FRAGMENT_SHADER = /* glsl */ `
   uniform float vignette;       // 0 = off, 1 = fade total nas bordas
   uniform float vignetteWarmth; // 0 = só transparência, 1 = tinte quente nas bordas
   uniform float vignetteShape;  // 0 = circular (cantos arredondados), 1 = retangular (bordas planas)
+  uniform float flipX;          // 1.0 = espelhar horizontalmente
+  uniform float flipY;          // 1.0 = espelhar verticalmente
+  uniform vec3  colorTint;      // cor de tint (RGB 0-1)
+  uniform float colorTintStrength; // 0 = original, 1 = recolorir totalmente
   varying vec2 vUv;
 
   void main() {
-    vec4 color = texture2D(videoTex, vUv);
+    vec2 uv = vUv;
+    uv.x = mix(uv.x, 1.0 - uv.x, flipX);
+    uv.y = mix(uv.y, 1.0 - uv.y, flipY);
+    vec4 color = texture2D(videoTex, uv);
     vec3 col = color.rgb;
 
     // Luminance (BT.709)
@@ -168,7 +198,7 @@ const FRAGMENT_SHADER = /* glsl */ `
       for (int bx = -1; bx <= 1; bx++) {
         for (int by_ = -1; by_ <= 1; by_++) {
           float w = float((bx == 0 ? 2 : 1) * (by_ == 0 ? 2 : 1));
-          vec2 buv = clamp(vUv + vec2(float(bx), float(by_)) * bStep, 0.001, 0.999);
+          vec2 buv = clamp(uv + vec2(float(bx), float(by_)) * bStep, 0.001, 0.999);
           float bl = dot(texture2D(videoTex, buv).rgb, vec3(0.2126, 0.7152, 0.0722));
           float bm = smoothstep(lumaThreshold - hSB, lumaThreshold + hSB, bl);
           if (invertMask > 0.5) bm = 1.0 - bm;
@@ -185,7 +215,7 @@ const FRAGMENT_SHADER = /* glsl */ `
       float hSE = max(0.001, lumaSmoothness * 0.5);
       for (int ex = -2; ex <= 2; ex++) {
         for (int ey = -2; ey <= 2; ey++) {
-          vec2 euv = clamp(vUv + vec2(float(ex), float(ey)) * eStep, 0.001, 0.999);
+          vec2 euv = clamp(uv + vec2(float(ex), float(ey)) * eStep, 0.001, 0.999);
           float el = dot(texture2D(videoTex, euv).rgb, vec3(0.2126, 0.7152, 0.0722));
           float em = smoothstep(lumaThreshold - hSE, lumaThreshold + hSE, el);
           if (invertMask > 0.5) em = 1.0 - em;
@@ -252,7 +282,7 @@ const FRAGMENT_SHADER = /* glsl */ `
 
     // ── Vignette — fade bordas para transparente com ardência quente opcional ─
     if (vignette > 0.0) {
-      vec2 centered = vUv * 2.0 - 1.0;
+      vec2 centered = uv * 2.0 - 1.0;
       // Forma: 0=circular (cantos arredondados), 1=retangular (todas as bordas iguais)
       float distCircle = length(centered);
       float distRect   = max(abs(centered.x), abs(centered.y));
@@ -270,6 +300,20 @@ const FRAGMENT_SHADER = /* glsl */ `
       alpha *= vFactor;
     }
 
+    // ── Color tint ─────────────────────────────────────────────
+    if (colorTintStrength > 0.0) {
+      // Extrair lumância do pixel original
+      float lum = dot(col, vec3(0.2126, 0.7152, 0.0722));
+      // Normalizar a cor de tint pelo canal mais brilhante → garante que a
+      // intensidade do efeito (brilhante no centro, escuro nas bordas) seja
+      // sempre preservada na cor escolhida
+      float tintMax = max(max(colorTint.r, colorTint.g), max(colorTint.b, 0.001));
+      vec3 tintNorm = colorTint / tintMax;
+      vec3 recolored = tintNorm * lum;
+      col = mix(col, clamp(recolored, 0.0, 1.0), colorTintStrength);
+      col = clamp(col, 0.0, 1.0);
+    }
+
     gl_FragColor = vec4(col, alpha);
   }
 `;
@@ -281,6 +325,10 @@ interface VideoPlaneProps {
   lumaKey: LumaKeyParams;
   refinement: RefinementParams;
   invertMask: number;
+  flipX: boolean;
+  flipY: boolean;
+  colorTint: [number, number, number];
+  colorTintStrength: number;
   position: [number, number, number];
   scale: number;
   aspectRatio: number;
@@ -295,6 +343,10 @@ const VideoPlane: React.FC<VideoPlaneProps> = ({
   lumaKey,
   refinement,
   invertMask,
+  flipX,
+  flipY,
+  colorTint,
+  colorTintStrength,
   position,
   scale,
   aspectRatio,
@@ -344,6 +396,10 @@ const VideoPlane: React.FC<VideoPlaneProps> = ({
       vignette: { value: refinement.vignette },
       vignetteWarmth: { value: refinement.vignetteWarmth },
       vignetteShape: { value: refinement.vignetteShape },
+      flipX: { value: 0.0 },
+      flipY: { value: 0.0 },
+      colorTint: { value: new THREE.Vector3(1, 1, 1) },
+      colorTintStrength: { value: 0.0 },
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
@@ -380,6 +436,10 @@ const VideoPlane: React.FC<VideoPlaneProps> = ({
     mat.uniforms.vignette.value = refinement.vignette;
     mat.uniforms.vignetteWarmth.value = refinement.vignetteWarmth;
     mat.uniforms.vignetteShape.value = refinement.vignetteShape;
+    mat.uniforms.flipX.value = flipX ? 1.0 : 0.0;
+    mat.uniforms.flipY.value = flipY ? 1.0 : 0.0;
+    mat.uniforms.colorTint.value.set(colorTint[0], colorTint[1], colorTint[2]);
+    mat.uniforms.colorTintStrength.value = colorTintStrength;
   });
 
   const w = scale * aspectRatio;
@@ -439,12 +499,20 @@ interface VideoStageProps {
   lumaKey: LumaKeyParams;
   refinement: RefinementParams;
   invertMask: number;
+  flipX: boolean;
+  flipY: boolean;
+  colorTint: [number, number, number];
+  colorTintStrength: number;
   videoPos: [number, number, number];
   videoScale: number;
   videoAspect: number;
   heroClassId: PlayerClassId;
-  previewReference: 'hero' | 'enemy';
+  previewReference: 'hero' | 'enemy' | 'enemy2d' | 'hero2d';
   enemyIndex: number;
+  sprite2DUrl: string;
+  sprite2DHeight: number;
+  hero2DUrl: string;
+  hero2DHeight: number;
   lockOrbit: boolean;
   videoLight: boolean;
   videoLightIntensity: number;
@@ -461,12 +529,20 @@ const VideoStage: React.FC<VideoStageProps> = ({
   lumaKey,
   refinement,
   invertMask,
+  flipX,
+  flipY,
+  colorTint,
+  colorTintStrength,
   videoPos,
   videoScale,
   videoAspect,
   heroClassId,
   previewReference,
   enemyIndex,
+  sprite2DUrl,
+  sprite2DHeight,
+  hero2DUrl,
+  hero2DHeight,
   lockOrbit,
   videoLight,
   videoLightIntensity,
@@ -515,6 +591,28 @@ const VideoStage: React.FC<VideoStageProps> = ({
           />
         </Suspense>
       ) : null}
+      {/* 2D sprite billboard: billboard visual + shadow caster orientado para a luz [4,8,5] */}
+      {previewReference === 'enemy2d' && sprite2DUrl ? (
+        <Suspense fallback={null}>
+          <Sprite2DBillboard
+            spriteUrl={sprite2DUrl}
+            heightUnits={sprite2DHeight}
+            shadowLightDir={[4, 0, 5]}
+            groundY={-1.06}
+          />
+        </Suspense>
+      ) : null}
+      {/* Herói 2D: mesmo billboard, usando sprites dos heróis jogáveis */}
+      {previewReference === 'hero2d' && hero2DUrl ? (
+        <Suspense fallback={null}>
+          <Sprite2DBillboard
+            spriteUrl={hero2DUrl}
+            heightUnits={hero2DHeight}
+            shadowLightDir={[4, 0, 5]}
+            groundY={-1.06}
+          />
+        </Suspense>
+      ) : null}
 
       <ContactShadows position={[0, -1.06, 0]} opacity={0.35} scale={8} blur={2.4} />
 
@@ -526,6 +624,9 @@ const VideoStage: React.FC<VideoStageProps> = ({
           luminance={videoLightLuminance}
           satBoost={videoLightSatBoost}
           greyThreshold={videoLightGreyThreshold}
+          colorTint={colorTint}
+          colorTintStrength={colorTintStrength}
+          lightPos={videoPos}
         />
       ) : null}
 
@@ -536,6 +637,10 @@ const VideoStage: React.FC<VideoStageProps> = ({
           lumaKey={lumaKey}
           refinement={refinement}
           invertMask={invertMask}
+          flipX={flipX}
+          flipY={flipY}
+          colorTint={colorTint}
+          colorTintStrength={colorTintStrength}
           position={videoPos}
           scale={videoScale}
           aspectRatio={videoAspect}
@@ -566,13 +671,16 @@ const VideoStage: React.FC<VideoStageProps> = ({
 
 interface VideoSceneLightingProps {
   videoEl: HTMLVideoElement;
-  intensity: number;       // 0–1  overall strength
-  luminance: number;       // 0–1  how bright the projected colour is (default 0.42)
-  satBoost: number;        // 0–2  multiply the sampled saturation (default 1.0)
-  greyThreshold: number;   // 0–0.5  ignore frames below this saturation (default 0.08)
+  intensity: number;
+  luminance: number;
+  satBoost: number;
+  greyThreshold: number;
+  colorTint: [number, number, number];
+  colorTintStrength: number;
+  lightPos: [number, number, number]; // posição do efeito de vídeo no cenário
 }
 
-const VideoSceneLighting: React.FC<VideoSceneLightingProps> = ({ videoEl, intensity, luminance, satBoost, greyThreshold }) => {
+const VideoSceneLighting: React.FC<VideoSceneLightingProps> = ({ videoEl, intensity, luminance, satBoost, greyThreshold, colorTint, colorTintStrength, lightPos }) => {
   const { scene, gl } = useThree();
   const frameRef = useRef(0);
   const pointLightRef = useRef<THREE.PointLight>(null);
@@ -627,11 +735,27 @@ const VideoSceneLighting: React.FC<VideoSceneLightingProps> = ({ videoEl, intens
     if (sampleCtx) {
       sampleCtx.drawImage(videoEl, 0, 0, 4, 4);
       const px = sampleCtx.getImageData(0, 0, 4, 4).data;
-      let r = 0, g = 0, b = 0;
-      for (let i = 0; i < px.length; i += 4) { r += px[i]; g += px[i + 1]; b += px[i + 2]; }
+      let sr = 0, sg = 0, sb = 0;
+      for (let i = 0; i < px.length; i += 4) { sr += px[i]; sg += px[i + 1]; sb += px[i + 2]; }
       const n = px.length / 4;
-      dominantColor.current.setRGB(r / n / 255, g / n / 255, b / n / 255);
-      // Strip brightness — keep only hue + controlled saturation at fixed luminance
+      let cr = sr / n / 255, cg = sg / n / 255, cb = sb / n / 255;
+
+      // ── Apply tint — same max-channel formula as the GLSL shader ──────────
+      // Must happen on raw sRGB floats BEFORE the HSL normalisation so the
+      // emitted light hue matches exactly what the eye sees on the video plane.
+      if (colorTintStrength > 0) {
+        const tr = colorTint[0], tg = colorTint[1], tb = colorTint[2];
+        const tMax = Math.max(tr, tg, tb, 0.001);
+        const tnr = tr / tMax, tng = tg / tMax, tnb = tb / tMax;
+        const lum = cr * 0.2126 + cg * 0.7152 + cb * 0.0722;
+        const rr = tnr * lum, rg = tng * lum, rb = tnb * lum;
+        cr = cr + (rr - cr) * colorTintStrength;
+        cg = cg + (rg - cg) * colorTintStrength;
+        cb = cb + (rb - cb) * colorTintStrength;
+      }
+
+      // ── Normalise to controlled saturation + fixed luminance ──────────────
+      dominantColor.current.setRGB(cr, cg, cb);
       const hsl = { h: 0, s: 0, l: 0 };
       dominantColor.current.getHSL(hsl);
       const boosted = Math.min(1, hsl.s * satBoost);
@@ -639,9 +763,9 @@ const VideoSceneLighting: React.FC<VideoSceneLightingProps> = ({ videoEl, intens
       dominantColor.current.setHSL(hsl.h, effectiveSat, luminance);
     }
 
-    // ── PointLight follows camera — only front-facing surfaces are lit ──
+    // ── PointLight na posição do efeito de vídeo — ilumina as faces voltadas para o efeito ──
     if (pointLightRef.current) {
-      pointLightRef.current.position.copy(state.camera.position);
+      pointLightRef.current.position.set(lightPos[0], lightPos[1], lightPos[2]);
       pointLightRef.current.color.copy(dominantColor.current);
       pointLightRef.current.intensity = intensity * 6.0;
     }
@@ -653,6 +777,25 @@ const VideoSceneLighting: React.FC<VideoSceneLightingProps> = ({ videoEl, intens
       const ctx = s.canvas.getContext('2d');
       if (ctx) {
         ctx.drawImage(videoEl, 0, 0, 64, 32);
+
+        // ── Aplicar o mesmo tint do shader nos pixels do env-map ────────────
+        // Canvas 64×32 = 2048px — getImageData é barato a 5 fps
+        if (colorTintStrength > 0) {
+          const imgData = ctx.getImageData(0, 0, 64, 32);
+          const d = imgData.data;
+          const tr = colorTint[0], tg = colorTint[1], tb = colorTint[2];
+          const tMax = Math.max(tr, tg, tb, 0.001);
+          const tnr = tr / tMax, tng = tg / tMax, tnb = tb / tMax;
+          for (let i = 0; i < d.length; i += 4) {
+            const cr = d[i] / 255, cg = d[i + 1] / 255, cb = d[i + 2] / 255;
+            const lum = cr * 0.2126 + cg * 0.7152 + cb * 0.0722;
+            d[i]     = Math.round((cr + (tnr * lum - cr) * colorTintStrength) * 255);
+            d[i + 1] = Math.round((cg + (tng * lum - cg) * colorTintStrength) * 255);
+            d[i + 2] = Math.round((cb + (tnb * lum - cb) * colorTintStrength) * 255);
+          }
+          ctx.putImageData(imgData, 0, 0);
+        }
+
         s.canvasTex.needsUpdate = true;
         const newTarget = s.pmrem.fromEquirectangular(s.canvasTex);
         s.currentTarget?.dispose();
@@ -679,251 +822,202 @@ const VideoSceneLighting: React.FC<VideoSceneLightingProps> = ({ videoEl, intens
 // ─── Timeline Editor ─────────────────────────────────────────────────────────
 
 interface TimelineProps {
-  totalDuration: number;
-  videoDuration: number;
-  audioDuration: number;
-  videoIn: number;
-  videoOut: number;
-  audioOffset: number;
-  audioIn: number;
-  audioOut: number;
+  duration: number;
+  trimIn: number;
+  trimOut: number;
   currentTime: number;
-  hasVideo: boolean;
-  hasAudio: boolean;
-  onVideoTrim: (inPt: number, outPt: number) => void;
-  onAudioChange: (offset: number, inPt: number, outPt: number) => void;
+  onTrim: (inPt: number, outPt: number) => void;
   onSeek: (t: number) => void;
 }
 
-type DragTarget =
-  | { track: 'video'; handle: 'in' | 'out' | 'body'; startOffset: number; startIn: number; startOut: number }
-  | { track: 'audio'; handle: 'in' | 'out' | 'body'; startOffset: number; startIn: number; startOut: number; startAudioOffset: number };
+type TrimHandle = 'in' | 'out' | 'body';
+interface TrimDrag { handle: TrimHandle; startX: number; startIn: number; startOut: number; }
+
+const ZOOM_LEVELS = [1, 2, 4, 8, 16];
 
 const VideoTimeline: React.FC<TimelineProps> = ({
-  totalDuration,
-  videoDuration,
-  audioDuration,
-  videoIn,
-  videoOut,
-  audioOffset,
-  audioIn,
-  audioOut,
+  duration,
+  trimIn,
+  trimOut,
   currentTime,
-  hasVideo,
-  hasAudio,
-  onVideoTrim,
-  onAudioChange,
+  onTrim,
   onSeek,
 }) => {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const dragRef = useRef<DragTarget | null>(null);
-  const dur = Math.max(totalDuration, 0.1);
+  const scrollRef = useRef<HTMLDivElement>(null);   // outer scrollable container
+  const innerRef  = useRef<HTMLDivElement>(null);   // inner wide content div
+  const dragRef   = useRef<TrimDrag | null>(null);
+  const [zoom, setZoom] = useState(1);
+  const dur = Math.max(duration, 0.1);
 
-  const toPercent = (t: number) => `${((t / dur) * 100).toFixed(3)}%`;
+  // When zoom or playhead changes, keep playhead centred in the scroll view
+  useEffect(() => {
+    if (zoom <= 1) return;
+    const scroll = scrollRef.current;
+    if (!scroll) return;
+    const headFrac = currentTime / dur;
+    const target = headFrac * scroll.scrollWidth - scroll.clientWidth / 2;
+    scroll.scrollLeft = Math.max(0, Math.min(target, scroll.scrollWidth - scroll.clientWidth));
+  }, [currentTime, zoom, dur]);
 
+  // Convert a clientX to a time value using the inner (wide) div rect
   const clientXToTime = useCallback(
-    (clientX: number): number => {
-      const rect = containerRef.current?.getBoundingClientRect();
+    (clientX: number) => {
+      const rect = innerRef.current?.getBoundingClientRect();
       if (!rect) return 0;
       return Math.max(0, Math.min(dur, ((clientX - rect.left) / rect.width) * dur));
     },
     [dur],
   );
 
-  const onPointerDown = useCallback(
-    (e: React.PointerEvent, target: DragTarget) => {
+  const toPercent = (t: number) => `${Math.min(100, (t / dur) * 100).toFixed(4)}%`;
+
+  const startDrag = useCallback(
+    (e: React.PointerEvent, handle: TrimHandle) => {
       e.stopPropagation();
       e.currentTarget.setPointerCapture(e.pointerId);
-      dragRef.current = { ...target, startOffset: clientXToTime(e.clientX) };
+      dragRef.current = { handle, startX: clientXToTime(e.clientX), startIn: trimIn, startOut: trimOut };
     },
-    [clientXToTime],
+    [clientXToTime, trimIn, trimOut],
   );
 
   const onPointerMove = useCallback(
     (e: React.PointerEvent) => {
       const drag = dragRef.current;
       if (!drag) return;
-      const t = clientXToTime(e.clientX);
-      const delta = t - drag.startOffset;
-
-      if (drag.track === 'video') {
-        if (drag.handle === 'in') {
-          onVideoTrim(Math.max(0, Math.min(drag.startIn + delta, drag.startOut - 0.05)), drag.startOut);
-        } else if (drag.handle === 'out') {
-          onVideoTrim(drag.startIn, Math.max(drag.startIn + 0.05, Math.min(drag.startOut + delta, videoDuration)));
-        } else {
-          const len = drag.startOut - drag.startIn;
-          const newIn = Math.max(0, Math.min(drag.startIn + delta, dur - len));
-          onVideoTrim(newIn, newIn + len);
-        }
+      const delta = clientXToTime(e.clientX) - drag.startX;
+      const MIN = 0.02;
+      if (drag.handle === 'in') {
+        onTrim(Math.max(0, Math.min(drag.startIn + delta, drag.startOut - MIN)), drag.startOut);
+      } else if (drag.handle === 'out') {
+        onTrim(drag.startIn, Math.max(drag.startIn + MIN, Math.min(drag.startOut + delta, dur)));
       } else {
-        const d = drag as Extract<DragTarget, { track: 'audio' }>;
-        if (drag.handle === 'in') {
-          onAudioChange(d.startAudioOffset, Math.max(0, Math.min(d.startIn + delta, d.startOut - 0.05)), d.startOut);
-        } else if (drag.handle === 'out') {
-          onAudioChange(d.startAudioOffset, d.startIn, Math.max(d.startIn + 0.05, Math.min(d.startOut + delta, audioDuration)));
-        } else {
-          const newOffset = Math.max(0, Math.min(d.startAudioOffset + delta, dur - (d.startOut - d.startIn)));
-          onAudioChange(newOffset, d.startIn, d.startOut);
-        }
+        const len = drag.startOut - drag.startIn;
+        const ni = Math.max(0, Math.min(drag.startIn + delta, dur - len));
+        onTrim(ni, ni + len);
       }
     },
-    [clientXToTime, onVideoTrim, onAudioChange, videoDuration, audioDuration, dur],
+    [clientXToTime, onTrim, dur],
   );
 
   const onPointerUp = useCallback(() => { dragRef.current = null; }, []);
 
   const rulerTicks = useMemo(() => {
     const ticks: number[] = [];
-    const step = dur <= 5 ? 0.5 : dur <= 15 ? 1 : dur <= 60 ? 5 : 10;
-    for (let t = 0; t <= dur; t += step) ticks.push(parseFloat(t.toFixed(4)));
+    const visibleDur = dur / zoom;
+    const step = visibleDur <= 0.5 ? 0.05
+      : visibleDur <= 2  ? 0.1
+      : visibleDur <= 5  ? 0.5
+      : visibleDur <= 15 ? 1
+      : visibleDur <= 60 ? 5 : 10;
+    for (let t = 0; t <= dur; t += step) ticks.push(parseFloat(t.toFixed(6)));
     return ticks;
-  }, [dur]);
+  }, [dur, zoom]);
 
-  const containerStyle: React.CSSProperties = {
-    position: 'relative',
-    userSelect: 'none',
-    touchAction: 'none',
-  };
+  const clipLeft   = toPercent(trimIn);
+  const clipWidth  = `${Math.max(0, ((trimOut - trimIn) / dur) * 100).toFixed(4)}%`;
+  const headLeft   = toPercent(currentTime);
+  const trimmedSec = (trimOut - trimIn).toFixed(3);
 
-  const trackRowStyle: React.CSSProperties = {
-    position: 'relative',
-    height: 32,
-    background: 'rgba(15,23,42,0.6)',
-    borderRadius: 8,
-    border: '1px solid rgba(71,85,105,0.4)',
-    marginTop: 4,
-    overflow: 'hidden',
-  };
-
-  const handleStyle = (left: boolean): React.CSSProperties => ({
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    width: 8,
-    background: 'rgba(148,163,184,0.7)',
-    cursor: 'ew-resize',
-    zIndex: 4,
-    borderRadius: left ? '6px 0 0 6px' : '0 6px 6px 0',
-    ...(left ? { left: 0 } : { right: 0 }),
-  });
-
-  const clipStyle = (offsetPct: string, widthPct: string, color: string): React.CSSProperties => ({
-    position: 'absolute',
-    top: 4,
-    bottom: 4,
-    left: offsetPct,
-    width: widthPct,
-    background: color,
-    borderRadius: 6,
-    cursor: 'grab',
-    display: 'flex',
-    alignItems: 'center',
-    overflow: 'hidden',
+  const zoomBtnStyle = (active: boolean): React.CSSProperties => ({
+    padding: '1px 7px',
+    fontSize: 10,
+    fontWeight: 700,
+    background: active ? 'rgba(56,189,248,0.2)' : 'rgba(15,23,42,0.6)',
+    border: `1px solid ${active ? '#38bdf8' : 'rgba(51,65,85,0.5)'}`,
+    borderRadius: 5,
+    color: active ? '#38bdf8' : '#64748b',
+    cursor: 'pointer',
   });
 
   return (
-    <div ref={containerRef} style={containerStyle} onPointerMove={onPointerMove} onPointerUp={onPointerUp}>
-      {/* Time ruler */}
-      <div
-        style={{
-          position: 'relative',
-          height: 20,
-          background: 'rgba(2,6,23,0.8)',
-          borderRadius: '6px 6px 0 0',
-          border: '1px solid rgba(51,65,85,0.6)',
-          cursor: 'pointer',
-          overflow: 'hidden',
-        }}
-        onClick={(e) => {
-          const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
-          onSeek(Math.max(0, Math.min(dur, ((e.clientX - rect.left) / rect.width) * dur)));
-        }}
-      >
-        {rulerTicks.map((t) => (
-          <div
-            key={t}
-            style={{
-              position: 'absolute',
-              left: `${((t / dur) * 100).toFixed(3)}%`,
-              top: 0,
-              bottom: 0,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              pointerEvents: 'none',
-            }}
-          >
-            <div style={{ width: 1, height: 6, background: 'rgba(100,116,139,0.6)', marginTop: 0 }} />
-            <span style={{ fontSize: 9, color: '#64748b', lineHeight: 1, marginTop: 1 }}>{t.toFixed(1)}s</span>
-          </div>
+    <div style={{ userSelect: 'none', touchAction: 'none' }}>
+
+      {/* ── Zoom controls ──────────────────────────────────── */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 5 }}>
+        <span style={{ fontSize: 9, color: '#475569', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', marginRight: 2 }}>Zoom</span>
+        {ZOOM_LEVELS.map((z) => (
+          <button key={z} style={zoomBtnStyle(zoom === z)} onClick={() => setZoom(z)}>
+            {z}×
+          </button>
         ))}
-        {/* Playhead on ruler */}
-        <div
-          style={{
-            position: 'absolute',
-            left: toPercent(currentTime),
-            top: 0,
-            bottom: 0,
-            width: 2,
-            background: '#f43f5e',
-            zIndex: 10,
-            pointerEvents: 'none',
-          }}
-        />
+        {zoom > 1 && (
+          <span style={{ marginLeft: 4, fontSize: 9, color: '#475569', fontFamily: 'monospace' }}>
+            visível: {(dur / zoom).toFixed(2)}s
+          </span>
+        )}
       </div>
 
-      {/* Video track */}
-      {hasVideo && (
-        <div>
-          <div style={{ fontSize: 9, color: '#475569', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', marginTop: 6, marginBottom: 2 }}>Video</div>
-          <div style={trackRowStyle}>
-            {/* Background full duration */}
-            <div style={{ position: 'absolute', inset: 0, background: 'rgba(30,41,59,0.4)' }} />
-            {/* Clip bar */}
-            <div
-              style={clipStyle(toPercent(videoIn), `${(((videoOut - videoIn) / dur) * 100).toFixed(3)}%`, 'rgba(56,189,248,0.25)')}
-              onPointerDown={(e) => onPointerDown(e, { track: 'video', handle: 'body', startOffset: 0, startIn: videoIn, startOut: videoOut })}
-            >
-              <div style={handleStyle(true)} onPointerDown={(e) => { e.stopPropagation(); onPointerDown(e, { track: 'video', handle: 'in', startOffset: 0, startIn: videoIn, startOut: videoOut }); }} />
-              <span style={{ fontSize: 9, color: '#7dd3fc', fontWeight: 700, paddingLeft: 12, overflow: 'hidden', whiteSpace: 'nowrap', pointerEvents: 'none', userSelect: 'none' }}>VIDEO</span>
-              <div style={handleStyle(false)} onPointerDown={(e) => { e.stopPropagation(); onPointerDown(e, { track: 'video', handle: 'out', startOffset: 0, startIn: videoIn, startOut: videoOut }); }} />
-            </div>
-            {/* Playhead line */}
-            <div style={{ position: 'absolute', left: toPercent(currentTime), top: 0, bottom: 0, width: 2, background: '#f43f5e', zIndex: 10, pointerEvents: 'none' }} />
+      {/* ── Scrollable wrapper ─────────────────────────────── */}
+      <div
+        ref={scrollRef}
+        style={{ overflowX: zoom > 1 ? 'scroll' : 'hidden', borderRadius: 8 }}
+      >
+        {/* Inner wide content — zoom × wider than the viewport */}
+        <div
+          ref={innerRef}
+          style={{ width: `${zoom * 100}%`, position: 'relative' }}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+        >
+          {/* ── Ruler ─────────────────────────────────────── */}
+          <div
+            style={{ position: 'relative', height: 22, background: 'rgba(2,6,23,0.85)', borderRadius: zoom > 1 ? 0 : '8px 8px 0 0', border: '1px solid rgba(51,65,85,0.5)', cursor: 'pointer', overflow: 'hidden' }}
+            onClick={(e) => {
+              const rect = innerRef.current?.getBoundingClientRect();
+              if (!rect) return;
+              onSeek(Math.max(0, Math.min(dur, ((e.clientX - rect.left) / rect.width) * dur)));
+            }}
+          >
+            {rulerTicks.map((t) => (
+              <div key={t} style={{ position: 'absolute', left: toPercent(t), top: 0, bottom: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', pointerEvents: 'none' }}>
+                <div style={{ width: 1, height: 8, background: 'rgba(100,116,139,0.5)' }} />
+                <span style={{ fontSize: 9, color: '#4b5563', lineHeight: 1, marginTop: 1, transform: 'translateX(-40%)', whiteSpace: 'nowrap' }}>{t.toFixed(zoom >= 8 ? 2 : 1)}s</span>
+              </div>
+            ))}
+            <div style={{ position: 'absolute', left: headLeft, top: 0, bottom: 0, width: 2, background: '#f43f5e', zIndex: 5, pointerEvents: 'none' }} />
           </div>
-        </div>
-      )}
 
-      {/* Audio track */}
-      {hasAudio && (
-        <div>
-          <div style={{ fontSize: 9, color: '#475569', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', marginTop: 6, marginBottom: 2 }}>Audio</div>
-          <div style={trackRowStyle}>
-            <div style={{ position: 'absolute', inset: 0, background: 'rgba(30,41,59,0.4)' }} />
-            {/* Audio clip bar (positioned by audioOffset) */}
+          {/* ── Track ─────────────────────────────────────── */}
+          <div style={{ position: 'relative', height: 46, background: 'rgba(8,14,30,0.7)', border: '1px solid rgba(51,65,85,0.4)', borderTop: 'none', borderRadius: zoom > 1 ? 0 : '0 0 8px 8px', overflow: 'hidden' }}>
+            <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.45)' }} />
+
+            {/* Active clip */}
             <div
-              style={clipStyle(
-                toPercent(audioOffset),
-                `${(((audioOut - audioIn) / dur) * 100).toFixed(3)}%`,
-                'rgba(167,139,250,0.25)',
-              )}
-              onPointerDown={(e) => onPointerDown(e, { track: 'audio', handle: 'body', startOffset: 0, startIn: audioIn, startOut: audioOut, startAudioOffset: audioOffset })}
+              style={{ position: 'absolute', top: 5, bottom: 5, left: clipLeft, width: clipWidth, background: 'linear-gradient(135deg,rgba(14,165,233,0.22),rgba(56,189,248,0.18))', border: '1px solid rgba(56,189,248,0.55)', borderRadius: 6, cursor: 'grab', display: 'flex', alignItems: 'center', overflow: 'hidden' }}
+              onPointerDown={(e) => startDrag(e, 'body')}
             >
-              <div style={handleStyle(true)} onPointerDown={(e) => { e.stopPropagation(); onPointerDown(e, { track: 'audio', handle: 'in', startOffset: 0, startIn: audioIn, startOut: audioOut, startAudioOffset: audioOffset }); }} />
-              <span style={{ fontSize: 9, color: '#c4b5fd', fontWeight: 700, paddingLeft: 12, overflow: 'hidden', whiteSpace: 'nowrap', pointerEvents: 'none', userSelect: 'none' }}>AUDIO</span>
-              <div style={handleStyle(false)} onPointerDown={(e) => { e.stopPropagation(); onPointerDown(e, { track: 'audio', handle: 'out', startOffset: 0, startIn: audioIn, startOut: audioOut, startAudioOffset: audioOffset }); }} />
+              {/* IN handle */}
+              <div
+                style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 12, background: '#38bdf8', cursor: 'ew-resize', borderRadius: '4px 0 0 4px', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }}
+                onPointerDown={(e) => { e.stopPropagation(); startDrag(e, 'in'); }}
+              >
+                <div style={{ width: 2, height: 18, background: 'rgba(2,6,23,0.6)', borderRadius: 1 }} />
+              </div>
+              {/* Label */}
+              <span style={{ fontSize: 10, color: '#7dd3fc', fontWeight: 700, paddingLeft: 18, overflow: 'hidden', whiteSpace: 'nowrap', pointerEvents: 'none', userSelect: 'none' }}>
+                {trimIn.toFixed(3)}s – {trimOut.toFixed(3)}s &nbsp;({trimmedSec}s)
+              </span>
+              {/* OUT handle */}
+              <div
+                style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 12, background: '#38bdf8', cursor: 'ew-resize', borderRadius: '0 4px 4px 0', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }}
+                onPointerDown={(e) => { e.stopPropagation(); startDrag(e, 'out'); }}
+              >
+                <div style={{ width: 2, height: 18, background: 'rgba(2,6,23,0.6)', borderRadius: 1 }} />
+              </div>
             </div>
-            <div style={{ position: 'absolute', left: toPercent(currentTime), top: 0, bottom: 0, width: 2, background: '#f43f5e', zIndex: 10, pointerEvents: 'none' }} />
-          </div>
-        </div>
-      )}
 
-      {/* Current time display */}
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 4 }}>
-        <span style={{ fontSize: 10, color: '#f43f5e', fontWeight: 700, fontFamily: 'monospace' }}>
-          {currentTime.toFixed(2)}s / {dur.toFixed(2)}s
-        </span>
+            {/* Playhead */}
+            <div style={{ position: 'absolute', left: headLeft, top: 0, bottom: 0, width: 2, background: '#f43f5e', zIndex: 10, pointerEvents: 'none' }}>
+              <div style={{ position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)', width: 0, height: 0, borderLeft: '5px solid transparent', borderRight: '5px solid transparent', borderTop: '7px solid #f43f5e' }} />
+            </div>
+          </div>
+        </div>{/* end inner */}
+      </div>{/* end scroll wrapper */}
+
+      {/* ── Footer ────────────────────────────────────────── */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 5 }}>
+        <span style={{ fontSize: 10, color: '#475569', fontWeight: 600 }}>Trecho: <span style={{ color: '#7dd3fc' }}>{trimmedSec}s</span></span>
+        <span style={{ fontSize: 10, color: '#f43f5e', fontWeight: 700, fontFamily: 'monospace' }}>{currentTime.toFixed(3)}s / {dur.toFixed(2)}s</span>
       </div>
     </div>
   );
@@ -965,22 +1059,17 @@ export const VideoEffectLab: React.FC = () => {
   const [videoDuration, setVideoDuration] = useState(3.0);
   const [videoAspect, setVideoAspect] = useState(16 / 9);
 
-  const [audioUrl, setAudioUrl] = useState<string | null>(null);
-  const [audioFileName, setAudioFileName] = useState('');
-  const [audioDuration, setAudioDuration] = useState(3.0);
-
   // ── Timeline state ────────────────────────────────────────────────────────
   const [videoIn, setVideoIn] = useState(0);
   const [videoOut, setVideoOut] = useState(3.0);
-  const [audioOffset, setAudioOffset] = useState(0);
-  const [audioIn, setAudioIn] = useState(0);
-  const [audioOut, setAudioOut] = useState(3.0);
   const [currentTime, setCurrentTime] = useState(0);
 
   // ── Playback state ────────────────────────────────────────────────────────
   const [isPlaying, setIsPlaying] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState(1.0);
   const [loop, setLoop] = useState(false);
+  const [pingPong, setPingPong] = useState(false);
+  const pingPongDirRef = useRef<1 | -1>(1); // 1=frente, -1=volta
 
   // ── 3D placement ──────────────────────────────────────────────────────────
   const [videoPos, setVideoPos] = useState<[number, number, number]>([0, 1.2, 0.2]);
@@ -992,11 +1081,34 @@ export const VideoEffectLab: React.FC = () => {
   const [videoLightSatBoost, setVideoLightSatBoost] = useState(1.0);
   const [videoLightGreyThreshold, setVideoLightGreyThreshold] = useState(0.08);
   const [videoBillboard, setVideoBillboard] = useState(false);
+  const [flipX, setFlipX] = useState(false);
+  const [flipY, setFlipY] = useState(false);
+  const [colorTintHex, setColorTintHex] = useState('#ffffff');
+  const [colorTintStrength, setColorTintStrength] = useState(0);
+  const colorTint = hexToRgb01(colorTintHex);
 
   // ── Reference character ───────────────────────────────────────────────────
   const [heroClassId, setHeroClassId] = useState<PlayerClassId>(PLAYER_CLASSES[0]?.id ?? 'warrior');
-  const [previewReference, setPreviewReference] = useState<'hero' | 'enemy'>('hero');
+  const [previewReference, setPreviewReference] = useState<'hero' | 'enemy' | 'enemy2d' | 'hero2d'>('hero');
   const [enemyIndex, setEnemyIndex] = useState(0);
+  const [sprite2DIndex, setSprite2DIndex] = useState(0);
+  const [hero2DIndex, setHero2DIndex] = useState(0);
+
+  // Para referências 2D (billboard) o orbit não faz sentido — auto-ativa o modo mover vídeo
+  React.useEffect(() => {
+    if (previewReference === 'enemy2d' || previewReference === 'hero2d') {
+      setLockOrbit(true);
+    } else {
+      setLockOrbit(false);
+    }
+  }, [previewReference]);
+
+  const sprite2DEnemy  = ENEMIES_2D[Math.max(0, Math.min(sprite2DIndex, ENEMIES_2D.length - 1))];
+  const sprite2DUrl    = sprite2DEnemy?.sprites.idle ?? '';
+  const sprite2DHeight = sprite2DEnemy?.scale ?? 2.0;
+  const hero2DHero   = HEROES_2D[Math.max(0, Math.min(hero2DIndex, HEROES_2D.length - 1))];
+  const hero2DUrl    = hero2DHero?.sprites.idle ?? '';
+  const hero2DHeight = hero2DHero?.scale ?? 2.0;
 
   // ── Luma key / refinement ─────────────────────────────────────────────────
   const [lumaKey, setLumaKey] = useState<LumaKeyParams>({ ...DEFAULT_LUMA });
@@ -1011,17 +1123,18 @@ export const VideoEffectLab: React.FC = () => {
 
   // ── Copy/export state ─────────────────────────────────────────────────────
   const [copyStatus, setCopyStatus] = useState<'idle' | 'ok'>('idle');
+  const [effectName, setEffectName] = useState('');
+  const [mutePreview, setMutePreview] = useState(true);
+  const [exporting, setExporting] = useState(false);
+  const [exportProgress, setExportProgress] = useState(0);
 
   // ── DOM refs for media elements ───────────────────────────────────────────
   const videoElRef = useRef<HTMLVideoElement | null>(null);
-  const audioElRef = useRef<HTMLAudioElement | null>(null);
   const videoObjUrlRef = useRef<string | null>(null);
-  const audioObjUrlRef = useRef<string | null>(null);
   const rafRef = useRef<number | null>(null);
   const playStartWallRef = useRef<number>(0);
   const playStartTimeRef = useRef<number>(0);
-
-  const totalDuration = videoUrl ? videoDuration : audioDuration;
+  const seekReadyRef = useRef(true); // true quando o decoder terminou o seek anterior
 
   // ── Video element setup ───────────────────────────────────────────────────
   useEffect(() => {
@@ -1031,22 +1144,19 @@ export const VideoEffectLab: React.FC = () => {
       el.playsInline = true;
       el.crossOrigin = 'anonymous';
       el.preload = 'auto';
+      el.addEventListener('seeked', () => { seekReadyRef.current = true; });
       videoElRef.current = el;
     }
   }, []);
 
+  // Sync mute preference to the video element
   useEffect(() => {
-    if (!audioElRef.current) {
-      const el = document.createElement('audio');
-      el.preload = 'auto';
-      audioElRef.current = el;
-    }
-  }, []);
+    if (videoElRef.current) videoElRef.current.muted = mutePreview;
+  }, [mutePreview]);
 
   // Cleanup blob URLs on unmount
   useEffect(() => () => {
     if (videoObjUrlRef.current) URL.revokeObjectURL(videoObjUrlRef.current);
-    if (audioObjUrlRef.current) URL.revokeObjectURL(audioObjUrlRef.current);
     if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
   }, []);
 
@@ -1079,29 +1189,7 @@ export const VideoEffectLab: React.FC = () => {
     e.target.value = '';
   };
 
-  const handleAudioFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (audioObjUrlRef.current) URL.revokeObjectURL(audioObjUrlRef.current);
-    const url = URL.createObjectURL(file);
-    audioObjUrlRef.current = url;
-    setAudioUrl(url);
-    setAudioFileName(file.name);
-    setAudioOffset(0);
-    setAudioIn(0);
-
-    const el = audioElRef.current;
-    if (el) {
-      el.src = url;
-      el.load();
-      el.onloadedmetadata = () => {
-        const dur = el.duration || 3;
-        setAudioDuration(dur);
-        setAudioOut(dur);
-      };
-    }
-    e.target.value = '';
-  };
+  const handleAudioFile = (_e: React.ChangeEvent<HTMLInputElement>) => { /* removed — use video’s own audio */ };
 
   const clearVideo = () => {
     setIsPlaying(false);
@@ -1112,20 +1200,11 @@ export const VideoEffectLab: React.FC = () => {
     if (videoElRef.current) { videoElRef.current.src = ''; videoElRef.current.load(); }
   };
 
-  const clearAudio = () => {
-    if (audioObjUrlRef.current) URL.revokeObjectURL(audioObjUrlRef.current);
-    audioObjUrlRef.current = null;
-    setAudioUrl(null);
-    setAudioFileName('');
-    if (audioElRef.current) { audioElRef.current.src = ''; audioElRef.current.load(); }
-  };
-
   // ── Playback engine ───────────────────────────────────────────────────────
   const stopPlayback = useCallback(() => {
     setIsPlaying(false);
     if (rafRef.current !== null) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
     videoElRef.current?.pause();
-    audioElRef.current?.pause();
   }, []);
 
   const startPlayback = useCallback(
@@ -1138,40 +1217,53 @@ export const VideoEffectLab: React.FC = () => {
       video.currentTime = clampedStart;
       video.play().catch(() => {});
 
-      // Audio sync
-      const audio = audioElRef.current;
-      const audioDelay = audioOffset - clampedStart;
-      if (audio && audioUrl) {
-        if (audioDelay <= 0) {
-          // Audio should already be playing; seek into it
-          const audioSeekTo = audioIn + Math.max(0, -audioDelay);
-          if (audioSeekTo < audioOut) {
-            audio.playbackRate = playbackSpeed;
-            audio.currentTime = audioSeekTo;
-            audio.play().catch(() => {});
-          }
-        }
-        // If audioDelay > 0 the RAF loop will trigger it at the right time
-      }
-
       setIsPlaying(true);
       playStartWallRef.current = performance.now();
       playStartTimeRef.current = clampedStart;
 
-      let audioStarted = audioDelay <= 0;
-
       const tick = () => {
+        // ── Fase VOLTA (ping-pong revertendo) ────────────────────────────
+        if (pingPong && pingPongDirRef.current === -1) {
+          const elapsed = (performance.now() - playStartWallRef.current) / 1000;
+          const tBack = playStartTimeRef.current - elapsed * playbackSpeed;
+          if (tBack <= videoIn) {
+            // Chegou no início → inverte para FRENTE
+            seekReadyRef.current = true;
+            pingPongDirRef.current = 1;
+            playStartWallRef.current = performance.now();
+            playStartTimeRef.current = videoIn;
+            video.currentTime = videoIn;
+            video.play().catch(() => {});
+            setCurrentTime(videoIn);
+          } else if (seekReadyRef.current) {
+            // Decoder livre → dispara o próximo seek
+            seekReadyRef.current = false;
+            video.currentTime = tBack;
+            setCurrentTime(tBack);
+          }
+          // se !seekReady, apenas aguarda o próximo frame sem fazer nada
+          rafRef.current = requestAnimationFrame(tick);
+          return;
+        }
+
+        // ── Fase FRENTE (normal) ──────────────────────────────────────────
         const elapsed = (performance.now() - playStartWallRef.current) / 1000;
         const t = playStartTimeRef.current + elapsed * playbackSpeed;
 
         if (t >= videoOut) {
-          if (loop) {
-            // Loop back to videoIn
+          if (pingPong) {
+            // Chegou no fim → inverte para VOLTA
+            pingPongDirRef.current = -1;
+            seekReadyRef.current = true; // libera o primeiro seek reverso
+            playStartWallRef.current = performance.now();
+            playStartTimeRef.current = videoOut;
+            video.pause();
+            video.currentTime = videoOut;
+            setCurrentTime(videoOut);
+          } else if (loop) {
             playStartWallRef.current = performance.now();
             playStartTimeRef.current = videoIn;
             if (video) { video.currentTime = videoIn; video.play().catch(() => {}); }
-            if (audio && audioUrl) { audio.currentTime = audioIn; audio.play().catch(() => {}); }
-            audioStarted = true;
           } else {
             stopPlayback();
             setCurrentTime(videoOut);
@@ -1179,17 +1271,6 @@ export const VideoEffectLab: React.FC = () => {
           }
         } else {
           setCurrentTime(t);
-
-          // Trigger audio after its offset
-          if (!audioStarted && audio && audioUrl && t >= audioOffset) {
-            const seekTo = audioIn + (t - audioOffset) * playbackSpeed;
-            if (seekTo < audioOut) {
-              audio.playbackRate = playbackSpeed;
-              audio.currentTime = seekTo;
-              audio.play().catch(() => {});
-            }
-            audioStarted = true;
-          }
         }
 
         rafRef.current = requestAnimationFrame(tick);
@@ -1197,7 +1278,7 @@ export const VideoEffectLab: React.FC = () => {
 
       rafRef.current = requestAnimationFrame(tick);
     },
-    [videoUrl, audioUrl, videoIn, videoOut, audioOffset, audioIn, audioOut, playbackSpeed, loop, stopPlayback],
+    [videoUrl, videoIn, videoOut, playbackSpeed, loop, pingPong, stopPlayback],
   );
 
   const handlePlayPause = () => {
@@ -1217,11 +1298,11 @@ export const VideoEffectLab: React.FC = () => {
 
   const handleSeek = useCallback(
     (t: number) => {
-      const clamped = Math.max(0, Math.min(totalDuration, t));
+      const clamped = Math.max(0, Math.min(videoDuration, t));
       setCurrentTime(clamped);
       if (videoElRef.current && videoUrl) videoElRef.current.currentTime = Math.max(videoIn, Math.min(videoOut, clamped));
     },
-    [totalDuration, videoUrl, videoIn, videoOut],
+    [videoDuration, videoUrl, videoIn, videoOut],
   );
 
   const handleFrameStep = (dir: 1 | -1) => {
@@ -1236,27 +1317,40 @@ export const VideoEffectLab: React.FC = () => {
   const buildConfig = useCallback((): VideoEffectConfig => ({
     version: '1.0',
     videoFileName,
-    audioFileName,
     timeline: {
-      videoIn,
-      videoOut,
-      audioOffset,
-      audioIn,
-      audioOut,
-      totalDuration: videoOut - videoIn,
+      trimIn: videoIn,
+      trimOut: videoOut,
+      duration: videoOut - videoIn,
     },
     placement: {
       position: [...videoPos] as [number, number, number],
       scale: videoScale,
+      billboard: videoBillboard,
+      flipX,
+      flipY,
     },
     lumaKey: { ...lumaKey },
     refinement: { ...refinement },
+    invertMask,
+    colorTint: {
+      color: colorTintHex,
+      strength: colorTintStrength,
+    },
+    videoLight: {
+      enabled: videoLight,
+      intensity: videoLightIntensity,
+      luminance: videoLightLuminance,
+      satBoost: videoLightSatBoost,
+      greyThreshold: videoLightGreyThreshold,
+    },
     playback: {
       speed: playbackSpeed,
       loop,
-      invertMask,
+      pingPong,
     },
-  }), [videoFileName, audioFileName, videoIn, videoOut, audioOffset, audioIn, audioOut, videoPos, videoScale, lumaKey, refinement, playbackSpeed, loop]);
+  }), [videoFileName, videoIn, videoOut, videoPos, videoScale, videoBillboard, flipX, flipY, lumaKey, refinement, invertMask, colorTintHex, colorTintStrength, videoLight, videoLightIntensity, videoLightLuminance, videoLightSatBoost, videoLightGreyThreshold, playbackSpeed, loop, pingPong]);
+
+  const resolvedName = (effectName.trim() || videoFileName.replace(/\.[^.]+$/, '') || 'video_effect').replace(/\s+/g, '_');
 
   const copyJson = async () => {
     try {
@@ -1270,7 +1364,7 @@ export const VideoEffectLab: React.FC = () => {
     const blob = new Blob([JSON.stringify(buildConfig(), null, 2)], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `${(videoFileName || 'video_effect').replace(/\.[^.]+$/, '')}.json`;
+    a.download = `${resolvedName}.json`;
     a.click();
     URL.revokeObjectURL(a.href);
   };
@@ -1281,10 +1375,108 @@ export const VideoEffectLab: React.FC = () => {
     setVideoOut(outPt);
   }, []);
 
-  const handleAudioChange = useCallback((offset: number, inPt: number, outPt: number) => {
-    setAudioOffset(offset);
-    setAudioIn(inPt);
-    setAudioOut(outPt);
+  // ── Video export ──────────────────────────────────────────────────────────
+  const exportTrimmedVideo = useCallback(async () => {
+    const video = videoElRef.current;
+    if (!video || !videoUrl) return;
+    setExporting(true); setExportProgress(0);
+    const wasMuted = video.muted;
+    video.muted = false; video.volume = 1;
+    const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')
+      ? 'video/webm;codecs=vp9,opus'
+      : MediaRecorder.isTypeSupported('video/webm;codecs=vp8,opus')
+      ? 'video/webm;codecs=vp8,opus' : 'video/webm';
+    const stream = (video as unknown as { captureStream: () => MediaStream }).captureStream();
+    const chunks: Blob[] = [];
+    const recorder = new MediaRecorder(stream, { mimeType });
+    recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+    recorder.onstop = () => {
+      const blob = new Blob(chunks, { type: mimeType });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `${resolvedName}.webm`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+      video.muted = wasMuted; video.pause();
+      setExporting(false); setExportProgress(100);
+      setTimeout(() => setExportProgress(0), 1500);
+    };
+    video.currentTime = videoIn;
+    await new Promise<void>((resolve) => {
+      const onSeeked = () => { video.removeEventListener('seeked', onSeeked); resolve(); };
+      video.addEventListener('seeked', onSeeked);
+    });
+    recorder.start(100);
+    video.playbackRate = 1.0; video.play().catch(() => {});
+    const duration = videoOut - videoIn;
+    const startWall = performance.now();
+    const checkInterval = setInterval(() => {
+      const elapsed = (performance.now() - startWall) / 1000;
+      setExportProgress(Math.min(96, (elapsed / duration) * 100));
+      if (video.currentTime >= videoOut - 0.04 || elapsed >= duration + 0.3) {
+        clearInterval(checkInterval); video.pause(); recorder.stop();
+      }
+    }, 50);
+  }, [videoUrl, videoIn, videoOut, videoFileName, resolvedName]);
+
+  const exportAll = useCallback(async () => {
+    downloadJson();
+    await exportTrimmedVideo();
+  }, [downloadJson, exportTrimmedVideo]);
+
+  const loadJsonInputRef = useRef<HTMLInputElement>(null);
+
+  const loadJsonFile = useCallback((file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const cfg = JSON.parse(e.target?.result as string) as VideoEffectConfig;
+        // timeline
+        if (cfg.timeline) {
+          if (cfg.timeline.trimIn  != null) setVideoIn(cfg.timeline.trimIn);
+          if (cfg.timeline.trimOut != null) setVideoOut(cfg.timeline.trimOut);
+        }
+        // placement
+        if (cfg.placement) {
+          if (cfg.placement.position) setVideoPos(cfg.placement.position);
+          if (cfg.placement.scale    != null) setVideoScale(cfg.placement.scale);
+          if (cfg.placement.billboard != null) setVideoBillboard(cfg.placement.billboard);
+          if (cfg.placement.flipX    != null) setFlipX(cfg.placement.flipX);
+          if (cfg.placement.flipY    != null) setFlipY(cfg.placement.flipY);
+        }
+        // luma key
+        if (cfg.lumaKey)    setLumaKey({ ...DEFAULT_LUMA,       ...cfg.lumaKey });
+        // refinement
+        if (cfg.refinement) setRefinement({ ...DEFAULT_REFINEMENT, ...cfg.refinement });
+        // invertMask
+        if (cfg.invertMask != null) setInvertMask(cfg.invertMask);
+        // color tint
+        if (cfg.colorTint) {
+          if (cfg.colorTint.color    != null) setColorTintHex(cfg.colorTint.color);
+          if (cfg.colorTint.strength != null) setColorTintStrength(cfg.colorTint.strength);
+        }
+        // video light
+        if (cfg.videoLight) {
+          if (cfg.videoLight.enabled       != null) setVideoLight(cfg.videoLight.enabled);
+          if (cfg.videoLight.intensity     != null) setVideoLightIntensity(cfg.videoLight.intensity);
+          if (cfg.videoLight.luminance     != null) setVideoLightLuminance(cfg.videoLight.luminance);
+          if (cfg.videoLight.satBoost      != null) setVideoLightSatBoost(cfg.videoLight.satBoost);
+          if (cfg.videoLight.greyThreshold != null) setVideoLightGreyThreshold(cfg.videoLight.greyThreshold);
+        }
+        // playback
+        if (cfg.playback) {
+          if (cfg.playback.speed    != null) { setPlaybackSpeed(cfg.playback.speed); if (videoElRef.current) videoElRef.current.playbackRate = cfg.playback.speed; }
+          if (cfg.playback.loop     != null) setLoop(cfg.playback.loop);
+          if ((cfg.playback as { pingPong?: boolean }).pingPong != null) setPingPong((cfg.playback as { pingPong?: boolean }).pingPong!);
+          if (cfg.playback.pingPong != null) setPingPong(cfg.playback.pingPong);
+        }
+        // effect name from filename
+        if (cfg.videoFileName) setEffectName(cfg.videoFileName.replace(/\.[^.]+$/, ''));
+      } catch {
+        // invalid JSON — ignore
+      }
+    };
+    reader.readAsText(file);
   }, []);
 
   // ── Luma key updater helpers ──────────────────────────────────────────────
@@ -1369,7 +1561,7 @@ export const VideoEffectLab: React.FC = () => {
       <div style={{ marginBottom: 16 }}>
         <h2 style={{ fontSize: 22, fontWeight: 900, margin: 0, color: '#f8fafc', letterSpacing: '-0.01em' }}>Video Effect Lab</h2>
         <p style={{ margin: '4px 0 0', fontSize: 12, color: '#475569' }}>
-          Upload MP4 + MP3 → posicione o vídeo no 3D → configure luma key → exporte JSON
+          Upload MP4 → posicione no 3D → configure luma key → corte na timeline → exporte vídeo e JSON
         </p>
       </div>
 
@@ -1404,44 +1596,19 @@ export const VideoEffectLab: React.FC = () => {
                 )}
               </div>
 
-              {/* Audio upload */}
-              <div>
-                <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700, marginBottom: 5 }}>Áudio (MP3 / OGG / WAV)</div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                  <label style={uploadBtnStyle}>
-                    🎵 {audioUrl ? 'Trocar' : 'Subir Áudio'}
-                    <input type="file" accept="audio/mp3,audio/mpeg,audio/ogg,audio/wav,audio/*" style={{ display: 'none' }} onChange={handleAudioFile} />
-                  </label>
-                  {audioUrl && (
-                    <button style={clearBtnStyle} onClick={clearAudio}>✕ Limpar</button>
-                  )}
-                </div>
-                {audioFileName && (
-                  <div style={{ marginTop: 4, fontSize: 10, color: '#c4b5fd', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {audioFileName} · {audioDuration.toFixed(2)}s
-                  </div>
-                )}
-              </div>
+              {/* O áudio é o do próprio vídeo — sem upload separado */}
             </div>
 
             {/* Timeline panel */}
-            {(videoUrl || audioUrl) && (
+            {videoUrl && (
               <div style={panelStyle}>
                 <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: '0.18em', textTransform: 'uppercase', color: '#f59e0b', marginBottom: 10 }}>Timeline</div>
                 <VideoTimeline
-                  totalDuration={totalDuration}
-                  videoDuration={videoDuration}
-                  audioDuration={audioDuration}
-                  videoIn={videoIn}
-                  videoOut={videoOut}
-                  audioOffset={audioOffset}
-                  audioIn={audioIn}
-                  audioOut={audioOut}
+                  duration={videoDuration}
+                  trimIn={videoIn}
+                  trimOut={videoOut}
                   currentTime={currentTime}
-                  hasVideo={!!videoUrl}
-                  hasAudio={!!audioUrl}
-                  onVideoTrim={handleVideoTrim}
-                  onAudioChange={handleAudioChange}
+                  onTrim={handleVideoTrim}
                   onSeek={handleSeek}
                 />
               </div>
@@ -1461,16 +1628,22 @@ export const VideoEffectLab: React.FC = () => {
                       {isPlaying ? '⏸ Pausar' : '▶ Play'}
                     </button>
                     <button style={actionBtnStyle(false)} onClick={handleReset}>↺ Reset</button>
+                    <button style={actionBtnStyle(loop, '#f59e0b')} onClick={() => { setLoop((v) => !v); if (pingPong) setPingPong(false); }}>🔁 Loop</button>
                     <button
-                      style={actionBtnStyle(loop, '#f59e0b')}
-                      onClick={() => setLoop((v) => !v)}
-                    >
-                      🔁 Loop
-                    </button>
+                      style={actionBtnStyle(pingPong, '#a78bfa')}
+                      onClick={() => {
+                        setPingPong((v) => {
+                          if (!v) { setLoop(false); pingPongDirRef.current = 1; }
+                          return !v;
+                        });
+                      }}
+                    >🔀 Vai-e-Volta</button>
+                    <button style={actionBtnStyle(pingPong, '#a78bfa')} onClick={() => { setPingPong((v) => !v); if (!pingPong) { setLoop(false); pingPongDirRef.current = 1; } }}>🔀 Vai-e-Volta</button>
+                    <button style={actionBtnStyle(mutePreview, '#94a3b8')} onClick={() => setMutePreview((v) => !v)}>{mutePreview ? '🔇 Mudo' : '🔊 Som'}</button>
                     <button style={actionBtnStyle(false)} onClick={() => handleFrameStep(-1)} disabled={!videoUrl}>◀ Frame</button>
                     <button style={actionBtnStyle(false)} onClick={() => handleFrameStep(1)} disabled={!videoUrl}>Frame ▶</button>
                   </div>
-                  <SliderRow label="Velocidade" value={playbackSpeed} min={0.1} max={3.0} step={0.05} onChange={(v) => { setPlaybackSpeed(v); if (videoElRef.current) videoElRef.current.playbackRate = v; if (audioElRef.current) audioElRef.current.playbackRate = v; }} />
+                  <SliderRow label="Velocidade" value={playbackSpeed} min={0.1} max={3.0} step={0.05} onChange={(v) => { setPlaybackSpeed(v); if (videoElRef.current) videoElRef.current.playbackRate = v; }} />
                 </>
               )}
             </div>
@@ -1478,9 +1651,11 @@ export const VideoEffectLab: React.FC = () => {
             {/* Reference character */}
             <div style={panelStyle}>
               <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: '0.18em', textTransform: 'uppercase', color: '#a78bfa', marginBottom: 10 }}>Referência 3D</div>
-              <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+              <div style={{ display: 'flex', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
                 <button style={actionBtnStyle(previewReference === 'hero', '#a78bfa')} onClick={() => setPreviewReference('hero')}>Herói</button>
-                <button style={actionBtnStyle(previewReference === 'enemy', '#a78bfa')} onClick={() => setPreviewReference('enemy')}>Inimigo</button>
+                <button style={actionBtnStyle(previewReference === 'enemy', '#a78bfa')} onClick={() => setPreviewReference('enemy')}>Inimigo 3D</button>
+                <button style={actionBtnStyle(previewReference === 'enemy2d', '#f472b6')} onClick={() => setPreviewReference('enemy2d')}>Inimigo 2D</button>
+                <button style={actionBtnStyle(previewReference === 'hero2d', '#34d399')} onClick={() => setPreviewReference('hero2d')}>Herói 2D</button>
               </div>
               {previewReference === 'hero' && (
                 <select
@@ -1504,24 +1679,115 @@ export const VideoEffectLab: React.FC = () => {
                   ))}
                 </select>
               )}
+              {previewReference === 'enemy2d' && (
+                <>
+                  <select
+                    value={sprite2DIndex}
+                    onChange={(e) => setSprite2DIndex(parseInt(e.target.value, 10))}
+                    style={{ width: '100%', background: '#0f172a', border: '1px solid #334155', borderRadius: 8, color: '#e2e8f0', padding: '6px 10px', fontSize: 12 }}
+                  >
+                    {ENEMIES_2D.map((en, idx) => (
+                      <option key={en.id} value={idx}>{en.name} (Lv.{en.level})</option>
+                    ))}
+                  </select>
+                  {sprite2DEnemy && (
+                    <div style={{ marginTop: 5, fontSize: 10, color: '#a78bfa' }}>
+                      {sprite2DEnemy.race} · scale {sprite2DEnemy.scale ?? 2.0}
+                    </div>
+                  )}
+                </>
+              )}
+              {previewReference === 'hero2d' && (
+                <>
+                  <select
+                    value={hero2DIndex}
+                    onChange={(e) => setHero2DIndex(parseInt(e.target.value, 10))}
+                    style={{ width: '100%', background: '#0f172a', border: '1px solid #334155', borderRadius: 8, color: '#e2e8f0', padding: '6px 10px', fontSize: 12 }}
+                  >
+                    {HEROES_2D.map((h, idx) => (
+                      <option key={h.id} value={idx}>{h.name} — {h.title}</option>
+                    ))}
+                  </select>
+                  {hero2DHero && (
+                    <div style={{ marginTop: 5, fontSize: 10, color: '#34d399' }}>
+                      {hero2DHero.attackStyle ?? 'melee'} · scale {hero2DHero.scale ?? 2.0}
+                    </div>
+                  )}
+                </>
+              )}
             </div>
 
             {/* Export buttons */}
             <div style={panelStyle}>
-              <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: '0.18em', textTransform: 'uppercase', color: '#34d399', marginBottom: 10 }}>Exportar Config</div>
-              <div style={{ fontSize: 10, color: '#475569', marginBottom: 10, lineHeight: 1.5 }}>
-                O JSON contém posições, luma key, timing e parâmetros. Salve junto com os arquivos originais de vídeo e áudio na pasta do efeito.
+              <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: '0.18em', textTransform: 'uppercase', color: '#34d399', marginBottom: 10 }}>Exportar</div>
+
+              {/* Effect name input */}
+              <div style={{ marginBottom: 10 }}>
+                <div style={{ fontSize: 10, color: '#64748b', fontWeight: 700, marginBottom: 4 }}>Nome do efeito</div>
+                <input
+                  type="text"
+                  value={effectName}
+                  onChange={(e) => setEffectName(e.target.value)}
+                  placeholder={`${videoFileName.replace(/\.[^.]+$/, '') || 'video_effect'}`}
+                  style={{ width: '100%', boxSizing: 'border-box', background: '#0f172a', border: '1px solid #334155', borderRadius: 8, color: '#e2e8f0', padding: '6px 10px', fontSize: 12, outline: 'none' }}
+                />
+                <div style={{ marginTop: 3, fontSize: 9, color: '#475569' }}>Arquivo: <span style={{ color: '#7dd3fc' }}>{resolvedName}.json</span> + <span style={{ color: '#fbbf24' }}>{resolvedName}.webm</span></div>
               </div>
+
+              {/* Export all — primary action */}
+              <button
+                style={{ ...actionBtnStyle(exporting, '#34d399'), width: '100%', marginBottom: 8, justifyContent: 'center', fontWeight: 900, fontSize: 12 }}
+                onClick={exportAll}
+                disabled={!videoUrl || exporting}
+              >
+                {exporting ? `⏳ Gravando… ${exportProgress.toFixed(0)}%` : '🚀 Exportar JSON + Vídeo'}
+              </button>
+
+              {exportProgress > 0 && exportProgress < 100 && (
+                <div style={{ marginBottom: 8, height: 4, background: 'rgba(51,65,85,0.4)', borderRadius: 4, overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${exportProgress}%`, background: '#34d399', borderRadius: 4, transition: 'width 0.1s linear' }} />
+                </div>
+              )}
+
+              {/* Individual exports */}
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                <button
-                  style={actionBtnStyle(copyStatus === 'ok', '#34d399')}
-                  onClick={copyJson}
-                >
+                <button style={actionBtnStyle(copyStatus === 'ok', '#94a3b8')} onClick={copyJson}>
                   {copyStatus === 'ok' ? '✓ Copiado!' : '📋 Copiar JSON'}
                 </button>
-                <button style={actionBtnStyle(false, '#34d399')} onClick={downloadJson}>
+                <button style={actionBtnStyle(false, '#94a3b8')} onClick={downloadJson}>
                   ⬇ Baixar JSON
                 </button>
+                <button
+                  style={actionBtnStyle(exporting, '#f59e0b')}
+                  onClick={exportTrimmedVideo}
+                  disabled={!videoUrl || exporting}
+                >
+                  🎬 Só Vídeo
+                </button>
+              </div>
+
+              {/* Load JSON */}
+              <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid rgba(51,65,85,0.35)' }}>
+                <input
+                  ref={loadJsonInputRef}
+                  type="file"
+                  accept=".json,application/json"
+                  style={{ display: 'none' }}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) loadJsonFile(file);
+                    e.target.value = '';
+                  }}
+                />
+                <button
+                  style={{ ...actionBtnStyle(false, '#818cf8'), width: '100%', justifyContent: 'center' }}
+                  onClick={() => loadJsonInputRef.current?.click()}
+                >
+                  📂 Carregar JSON
+                </button>
+                <div style={{ marginTop: 4, fontSize: 9, color: '#475569', textAlign: 'center' }}>
+                  Restaura todos os parâmetros de um .json exportado
+                </div>
               </div>
             </div>
 
@@ -1543,6 +1809,10 @@ export const VideoEffectLab: React.FC = () => {
                     lumaKey={lumaKey}
                     refinement={refinement}
                     invertMask={invertMask}
+                    flipX={flipX}
+                    flipY={flipY}
+                    colorTint={colorTint}
+                    colorTintStrength={colorTintStrength}
                     videoLight={videoLight}
                     videoLightIntensity={videoLightIntensity}
                     videoLightLuminance={videoLightLuminance}
@@ -1555,6 +1825,10 @@ export const VideoEffectLab: React.FC = () => {
                     heroClassId={heroClassId}
                     previewReference={previewReference}
                     enemyIndex={enemyIndex}
+                    sprite2DUrl={sprite2DUrl}
+                    sprite2DHeight={sprite2DHeight}
+                    hero2DUrl={hero2DUrl}
+                    hero2DHeight={hero2DHeight}
                     lockOrbit={lockOrbit}
                     onPositionChange={setVideoPos}
                     onScaleChange={setVideoScale}
@@ -1564,6 +1838,20 @@ export const VideoEffectLab: React.FC = () => {
 
               {/* Lock orbit toggle + video light toggle */}
               <div style={{ position: 'absolute', top: 10, right: 10, display: 'flex', gap: 6 }}>
+                <button
+                  style={{ ...actionBtnStyle(flipX, '#f472b6'), padding: '5px 12px', fontSize: 10 }}
+                  onClick={() => setFlipX((v) => !v)}
+                  title="Espelhar horizontalmente (esquerda ↔ direita)"
+                >
+                  ⇔ Flip H
+                </button>
+                <button
+                  style={{ ...actionBtnStyle(flipY, '#f472b6'), padding: '5px 12px', fontSize: 10 }}
+                  onClick={() => setFlipY((v) => !v)}
+                  title="Espelhar verticalmente (cima ↔ baixo)"
+                >
+                  ⇕ Flip V
+                </button>
                 <button
                   style={{
                     ...actionBtnStyle(videoBillboard, '#22d3ee'),
@@ -1762,6 +2050,31 @@ export const VideoEffectLab: React.FC = () => {
                   >
                     ↺ Reset Refinamento
                   </button>
+
+                  {/* ── Cor do Efeito ────────────────────────── */}
+                  <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid rgba(51,65,85,0.4)' }}>
+                    <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#f472b6', marginBottom: 8 }}>Cor do Efeito</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                      <label style={{ fontSize: 10, color: '#94a3b8', fontWeight: 700, flexShrink: 0 }}>Cor</label>
+                      <input
+                        type="color"
+                        value={colorTintHex}
+                        onChange={(e) => setColorTintHex(e.target.value)}
+                        style={{ width: 36, height: 28, border: 'none', borderRadius: 6, cursor: 'pointer', background: 'none', padding: 0 }}
+                      />
+                      <span style={{ fontSize: 10, color: '#475569', fontFamily: 'monospace' }}>{colorTintHex}</span>
+                      {colorTintHex !== '#ffffff' && (
+                        <button
+                          style={{ fontSize: 9, padding: '2px 8px', background: 'rgba(15,23,42,0.7)', border: '1px solid rgba(51,65,85,0.5)', borderRadius: 5, color: '#64748b', cursor: 'pointer' }}
+                          onClick={() => setColorTintHex('#ffffff')}
+                        >
+                          reset
+                        </button>
+                      )}
+                    </div>
+                    <SliderRow label="Intensidade" value={colorTintStrength} min={0} max={1} onChange={setColorTintStrength} />
+                    {colorTintStrength === 0 && <div style={{ fontSize: 9, color: '#374151', marginTop: 2 }}>Intensidade 0 = cor original</div>}
+                  </div>
                 </>
               )}
             </div>

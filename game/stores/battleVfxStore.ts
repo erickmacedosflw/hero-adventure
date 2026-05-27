@@ -50,32 +50,48 @@ export const useBattleVfxStore = create<BattleVfxState>((set) => ({
   particles: [],
 
   spawnFloatingText: (value, target, type, color, iconImage) => {
-    const id = Math.random().toString(36);
-    const nowMs = Date.now();
-    const isNamedActionText = type === 'skill' || type === 'item';
-    const durationMs =
-      type === 'item' ? 1200
-      : isNamedActionText ? 2100
-      : type === 'crit' ? 1500
-      : 1100;
+    // Damage and crit numbers are delayed so they appear after the impact camera
+    // has largely arrived at the victim.
+    //   • Basic attacks: hit fires at 400–650ms, camera in impact ≥0.35s → add 650ms so
+    //     the camera is ~95% arrived before the number shows.
+    //   • Skills with 0ms delay: hit fires at ~1ms, camera buffer waits 350ms → add 650ms
+    //     so total = 1000ms from attack start, camera is ~75% arrived.
+    const delayMs = (type === 'damage' || type === 'crit') ? 650 : 0;
 
-    set((s) => ({
-      floatingTexts: [
-        ...s.floatingTexts,
-        {
-          id,
-          text: value.toString(),
-          iconImage,
-          type,
-          target,
-          xOffset: isNamedActionText ? 0 : Math.random() * 40 - 20,
-          yOffset: isNamedActionText ? 0 : Math.random() * 20 - 10,
-          durationMs,
-          expiresAt: nowMs + durationMs,
-          color,
-        },
-      ].slice(-8),
-    }));
+    const doSpawn = () => {
+      const id = Math.random().toString(36);
+      const nowMs = Date.now();
+      const isNamedActionText = type === 'skill' || type === 'item';
+      const durationMs =
+        type === 'item' ? 1200
+        : isNamedActionText ? 2100
+        : type === 'crit' ? 1500
+        : 1100;
+
+      set((s) => ({
+        floatingTexts: [
+          ...s.floatingTexts,
+          {
+            id,
+            text: value.toString(),
+            iconImage,
+            type,
+            target,
+            xOffset: isNamedActionText ? 0 : Math.random() * 40 - 20,
+            yOffset: isNamedActionText ? 0 : Math.random() * 20 - 10,
+            durationMs,
+            expiresAt: nowMs + durationMs,
+            color,
+          },
+        ].slice(-8),
+      }));
+    };
+
+    if (delayMs > 0) {
+      window.setTimeout(doSpawn, delayMs);
+    } else {
+      doSpawn();
+    }
   },
 
   spawnParticles: (position, count, color, particleType) => {

@@ -1,4 +1,4 @@
-import React, { Suspense, useEffect, useMemo, useRef } from 'react';
+﻿import React, { Suspense, useEffect, useMemo, useRef } from 'react';
 import { ContactShadows, Html, useAnimations, useTexture } from '@react-three/drei';
 import { useFrame, useLoader } from '@react-three/fiber';
 import * as THREE from 'three';
@@ -522,8 +522,8 @@ export const EnemyCharacter = ({
   const flashMaterialsRef = useRef<THREE.Material[]>([]);
   const flashUniformsRef = useRef<Array<{ value: number }>>([]);
   const runtimeEnemyAssets = hasRuntimeFbxAssets(assets) ? assets : null;
-  const holdGroundForAction = effectiveAnimActionOverride === 'item';
-  const shouldLungeAttack = effectiveIsAttacking && !holdGroundForAction;
+  // Inimigos 2D não se deslocam para atacar — sprite anima no lugar.
+  const shouldLungeAttack = false;
   // Track last applied impulse level to avoid re-parsing the hex color string every frame.
   const lastAppliedImpulseLevelRef = useRef<number>(-1);
 
@@ -864,7 +864,8 @@ export const GltfEnemyCharacter = ({
   const isFlying = bodyType === 'Flying';
   // Flying monsters hover 0.55 units above the baseline
   const flyingBaseYOffset = isFlying ? 0.55 : 0;
-  const shouldLunge = gltfEffectiveIsAttacking;
+  // GLTF enemies also stay in place — attack animation plays in the sprite.
+  const shouldLunge = false;
 
   useFrame((state) => {
     if (!group.current) return;

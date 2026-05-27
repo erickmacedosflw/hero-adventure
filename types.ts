@@ -671,6 +671,8 @@ export interface Enemy {
   gltfBodyType?: GltfMonsterBodyType;
   /** Arquétipo de classe para missões do Diário de Missões. */
   archetipo?: MonsterArchetype;
+  /** ID do Enemy2DTemplate de enemies2D.ts para renderização 2D em batalha. */
+  sprite2DTemplateId?: string;
   aiProfile: {
     tier: number;
     lowHpThreshold: number;

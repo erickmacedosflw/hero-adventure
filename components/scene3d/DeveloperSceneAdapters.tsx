@@ -500,3 +500,7 @@ export const DeveloperKitbashScene: React.FC<DeveloperKitbashSceneProps> = (prop
     EnemyCharacterComponent={EnemyCharacter}
   />
 );
+
+// ── 2D Enemy Sprite Scene ──────────────────────────────────────────────────────
+export { DeveloperEnemy2DScene } from './DeveloperEnemy2DScene';
+export type { DeveloperEnemy2DSceneProps } from './DeveloperEnemy2DScene';

@@ -6,6 +6,7 @@ import { VoxelPart } from '../items/VoxelPart';
 import type { RenderQualityProfile } from './types';
 import { getRenderProfileForPlatform } from './renderProfiles';
 import { useBattleAnimationStore } from '../../game/stores/battleAnimationStore';
+import { useCinematicCameraStore } from '../../game/stores/cinematicCameraStore';
 
 const disableRaycast = () => null;
 
@@ -879,6 +880,8 @@ export const FogController: React.FC = () => {
   return <fog attach="fog" args={[FOG_COLORS.dia.getHex(), 14, 45]} />;
 };
 
+type BattlePhase = 'wide' | 'hero-choosing' | 'hero-active' | 'enemy-active' | 'impact-hero' | 'impact-enemy';
+
 export const CameraController = ({
   screenShake,
   menuFocus = false,
@@ -888,6 +891,7 @@ export const CameraController = ({
   heroInspectMode = false,
   portalInspectMode = false,
   bossEntryCinematicToken = 0,
+  cinematicEnemyX,
 }: {
   screenShake?: number;
   menuFocus?: boolean;
@@ -897,6 +901,8 @@ export const CameraController = ({
   heroInspectMode?: boolean;
   portalInspectMode?: boolean;
   bossEntryCinematicToken?: number;
+  /** X world-position of the active enemy for cinematic camera framing. */
+  cinematicEnemyX?: number;
 }) => {
   const cameraRef = useRef<THREE.PerspectiveCamera>(null);
   const clockRef = useRef(0);
@@ -931,6 +937,29 @@ export const CameraController = ({
   const cinematicTokenRef = useRef(0);
   const cinematicPosition = useMemo(() => new THREE.Vector3(), []);
   const cinematicLook = useMemo(() => new THREE.Vector3(), []);
+  const battleCamRef = useRef<{
+    phase: BattlePhase;
+    offsetX: number; offsetY: number; offsetZ: number; fovOff: number;
+    impactTimer: number;
+    phaseTimer: number;
+    prevPlayerHit: boolean; prevEnemyHit: boolean;
+    pendingImpact: 'hero' | 'enemy' | null;
+    driftMult: number;
+    lastPhaseStored: BattlePhase;
+  }>({
+    phase: 'hero-choosing',
+    offsetX: 0, offsetY: 0, offsetZ: 0, fovOff: 0,
+    impactTimer: 0,
+    phaseTimer: 0,
+    prevPlayerHit: false, prevEnemyHit: false,
+    pendingImpact: null,
+    driftMult: 1,
+    lastPhaseStored: 'wide',
+  });
+  // Tracks when we enter menu/camp view so DOF is updated exactly once on transition.
+  const lastIsMenuViewRef = useRef(false);
+  // Lerped battle look-at target — shifts toward attacker/defender for centred framing.
+  const battleLookRef = useRef(new THREE.Vector3(0, 0.9, 0));
   const cinematicStateRef = useRef({
     active: false,
     phase: 'idle' as 'idle' | 'zoom-in' | 'hold' | 'zoom-out',
@@ -945,6 +974,14 @@ export const CameraController = ({
   useEffect(() => {
     focusBlendTargetRef.current = menuFocus ? 1 : 0;
   }, [menuFocus]);
+  useEffect(() => {
+    // DOF is always active after the scene stabilises (regardless of menu state).
+    // Per-phase PTABLE values control the intensity — subtle in wide, dramatic on impact.
+    const tid = window.setTimeout(() => {
+      useCinematicCameraStore.getState().setCinematicCamera({ battleDofActive: true });
+    }, 2500);
+    return () => window.clearTimeout(tid);
+  }, []); // mount-only — DOF stays on for the full session
   useEffect(() => {
     inspectBlendTargetRef.current = heroInspectMode ? 1 : 0;
   }, [heroInspectMode]);
@@ -1150,16 +1187,201 @@ export const CameraController = ({
       ? (isMobile ? runtimeBattleCamera.fov + (54 - 50) : runtimeBattleCamera.fov)
       : defaultBattleFov;
     const orbitAngle = Math.sin(t * 0.06) * 0.175;
-    const orbitX = Math.sin(orbitAngle) * activeBattleDistance;
-    const orbitZ = Math.cos(orbitAngle) * activeBattleDistance;
+    // Suppress orbit during idle/choosing phases — keeps both characters in the frame.
+    // driftMult 0.04 = idle (no orbit), 0.08 = action (full orbit).
+    const orbitScale = THREE.MathUtils.smoothstep(battleCamRef.current.driftMult, 0.04, 0.08);
+    const orbitX = Math.sin(orbitAngle * orbitScale) * activeBattleDistance;
+    const orbitZ = Math.cos(orbitAngle * orbitScale) * activeBattleDistance;
     const driftX = Math.sin(t * 0.13) * 0.40 + Math.sin(t * 0.07) * 0.18;
     const driftY = Math.cos(t * 0.11) * 0.20 + Math.sin(t * 0.05) * 0.10;
     const driftZ = Math.sin(t * 0.09) * 0.22 + Math.cos(t * 0.14) * 0.08;
     const microX = Math.sin(t * 3.7) * 0.008 + Math.cos(t * 5.3) * 0.005;
     const microY = Math.cos(t * 4.1) * 0.006 + Math.sin(t * 6.7) * 0.004;
-    const battleTargetX = orbitX + driftX + microX;
-    const battleTargetY = activeBattleHeight + driftY + microY;
-    const battleTargetZ = orbitZ + driftZ;
+
+    // ── Cinematic battle camera ──────────────────────────────────────────
+    const bcr = battleCamRef.current;
+    {
+      const bas = useBattleAnimationStore.getState();
+      const playerAct = bas.playerAnimationAction ?? '';
+      const enemyAct  = bas.enemyAnimationAction ?? '';
+      const playerHit = bas.isPlayerHit ?? false;
+      const enemyHit  = bas.isEnemyHit ?? false;
+      const isInMenuView = focusBlend > 0.8;
+      const hasCinematic = cinematicStateRef.current.active;
+
+      // ── Phase timer (how long we've been in current phase) ──────────────
+      bcr.phaseTimer += delta;
+
+      if (!isInMenuView && !hasCinematic) {
+        const playerActive = Boolean(playerAct && playerAct !== 'idle' && playerAct !== 'battle-idle');
+        const enemyActive  = Boolean(enemyAct  && enemyAct  !== 'idle' && enemyAct  !== 'battle-idle');
+
+        // Rising-edge impact detection → buffered.
+        // We capture the hit signal immediately on rising edge, but only FIRE the
+        // camera transition after the attacker has been on screen for 0.35s.
+        // This handles two cases:
+        //   • Skills with 0ms impact delay: hit fires at ~1ms, buffer waits 0.35s so
+        //     the hero's skill animation is seen before cutting to the victim.
+        //   • Basic attacks (400–650ms delay): rising edge fires when phaseTimer≥0.4s,
+        //     which is already ≥0.35s so the transition fires immediately with no delay.
+        if (playerHit && !bcr.prevPlayerHit) bcr.pendingImpact = 'hero';
+        if (enemyHit  && !bcr.prevEnemyHit)  bcr.pendingImpact = 'enemy';
+        bcr.prevPlayerHit = playerHit;
+        bcr.prevEnemyHit  = enemyHit;
+
+        if (bcr.pendingImpact && bcr.phaseTimer >= 0.35) {
+          bcr.phase = bcr.pendingImpact === 'enemy' ? 'impact-enemy' : 'impact-hero';
+          bcr.pendingImpact = null;
+          bcr.impactTimer = 0;
+          bcr.phaseTimer  = 0;
+        }
+
+        if (bcr.phase === 'impact-hero' || bcr.phase === 'impact-enemy') {
+          bcr.impactTimer += delta;
+          // Hold the victim frame for 1.20s — enough to see damage numbers and animation.
+          if (bcr.impactTimer >= 1.20) {
+            const next: BattlePhase = playerActive ? 'hero-active'
+              : enemyActive ? 'enemy-active'
+              : (playerAct === 'battle-idle') ? 'hero-choosing'
+              : 'wide';
+            if (next !== bcr.phase) { bcr.phase = next; bcr.phaseTimer = 0; }
+          }
+        } else {
+          const wanted: BattlePhase = playerActive ? 'hero-active'
+            : (playerAct === 'battle-idle') ? 'hero-choosing'
+            : enemyActive ? 'enemy-active'
+            : 'wide';
+          // Action phases (attack/skill start) snap in immediately — no hold required.
+          // This guarantees the camera always shows the attacker before the hit lands.
+          // Only transitions BACK to idle/choosing need the hold (prevents jitter on idle).
+          const wantedIsAction = wanted === 'hero-active' || wanted === 'enemy-active';
+          if (wanted !== bcr.phase && (wantedIsAction || bcr.phaseTimer >= 0.55)) {
+            bcr.phase = wanted;
+            bcr.phaseTimer = 0;
+          }
+        }
+      } else {
+        if (bcr.phase !== 'wide') { bcr.phase = 'wide'; bcr.phaseTimer = 0; }
+        bcr.impactTimer = 0;
+        bcr.pendingImpact = null;
+        // On entering menu/camp/tower/dungeon view: set portrait DOF focused on hero.
+        if (!lastIsMenuViewRef.current) {
+          // Very wide focus range (7.0) + subtle bokeh (1.2) keeps the hero sharp
+          // while adding only a gentle depth-of-field atmosphere in camp/menu view.
+          useCinematicCameraStore.getState().setCinematicCamera({
+            dofTarget:    [-1.0, 0.6, 0],
+            dofFocusRange: 7.0,
+            dofBokehScale: 1.2,
+            bloomBoost:    0.04,
+          });
+        }
+        lastIsMenuViewRef.current = true;
+      }
+      // Clear menu flag when back in battle view.
+      if (!isInMenuView && !hasCinematic) lastIsMenuViewRef.current = false;
+
+      // ── Phase targets ──────────────────────────────────────────────────
+      const eX       = cinematicEnemyX ?? 2.0;
+      const baseLY   = isMobile ? 1.55 : 0.9;  // neutral vertical look
+      type PT = { ox: number; oy: number; oz: number; fov: number; lx: number; ly: number; dof: number; bokeh: number; bloom: number };
+      const PTABLE: Record<BattlePhase, PT> = {
+        // wide / hero-choosing: NO position change — camera stays locked between both characters.
+        'wide':          { ox: 0, oy: 0, oz: 0, fov: 0, lx: 0, ly: baseLY, dof: 7.0, bokeh: 0.6, bloom: 0 },
+        // Hero choosing: on mobile zoom in much closer so the action buttons are legible.
+        // Desktop keeps the current moderate zoom. Lower bokeh on mobile avoids blurring.
+        'hero-choosing': { ox: 0, oy: -0.15,
+          oz:  isMobile ? -2.8 : -2.0,
+          fov: isMobile ? -12  : -6,
+          lx:  isMobile ? -0.65 : -0.8,
+          ly:  baseLY - 0.05,
+          dof: 2.5, bokeh: isMobile ? 2.0 : 5.0, bloom: 0.06 },
+        // Action phases: reduced ox/lx on mobile so characters stay centred on a smaller screen.
+        'hero-active':   {
+          ox:  isMobile ? -0.2  : -0.4,
+          oy: -0.4,
+          oz:  isMobile ? -3.0  : -4.5,
+          fov: -10,
+          lx:  isMobile ? -1.0  : -1.6,
+          ly:  baseLY - 0.15,
+          dof: 2.0, bokeh: isMobile ? 2.5 : 6.0, bloom: 0.15 },
+        'enemy-active':  {
+          ox:  isMobile ?  0.2  :  0.4,
+          oy: -0.4,
+          oz:  isMobile ? -3.0  : -4.5,
+          fov: -10,
+          lx:  isMobile ? eX*0.7 : eX*0.8,
+          ly:  baseLY - 0.15,
+          dof: 2.0, bokeh: isMobile ? 2.5 : 6.0, bloom: 0.13 },
+        // Wide focus range (3.5) + moderate bokeh keeps sprites sharp.
+        // Reduced ox/lx on mobile keeps the victim centred on a smaller screen.
+        'impact-hero':   {
+          ox:  isMobile ? -0.6  : -1.0,
+          oy: -0.7,
+          oz:  isMobile ? -3.5  : -4.5,
+          fov: -10,
+          lx:  isMobile ? -1.8  : -2.5,
+          ly:  baseLY - 0.25,
+          dof: 3.5, bokeh: isMobile ? 2.0 : 4.0, bloom: 0.28 },
+        'impact-enemy':  {
+          ox:  isMobile ?  0.6  :  1.0,
+          oy: -0.7,
+          oz:  isMobile ? -3.5  : -4.5,
+          fov: -10,
+          lx:  isMobile ? eX*0.85 : eX*1.1,
+          ly:  baseLY - 0.25,
+          dof: 3.5, bokeh: isMobile ? 2.0 : 4.0, bloom: 0.28 },
+      };
+      const pt = PTABLE[bcr.phase];
+
+      // ── Camera offset lerp ─────────────────────────────────────────────
+      // Impact: very fast snap to victim (4.5) — camera arrives before damage numbers appear.
+      // Action: quick snap to attacker (2.2), idle: calm return (1.0).
+      const camSpeed = (bcr.phase === 'impact-hero' || bcr.phase === 'impact-enemy') ? 4.5
+                     : (bcr.phase === 'hero-active' || bcr.phase === 'enemy-active') ? 2.2
+                     : 1.0;
+      const ca = 1 - Math.exp(-camSpeed * delta);
+      bcr.offsetX = THREE.MathUtils.lerp(bcr.offsetX, pt.ox, ca);
+      bcr.offsetY = THREE.MathUtils.lerp(bcr.offsetY, pt.oy, ca);
+      bcr.offsetZ = THREE.MathUtils.lerp(bcr.offsetZ, pt.oz, ca);
+      bcr.fovOff  = THREE.MathUtils.lerp(bcr.fovOff,  pt.fov, ca);
+
+      // ── Look-at target lerp ──────────────────────────────────────────
+      // Impact: lookAt pivots FAST to victim (3.0) — highest priority, must show who got hit.
+      // Action: snap to attacker (2.0). Idle: smooth return (0.9).
+      const laSpeed = (bcr.phase === 'impact-hero' || bcr.phase === 'impact-enemy') ? 3.0
+                    : (bcr.phase === 'hero-active' || bcr.phase === 'enemy-active') ? 2.0
+                    : 0.9;
+      const la = 1 - Math.exp(-laSpeed * delta);
+      battleLookRef.current.x = THREE.MathUtils.lerp(battleLookRef.current.x, pt.lx, la);
+      battleLookRef.current.y = THREE.MathUtils.lerp(battleLookRef.current.y, pt.ly, la);
+
+      // ── Drift suppression ─────────────────────────────────────────────
+      // wide / hero-choosing: near-zero drift — camera stays locked on both characters.
+      // Action phases: minimal drift for organic feel.
+      const isActionPhase = bcr.phase === 'hero-active' || bcr.phase === 'enemy-active'
+                         || bcr.phase === 'impact-hero' || bcr.phase === 'impact-enemy';
+      const targetDriftMult = isActionPhase ? 0.08 : 0.04;
+      bcr.driftMult = THREE.MathUtils.lerp(bcr.driftMult, targetDriftMult, 1 - Math.exp(-3 * delta));
+
+      // ── Store update on phase change only ──────────────────────────────
+      if (bcr.phase !== bcr.lastPhaseStored) {
+        bcr.lastPhaseStored = bcr.phase;
+        const dofTgt: [number, number, number] =
+          (bcr.phase === 'hero-choosing' || bcr.phase === 'hero-active' || bcr.phase === 'impact-hero') ? [-2, 0.9, 0] :
+          (bcr.phase === 'wide')                                                                         ? [0,  0.9, 0] :
+                                                                                                          [eX, 0.9, 0];
+        useCinematicCameraStore.getState().setCinematicCamera({
+          dofTarget:    dofTgt,
+          dofFocusRange: pt.dof,
+          dofBokehScale: pt.bokeh,
+          bloomBoost:    pt.bloom,
+        });
+      }
+    }
+
+    const battleTargetX = orbitX + driftX * bcr.driftMult + microX * bcr.driftMult + bcr.offsetX;
+    const battleTargetY = activeBattleHeight + driftY * bcr.driftMult + microY * bcr.driftMult + bcr.offsetY;
+    const battleTargetZ = orbitZ + driftZ * bcr.driftMult + bcr.offsetZ;
     const targetX = THREE.MathUtils.lerp(battleTargetX, finalMenuX, focusBlend);
     const targetY = THREE.MathUtils.lerp(battleTargetY, finalMenuY, focusBlend);
     const targetZ = THREE.MathUtils.lerp(battleTargetZ, finalMenuZ, focusBlend);
@@ -1240,13 +1462,14 @@ export const CameraController = ({
           0.82 + (inspectCamY - menuBaseY),
           0
         );
-        // Blend look target: battle → menu → hero inspect → portal inspect
+        // Blend look target: battle (cinematic) → menu → hero inspect → portal inspect
         const blendedMenuLook = new THREE.Vector3().lerpVectors(menuLookTarget, inspectLookTarget, inspectBlend);
         const blendedWithPortal = new THREE.Vector3().lerpVectors(blendedMenuLook, portalLookTarget, portalBlend);
-        mixedLookTarget.lerpVectors(lookTarget, blendedWithPortal, focusBlend);
+        mixedLookTarget.lerpVectors(battleLookRef.current, blendedWithPortal, focusBlend);
       }
       cameraRef.current.lookAt(mixedLookTarget);
-      const targetFov = cinematicFov ?? THREE.MathUtils.lerp(activeBattleFov, finalMenuFov, focusBlend);
+      const baseBattleFov = activeBattleFov + (focusBlend < 0.8 ? battleCamRef.current.fovOff : 0);
+      const targetFov = cinematicFov ?? THREE.MathUtils.lerp(baseBattleFov, finalMenuFov, focusBlend);
       if (Math.abs(cameraRef.current.fov - targetFov) > 0.01) {
         cameraRef.current.fov = targetFov;
         cameraRef.current.updateProjectionMatrix();

@@ -403,11 +403,13 @@ const WorldFloatingText = ({
   const startTimeRef = useRef<number | null>(null);
   const doneRef = useRef(false);
   const basePosition = useMemo<[number, number, number]>(() => {
-    if (target === 'player') return [-2, 1.48 - stackIndex * 0.24, 0.15];
+    // Texts appear at the lower/centre of the character body (not above the head).
+    // Multiple texts stack upward so they don't overlap.
+    if (target === 'player') return [-2, 0.45 + stackIndex * 0.22, 0.15];
     const ax = enemyAnchor?.[0] ?? 2;
-    const ay = (enemyAnchor?.[1] ?? 0.5) + 1.12;
+    const ay = (enemyAnchor?.[1] ?? 0.5) + 0.28;   // centre of enemy body
     const az = enemyAnchor?.[2] ?? 0.15;
-    return [ax, ay - stackIndex * 0.24, az];
+    return [ax, ay + stackIndex * 0.22, az];
   }, [stackIndex, target, enemyAnchor]);
   const durationSeconds = Math.max(0.2, (text.durationMs ?? 1100) / 1000);
 

@@ -121,7 +121,7 @@ export const BattleActionsHtml: React.FC<{
 
   const sizing = isMobile
     ? { w: '268px', gap: '11px', btnFont: '15px', btnIcon: 52, btnIco: 24, btnGap: '14px', btnPad: '14px 18px 14px 12px', btnR: '20px', btnIcoR: 14, absFont: '15px', absIco: 20, absSub: '11px', dotW: '30px', dotH: '11px', dotGap: '6px', absGap: '11px', absPad: '13px 18px', absIconS: 40, absIconR: 12 }
-    : { w: '155px', gap: '4px', btnFont: '9px', btnIcon: 26, btnIco: 13, btnGap: '7px', btnPad: '6px 9px 6px 6px', btnR: '10px', btnIcoR: 7, absFont: '9px', absIco: 11, absSub: '7px', dotW: '16px', dotH: '5px', dotGap: '3px', absGap: '6px', absPad: '6px 9px', absIconS: 20, absIconR: 6 };
+    : { w: '130px', gap: '3px', btnFont: '8px', btnIcon: 22, btnIco: 11, btnGap: '6px', btnPad: '5px 7px 5px 5px', btnR: '9px', btnIcoR: 6, absFont: '8px', absIco: 10, absSub: '6px', dotW: '13px', dotH: '5px', dotGap: '3px', absGap: '5px', absPad: '5px 7px', absIconS: 17, absIconR: 5 };
 
   const btn = (id: string, color: string, disabled: boolean, onClick: () => void, icon: React.ReactNode, label: string, forceColor?: string) => {
     const isPressed = pressedBtn === id && !disabled;

@@ -1,7 +1,8 @@
 'use strict';
 
-const { app, BrowserWindow, Menu, powerSaveBlocker } = require('electron');
+const { app, BrowserWindow, Menu, powerSaveBlocker, ipcMain, dialog } = require('electron');
 const path = require('path');
+const fs = require('fs');
 
 // ─── User data path ───────────────────────────────────────────────────────────
 // Must be set BEFORE app.whenReady() and BEFORE any other app.commandLine calls.
@@ -123,6 +124,23 @@ function createWindow() {
     }, 500);
   });
 }
+
+// ─── IPC: Sprite Cutter – salva sprites em pasta escolhida pelo usuário ────────
+ipcMain.handle('sprite-cutter:save-files', async (_event, charId, sprites) => {
+  const result = await dialog.showOpenDialog({
+    title: 'Escolher pasta para salvar sprites',
+    properties: ['openDirectory', 'createDirectory'],
+  });
+  if (result.canceled || !result.filePaths[0]) return { success: false, canceled: true };
+  const charDir = path.join(result.filePaths[0], charId);
+  await fs.promises.mkdir(charDir, { recursive: true });
+  for (const sprite of sprites) {
+    const base64 = sprite.dataUrl.split(',')[1];
+    const buffer = Buffer.from(base64, 'base64');
+    await fs.promises.writeFile(path.join(charDir, `${charId}_${sprite.position}.png`), buffer);
+  }
+  return { success: true, path: charDir };
+});
 
 // ─── Lifecycle ────────────────────────────────────────────────────────────────
 app.whenReady().then(() => {

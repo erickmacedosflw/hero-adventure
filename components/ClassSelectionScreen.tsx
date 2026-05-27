@@ -7,8 +7,7 @@ import { ArrowLeft, ArrowRight, Crosshair, Heart, Shield, Star, Swords, WandSpar
 import { getConstellationByClassId } from '../game/data/classTalents';
 import { getRuntimeScenarioPreset } from '../game/data/runtimeScenarios';
 import { PlayerAnimationAction, PlayerClassDefinition, PlayerClassId, WeaponGripType } from '../types';
-import { hasRuntimeFbxAssets } from './scene3d/animation';
-import { AnimatedClassHero } from './scene3d/characters';
+import { BattleHero2D } from './scene3d/BattleHero2D';
 import { SkyboxController, getDefaultRenderQualityPreset, getRenderPlatform, getRenderPowerPreference, getRenderQualityProfile } from './scene3d/environment';
 import { configureGltfLoader } from './scene3d/gltfLoader';
 import { onAction } from '../game/mechanics/inputManager';
@@ -342,7 +341,6 @@ const StageHero = ({
   const groupRef = useRef<THREE.Group>(null);
   const heroRef = useRef<THREE.Group>(null);
   const targetScaleRef = useRef(new THREE.Vector3());
-  const runtimeAssets = hasRuntimeFbxAssets(playerClass.assets) ? playerClass.assets : null;
   const classNamePt = CLASS_NAME_PT[playerClass.id] ?? playerClass.name;
   const stageSlot = stageLayout[playerClass.id];
   const auraColor = playerClass.visualProfile.auraColor;
@@ -440,7 +438,7 @@ const StageHero = ({
     applyMeshOpacity(groupRef.current, targetOpacity);
   });
 
-  if (!runtimeAssets) {
+  if (!playerClass.id) {
     return null;
   }
 
@@ -499,10 +497,8 @@ const StageHero = ({
         <meshStandardMaterial color="#d8c7a7" transparent opacity={0.78} />
       </mesh>
 
-      <group ref={heroRef} rotation={[0, stageSlot.rotationY, 0]}>
-        <Suspense fallback={null}>
-          <AnimatedClassHero assets={runtimeAssets} animationAction={ambientAction} />
-        </Suspense>
+      <group ref={heroRef}>
+        <BattleHero2D classId={playerClass.id} animationAction={ambientAction} interactive />
       </group>
 
       {(focused || selected) && !selected && !detailsClassId && (
@@ -793,7 +789,7 @@ const ForestSelectionScene = ({
           detailsClassId={detailsClassId}
           stageLayout={heroStageLayout}
         />
-        <ContactShadows frames={1} position={[0, -1.04, -0.2]} opacity={0.42} scale={30} blur={2.8} far={12} resolution={quality.contactShadowResolution} />
+        <ContactShadows position={[0, -1.04, -0.2]} opacity={0.76} scale={30} blur={2.0} far={12} resolution={quality.contactShadowResolution} />
 
         {classes.map((playerClass) => (
           <StageHero
