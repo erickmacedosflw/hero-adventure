@@ -1,6 +1,7 @@
 import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame, useLoader, useThree } from '@react-three/fiber';
 import { ContactShadows, Html, PerspectiveCamera } from '@react-three/drei';
+import { DepthOfField, EffectComposer } from '@react-three/postprocessing';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { ArrowLeft, ArrowRight, Crosshair, Heart, Shield, Star, Swords, WandSparkles, X, Zap } from 'lucide-react';
@@ -646,6 +647,7 @@ const ForestSelectionScene = ({
   const isMobileDevice = useMemo(() => getRenderPlatform() === 'mobile', []);
   const isQualityMode = renderQualityPreset === 'quality';
   const selectionShadowsEnabled = isQualityMode || (!isMobileDevice && renderQualityPreset === 'balanced');
+  const selectionDofEnabled = renderQualityPreset !== 'performance';
   const selectionUseAlwaysFrameloop = !isMobileDevice;
   const selectionFpsCap = isQualityMode ? 30 : 45;
   const selectionRuntimeScenarioPreset = useMemo(
@@ -663,6 +665,10 @@ const ForestSelectionScene = ({
     () => buildHeroStageLayout(selectionRuntimeConfig?.heroSelectionSlots),
     [selectionRuntimeConfig?.heroSelectionSlots],
   );
+  const selectionDofTarget = useMemo<[number, number, number]>(() => {
+    const pos = heroStageLayout[focusedClassId].position;
+    return [pos[0], 0.9, pos[2]];
+  }, [focusedClassId, heroStageLayout]);
 
 
   const SceneReadyProbe = ({ onReady }: { onReady?: () => void }) => {
@@ -804,6 +810,15 @@ const ForestSelectionScene = ({
             onActivate={() => onSelectClass(playerClass.id)}
           />
         ))}
+        {selectionDofEnabled && (
+          <EffectComposer>
+            <DepthOfField
+              target={selectionDofTarget}
+              worldFocusRange={5.0}
+              bokehScale={isMobileDevice ? 3.5 : 6.5}
+            />
+          </EffectComposer>
+        )}
       </Canvas>
     </div>
   );
