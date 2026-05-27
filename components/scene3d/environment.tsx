@@ -880,7 +880,7 @@ export const FogController: React.FC = () => {
   return <fog attach="fog" args={[FOG_COLORS.dia.getHex(), 14, 45]} />;
 };
 
-type BattlePhase = 'wide' | 'hero-choosing' | 'hero-active' | 'enemy-active' | 'impact-hero' | 'impact-enemy';
+type BattlePhase = 'wide' | 'hero-choosing' | 'hero-active' | 'enemy-active' | 'impact-hero' | 'impact-enemy' | 'enemy-intro';
 
 export const CameraController = ({
   screenShake,
@@ -946,6 +946,7 @@ export const CameraController = ({
     pendingImpact: 'hero' | 'enemy' | null;
     driftMult: number;
     lastPhaseStored: BattlePhase;
+    lastIntroToken: number;
   }>({
     phase: 'hero-choosing',
     offsetX: 0, offsetY: 0, offsetZ: 0, fovOff: 0,
@@ -955,6 +956,7 @@ export const CameraController = ({
     pendingImpact: null,
     driftMult: 1,
     lastPhaseStored: 'wide',
+    lastIntroToken: 0,
   });
   // Tracks when we enter menu/camp view so DOF is updated exactly once on transition.
   const lastIsMenuViewRef = useRef(false);
@@ -1213,6 +1215,18 @@ export const CameraController = ({
       bcr.phaseTimer += delta;
 
       if (!isInMenuView && !hasCinematic) {
+        // ── Enemy intro token check ──────────────────────────────────────
+        // Fires a brief 'enemy-intro' camera reveal whenever a new non-boss
+        // enemy spawns. Reads the store directly to avoid re-render overhead.
+        const introToken = useCinematicCameraStore.getState().enemyIntroToken;
+        if (introToken > 0 && introToken !== bcr.lastIntroToken) {
+          bcr.lastIntroToken = introToken;
+          if (bcr.phase === 'wide' || bcr.phase === 'hero-choosing') {
+            bcr.phase = 'enemy-intro';
+            bcr.phaseTimer = 0;
+          }
+        }
+
         const playerActive = Boolean(playerAct && playerAct !== 'idle' && playerAct !== 'battle-idle');
         const enemyActive  = Boolean(enemyAct  && enemyAct  !== 'idle' && enemyAct  !== 'battle-idle');
 
@@ -1244,12 +1258,18 @@ export const CameraController = ({
               : enemyActive ? 'enemy-active'
               : (playerAct === 'battle-idle') ? 'hero-choosing'
               : 'wide';
-            if (next !== bcr.phase) { bcr.phase = next; bcr.phaseTimer = 0; }
+            bcr.phase = next; bcr.phaseTimer = 0;
+          }
+        } else if (bcr.phase === 'enemy-intro') {
+          // Hold the reveal for 1.6s; exit early if combat starts.
+          if (bcr.phaseTimer >= 1.6 || playerActive) {
+            bcr.phase = playerActive ? 'hero-active' : 'hero-choosing';
+            bcr.phaseTimer = 0;
           }
         } else {
           const wanted: BattlePhase = playerActive ? 'hero-active'
-            : (playerAct === 'battle-idle') ? 'hero-choosing'
             : enemyActive ? 'enemy-active'
+            : (playerAct === 'battle-idle') ? 'hero-choosing'
             : 'wide';
           // Action phases (attack/skill start) snap in immediately — no hold required.
           // This guarantees the camera always shows the attacker before the hit lands.
@@ -1314,6 +1334,16 @@ export const CameraController = ({
           dof: 2.0, bokeh: isMobile ? 2.5 : 6.0, bloom: 0.13 },
         // Wide focus range (3.5) + moderate bokeh keeps sprites sharp.
         // Reduced ox/lx on mobile keeps the victim centred on a smaller screen.
+        // Enemy intro: gentle zoom toward enemy side to highlight new spawns.
+        // Less dramatic than action phases — goal is a cinematic reveal, not combat framing.
+        'enemy-intro':   {
+          ox:  isMobile ?  0.30  :  0.55,
+          oy: -0.2,
+          oz:  isMobile ? -1.8  : -2.5,
+          fov: isMobile ? -5    : -6,
+          lx:  isMobile ? eX*0.55 : eX*0.65,
+          ly:  baseLY - 0.1,
+          dof: 3.5, bokeh: isMobile ? 1.8 : 4.0, bloom: 0.08 },
         'impact-hero':   {
           ox:  isMobile ? -0.6  : -1.0,
           oy: -0.7,
@@ -1338,6 +1368,7 @@ export const CameraController = ({
       // Action: quick snap to attacker (2.2), idle: calm return (1.0).
       const camSpeed = (bcr.phase === 'impact-hero' || bcr.phase === 'impact-enemy') ? 4.5
                      : (bcr.phase === 'hero-active' || bcr.phase === 'enemy-active') ? 2.2
+                     : (bcr.phase === 'enemy-intro') ? 1.8
                      : 1.0;
       const ca = 1 - Math.exp(-camSpeed * delta);
       bcr.offsetX = THREE.MathUtils.lerp(bcr.offsetX, pt.ox, ca);
@@ -1350,6 +1381,7 @@ export const CameraController = ({
       // Action: snap to attacker (2.0). Idle: smooth return (0.9).
       const laSpeed = (bcr.phase === 'impact-hero' || bcr.phase === 'impact-enemy') ? 3.0
                     : (bcr.phase === 'hero-active' || bcr.phase === 'enemy-active') ? 2.0
+                    : (bcr.phase === 'enemy-intro') ? 1.6
                     : 0.9;
       const la = 1 - Math.exp(-laSpeed * delta);
       battleLookRef.current.x = THREE.MathUtils.lerp(battleLookRef.current.x, pt.lx, la);

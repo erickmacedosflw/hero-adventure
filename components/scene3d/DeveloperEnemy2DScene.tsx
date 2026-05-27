@@ -108,6 +108,8 @@ export interface Sprite2DBillboardProps {
   attackStyle?: 'melee' | 'ranged';
   /** Incremente para disparar animação de morte com flash branco + desintegração */
   disintegrateTrigger?: number;
+  /** Incremente para disparar animação de materialização (spawn effect — reverso da desintegração). */
+  spawnTrigger?: number;
   /** Quando true, o mesh principal responde a raycasts (permite clicar no sprite para selecionar). Default: false */
   interactive?: boolean;
   /** Quando true, espelha o sprite horizontalmente (inimigos que encaram o herói à esquerda). Default: false */
@@ -126,6 +128,7 @@ export const Sprite2DBillboard: React.FC<Sprite2DBillboardProps> = ({
   animTrigger,
   attackStyle = 'melee',
   disintegrateTrigger,
+  spawnTrigger,
   interactive = false,
   flipX = false,
 }) => {
@@ -192,6 +195,16 @@ export const Sprite2DBillboard: React.FC<Sprite2DBillboardProps> = ({
     animRef.current = { type: 'disintegrate', startTime: -1 };
   }, [disintegrateTrigger]);
 
+  // Dispara materialização ao incrementar o trigger (aparecimento do sprite)
+  useEffect(() => {
+    if (!spawnTrigger) return;
+    if (materialRef.current) {
+      materialRef.current.opacity = 0;
+      materialDirtyRef.current = true;
+    }
+    animRef.current = { type: 'materialize', startTime: -1 };
+  }, [spawnTrigger]);
+
   // ── Raycast pixel-preciso ────────────────────────────────────────────────
   // Chama o raycast padrão do Mesh para obter o UV do ponto de acerto,
   // depois rejeita hits cujo pixel PNG tem alfa < 10 (área transparente).
@@ -256,7 +269,7 @@ export const Sprite2DBillboard: React.FC<Sprite2DBillboardProps> = ({
       return;
     }
     // Outra animação começou enquanto material estava sujo — restaura antes de prosseguir
-    if (anim.type !== 'disintegrate' && materialDirtyRef.current && materialRef.current) {
+    if (anim.type !== 'disintegrate' && anim.type !== 'materialize' && materialDirtyRef.current && materialRef.current) {
       materialRef.current.opacity = 1;
       materialRef.current.emissive.setRGB(0, 0, 0);
       materialRef.current.emissiveIntensity = 1;
@@ -334,6 +347,33 @@ export const Sprite2DBillboard: React.FC<Sprite2DBillboardProps> = ({
         } else {
           mat.opacity = 0;
           animRef.current = null; // mantém invisível até próxima ação resetar
+        }
+      }
+    } else if (anim.type === 'materialize') {
+      // Reverso da desintegração: aparece de baixo com fade-in e brilho azul-branco
+      const mat = materialRef.current;
+      if (!mat) { animRef.current = null; }
+      else {
+        materialDirtyRef.current = true;
+        const phase1 = 0.30;  // duração do fade-in de opacidade
+        const totalDur = 0.65; // duração total (fade-in + pulso de brilho)
+        if (t < phase1) {
+          const p = t / phase1;
+          mat.opacity = p;
+          mat.emissive.setRGB(0.7, 0.85, 1.0); // brilho azul-branco
+          mat.emissiveIntensity = (1 - p) * 2.2;
+          dy = -0.06 * (1 - p); // sobe levemente enquanto aparece
+        } else if (t < totalDur) {
+          const p = (t - phase1) / (totalDur - phase1);
+          mat.opacity = 1;
+          mat.emissive.setRGB(0.7, 0.85, 1.0);
+          mat.emissiveIntensity = (1 - p) * 1.0;
+        } else {
+          mat.opacity = 1;
+          mat.emissive.setRGB(0, 0, 0);
+          mat.emissiveIntensity = 0;
+          materialDirtyRef.current = false;
+          animRef.current = null;
         }
       }
     } else {

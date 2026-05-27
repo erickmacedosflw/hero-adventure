@@ -120,8 +120,8 @@ export const BattleActionsHtml: React.FC<{
   }, [isMobile, activeMenu]);
 
   const sizing = isMobile
-    ? { w: '268px', gap: '11px', btnFont: '15px', btnIcon: 52, btnIco: 24, btnGap: '14px', btnPad: '14px 18px 14px 12px', btnR: '20px', btnIcoR: 14, absFont: '15px', absIco: 20, absSub: '11px', dotW: '30px', dotH: '11px', dotGap: '6px', absGap: '11px', absPad: '13px 18px', absIconS: 40, absIconR: 12 }
-    : { w: '130px', gap: '3px', btnFont: '8px', btnIcon: 22, btnIco: 11, btnGap: '6px', btnPad: '5px 7px 5px 5px', btnR: '9px', btnIcoR: 6, absFont: '8px', absIco: 10, absSub: '6px', dotW: '13px', dotH: '5px', dotGap: '3px', absGap: '5px', absPad: '5px 7px', absIconS: 17, absIconR: 5 };
+    ? { w: '224px', gap: '8px', btnFont: '13px', btnIcon: 44, btnIco: 20, btnGap: '11px', btnPad: '11px 14px 11px 10px', btnR: '17px', btnIcoR: 12, absFont: '13px', absIco: 17, absSub: '10px', dotW: '25px', dotH: '10px', dotGap: '5px', absGap: '9px', absPad: '11px 14px', absIconS: 34, absIconR: 10 }
+    : { w: '112px', gap: '3px', btnFont: '7px', btnIcon: 19, btnIco: 9, btnGap: '5px', btnPad: '4px 6px 4px 5px', btnR: '8px', btnIcoR: 5, absFont: '7px', absIco: 9, absSub: '5px', dotW: '11px', dotH: '4px', dotGap: '2px', absGap: '4px', absPad: '4px 6px', absIconS: 15, absIconR: 4 };
 
   const btn = (id: string, color: string, disabled: boolean, onClick: () => void, icon: React.ReactNode, label: string, forceColor?: string) => {
     const isPressed = pressedBtn === id && !disabled;
@@ -172,9 +172,9 @@ export const BattleActionsHtml: React.FC<{
   const itemSlots = player.equippedItemSlots ?? [];
 
   const rowSlotFont = isMobile ? '9px' : '8px';
-  const rowNameFont = isMobile ? '13px' : '11px';
+  const rowNameFont = isMobile ? '11px' : '9px';
   const rowBadgeFont = isMobile ? '9px' : '8px';
-  const rowIconSize = isMobile ? 34 : 26;
+  const rowIconSize = isMobile ? 28 : 22;
 
   const skillRows = (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>

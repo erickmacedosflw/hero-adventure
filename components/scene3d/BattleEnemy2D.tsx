@@ -124,12 +124,18 @@ export interface BattleEnemy2DProps {
   animationAction?: PlayerAnimationAction;
   /** Quando true, permite pointer events no sprite. Default: false */
   interactive?: boolean;
+  /** Chamado ao clicar/tocar no sprite (pixel-preciso via alphaRaycast). */
+  onSelect?: () => void;
+  /** Chamado quando o hover state muda. */
+  onHoverChange?: (hovered: boolean) => void;
 }
 
 export const BattleEnemy2D: React.FC<BattleEnemy2DProps> = ({
   templateId,
   animationAction: actionProp,
   interactive = false,
+  onSelect,
+  onHoverChange,
 }) => {
   const storeAction = useBattleAnimationStore((s) => s.enemyAnimationAction);
   const animationAction: PlayerAnimationAction = actionProp ?? storeAction;
@@ -147,6 +153,15 @@ export const BattleEnemy2D: React.FC<BattleEnemy2DProps> = ({
   const [spritePosition,      setSpritePosition]      = useState<string>('idle');
   const [animTrigger,         setAnimTrigger]         = useState(0);
   const [disintegrateTrigger, setDisintegrateTrigger] = useState(0);
+  const [spawnTrigger,        setSpawnTrigger]        = useState(1); // 1 on mount → dispara materialize
+
+  const prevTemplateIdRef = useRef(templateId);
+  useEffect(() => {
+    if (templateId !== prevTemplateIdRef.current) {
+      prevTemplateIdRef.current = templateId;
+      setSpawnTrigger((v) => v + 1);
+    }
+  }, [templateId]);
 
   const returnTimerRef = useRef<ReturnType<typeof window.setTimeout> | null>(null);
 
@@ -234,23 +249,32 @@ export const BattleEnemy2D: React.FC<BattleEnemy2DProps> = ({
   if (!enemy) return null;
 
   const isDefending = animationAction === 'defend' || animationAction === 'defend-hit';
+  const hasSelect = !!onSelect;
 
   return (
     <>
-      <Suspense fallback={null}>
-        <Sprite2DBillboard
-          spriteUrl={spriteUrl}
-          heightUnits={enemy.scale ?? 2.0}
-          shadowLightDir={[0, 0, 6]}
-          groundY={0}
-          spritePosition={spritePosition}
-          animTrigger={animTrigger}
-          attackStyle={enemy.attackStyle ?? 'melee'}
-          disintegrateTrigger={disintegrateTrigger}
-          interactive={interactive}
-          flipX
-        />
-      </Suspense>
+      <group
+        onClick={hasSelect ? (e) => { e.stopPropagation(); onSelect!(); } : undefined}
+        onPointerDown={hasSelect ? (e) => { e.stopPropagation(); onSelect!(); } : undefined}
+        onPointerEnter={onHoverChange ? (e) => { e.stopPropagation(); onHoverChange(true); if (typeof document !== 'undefined') document.body.style.cursor = 'pointer'; } : undefined}
+        onPointerLeave={onHoverChange ? (e) => { e.stopPropagation(); onHoverChange(false); if (typeof document !== 'undefined') document.body.style.cursor = ''; } : undefined}
+      >
+        <Suspense fallback={null}>
+          <Sprite2DBillboard
+            spriteUrl={spriteUrl}
+            heightUnits={enemy.scale ?? 2.0}
+            shadowLightDir={[0, 0, 6]}
+            groundY={0}
+            spritePosition={spritePosition}
+            animTrigger={animTrigger}
+            attackStyle={enemy.attackStyle ?? 'melee'}
+            disintegrateTrigger={disintegrateTrigger}
+            spawnTrigger={spawnTrigger}
+            interactive={interactive || hasSelect}
+            flipX
+          />
+        </Suspense>
+      </group>
       <EnemyDefenseAura2D
         scale={enemy.scale ?? 2.0}
         visible={isDefending}

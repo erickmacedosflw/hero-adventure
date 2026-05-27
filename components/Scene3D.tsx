@@ -3952,8 +3952,8 @@ const SpeedAttributeBar: React.FC<{
   const prevPctRef = useRef(-1);
 
   const isReady = active || state === 'pronto' || state === 'executando';
-  const iconSize = isMobileDevice ? 16 : 11;
-  const iconBox = isMobileDevice ? 20 : 14;
+  const iconSize = isMobileDevice ? 12 : 11;
+  const iconBox = isMobileDevice ? 16 : 14;
   const minVisible = isMobileDevice ? 3.2 : 2.4;
 
   // CSS-transition approach: set transform/opacity directly on the DOM element.
@@ -4000,7 +4000,7 @@ const SpeedAttributeBar: React.FC<{
         display: 'flex',
         alignItems: 'center',
         gap: isMobileDevice ? '7px' : '5px',
-        height: isMobileDevice ? '16px' : '11px',
+        height: isMobileDevice ? '13px' : '11px',
         opacity: active ? 1 : 0.94,
       }}
     >
@@ -4166,10 +4166,10 @@ const HeroNameplateCard: React.FC<{
         WebkitBackdropFilter: 'blur(18px)',
         border,
         borderRadius: '12px',
-        padding: isMobileDevice ? '12px 16px' : '8px 12px',
+        padding: isMobileDevice ? '9px 12px' : '7px 10px',
         display: 'flex',
         flexDirection: 'column',
-        gap: isMobileDevice ? '10px' : '6px',
+        gap: isMobileDevice ? '7px' : '5px',
         boxShadow: glow,
         boxSizing: 'border-box',
         pointerEvents: interactive ? 'auto' : 'none',
@@ -4718,7 +4718,12 @@ export const GameScene: React.FC<SceneProps> = React.memo((props) => {
                   <group position={isDungeonRun && activeScenarioConfig
                     ? dungeonEnemyBasePosition
                     : [mainPos?.idleX ?? 2, -1, mainPos?.idleZ ?? 0]}>
-                    <BattleEnemy2D templateId={props.enemySprite2DTemplateId} />
+                    <BattleEnemy2D
+                      templateId={props.enemySprite2DTemplateId}
+                      interactive={isSelecting}
+                      onSelect={isSelecting ? () => props.onSelectTarget?.(props.enemyState?.id ?? '') : undefined}
+                      onHoverChange={isSelecting ? (h) => setHoveredEnemyId(h ? (props.enemyState?.id ?? null) : null) : undefined}
+                    />
                   </group>
                 ) : !props.isMenuView && props.enemyGltfModelUrl ? (
                   <GltfEnemyCharacter
@@ -4781,6 +4786,9 @@ export const GameScene: React.FC<SceneProps> = React.memo((props) => {
                         <BattleEnemy2D
                           templateId={extraEnemy.sprite2DTemplateId}
                           animationAction="battle-idle"
+                          interactive={isSelecting}
+                          onSelect={isSelecting ? () => props.onSelectTarget?.(extraEnemy.id) : undefined}
+                          onHoverChange={isSelecting ? (h) => setHoveredEnemyId(h ? extraEnemy.id : null) : undefined}
                         />
                       </group>
                     ) : extraEnemy.gltfModelUrl ? (
@@ -4832,16 +4840,20 @@ export const GameScene: React.FC<SceneProps> = React.memo((props) => {
                       return (
                         <group position={[idleX, -0.97, idleZ]}>
                           {/* Tall invisible cylinder over model Ã¢â‚¬â€ easy click target */}
-                          <mesh
-                            position={[0, hitboxH / 2, 0]}
-                            onClick={(e) => { e.stopPropagation(); props.onSelectTarget?.(extraEnemy.id); }}
-                            onPointerDown={(e) => { e.stopPropagation(); props.onSelectTarget?.(extraEnemy.id); }}
-                            onPointerEnter={(e) => { e.stopPropagation(); setHoveredEnemyId(extraEnemy.id); if (typeof document !== 'undefined') document.body.style.cursor = 'pointer'; }}
-                            onPointerLeave={(e) => { e.stopPropagation(); setHoveredEnemyId(null); if (typeof document !== 'undefined') document.body.style.cursor = ''; }}
-                          >
-                            <cylinderGeometry args={[0.9, 0.9, hitboxH, 16]} />
-                            <meshBasicMaterial transparent opacity={0} depthWrite={false} />
-                          </mesh>
+                          {/* Cilindro invisível só para inimigos não-2D — sprites 2D usam alphaRaycast */}
+                          {!extraEnemy.sprite2DTemplateId && (
+                            <mesh
+                              position={[0, hitboxH / 2, 0]}
+                              onClick={(e) => { e.stopPropagation(); props.onSelectTarget?.(extraEnemy.id); }}
+                              onPointerDown={(e) => { e.stopPropagation(); props.onSelectTarget?.(extraEnemy.id); }}
+                              onPointerEnter={(e) => { e.stopPropagation(); setHoveredEnemyId(extraEnemy.id); if (typeof document !== 'undefined') document.body.style.cursor = 'pointer'; }}
+                              onPointerLeave={(e) => { e.stopPropagation(); setHoveredEnemyId(null); if (typeof document !== 'undefined') document.body.style.cursor = ''; }}
+                            >
+                              <cylinderGeometry args={[0.9, 0.9, hitboxH, 16]} />
+                              <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+                            </mesh>
+                          )}
+                          {/* Visible ring on ground — glows white on hover */}
                           {/* Visible ring on ground Ã¢â‚¬â€ glows white on hover */}
                           <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}
                             scale={isHov ? [1.18, 1.18, 1] : [1, 1, 1]}
@@ -4862,13 +4874,13 @@ export const GameScene: React.FC<SceneProps> = React.memo((props) => {
                       {(() => {
                         const hpPct = Math.max(0, (extraEnemy.stats.hp / extraEnemy.stats.maxHp) * 100);
                         const hpColor = hpPct > 55 ? '#4ade80' : hpPct > 25 ? '#facc15' : '#f87171';
-                        const cardW = isMobileDevice ? '230px' : '150px';
+                        const cardW = isMobileDevice ? '195px' : '135px';
                         return (
                           <div
                             style={{
                               width: cardW, background: 'rgba(10,6,28,0.88)', backdropFilter: 'blur(18px)',
                               border: `1px solid ${isSelecting ? '#38bdf8' : 'rgba(148,163,184,0.3)'}`,
-                              borderRadius: '10px', padding: isMobileDevice ? '10px 14px' : '6px 10px',
+                              borderRadius: '10px', padding: isMobileDevice ? '8px 11px' : '5px 8px',
                               display: 'flex', flexDirection: 'column', gap: 4, boxSizing: 'border-box',
                               cursor: isSelecting ? 'pointer' : 'default',
                               boxShadow: isSelecting ? '0 0 12px #38bdf866' : 'none',
@@ -4876,12 +4888,12 @@ export const GameScene: React.FC<SceneProps> = React.memo((props) => {
                             onClick={() => isSelecting && props.onSelectTarget?.(extraEnemy.id)}
                           >
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                              <span style={{ fontSize: isMobileDevice ? '15px' : '11px', fontWeight: 800, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{extraEnemy.name}</span>
-                              <span style={{ fontSize: isMobileDevice ? '12px' : '9px', color: '#94a3b8', marginLeft: 4 }}>Nv{extraEnemy.level}</span>
+                              <span style={{ fontSize: isMobileDevice ? '13px' : '10px', fontWeight: 800, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{extraEnemy.name}</span>
+                              <span style={{ fontSize: isMobileDevice ? '10px' : '9px', color: '#94a3b8', marginLeft: 4 }}>Nv{extraEnemy.level}</span>
                             </div>
                             <SubscribedHpBar
                               source={{ enemyId: extraEnemy.id }}
-                              barH={isMobileDevice ? '10px' : '6px'}
+                              barH={isMobileDevice ? '8px' : '5px'}
                               fallbackHp={extraEnemy.stats.hp}
                               fallbackMaxHp={extraEnemy.stats.maxHp}
                               compact
@@ -4890,7 +4902,7 @@ export const GameScene: React.FC<SceneProps> = React.memo((props) => {
                               actorId={extraEnemy.id}
                               active={props.activeBattleActorId === extraEnemy.id}
                               isMobileDevice={isMobileDevice}
-                              barH={isMobileDevice ? '10px' : '6px'}
+                              barH={isMobileDevice ? '8px' : '5px'}
                             />
                           </div>
                         );
@@ -4911,17 +4923,19 @@ export const GameScene: React.FC<SceneProps> = React.memo((props) => {
                 const ringIntensity = isHov ? 3.2 : 1.6;
                 return (
                   <group position={[mX, -0.97, mZ]}>
-                    {/* Big tall invisible hitbox covering the whole enemy model Ã¢â‚¬â€ easy click target */}
-                    <mesh
-                      position={[0, hitboxH / 2, 0]}
-                      onClick={(e) => { e.stopPropagation(); props.onSelectTarget?.(mainEnemyId); }}
-                      onPointerDown={(e) => { e.stopPropagation(); props.onSelectTarget?.(mainEnemyId); }}
-                      onPointerEnter={(e) => { e.stopPropagation(); setHoveredEnemyId(mainEnemyId); if (typeof document !== 'undefined') document.body.style.cursor = 'pointer'; }}
-                      onPointerLeave={(e) => { e.stopPropagation(); setHoveredEnemyId(null); if (typeof document !== 'undefined') document.body.style.cursor = ''; }}
-                    >
-                      <cylinderGeometry args={[0.9, 0.9, hitboxH, 16]} />
-                      <meshBasicMaterial transparent opacity={0} depthWrite={false} />
-                    </mesh>
+                    {/* Cilindro invisível só para inimigos não-2D — sprites 2D usam alphaRaycast */}
+                    {!props.enemySprite2DTemplateId && (
+                      <mesh
+                        position={[0, hitboxH / 2, 0]}
+                        onClick={(e) => { e.stopPropagation(); props.onSelectTarget?.(mainEnemyId); }}
+                        onPointerDown={(e) => { e.stopPropagation(); props.onSelectTarget?.(mainEnemyId); }}
+                        onPointerEnter={(e) => { e.stopPropagation(); setHoveredEnemyId(mainEnemyId); if (typeof document !== 'undefined') document.body.style.cursor = 'pointer'; }}
+                        onPointerLeave={(e) => { e.stopPropagation(); setHoveredEnemyId(null); if (typeof document !== 'undefined') document.body.style.cursor = ''; }}
+                      >
+                        <cylinderGeometry args={[0.9, 0.9, hitboxH, 16]} />
+                        <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+                      </mesh>
+                    )}
                     {/* Visible class-colored ring on the ground Ã¢â‚¬â€ glows white on hover */}
                     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}
                       scale={isHov ? [1.18, 1.18, 1] : [1, 1, 1]}
@@ -4977,13 +4991,13 @@ export const GameScene: React.FC<SceneProps> = React.memo((props) => {
               const badgeLabel = isBoss ? 'CHEFÃƒÆ’O' : isSubBoss ? 'SUBCHEFE' : null;
               const speedGaugeActorId = en.id;
               const F: React.CSSProperties = { fontFamily: "'Segoe UI',system-ui,sans-serif" };
-              const cardW = isMobileDevice ? '280px' : '190px';
-              const nameFz = isMobileDevice ? '18px' : '13px';
-              const lvlFz  = isMobileDevice ? '20px' : '10px';
+              const cardW = isMobileDevice ? '235px' : '168px';
+              const nameFz = isMobileDevice ? '15px' : '11px';
+              const lvlFz  = isMobileDevice ? '17px' : '10px';
               const badgeFz = isMobileDevice ? '11px' : '8px';
-              const barH = isMobileDevice ? '12px' : '8px';
-              const iconBoxSz = isMobileDevice ? 22 : 16;
-              const iconSz = isMobileDevice ? 14 : 10;
+              const barH = isMobileDevice ? '10px' : '7px';
+              const iconBoxSz = isMobileDevice ? 18 : 14;
+              const iconSz = isMobileDevice ? 12 : 9;
               return (
                 <>
                   <style>{`
@@ -5007,7 +5021,7 @@ export const GameScene: React.FC<SceneProps> = React.memo((props) => {
                       </div>
                     )}
                     {/* Main card */}
-                    <div style={{ width: cardW, background: 'rgba(10,6,28,0.88)', backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)', border: `1px solid ${accentColor}44`, borderRadius: '12px', padding: isMobileDevice ? '12px 16px' : '8px 12px', display: 'flex', flexDirection: 'column', gap: isMobileDevice ? '10px' : '6px', boxShadow: `0 0 0 1px ${accentColor}22, 0 6px 24px rgba(0,0,0,0.45)`, boxSizing: 'border-box' as const }}>
+                    <div style={{ width: cardW, background: 'rgba(10,6,28,0.88)', backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)', border: `1px solid ${accentColor}44`, borderRadius: '12px', padding: isMobileDevice ? '9px 12px' : '7px 10px', display: 'flex', flexDirection: 'column', gap: isMobileDevice ? '7px' : '5px', boxShadow: `0 0 0 1px ${accentColor}22, 0 6px 24px rgba(0,0,0,0.45)`, boxSizing: 'border-box' as const }}>
                       {/* Name + level */}
                       <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
                         <span style={{ width: iconBoxSz, height: iconBoxSz, borderRadius: '999px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#fff', background: `${accentColor}cc`, border: `1px solid ${accentColor}`, flexShrink: 0, boxShadow: `0 0 8px ${accentColor}` }}>
@@ -5069,12 +5083,12 @@ export const GameScene: React.FC<SceneProps> = React.memo((props) => {
               const ClassIcon = INSPECT_CLASS_ICON[classId] ?? Shield;
               const classNamePtHero = HERO_CLASS_NAME_PT[classId] ?? classId;
               const F: React.CSSProperties = { fontFamily: "'Segoe UI',system-ui,sans-serif" };
-              const cardW = isMobileDevice ? '280px' : '190px';
-              const nameFz = isMobileDevice ? '18px' : '13px';
-              const lvlFz  = isMobileDevice ? '20px' : '10px';
+              const cardW = isMobileDevice ? '235px' : '168px';
+              const nameFz = isMobileDevice ? '15px' : '11px';
+              const lvlFz  = isMobileDevice ? '17px' : '10px';
               const clsFz  = isMobileDevice ? '11px' : '8px';
-              const barH   = isMobileDevice ? '12px' : '8px';
-              const iconSz = isMobileDevice ? 18 : 13;
+              const barH   = isMobileDevice ? '10px' : '7px';
+              const iconSz = isMobileDevice ? 14 : 11;
               return (
                 <>
                   <style>{`

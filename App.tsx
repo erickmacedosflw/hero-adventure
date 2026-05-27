@@ -55,6 +55,7 @@ import { useBattleLogStore } from './game/stores/battleLogStore';
 import { useBattleStatsStore } from './game/stores/battleStatsStore';
 import { useGameTimeStore } from './game/stores/gameTimeStore';
 import { useBattleAnimationStore } from './game/stores/battleAnimationStore';
+import { useCinematicCameraStore } from './game/stores/cinematicCameraStore';
 import { GLTF_MONSTER_BESTIARY, getGltfMonsterPoolForStage } from './game/data/gltfMonsters';
 import { AUTOSAVE_DEBOUNCE_MS, IMPULSE_UNLOCK_LEVELS, getImpulseCapacityByLevel, getXpToNextByLevel } from './game/data/config';
 
@@ -3137,6 +3138,10 @@ export default function App() {
           setBossEntryCinematicToken(prev => prev + 1);
       }
       spawnEnemy(encounterStage, shouldSpawnBoss, mode, isDungeonBattle ? activeDungeonEvolution : undefined);
+      if (!shouldSpawnBoss) {
+          const cinStore = useCinematicCameraStore.getState();
+          cinStore.setCinematicCamera({ enemyIntroToken: cinStore.enemyIntroToken + 1 });
+      }
   };
 
   const enterBattle = (isBoss: boolean, mode: 'hunt' | 'dungeon' = dungeonRun ? 'dungeon' : 'hunt', dungeonClearedOverride?: number) => {

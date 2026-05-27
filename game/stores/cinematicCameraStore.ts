@@ -14,6 +14,11 @@ interface CinematicCameraState {
    * that don't normally enable it (balanced / performance).
    */
   battleDofActive: boolean;
+  /**
+   * Incrementing counter. When it changes, CameraController triggers a brief
+   * "enemy intro" zoom toward the new enemy, then returns to wide view.
+   */
+  enemyIntroToken: number;
   setCinematicCamera: (
     patch: Partial<Omit<CinematicCameraState, 'setCinematicCamera'>>,
   ) => void;
@@ -25,5 +30,6 @@ export const useCinematicCameraStore = create<CinematicCameraState>((set) => ({
   dofBokehScale:  0.4,
   bloomBoost:     0,
   battleDofActive: false,
+  enemyIntroToken: 0,
   setCinematicCamera: (patch) => set(patch),
 }));
