@@ -28,6 +28,25 @@ const serveGameVfxPlugin = {
   },
 };
 
+/** Dev-only: serves game/assets/ at /game/assets/ so 2D sprite images and
+ *  other non-bundled game assets can be loaded via absolute URL paths. */
+const serveGameAssetsPlugin = {
+  name: 'serve-game-assets',
+  configureServer(server: any) {
+    server.middlewares.use('/game/assets', (req: any, res: any, next: any) => {
+      const safeSuffix = decodeURIComponent(req.url ?? '').replace(/\.\./g, '').replace(/^\/+/, '');
+      const filePath = path.join(process.cwd(), 'game', 'assets', safeSuffix);
+      if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Cache-Control', 'no-cache');
+        fs.createReadStream(filePath).pipe(res);
+      } else {
+        next();
+      }
+    });
+  },
+};
+
 export default defineConfig(() => {
     return {
       base: isElectron ? './' : (process.env.VITE_BASE_URL ?? '/'),
@@ -43,6 +62,7 @@ export default defineConfig(() => {
         react(),
         tailwindcss(),
         serveGameVfxPlugin,
+        serveGameAssetsPlugin,
         // Service Workers don't work on file://, so skip the PWA plugin for
         // the Electron build. The stub alias below handles the import in code.
         ...(isElectron ? [] : [VitePWA({
