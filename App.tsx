@@ -294,12 +294,19 @@ const formatSaveDate = (timestamp: number | null) => {
     });
 };
 
+const BOOT_READY_SESSION_KEY = '__heroBootReady';
+
 const getBootReadyMemory = () => {
     if (typeof window === 'undefined') {
         return false;
     }
-
-    return Boolean((window as BootWindow).__heroAdventureBootReady);
+    // Window property survives hot reloads; sessionStorage survives mobile page reloads
+    if ((window as BootWindow).__heroAdventureBootReady) return true;
+    try {
+        return sessionStorage.getItem(BOOT_READY_SESSION_KEY) === '1';
+    } catch {
+        return false;
+    }
 };
 
 const setBootReadyMemory = (value: boolean) => {
@@ -308,6 +315,15 @@ const setBootReadyMemory = (value: boolean) => {
     }
 
     (window as BootWindow).__heroAdventureBootReady = value;
+    try {
+        if (value) {
+            sessionStorage.setItem(BOOT_READY_SESSION_KEY, '1');
+        } else {
+            sessionStorage.removeItem(BOOT_READY_SESSION_KEY);
+        }
+    } catch {
+        // sessionStorage unavailable (private mode, storage full) — window flag is enough
+    }
 };
 
 class SceneErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean }> {
@@ -4992,7 +5008,9 @@ export default function App() {
         return (
             <>
             <div className="w-full h-screen bg-black overflow-hidden select-none">
-                <OpeningScreen classes={PLAYER_CLASSES} enemies={bootEnemies} onReady={handleBootReady} />
+                <SceneErrorBoundary>
+                    <OpeningScreen classes={PLAYER_CLASSES} enemies={bootEnemies} onReady={handleBootReady} />
+                </SceneErrorBoundary>
             </div>
             <GamepadHint />
             <GamepadIndicator />
@@ -5527,13 +5545,15 @@ export default function App() {
         return (
             <>
             <div className="w-full h-screen bg-[#ead6c2] overflow-hidden select-none">
-                <ClassSelectionScreen
-                    classes={PLAYER_CLASSES}
-                    selectedClassId={selectedStartingClassId}
-                    onSelect={setSelectedStartingClassId}
-                    onConfirm={startGame}
-                    onBack={() => setHasSavePromptDecision(false)}
-                />
+                <SceneErrorBoundary>
+                    <ClassSelectionScreen
+                        classes={PLAYER_CLASSES}
+                        selectedClassId={selectedStartingClassId}
+                        onSelect={setSelectedStartingClassId}
+                        onConfirm={startGame}
+                        onBack={() => setHasSavePromptDecision(false)}
+                    />
+                </SceneErrorBoundary>
             </div>
             <GamepadHint />
             <GamepadIndicator />

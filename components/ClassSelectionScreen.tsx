@@ -647,8 +647,9 @@ const ForestSelectionScene = ({
   const isMobileDevice = useMemo(() => getRenderPlatform() === 'mobile', []);
   const isQualityMode = renderQualityPreset === 'quality';
   const selectionShadowsEnabled = isQualityMode || (!isMobileDevice && renderQualityPreset === 'balanced');
-  const selectionDofEnabled = renderQualityPreset !== 'performance';
-  const selectionUseAlwaysFrameloop = !isMobileDevice;
+  const selectionDofEnabled = isMobileDevice || renderQualityPreset !== 'performance';
+  // Mobile needs 'always' when DOF is active so postprocessing frames actually render
+  const selectionUseAlwaysFrameloop = !isMobileDevice || selectionDofEnabled;
   const selectionFpsCap = isQualityMode ? 30 : 45;
   const selectionRuntimeScenarioPreset = useMemo(
     () => getRuntimeScenarioPreset('hero-selection') ?? getRuntimeScenarioPreset('tower'),
@@ -811,7 +812,7 @@ const ForestSelectionScene = ({
           />
         ))}
         {selectionDofEnabled && (
-          <EffectComposer>
+          <EffectComposer multisampling={0}>
             <DepthOfField
               target={selectionDofTarget}
               worldFocusRange={5.0}
